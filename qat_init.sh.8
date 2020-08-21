@@ -1,0 +1,58 @@
+.\" Copyright(c) 2007-2019 Intel Corporation. All rights reserved.
+.\" All rights reserved.
+.\"
+.\" %%%LICENSE_START(BSD_3_CLAUSE)
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"
+.\"   * Redistributions of source code must retain the above copyright
+.\"     notice, this list of conditions and the following disclaimer.
+.\"   * Redistributions in binary form must reproduce the above copyright
+.\"     notice, this list of conditions and the following disclaimer in
+.\"     the documentation and/or other materials provided with the
+.\"     distribution.
+.\"   * Neither the name of Intel Corporation nor the names of its
+.\"     contributors may be used to endorse or promote products derived
+.\"     from this software without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+.\" "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+.\" LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+.\" A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+.\" OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+.\" SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+.\" LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+.\" DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+.\" THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+.\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+.\" OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+.\" %%%LICENSE_END
+.TH qat_init.sh 8 "30 Oct 2019"  qat_init.sh man page
+.SH NAME
+qat_init.sh \- QAT resource initializer
+.SY qat_init.sh
+.SH SYNOPSIS
+.B qat_init.sh
+.SH DESCRIPTION
+.B qat_init.sh
+initializes the Intel\(co Quick Assist Technology (Intel\(co QAT) devices in preparation for use
+by the user space library (qatlib).
+.PP
+When run on a host system with physical function (PF) QAT devices visible and bound to the QAT device driver, 
+the qat_init.sh script will enable sriov on each of the PF devices. This enables the virtual function (VF) devices.
+.PP
+For each of the QAT VF devices, the qat_init.sh binds the device to the vfio-pci device driver, making it available
+for applications using the qatlib user space library. 
+.SH ENVIRONMENT VARIABLES
+\fBLKCF_LIST\fR
+if set, gives a list of VF devices that should be used for accelerating operations from the Linux crypto framework instead of being available for user space applications.
+.PP
+Example:
+.EX
+LKCF_LIST="0000:3d:01.0 0000:3f:01.0 0000:da:01.0"
+.EE
+.SH SEE ALSO
+qatmgr(8)
+.SH AUTHOR
+Conor McLoughlin <conor.mcloughlin@intel.com>

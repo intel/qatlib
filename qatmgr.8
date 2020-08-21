@@ -1,0 +1,64 @@
+.\" Copyright(c) 2007-2019 Intel Corporation. All rights reserved.
+.\" All rights reserved.
+.\"
+.\" %%%LICENSE_START(BSD_3_CLAUSE)
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"
+.\"   * Redistributions of source code must retain the above copyright
+.\"     notice, this list of conditions and the following disclaimer.
+.\"   * Redistributions in binary form must reproduce the above copyright
+.\"     notice, this list of conditions and the following disclaimer in
+.\"     the documentation and/or other materials provided with the
+.\"     distribution.
+.\"   * Neither the name of Intel Corporation nor the names of its
+.\"     contributors may be used to endorse or promote products derived
+.\"     from this software without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+.\" "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+.\" LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+.\" A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+.\" OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+.\" SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+.\" LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+.\" DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+.\" THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+.\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+.\" OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+.\" %%%LICENSE_END
+.TH qatmgr 8 "30 Oct 2019"  qatmgr man page
+.SH NAME
+qatmgr \- QAT resource manager
+.SY qatmgr
+.SH SYNOPSIS
+.B qatmgr
+[option]...
+.SH DESCRIPTION
+.B qatmgr
+is a daemon that manages QAT resources for the Intel\(co Quick Assist Technology (Intel\(co QAT)
+user space library (qatlib).
+.SH OPTIONS
+.TP
+\fB\-d\fR, \fB\-\-debug=LEVEL\fR
+set debug level, default 0 for no debug. Higher debug level produces more output.
+.TP
+\fB\-f\fR, \fB\-\-foreground\fR
+run in the foreground. By default, the qatmgr runs as a daemon in the background.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+display help page
+.TP
+\fB\-p\fR, \fB\-\-policy=POLICY\fR
+selects the QAT manager policy. This determines how resources should be allocated to each process using the qatlib library.
+The default POLICY 0 allocates one virtual function (VF) from each physical function (PF) endpoint to each process. This should be selected for best performance.
+A POLICY of 1 allocates a single VF to each process. This should be selected for maximum scalability.
+Any other POLICY value allocates that number of VFs to each process.
+.SH SEE ALSO
+qat_init.sh(8)
+.SH FILES
+/run/qat/qatmgr.pid
+/tmp/qat.sock
+.SH AUTHOR
+Conor McLoughlin <conor.mcloughlin@intel.com>

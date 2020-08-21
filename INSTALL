@@ -1,0 +1,196 @@
+===============================================================================
+
+
+August, 2020
+===============================================================================
+
+Reference
+=========
+
+
+ - Intel® Communications Chipset 4xxx Series Software for Linux*
+   Getting Started Guide
+
+===============================================================================
+
+
+Overview
+=========
+
+Intel® QuickAssist Technology provides security and compression acceleration
+capabilities used to improve performance and efficiency across the data center.
+
+Previously existing build system has been replaced by Autotools solution
+in order to provide with the widely known and easy to use tool to build and
+install source packages.
+
+===============================================================================
+
+
+Licensing
+==========
+
+The Licensing of the files within this project splits under various set of
+licenses which are listed below.
+        - Dual BSD/GPLv2 License
+        - BSD License
+        - GPLv2 License
+        - OpenSSL License
+        - ZLIB License
+
+For full GPLv2 License, please see the file LICENSE.GPL contained in the top
+level folder.
+For full OpenSSL License, please see the file LICENSE.OPENSSL contained in
+the top level folder.
+For Dual BSD/GPLv2, BSD and ZLIB Licenses, please see the file headers of
+the relevant files.
+
+===============================================================================
+
+
+Compilation and installation
+============================
+
+1) QAT compilation requires following dependencies:
+
+        tools:
+          gcc
+          make
+          autotools (automake, autoconf, libtool)
+          systemd-devel
+
+        libraries:
+          openssl-devel
+          zlib-devel
+
+===============================================================================
+
+2) Configuration process:
+
+        To setup the default build configuration - call:
+        ./configure
+
+        Any other configuration setup can be found under
+        "configuration options section" or by calling:
+
+        ./configure --help
+
+===============================================================================
+
+3) Compilation process:
+
+        After the package has been configured properly,
+        follow the steps below:
+
+        Build and install:
+        make
+        make install
+
+        Build and install sample code:
+        make samples
+        make samples-install
+
+        Uninstall and clean up:
+        make uninstall
+        make clean
+        make distclean
+
+===============================================================================
+
+4) Configuration options
+
+        Typical examples of how to update configuration options are as follows:
+
+                ./configure ICP_ANY_FLAG=value or
+                ./configure --enable-something
+
+        If it is required to use more than one flag at once:
+
+                ./configure ICP_ANY_PATH=path ICP_ANY_NAME=name --enable-something
+
+Features flags:
+        Enables or disables the additional features supported by 4xxx package
+
+        --disable-option-checking
+                Ignores unrecognized configure options when run along with it.
+
+        --disable-FEATURE
+                Does not include FEATURE (same as --enable-FEATURE=no).
+
+        --enable-FEATURE[=ARG]
+                Includes FEATURE [ARG=yes].
+
+        --enable-silent-rules
+                Less verbose build output (undo: "make V=1").
+
+        --disable-silent-rules
+                Verbose build output (undo: "make V=0").
+
+        --enable-maintainer-mode
+                Enables make rules and dependencies not useful (and
+                sometimes confusing) to the casual installer.
+
+        --enable-dependency-tracking
+                Does not reject slow dependency extractors.
+
+        --disable-dependency-tracking
+                Speeds up one-time build
+
+        --enable-icp-debug
+                Enables debugging.
+
+        --disable-param-check
+                Disables parameters checking in the top-level APIs
+                (Use for performance optimization).
+
+        --disable-stats
+                Disables statistic collection (Use for performance optimization).
+
+        --enable-icp-log-syslog
+                Enables debugging messages to be outputted to the
+                system log instead of standard output.
+
+        --enable-icp-trace
+                Enables tracing for the Cryptography API.
+
+        MAX_MR
+                Number of Miller Rabin rounds for prime operations. Setting this
+                to a smaller value reduces the memory usage required by the
+                driver.
+
+                Type: value
+                Default value: 50
+
+===============================================================================
+
+5) System configuration
+
+To be able to use libqat functionalities as non root user, the maximum amount
+of locked memory should be set correctly by defining memlock limit in the file
+/etc/security/limits.conf.
+At least 200000 kB are required.
+
+
+Legal/Disclaimers
+===================
+
+INFORMATION IN THIS DOCUMENT IS PROVIDED IN CONNECTION WITH INTEL(R) PRODUCTS.
+NO LICENSE, EXPRESS OR IMPLIED, BY ESTOPPEL OR OTHERWISE, TO ANY INTELLECTUAL
+PROPERTY RIGHTS IS GRANTED BY THIS DOCUMENT. EXCEPT AS PROVIDED IN INTEL'S
+TERMS AND CONDITIONS OF SALE FOR SUCH PRODUCTS, INTEL ASSUMES NO LIABILITY
+WHATSOEVER, AND INTEL DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY, RELATING TO
+SALE AND/OR USE OF INTEL PRODUCTS INCLUDING LIABILITY OR WARRANTIES RELATING
+TO FITNESS FOR A PARTICULAR PURPOSE, MERCHANTABILITY, OR INFRINGEMENT OF ANY
+PATENT, COPYRIGHT OR OTHER INTELLECTUAL PROPERTY RIGHT. Intel products are
+not intended for use in medical, life saving, life sustaining, critical control
+ or safety systems, or in nuclear facility applications.
+
+Intel may make changes to specifications and product descriptions at any time,
+without notice.
+
+(C) Intel Corporation 2020
+
+* Other names and brands may be claimed as the property of others.
+
+===============================================================================
+
