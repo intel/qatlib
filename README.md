@@ -17,6 +17,7 @@
 
 | Date      |       Revision        |       Description     |
 |----------|:-------------:|------:|
+| November 2020 | 002 | 2010 Product Release |
 | August 2020 | 001 | 2008 Product Release |
 
 ## Overview
@@ -150,8 +151,6 @@ where: \<Component\> is one of the following:
 
 ## Licensing
 * This product is released under the BSD-3-Clause.
-* This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/)
-
 
 ## Legal
 
