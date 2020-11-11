@@ -246,7 +246,7 @@ int qatmgr_query(struct qatmgr_msg_req *req,
                  struct qatmgr_msg_rsp *rsp,
                  uint16_t type);
 int qatmgr_open(void);
-void qatmgr_close(void);
+int qatmgr_close(void);
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #define BDF_NODE(bdf) (bdf >> 16)
@@ -276,8 +276,11 @@ int handle_message(struct qatmgr_msg_req *req,
 int release_section(int index, pthread_t tid, char *name, size_t name_len);
 
 extern int debug_level;
-int pr_err(const char *fmt, ...);
-int pr_info(const char *fmt, ...);
-int pr_dbg(const char *fmt, ...);
+
+#define LOG_LEVEL_ERROR 0
+#define LOG_LEVEL_INFO 1
+#define LOG_LEVEL_DEBUG 2
+
+int qat_log(int log_level, const char *fmt, ...);
 
 #endif /* QAT_MGR_H */

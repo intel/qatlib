@@ -186,9 +186,47 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
         pthread_create(thread, &attr, (void *(*)(void *))startRoutine, arg);
     if (status)
     {
-        osalLog(OSAL_LOG_LVL_ERROR,
-                OSAL_LOG_DEV_STDOUT,
-                "\nosalThreadCreate: Failed to create the thread!\n");
+        switch (status)
+        {
+            case EAGAIN:
+                osalLog(OSAL_LOG_LVL_ERROR,
+                        OSAL_LOG_DEV_STDOUT,
+                        "\nosalThreadCreate: Not enough resources to create "
+                        "the thread!\n");
+                break;
+
+            case EINVAL:
+                osalLog(OSAL_LOG_LVL_ERROR,
+                        OSAL_LOG_DEV_STDOUT,
+                        "\nosalThreadCreate: value specified in attr is "
+                        "invalid!\n");
+                break;
+
+            case EPERM:
+                osalLog(
+                    OSAL_LOG_LVL_ERROR,
+                    OSAL_LOG_DEV_STDOUT,
+                    "\nosalThreadCreate: insufficient permissions!\n"
+                    "When running inside container(docker) environmet, the "
+                    "sched_setscheduler() system call "
+                    "might return non-zero value (indicating error), so please "
+                    "make sure that:\n"
+                    "1) your image was run with '--cap-add=SYS_NICE' or "
+                    "'--cap-add=ALL' flag\n"
+                    "2) your image was run with '--cpu-rt-runtime=x' where 'x' "
+                    "is the CPU real-time runtime in μs (for example 900000)\n"
+                    "3) the value in "
+                    "/sys/fs/cgroups/cpu,cpuacct/machine.slice/"
+                    "cpu.rt_runtime_us corresponds to the value of 'x' from "
+                    "2)\n");
+                break;
+
+            default:
+                osalLog(OSAL_LOG_LVL_ERROR,
+                        OSAL_LOG_DEV_STDOUT,
+                        "\nosalThreadCreate: Failed to create the thread!\n");
+                break;
+        }
         pthread_attr_destroy(&attr);
         return OSAL_FAIL;
     }

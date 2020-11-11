@@ -224,14 +224,13 @@ int adf_proxy_poll_event(Cpa32U *dev_id, enum adf_event *event)
                 eventStr = udev_device_get_property_value(dev, "qat_event");
                 if (eventStr)
                 {
-                    strncpy(eventString, eventStr, sizeof(eventString));
-                    eventString[sizeof(eventString) - 1] = '\0';
+                    ICP_STRLCPY(eventString, eventStr, sizeof(eventString));
                 }
                 accelIdStr = udev_device_get_property_value(dev, "accelid");
                 if (accelIdStr)
                 {
-                    strncpy(accelIdString, accelIdStr, sizeof(accelIdString));
-                    accelIdString[sizeof(accelIdString) - 1] = '\0';
+                    ICP_STRLCPY(
+                        accelIdString, accelIdStr, sizeof(accelIdString));
                 }
                 udev_device_unref(dev);
             }

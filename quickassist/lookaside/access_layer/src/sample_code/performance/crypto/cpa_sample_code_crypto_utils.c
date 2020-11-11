@@ -2513,7 +2513,6 @@ CpaStatus removeSymSession(CpaInstanceHandle instanceHandle,
                            CpaCySymSessionCtx pSessionCtx)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    static const Cpa16U maxRetries = 25;
 
 #if CY_API_VERSION_AT_LEAST(2, 2)
     /* In ASYNC mode we need to wait for
@@ -2522,7 +2521,15 @@ CpaStatus removeSymSession(CpaInstanceHandle instanceHandle,
     {
         CpaBoolean sessionInUse = CPA_FALSE;
         Cpa32U retries = 0;
-
+        /*
+         * We do a incremental sleep starting from 50 micro secs and
+         * by incrementing the sleep time by twice the previous value
+         * for each retry. Total sleep time would be 1.6 secs
+         * for 15 number of retries which would be enough for all
+         * inflight requests to get processed.
+         */
+        Cpa64U delay = REMOVE_SESSION_WAIT;
+        static const Cpa16U maxRetries = 15;
         do
         {
             status = cpaCySymSessionInUse(pSessionCtx, &sessionInUse);
@@ -2530,7 +2537,8 @@ CpaStatus removeSymSession(CpaInstanceHandle instanceHandle,
             {
                 if (sessionInUse == CPA_TRUE)
                 {
-                    sleepNano(REMOVE_SESSION_WAIT * 1000);
+                    delay *= 2;
+                    sleepNano(delay * 1000);
                     retries++;
                     if (retries >= maxRetries)
                     {

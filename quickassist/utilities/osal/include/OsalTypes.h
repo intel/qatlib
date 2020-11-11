@@ -649,6 +649,10 @@ typedef union UINT128_t {
     do                                                                         \
     {                                                                          \
     } while (0);
+#define OSAL_PTR_ENSURE(c, str, ret)                                           \
+    do                                                                         \
+    {                                                                          \
+    } while (0);
 #define OSAL_ENSURE_JUST_RETURN(c, str)                                        \
     do                                                                         \
     {                                                                          \

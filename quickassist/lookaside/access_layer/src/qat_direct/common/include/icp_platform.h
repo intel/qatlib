@@ -309,6 +309,12 @@ extern char *icp_module_name;
         retval;                                                                \
     })
 
+#define ICP_STRLCPY(dst, src, dstsize)                                         \
+    ({                                                                         \
+        strncpy(dst, src, dstsize - 1);                                        \
+        (dst)[dstsize - 1] = 0;                                                \
+    })
+
 /* time */
 #define ICP_GET_TIME osalTimeGet
 

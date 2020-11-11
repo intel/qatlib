@@ -1,7 +1,7 @@
 ===============================================================================
 
 
-August, 2020
+November, 2020
 ===============================================================================
 
 Reference
@@ -30,20 +30,19 @@ install source packages.
 Licensing
 ==========
 
-The Licensing of the files within this project splits under various set of
-licenses which are listed below.
+This product is released under the BSD-3-Clause License.
+
+Files within this project have various inbound licences, listed below:
         - Dual BSD/GPLv2 License
         - BSD License
-        - GPLv2 License
+
+This package also links against files with the following licenses:
         - OpenSSL License
         - ZLIB License
 
-For full GPLv2 License, please see the file LICENSE.GPL contained in the top
-level folder.
-For full OpenSSL License, please see the file LICENSE.OPENSSL contained in
-the top level folder.
-For Dual BSD/GPLv2, BSD and ZLIB Licenses, please see the file headers of
-the relevant files.
+For BSD-3-Clause license, please see the file LICENSE contained in the top
+level folder. 
+For Dual BSD/GPLv2 please see the file headers of the relevant files.
 
 ===============================================================================
 
@@ -66,14 +65,20 @@ Compilation and installation
 ===============================================================================
 
 2) Configuration process:
+    To generate configure script - call:
+    ./autogen.sh
 
-        To setup the default build configuration - call:
-        ./configure
+    To setup the default build configuration - call:
+    ./configure
 
-        Any other configuration setup can be found under
-        "configuration options section" or by calling:
+    Any other configuration setup can be found under
+    "configuration options section" or by calling:
 
-        ./configure --help
+    ./configure --help
+
+    To setup configuration that will automatically enable qat service
+    during installation - call:
+    ./configure --enable-service
 
 ===============================================================================
 
@@ -152,6 +157,12 @@ Features flags:
 
         --enable-icp-trace
                 Enables tracing for the Cryptography API.
+
+        --enable-legacy-lib-names
+                Enables legacy names for libraries.
+
+        --enable-service
+                Automatically enables systemd service during installation.
 
         MAX_MR
                 Number of Miller Rabin rounds for prime operations. Setting this

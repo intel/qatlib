@@ -59,8 +59,7 @@ CpaStatus adf_io_userProcessToStart(char const *const name_in,
     ICP_CHECK_FOR_NULL_PARAM(name_in);
     ICP_CHECK_FOR_NULL_PARAM(name);
 
-    strncpy(req.name, name_in, sizeof(req.name) - 1);
-    req.name[sizeof(req.name) - 1] = 0;
+    ICP_STRLCPY(req.name, name_in, sizeof(req.name));
 
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_GET))
     {
@@ -72,7 +71,7 @@ CpaStatus adf_io_userProcessToStart(char const *const name_in,
         goto error;
     }
 
-    strncpy(name, rsp.name, name_len);
+    ICP_STRLCPY(name, rsp.name, name_len);
 
     return CPA_STATUS_SUCCESS;
 
@@ -90,7 +89,7 @@ CpaStatus adf_io_userProxyInit(char const *const name)
         return CPA_STATUS_FAIL;
     }
 
-    strncpy(currentProcess, name, QATMGR_MAX_STRLEN - 1);
+    ICP_STRLCPY(currentProcess, name, QATMGR_MAX_STRLEN);
 
     return CPA_STATUS_SUCCESS;
 }
@@ -100,8 +99,7 @@ void adf_io_userProcessStop(void)
     struct qatmgr_msg_req req;
     struct qatmgr_msg_rsp rsp;
 
-    strncpy(req.name, currentProcess, QATMGR_MAX_STRLEN);
-    req.name[sizeof(req.name) - 1] = 0;
+    ICP_STRLCPY(req.name, currentProcess, sizeof(req.name));
 
     qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_PUT);
 
@@ -118,6 +116,11 @@ void adf_io_userProxyShutdown(void)
 
 CpaStatus adf_io_resetUserProxy(void)
 {
-    qatmgr_close();
+    int ret;
+
+    ret = qatmgr_close();
+    if (ret)
+        return CPA_STATUS_FAIL;
+
     return CPA_STATUS_SUCCESS;
 }

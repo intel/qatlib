@@ -567,4 +567,21 @@ Cpa32U getSetupCnVRequestFlag(void);
 void setSetupCnVRequestFlag(Cpa32U flag);
 void setDcPollingThreadsInterval(long interval);
 
+/**
+ * *****************************************************************************
+ *  @ingroup compressionThreads
+ *  sampleRemoveDcDpSession
+ *
+ *  @description
+ *      This function check and removes the compression session.
+ *
+ *  @param[out] status
+ *
+ *  @param[in]  dcInstance      Instance handle
+ *  @param[in]  pSessionHandle  Session handle
+ *
+ ******************************************************************************/
+CpaStatus sampleRemoveDcDpSession(CpaInstanceHandle dcInstance,
+                                  CpaDcSessionHandle pSessionHandle);
+
 #endif /* CPA_SAMPLE_CODE_DC_UTILS_H_ */

@@ -62,10 +62,12 @@
 #define DEVICE_FILE IOMMUGROUP_DEV_DIR "%s/device"
 #define VENDOR_FILE IOMMUGROUP_DEV_DIR "%s/vendor"
 
+#define VFIO_ENTRY "vfio"
+
 #ifdef ADF_ERROR
 #undef ADF_ERROR
 #endif
-#define ADF_ERROR(format, args...) pr_err(format, ##args)
+#define ADF_ERROR(format, args...) qat_log(LOG_LEVEL_ERROR, format, ##args)
 
 static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
@@ -73,45 +75,54 @@ static int num_section_data = 0;
 
 int debug_level = 0;
 
-int pr_err(const char *fmt, ...)
+static int pr_err(const char *fmt, va_list args)
 {
-    va_list args;
+    return vfprintf(stderr, fmt, args);
+}
+
+static int pr_info(const char *fmt, va_list args)
+{
     int ret;
 
-    va_start(args, fmt);
-    ret = vfprintf(stderr, fmt, args);
-    va_end(args);
+    if (debug_level < LOG_LEVEL_INFO)
+        return 1;
+
+    ret = vprintf(fmt, args);
 
     return ret;
 }
 
-int pr_info(const char *fmt, ...)
+static int pr_dbg(const char *fmt, va_list args)
 {
-    va_list args;
     int ret;
 
-    if (debug_level < 1)
+    if (debug_level < LOG_LEVEL_DEBUG)
         return 1;
 
-    va_start(args, fmt);
     ret = vprintf(fmt, args);
-    va_end(args);
 
     return ret;
 }
 
-int pr_dbg(const char *fmt, ...)
+int qat_log(int log_level, const char *fmt, ...)
 {
     va_list args;
-    int ret;
-
-    if (debug_level < 2)
-        return 1;
+    int ret = 1;
 
     va_start(args, fmt);
-    ret = vprintf(fmt, args);
+    switch (log_level)
+    {
+        case LOG_LEVEL_ERROR:
+            ret = pr_err(fmt, args);
+            break;
+        case LOG_LEVEL_INFO:
+            ret = pr_info(fmt, args);
+            break;
+        case LOG_LEVEL_DEBUG:
+            ret = pr_dbg(fmt, args);
+            break;
+    }
     va_end(args);
-
     return ret;
 }
 
@@ -203,6 +214,60 @@ static int bdf_compare(const void *a, const void *b)
     return 0;
 }
 
+static int open_file_with_link_check(const char *filename, int flags)
+{
+    int fd;
+    struct stat buf;
+
+    fd = open(filename, flags | O_NOFOLLOW);
+    if (fd < 0)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Open failed on %s\n", filename);
+        return fd;
+    }
+
+    if (0 != fstat(fd, &buf))
+    {
+        qat_log(LOG_LEVEL_ERROR, "Stat failed on %s\n", filename);
+        close(fd);
+        fd = -1;
+        return fd;
+    }
+
+    if (buf.st_nlink > 1)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Detected hardlink for %s\n", filename);
+        close(fd);
+        fd = -1;
+        return fd;
+    }
+
+    return fd;
+}
+
+static DIR *open_dir_with_link_check(const char *dirname)
+{
+    int fd;
+    DIR *dir;
+
+    fd = open(dirname, O_RDONLY | O_NOFOLLOW | O_DIRECTORY);
+    if (fd < 0)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Cannot open %s\n", dirname);
+        return NULL;
+    }
+
+    dir = fdopendir(fd);
+    if (NULL == dir)
+    {
+        close(fd);
+        qat_log(LOG_LEVEL_ERROR, "Cannot open %s\n", dirname);
+        return NULL;
+    }
+
+    return dir;
+}
+
 int qat_mgr_get_dev_list(unsigned *num_devices,
                          struct qatmgr_dev_data *dev_list,
                          const unsigned list_size,
@@ -211,6 +276,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     DIR *devvfio_dir;
     DIR *sysdevice_dir;
     FILE *sysfile;
+    int sysfile_fd;
     struct dirent *vfio_entry;
     struct dirent *device_entry;
     int num_devs = 0;
@@ -221,30 +287,15 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     char *bdfname;
     unsigned node, bus, dev, func;
     int found = 0;
-    struct stat buf;
-    int status;
 
     if (!dev_list || !list_size || !num_devices)
         return -EINVAL;
 
     *num_devices = 0;
 
-    status = lstat(DEVVFIO_DIR, &buf);
-    if (status != 0)
-    {
-        pr_err("Stat cannot open %s\n", DEVVFIO_DIR);
-        return -EIO;
-    }
-    if (S_ISLNK(buf.st_mode))
-    {
-        pr_err("Link detected for file %s\n", DEVVFIO_DIR);
-        return -EIO;
-    }
-
-    devvfio_dir = opendir(DEVVFIO_DIR);
+    devvfio_dir = open_dir_with_link_check(DEVVFIO_DIR);
     if (devvfio_dir == NULL)
     {
-        pr_err("Cannot open %s\n", DEVVFIO_DIR);
         return -EIO;
     }
 
@@ -252,6 +303,10 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     while ((vfio_entry = readdir(devvfio_dir)) != NULL)
     {
         if (vfio_entry->d_name[0] == '.')
+            continue;
+
+        /* /dev/vfio/vfio is special entry, should be skipped */
+        if (!strncmp(vfio_entry->d_name, VFIO_ENTRY, strlen(VFIO_ENTRY)))
             continue;
 
         /*
@@ -267,23 +322,11 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                      DEVVFIO_DIR "/%s",
                      vfio_entry->d_name) >= sizeof(filename))
         {
-            pr_err("Filename %s truncated\n", filename);
+            qat_log(LOG_LEVEL_ERROR, "Filename %s truncated\n", filename);
             continue;
         }
 
-        status = lstat(filename, &buf);
-        if (status != 0)
-        {
-            pr_err("Stat cannot open %s\n", filename);
-            continue;
-        }
-        if (S_ISLNK(buf.st_mode) || buf.st_nlink > 1)
-        {
-            pr_err("Link detected for file %s\n", filename);
-            continue;
-        }
-
-        vfiofile = open(filename, O_RDWR);
+        vfiofile = open_file_with_link_check(filename, O_RDWR);
         if (vfiofile < 0)
             continue;
 
@@ -299,7 +342,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                      IOMMUGROUP_DEV_DIR,
                      vfio_entry->d_name) >= sizeof(devices_dir_name))
         {
-            pr_err("Filename truncated\n");
+            qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
             if (vfiofile != -1)
             {
                 close(vfiofile);
@@ -307,28 +350,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
             }
             continue;
         }
-
-        status = lstat(devices_dir_name, &buf);
-        if (status != 0)
-        {
-            if (vfiofile != -1)
-            {
-                close(vfiofile);
-                vfiofile = -1;
-            }
-            continue;
-        }
-        if (S_ISLNK(buf.st_mode))
-        {
-            if (vfiofile != -1)
-            {
-                close(vfiofile);
-                vfiofile = -1;
-            }
-            continue;
-        }
-
-        sysdevice_dir = opendir(devices_dir_name);
+        sysdevice_dir = open_dir_with_link_check(devices_dir_name);
         if (sysdevice_dir == NULL)
         {
             if (vfiofile != -1)
@@ -353,36 +375,33 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                          vfio_entry->d_name,
                          device_entry->d_name) >= sizeof(filename))
             {
-                pr_err("Filename truncated\n");
+                qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
                 break;
             }
 
-            status = lstat(filename, &buf);
-            if (status != 0)
-            {
-                pr_err("Stat cannot open %s\n", filename);
+            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+            if (sysfile_fd < 0)
                 break;
-            }
-            if (S_ISLNK(buf.st_mode) || buf.st_nlink > 1)
-            {
-                pr_err("Link detected for file %s\n", filename);
-                break;
-            }
 
-            sysfile = fopen(filename, "r");
+            sysfile = fdopen(sysfile_fd, "r");
             if (!sysfile)
+            {
+                close(sysfile_fd);
                 break;
+            }
             device = 0;
             if (fscanf(sysfile, "%x", &device) != 1)
             {
-                pr_info("Failed to read device from %s\n", filename);
+                qat_log(LOG_LEVEL_INFO,
+                        "Failed to read device from %s\n",
+                        filename);
                 /*
                  * If the fscanf fails, the check of device ids below will fail
                  * and break out of the loop at that point.
                  */
             }
             fclose(sysfile);
-            pr_info("Checking %s\n", filename);
+            qat_log(LOG_LEVEL_INFO, "Checking %s\n", filename);
             if (!is_qat_device(device))
                 break;
 
@@ -392,32 +411,27 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                          vfio_entry->d_name,
                          device_entry->d_name) >= sizeof(filename))
             {
-                pr_err("Filename truncated\n");
+                qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
                 break;
             }
 
-            status = lstat(filename, &buf);
-            if (status != 0)
-            {
-                pr_err("Stat cannot open %s\n", filename);
+            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+            if (sysfile_fd < 0)
                 break;
-            }
-            if (S_ISLNK(buf.st_mode) || buf.st_nlink > 1)
-            {
-                pr_err("Link detected for file %s\n", filename);
-                break;
-            }
 
-            sysfile = fopen(filename, "r");
+            sysfile = fdopen(sysfile_fd, "r");
             if (!sysfile)
             {
-                pr_err("Failed to open %s\n", filename);
+                qat_log(LOG_LEVEL_ERROR, "Failed to open %s\n", filename);
+                close(sysfile_fd);
                 break;
             }
             vendor = 0;
             if (fscanf(sysfile, "%x", &vendor) != 1)
             {
-                pr_err("Failed to read vendor from %s\n", filename);
+                qat_log(LOG_LEVEL_ERROR,
+                        "Failed to read vendor from %s\n",
+                        filename);
                 /*
                  * If the fscanf fails, the check of vendor id below will fail
                  * and break out of the loop at that point.
@@ -431,7 +445,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
             bdfname = basename(device_entry->d_name);
             if (sscanf(bdfname, "%x:%x:%x.%x", &node, &bus, &dev, &func) != 4)
             {
-                pr_info("Failed to scan BDF string\n");
+                qat_log(LOG_LEVEL_ERROR, "Failed to scan BDF string\n");
                 break;
             }
             dev_list[num_devs].bdf = (node << 16) + ((0xFF & bus) << 8) +
@@ -442,14 +456,15 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                          vfio_entry->d_name) >=
                 sizeof(dev_list[num_devs].vfio_file))
             {
-                pr_err("Filename truncated\n");
+                qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
                 break;
             }
 
             if (readdir(sysdevice_dir))
             {
-                pr_err("Multiple vfio devices in group %s. Ignored\n",
-                       vfio_entry->d_name);
+                qat_log(LOG_LEVEL_INFO,
+                        "Multiple vfio devices in group %s. Ignored\n",
+                        vfio_entry->d_name);
                 break;
             }
 
@@ -463,6 +478,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                 dev_list[num_devs].group_fd = -1;
 
             num_devs++;
+            break;
         }
 
         if (!found && vfiofile != -1)
@@ -530,7 +546,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             }
             set_bit(bus_map, bus);
         }
-        pr_dbg("num_vf_groups %d\n", num_vf_groups);
+        qat_log(LOG_LEVEL_DEBUG, "num_vf_groups %d\n", num_vf_groups);
 
         /*
          * For policy 0, each process will get a VF from each PF so there will
@@ -551,11 +567,12 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
 
         if (num_section_data <= 0)
         {
-            pr_err("num_section_data is less or equal 0: %d\n",
-                   num_section_data);
+            qat_log(LOG_LEVEL_ERROR,
+                    "num_section_data is less or equal 0: %d\n",
+                    num_section_data);
             return -EINVAL;
         }
-        pr_dbg("num_section_data %d\n", num_section_data);
+        qat_log(LOG_LEVEL_DEBUG, "num_section_data %d\n", num_section_data);
     }
     else if (num_devices >= policy)
     {
@@ -563,17 +580,18 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     }
     else
     {
-        pr_err("Policy %d is incompatible with the number of "
-               "available devices %d\n",
-               policy,
-               num_devices);
+        qat_log(LOG_LEVEL_ERROR,
+                "Policy %d is incompatible with the number of "
+                "available devices %d\n",
+                policy,
+                num_devices);
         return -EINVAL;
     }
 
     section_data = calloc(num_section_data, sizeof(struct qatmgr_section_data));
     if (!section_data)
     {
-        pr_err("Malloc failed for section data\n");
+        qat_log(LOG_LEVEL_ERROR, "Malloc failed for section data\n");
         qat_mgr_cleanup_cfg();
         return -EAGAIN;
     }
@@ -620,7 +638,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             calloc(num_vfs_this_section, sizeof(struct qatmgr_device_data));
         if (!section->device_data)
         {
-            pr_err("Malloc failed for device data\n");
+            qat_log(LOG_LEVEL_ERROR, "Malloc failed for device data\n");
             qat_mgr_cleanup_cfg();
             return -EAGAIN;
         }
@@ -628,7 +646,10 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         device_data = section->device_data;
         for (j = 0; j < num_vfs_this_section; j++, device_data++, vf_idx++)
         {
-            pr_dbg("section %d, BDF %X\n", i, dev_list[vf_idx].bdf);
+            qat_log(LOG_LEVEL_DEBUG,
+                    "section %d, BDF %X\n",
+                    i,
+                    dev_list[vf_idx].bdf);
             snprintf(device_data->device_id,
                      sizeof(device_data->device_id),
                      "%04x:%02x:%02x.%01x",
@@ -681,7 +702,8 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 num_vfs_this_section * sizeof(struct qatmgr_instance_data));
             if (!section->dc_instance_data)
             {
-                pr_err("Malloc failed for dc instance data\n");
+                qat_log(LOG_LEVEL_ERROR,
+                        "Malloc failed for dc instance data\n");
                 qat_mgr_cleanup_cfg();
                 return -EAGAIN;
             }
@@ -712,7 +734,8 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 num_vfs_this_section * sizeof(struct qatmgr_cy_instance_data));
             if (!section->cy_instance_data)
             {
-                pr_err("Malloc failed for cy instance data\n");
+                qat_log(LOG_LEVEL_ERROR,
+                        "Malloc failed for cy instance data\n");
                 qat_mgr_cleanup_cfg();
                 return -EAGAIN;
             }
@@ -764,26 +787,11 @@ bool qat_mgr_is_dev_available()
     char filename[256];
     DIR *devvfio_dir;
     struct dirent *vfio_entry;
-    struct stat buf;
-    int status;
 
-    status = stat(DEVVFIO_DIR, &buf);
-    if (status != 0)
-    {
-        pr_err("Stat cannot open %s\n", DEVVFIO_DIR);
-        return false;
-    }
-    if (S_ISLNK(buf.st_mode))
-    {
-        pr_err("Link detected for file %s\n", DEVVFIO_DIR);
-        return false;
-    }
-
-    devvfio_dir = opendir(DEVVFIO_DIR);
+    devvfio_dir = open_dir_with_link_check(DEVVFIO_DIR);
 
     if (devvfio_dir == NULL)
     {
-        pr_err("Cannot open %s\n", DEVVFIO_DIR);
         return false;
     }
 
@@ -801,7 +809,7 @@ bool qat_mgr_is_dev_available()
                      DEVVFIO_DIR "/%s",
                      vfio_entry->d_name) >= sizeof(filename))
         {
-            pr_err("Filename %s truncated\n", filename);
+            qat_log(LOG_LEVEL_ERROR, "Filename %s truncated\n", filename);
             continue;
         }
 
@@ -859,7 +867,7 @@ static void err_msg(struct qatmgr_msg_rsp *rsp, char *text)
 {
     rsp->hdr.type = QATMGR_MSGTYPE_BAD;
     rsp->hdr.version = 0;
-    strncpy(rsp->error_text, text, sizeof(rsp->error_text) - 1);
+    ICP_STRLCPY(rsp->error_text, text, sizeof(rsp->error_text));
     rsp->hdr.len =
         sizeof(rsp->hdr) + ICP_ARRAY_STRLEN_SANITIZE(rsp->error_text) + 1;
 }
@@ -886,14 +894,14 @@ static int handle_get_num_devices(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -918,14 +926,14 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -934,14 +942,17 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
     device_num = req->device_num;
     if (device_num >= section->num_devices)
     {
-        pr_err("Invalid device %d >= %d\n", device_num, section->num_devices);
+        qat_log(LOG_LEVEL_ERROR,
+                "Invalid device %d >= %d\n",
+                device_num,
+                section->num_devices);
         err_msg(rsp, "Invalid device number");
         return -1;
     }
 
     rsp->device_info.device_num = device_num;
     rsp->device_info.device_type = section->device_data[device_num].device_type;
-    ICP_STRNCPY(rsp->device_info.device_name,
+    ICP_STRLCPY(rsp->device_info.device_name,
                 section->device_data[device_num].name,
                 sizeof(rsp->device_info.device_name));
     rsp->device_info.capability_mask =
@@ -974,14 +985,14 @@ static int handle_get_device_id(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -990,7 +1001,7 @@ static int handle_get_device_id(struct qatmgr_msg_req *req,
     device_num = req->device_num;
     if (device_num >= section->num_devices)
     {
-        pr_err("Invalid device %d\n", device_num);
+        qat_log(LOG_LEVEL_ERROR, "Invalid device %d\n", device_num);
         err_msg(rsp, "Invalid device number");
         return -1;
     }
@@ -999,7 +1010,7 @@ static int handle_get_device_id(struct qatmgr_msg_req *req,
 
     rsp->hdr.type = QATMGR_MSGTYPE_DEVICE_ID;
     rsp->hdr.version = 0;
-    strncpy(rsp->device_id, device_data->device_id, sizeof(rsp->device_id));
+    ICP_STRLCPY(rsp->device_id, device_data->device_id, sizeof(rsp->device_id));
     build_msg_header(rsp,
                      QATMGR_MSGTYPE_DEVICE_ID,
                      ICP_ARRAY_STRLEN_SANITIZE(rsp->device_id) + 1);
@@ -1021,14 +1032,14 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -1037,7 +1048,7 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     device_num = req->device_num;
     if (device_num >= section->num_devices)
     {
-        pr_err("Invalid device %d\n", device_num);
+        qat_log(LOG_LEVEL_ERROR, "Invalid device %d\n", device_num);
         err_msg(rsp, "Invalid device number");
         return -1;
     }
@@ -1048,9 +1059,9 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     rsp->hdr.version = 0;
     rsp->vfio_file.fd = device_data->group_fd;
 
-    strncpy(rsp->vfio_file.name,
-            device_data->device_file,
-            sizeof(rsp->vfio_file.name));
+    ICP_STRLCPY(rsp->vfio_file.name,
+                device_data->device_file,
+                sizeof(rsp->vfio_file.name));
 
     len = ICP_ARRAY_STRLEN_SANITIZE(rsp->vfio_file.name);
 
@@ -1072,14 +1083,14 @@ static int handle_get_section_info(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -1107,14 +1118,14 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->inst))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -1127,13 +1138,15 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_dc_inst)
         {
-            pr_err("Bad dc instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad dc instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid DC instance number");
             return -1;
         }
-        strncpy(rsp->name, section->dc_instance_data->name, sizeof(rsp->name));
+        ICP_STRLCPY(
+            rsp->name, section->dc_instance_data->name, sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
                          ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1);
@@ -1142,13 +1155,14 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_cy_inst)
         {
-            pr_err("Bad cy instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad cy instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid CY instance number");
             return -1;
         }
-        strncpy(
+        ICP_STRLCPY(
             rsp->name, section->cy_instance_data->sym.name, sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
@@ -1158,13 +1172,14 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_sym_inst)
         {
-            pr_err("Bad cy.sym instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad cy.sym instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid SYM instance number");
             return -1;
         }
-        strncpy(
+        ICP_STRLCPY(
             rsp->name, section->cy_instance_data->sym.name, sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
@@ -1174,13 +1189,14 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_asym_inst)
         {
-            pr_err("Bad cy.asym instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad cy.asym instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid ASYM instance number");
             return -1;
         }
-        strncpy(
+        ICP_STRLCPY(
             rsp->name, section->cy_instance_data->asym.name, sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
@@ -1188,7 +1204,8 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     }
     else
     {
-        pr_err("unsupported instance type %d\n", instance_type);
+        qat_log(
+            LOG_LEVEL_ERROR, "unsupported instance type %d\n", instance_type);
         err_msg(rsp, "Unknown instance type");
         return -1;
     }
@@ -1212,14 +1229,14 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->inst))
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Bad index\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
         err_msg(rsp, "Invalid index");
         return -1;
     }
@@ -1231,7 +1248,10 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
 
     if (device_num >= section->num_devices)
     {
-        pr_err("Invalid device number %d for section %d\n", device_num, index);
+        qat_log(LOG_LEVEL_ERROR,
+                "Invalid device number %d for section %d\n",
+                device_num,
+                index);
         err_msg(rsp, "Invalid device number");
         return -1;
     }
@@ -1240,9 +1260,10 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_dc_inst)
         {
-            pr_err("Bad dc instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad dc instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid DC instance number");
             return -1;
         }
@@ -1264,9 +1285,10 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_cy_inst)
         {
-            pr_err("Bad cy instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad cy instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid CY instance number");
             return -1;
         }
@@ -1298,9 +1320,10 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     {
         if (instance_num < 0 || instance_num >= section->num_sym_inst)
         {
-            pr_err("Bad cy.sym instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad cy.sym instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid SYM instance number");
             return -1;
         }
@@ -1323,9 +1346,10 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
         if (instance_num < 0 ||
             instance_num >= section_data[index].num_asym_inst)
         {
-            pr_err("Bad cy.asym instance number %d for section %d\n",
-                   instance_num,
-                   index);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad cy.asym instance number %d for section %d\n",
+                    instance_num,
+                    index);
             err_msg(rsp, "Invalid ASYM instance number");
             return -1;
         }
@@ -1345,7 +1369,8 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else
     {
-        pr_err("Unsupported instance type %d\n", instance_type);
+        qat_log(
+            LOG_LEVEL_ERROR, "Unsupported instance type %d\n", instance_type);
         err_msg(rsp, "Unknown instance type");
         return -1;
     }
@@ -1360,30 +1385,33 @@ int release_section(int index, pthread_t tid, char *name, size_t name_len)
 
     if (index < 0 || index >= num_section_data)
     {
-        pr_err("Invalid section index %d for thread %lu, section %s\n",
-               index,
-               tid,
-               name);
+        qat_log(LOG_LEVEL_ERROR,
+                "Invalid section index %d for thread %lu, section %s\n",
+                index,
+                tid,
+                name);
         return -1;
     }
     if (name_len !=
             ICP_ARRAY_STRLEN_SANITIZE(section_data[index].section_name) ||
         strncmp(name, section_data[index].section_name, name_len))
     {
-        pr_err("Incorrect section name %s, expected %s\n",
-               name,
-               section_data[index].section_name);
+        qat_log(LOG_LEVEL_ERROR,
+                "Incorrect section name %s, expected %s\n",
+                name,
+                section_data[index].section_name);
         return -1;
     }
     if (section_data[index].assigned_tid != tid)
     {
-        pr_err("Incorrect thread %lu for section %s. Expected %lu\n",
-               tid,
-               name,
-               section_data[index].assigned_tid);
+        qat_log(LOG_LEVEL_ERROR,
+                "Incorrect thread %lu for section %s. Expected %lu\n",
+                tid,
+                name,
+                section_data[index].assigned_tid);
         return -1;
     }
-    pr_info("Released section %s\n", name);
+    qat_log(LOG_LEVEL_DEBUG, "Released section %s\n", name);
     section_data[index].assigned_tid = 0;
     return 0;
 }
@@ -1398,7 +1426,8 @@ static int get_section(pthread_t tid, char **derived_section_name)
             continue; /* Assigned to another thread */
 
         section_data[i].assigned_tid = tid;
-        pr_dbg("Got section %s\n", section_data[i].section_name);
+        qat_log(
+            LOG_LEVEL_DEBUG, "Got section %s\n", section_data[i].section_name);
         if (derived_section_name)
             *derived_section_name = section_data[i].section_name;
         return i;
@@ -1424,7 +1453,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
     if (req->hdr.len !=
         sizeof(req->hdr) + ICP_ARRAY_STRLEN_SANITIZE(req->name) + 1)
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
@@ -1439,7 +1468,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
 
     if (*section_name != NULL || *index != -1)
     {
-        pr_err("Section already allocated\n");
+        qat_log(LOG_LEVEL_ERROR, "Section already allocated\n");
         err_msg(rsp, "Section already allocated");
         return -1;
     }
@@ -1447,7 +1476,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
     sec = get_section(tid, &derived_name);
     if (sec < 0)
     {
-        pr_err("Couldn't get secton %s\n", req->name);
+        qat_log(LOG_LEVEL_ERROR, "Couldn't get secton %s\n", req->name);
         err_msg(rsp, "No section available");
         return -1;
     }
@@ -1455,20 +1484,23 @@ static int handle_section_request(struct qatmgr_msg_req *req,
     *index = sec;
     rsp->hdr.type = QATMGR_MSGTYPE_SECTION_GET;
     rsp->hdr.version = 0;
-    strncpy(rsp->name, derived_name, sizeof(rsp->name));
-    rsp->name[sizeof(rsp->name) - 1] = '\0';
+    ICP_STRLCPY(rsp->name, derived_name, sizeof(rsp->name));
     rsp->hdr.len = sizeof(rsp->hdr) + ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1;
 
     name_buf_size = ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1;
     *section_name = malloc(name_buf_size);
     if (!*section_name)
     {
-        pr_err("Memory allocation failed\n");
+        qat_log(LOG_LEVEL_ERROR, "Memory allocation failed\n");
         err_msg(rsp, "malloc failed");
         return -1;
     }
-    pr_dbg("Allocated section %s at %p\n", rsp->name, *section_name);
-    strncpy(*section_name, rsp->name, name_buf_size);
+    qat_log(LOG_LEVEL_DEBUG,
+            "Allocated section %s at %p\n",
+            rsp->name,
+            *section_name);
+
+    ICP_STRLCPY(*section_name, rsp->name, name_buf_size);
 
     return 0;
 }
@@ -1487,14 +1519,14 @@ static int handle_section_release(struct qatmgr_msg_req *req,
     if (req->hdr.len !=
         sizeof(req->hdr) + ICP_ARRAY_STRLEN_SANITIZE(req->name) + 1)
     {
-        pr_err("Bad length\n");
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
 
     if (*section_name == NULL)
     {
-        pr_err("Section not allocated\n");
+        qat_log(LOG_LEVEL_ERROR, "Section not allocated\n");
         err_msg(rsp, "Section not allocated");
         return -1;
     }
@@ -1505,7 +1537,7 @@ static int handle_section_release(struct qatmgr_msg_req *req,
     }
     else
     {
-        pr_dbg("Section %s released\n", req->name);
+        qat_log(LOG_LEVEL_DEBUG, "Section %s released\n", req->name);
         build_msg_header(rsp, QATMGR_MSGTYPE_SECTION_PUT, 0);
         if (*section_name)
         {

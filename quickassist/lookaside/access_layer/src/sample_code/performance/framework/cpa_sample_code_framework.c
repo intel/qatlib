@@ -240,6 +240,19 @@ CpaStatus setReliability(CpaBoolean val)
     return CPA_STATUS_SUCCESS;
 }
 
+CpaStatus setUseStaticPrime(int val)
+{
+    if (val != 0)
+    {
+        useStaticPrime = 1;
+    }
+    else
+    {
+        useStaticPrime = 0;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
 CpaStatus printReliability(void)
 {
     if (CPA_TRUE == reliability_g)
@@ -254,6 +267,7 @@ CpaStatus printReliability(void)
 }
 EXPORT_SYMBOL(reliability_g);
 EXPORT_SYMBOL(setReliability);
+EXPORT_SYMBOL(setUseStaticPrime);
 EXPORT_SYMBOL(printReliability);
 
 /*Global flag to enable sleep function that is used to slow down pulling for

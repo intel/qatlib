@@ -660,7 +660,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
     Cpa64U numOps2 = 0;
     Cpa32U totalBuffers = 0;
     Cpa64U nextPoll = dcPollingInterval_g;
-
+    Cpa32U retries = 0;
     /* Capture busy loop before memset of performanceStats */
     Cpa32U busyLoopValue = setup->performanceStats->busyLoopValue;
     Cpa32U staticAssign = 0, busyLoopCount = 0;
@@ -980,17 +980,17 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
         }
     }
 
-    if (CPA_STATUS_SUCCESS == status)
+    /* While there are pending requests, continue to poll */
+    if (CPA_STATUS_SUCCESS !=
+        dcDpPollNumOperationsRetries(setup->performanceStats,
+                                     setup->dcInstanceHandle,
+                                     setup->performanceStats->numOperations,
+                                     &retries))
     {
-        Cpa32U retries = 0;
-        /* While there are pending requests, continue to poll */
-        status =
-            dcDpPollNumOperationsRetries(setup->performanceStats,
-                                         setup->dcInstanceHandle,
-                                         setup->performanceStats->numOperations,
-                                         &retries);
-        setup->performanceStats->pollRetries += retries;
+        PRINT_ERR("dcDpPollNumOperationsRetries Failed \n");
+        status = CPA_STATUS_FAIL;
     }
+    setup->performanceStats->pollRetries += retries;
     if (CPA_CC_BUSY_LOOPS == iaCycleCount_g)
     {
         setup->performanceStats->busyLoopValue = busyLoopValue;
@@ -1249,7 +1249,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 
     /* Session handle */
     CpaDcSessionHandle *pSessionHandle = NULL;
-
+    Cpa32U removeStatus = 0;
     /* Session direction */
     CpaDcSessionDir dcSessDirReq = CPA_DC_DIR_COMPRESS;
 
@@ -1622,13 +1622,8 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Unable to register callback fn, status = %d \n", status);
-        freeBuffersDp(srcFlatBuffArray, numFiles, setup);
-        freeBuffersDp(dstFlatBuffArray, numFiles, setup);
-        freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
-        freeOpDataDp(compressionOpData, numFiles, setup);
-        freeOpDataDp(decompressionOpData, numFiles, setup);
-
-        return CPA_STATUS_FAIL;
+        status = CPA_STATUS_FAIL;
+        goto exit;
     }
 
     /* Populate OpData struct */
@@ -1691,13 +1686,8 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
         {
             PRINT_ERR("Could not compress corpus before Decompression = %d \n",
                       status);
-            freeBuffersDp(srcFlatBuffArray, numFiles, setup);
-            freeBuffersDp(dstFlatBuffArray, numFiles, setup);
-            freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
-            freeOpDataDp(compressionOpData, numFiles, setup);
-            freeOpDataDp(decompressionOpData, numFiles, setup);
-
-            return CPA_STATUS_FAIL;
+            status = CPA_STATUS_FAIL;
+            goto exit;
         }
         /* Swap the data in OpData structs */
         for (i = 0; i < numFiles; i++)
@@ -1766,13 +1756,8 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 #endif
     if (CPA_STATUS_SUCCESS != status)
     {
-        freeBuffersDp(srcFlatBuffArray, numFiles, setup);
-        freeBuffersDp(dstFlatBuffArray, numFiles, setup);
-        freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
-        freeOpDataDp(compressionOpData, numFiles, setup);
-        freeOpDataDp(decompressionOpData, numFiles, setup);
-
-        return CPA_STATUS_FAIL;
+        status = CPA_STATUS_FAIL;
+        goto exit;
     }
     if (CPA_CC_BUSY_LOOPS == iaCycleCount_g)
     {
@@ -1780,16 +1765,21 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
             setup, compressionOpData, decompressionOpData, perfData);
     }
 
+
     /* Record the bytes consumed and produced from the compressionOpData
      * structures for later printing.
      */
     dcDpSetBytesProducedAndConsumed(compressionOpData, perfData, setup);
 
-    /* Remove the DC session */
-    status = cpaDcDpRemoveSession(setup->dcInstanceHandle, pSessionHandle);
+exit:
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT_ERR("Unable to remove session\n");
+        removeStatus =
+            sampleRemoveDcDpSession(setup->dcInstanceHandle, pSessionHandle);
+    }
+    if (CPA_STATUS_SUCCESS != removeStatus)
+    {
+        PRINT_ERR("Unable to remove compression session\n");
     }
     qaeMemFreeNUMA((void **)&pSessionHandle);
 

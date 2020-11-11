@@ -266,6 +266,12 @@ CpaStatus qatSymSessionInit(symmetric_test_params_t *setup,
      * and AES-CCM*/
     cipherSetupData->pCipherKey =
         (Cpa8U *)qaeMemAlloc(cipherSetupData->cipherKeyLenInBytes);
+    if (NULL == cipherSetupData->pCipherKey)
+    {
+        PRINT_ERR("Could not allocate pCipherKey\n");
+        qatSymSessionTeardown(setup, encryptSessionCtx, decryptSessionCtx);
+        return status;
+    }
 
     generateRandomData(cipherSetupData->pCipherKey,
                        cipherSetupData->cipherKeyLenInBytes);
@@ -280,6 +286,12 @@ CpaStatus qatSymSessionInit(symmetric_test_params_t *setup,
     {
         authModeSetupData->authKey =
             (Cpa8U *)qaeMemAlloc(authModeSetupData->authKeyLenInBytes);
+        if (NULL == authModeSetupData->authKey)
+        {
+            PRINT_ERR("Could not allocate authKey\n");
+            qatSymSessionTeardown(setup, encryptSessionCtx, decryptSessionCtx);
+            return status;
+        }
 
         generateRandomData(authModeSetupData->authKey,
                            authModeSetupData->authKeyLenInBytes);

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [20.08.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [20.10.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,7 +11,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBADD_SO_VERSION], [0:0:0])
+AC_SUBST([LIBQAT_VERSION], [0:0:0])
+AC_SUBST([LIBUSDM_VERSION], [0:0:0])
 
 # Checks for programs.
 AC_PROG_AWK
@@ -64,6 +65,14 @@ AS_IF([test "x$PKGCONFIG" = "x"],
         [AC_MSG_RESULT(no); AC_MSG_ERROR(systemd not found.)]
     )]
 )
+
+# Check location of systemd unit files
+PKG_PROG_PKG_CONFIG
+AC_ARG_WITH([systemdsystemunitdir],
+        AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
+        [], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
+AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
+AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir"])
 
 
 # MAX_MR
@@ -126,6 +135,12 @@ AC_ARG_ENABLE(legacy-lib-names,
         AC_SUBST([LIBQATNAME], "qat")
         AC_SUBST([LIBUSDMNAME], "usdm")
     ])
+
+AC_ARG_ENABLE(service,
+    AS_HELP_STRING([--enable-service], [Automatically enables systemd service during installation.]),
+    [service=true], [service=false]
+)
+AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue])
 
 # Config files.
 AC_CONFIG_FILES([Makefile quickassist/utilities/service/qat.service qatlib.spec])

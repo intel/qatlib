@@ -677,7 +677,7 @@ STATIC CpaStatus icp_adf_get_num_devices_by_fd(int fd, Cpa32U *num_devices)
 CpaStatus icp_adf_userCheckDevice(Cpa32U accelId)
 {
     CpaStatus ret = CPA_STATUS_FAIL;
-    int fd = open(ADF_CTL_DEVICE_NAME, O_RDWR);
+    int fd = open(ADF_CTL_DEVICE_NAME, O_RDONLY);
     if (fd < 0)
         return CPA_STATUS_UNSUPPORTED;
 
@@ -698,7 +698,7 @@ CpaStatus icp_adf_userCheckAllDevices(void)
     CpaBoolean all_unsup = CPA_TRUE;
     CpaBoolean any_dev = CPA_FALSE;
 
-    int fd = open(ADF_CTL_DEVICE_NAME, O_RDWR);
+    int fd = open(ADF_CTL_DEVICE_NAME, O_RDONLY);
     if (fd < 0)
         return CPA_STATUS_UNSUPPORTED;
 
@@ -744,7 +744,7 @@ CpaStatus icp_adf_userCheckAllDevices(void)
 CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U accelId)
 {
     CpaStatus ret = CPA_STATUS_SUCCESS;
-    int fd = open(ADF_CTL_DEVICE_NAME, O_RDWR);
+    int fd = open(ADF_CTL_DEVICE_NAME, O_RDONLY);
 
     if (fd < 0)
         return CPA_STATUS_UNSUPPORTED;

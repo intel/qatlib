@@ -84,6 +84,8 @@
 #include "qat_perf_cycles.h"
 #include "icp_sal_poll.h"
 
+#define MAX_SESSION_REMOVE_RETRIES (15)
+
 static struct
 {
     corpus_type_t corpusType;
@@ -391,41 +393,41 @@ static char *overflowAndZeroFileNames[] =
     }
 #define CORPUS_TO_STR(corpus) #corpus
 #define CORPUS_STR(corpus) CORPUS_TO_STR(corpus)
-static corpusInfo corpus[] =
-    {[CANTERBURY_CORPUS] = {CANTERBURY_CORPUS,
-                            CORPUS_STR(CANTERBURY_CORPUS),
-                            CORPUS_DATA_INIT(canterburyFileNames)},
-     [CALGARY_CORPUS] = {CALGARY_CORPUS,
-                         CORPUS_STR(CALGARY_CORPUS),
-                         CORPUS_DATA_INIT(calgaryFileNames)},
-     [RANDOM] = {RANDOM, CORPUS_STR(RANDOM), CORPUS_DATA_EMPTY},
-     [SIGN_OF_LIFE_CORPUS] = {SIGN_OF_LIFE_CORPUS,
-                              CORPUS_STR(SIGN_OF_LIFE_CORPUS),
-                              CORPUS_DATA_INIT(signOfLifeFile)},
-     [CALGARY_SIX_FILES] = {CALGARY_SIX_FILES,
-                            CORPUS_STR(CALGARY_SIX_FILES),
-                            CORPUS_DATA_INIT(calgarySixFileNames)},
-     [CALGARY_FULL_SET] = {CALGARY_FULL_SET,
-                           CORPUS_STR(CALGARY_FULL_SET),
-                           CORPUS_DATA_INIT(calgaryFullFileNames)},
-     [ZERO_LENGTH_FILE] = {ZERO_LENGTH_FILE,
-                           CORPUS_STR(ZERO_LENGTH_FILE),
-                           CORPUS_DATA_INIT(zeroLengthFilenames)},
-     [OVERFLOW_FILE] = {OVERFLOW_FILE,
-                        CORPUS_STR(OVERFLOW_FILE),
-                        CORPUS_DATA_INIT(overflowFileNames)},
-     [OVERFLOW_AND_ZERO_FILE] = {OVERFLOW_AND_ZERO_FILE,
-                                 CORPUS_STR(OVERFLOW_AND_ZERO_FILE),
-                                 CORPUS_DATA_INIT(overflowAndZeroFileNames)},
-     [CORPUS_TYPE_EXTENDED] = {CORPUS_TYPE_EXTENDED,
-                               CORPUS_STR(CORPUS_TYPE_EXTENDED),
-                               CORPUS_DATA_EMPTY},
-     /*All Corpus type should added above
-      * CORPUS_TYPE_INVALID.
-      */
-     [CORPUS_TYPE_INVALID] = {CORPUS_TYPE_INVALID,
-                              CORPUS_STR(CORPUS_TYPE_INVALID),
-                              CORPUS_DATA_EMPTY}};
+static corpusInfo corpus[] = {
+    [CANTERBURY_CORPUS] = {CANTERBURY_CORPUS,
+                           CORPUS_STR(CANTERBURY_CORPUS),
+                           CORPUS_DATA_INIT(canterburyFileNames)},
+    [CALGARY_CORPUS] = {CALGARY_CORPUS,
+                        CORPUS_STR(CALGARY_CORPUS),
+                        CORPUS_DATA_INIT(calgaryFileNames)},
+    [RANDOM] = {RANDOM, CORPUS_STR(RANDOM), CORPUS_DATA_EMPTY},
+    [SIGN_OF_LIFE_CORPUS] = {SIGN_OF_LIFE_CORPUS,
+                             CORPUS_STR(SIGN_OF_LIFE_CORPUS),
+                             CORPUS_DATA_INIT(signOfLifeFile)},
+    [CALGARY_SIX_FILES] = {CALGARY_SIX_FILES,
+                           CORPUS_STR(CALGARY_SIX_FILES),
+                           CORPUS_DATA_INIT(calgarySixFileNames)},
+    [CALGARY_FULL_SET] = {CALGARY_FULL_SET,
+                          CORPUS_STR(CALGARY_FULL_SET),
+                          CORPUS_DATA_INIT(calgaryFullFileNames)},
+    [ZERO_LENGTH_FILE] = {ZERO_LENGTH_FILE,
+                          CORPUS_STR(ZERO_LENGTH_FILE),
+                          CORPUS_DATA_INIT(zeroLengthFilenames)},
+    [OVERFLOW_FILE] = {OVERFLOW_FILE,
+                       CORPUS_STR(OVERFLOW_FILE),
+                       CORPUS_DATA_INIT(overflowFileNames)},
+    [OVERFLOW_AND_ZERO_FILE] = {OVERFLOW_AND_ZERO_FILE,
+                                CORPUS_STR(OVERFLOW_AND_ZERO_FILE),
+                                CORPUS_DATA_INIT(overflowAndZeroFileNames)},
+    [CORPUS_TYPE_EXTENDED] = {CORPUS_TYPE_EXTENDED,
+                              CORPUS_STR(CORPUS_TYPE_EXTENDED),
+                              CORPUS_DATA_EMPTY},
+    /*All Corpus type should added above
+     * CORPUS_TYPE_INVALID.
+     */
+    [CORPUS_TYPE_INVALID] = {CORPUS_TYPE_INVALID,
+                             CORPUS_STR(CORPUS_TYPE_INVALID),
+                             CORPUS_DATA_EMPTY}};
 
 #define CHECK_CORPUS_TYPE_AND_RETURN(type, status)                             \
     do                                                                         \
@@ -1912,8 +1914,9 @@ CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
     return CPA_STATUS_SUCCESS;
 }
 
-Cpa32U
-getDcThroughput(Cpa32U totalBytes, perf_cycles_t cycles, Cpa32U numOfLoops)
+Cpa32U getDcThroughput(Cpa32U totalBytes,
+                       perf_cycles_t cycles,
+                       Cpa32U numOfLoops)
 {
     unsigned long long bytesSent = 0;
     unsigned long long time = cycles;
@@ -2363,3 +2366,35 @@ void freeCbTags(dc_callbacktag_t ***callbackTag,
 }
 
 
+
+CpaStatus sampleRemoveDcDpSession(CpaInstanceHandle dcInstance,
+                                  CpaDcSessionHandle pSessionHandle)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa16U retries = 0;
+    Cpa32U delay = REMOVE_SESSION_WAIT;
+
+    /*
+     * We do a incremental sleep starting from 50 micro secs and
+     * by incrementing the sleep time by twice the previous value
+     * for each retry. Total sleep time would be 1.6 secs
+     * for 15 number of retries which would be enough for all
+     * inflight requests to get processed.
+     */
+    do
+    {
+        status = cpaDcDpRemoveSession(dcInstance, pSessionHandle);
+        delay *= 2;
+        sleepNano(delay * 1000);
+    } while ((CPA_STATUS_RETRY == status) &&
+             (MAX_SESSION_REMOVE_RETRIES >= ++retries));
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Remove session failed with status %d\n", status);
+        status = CPA_STATUS_FAIL;
+    }
+
+    return status;
+}
+EXPORT_SYMBOL(sampleRemoveDcDpSession);

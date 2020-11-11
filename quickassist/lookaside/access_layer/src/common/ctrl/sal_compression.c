@@ -113,6 +113,8 @@
 #define CHAINING_CAPABILITY_MASK 0x1FFF0000
 #endif
 
+#define MAX_BANK_NUM 1024
+
 /* Type to access extended features bit fields */
 typedef struct dc_extended_features_s
 {
@@ -355,6 +357,11 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 
     pCompressionService->bankNum =
         (Cpa16U)Sal_Strtoul(adfGetParam, NULL, SAL_CFG_BASE_DEC);
+
+    if (pCompressionService->bankNum > MAX_BANK_NUM)
+    {
+        return CPA_STATUS_FAIL;
+    }
 
     status =
         Sal_StringParsing("Dc",

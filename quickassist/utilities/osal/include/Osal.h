@@ -1238,7 +1238,7 @@ OSAL_PUBLIC OSAL_STATUS osalMutexTryLock(OsalMutex *pMutex);
  * Creates a thread given a thread handle and a thread attribute object. The
  * same thread attribute object can be used to create separate threads. "NULL"
  * can be specified as the attribute, in which case the default values will
- * be used. The thread needs to be explicitly started using OsalThreadStart().
+ * be used. The thread needs to be explicitly started using osalThreadStart().
  *
  * @li Reentrant: yes
  * @li IRQ safe:  no
@@ -1316,9 +1316,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadSetPolicyAndPriority(OsalThread *thread,
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @note This function does not guarentee to kill the thread immediately. The
- * thread must use OsalThreadStopCheck() to check if it should perform
- * cleanup and suicide.
+ * @note This function does not guarantee to kill the thread immediately.
  *
  * @return -  OSAL_SUCCESS/OSAL_FAIL
  */

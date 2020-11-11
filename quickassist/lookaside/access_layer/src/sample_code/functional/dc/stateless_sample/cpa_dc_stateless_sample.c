@@ -208,7 +208,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
      * Deflate compression operation with DC_API_VERSION < 2.5.
      * cpaDcDeflateCompressBound API is used to get maximum output buffer size
      * for a Deflate compression operation with DC_API_VERSION >= 2.5 */
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 2 && CPA_DC_API_VERSION_NUM_MINOR >= 5)
+#if DC_API_VERSION_AT_LEAST(2, 5)
     status = cpaDcDeflateCompressBound(
         dcInstHandle, huffType, bufferSize, &dstBufferSize);
     if (CPA_STATUS_SUCCESS != status)

@@ -43,18 +43,12 @@ libosal_la_SOURCES = \
     quickassist/utilities/osal/src/linux/user_space/OsalAtomic.c \
     quickassist/utilities/osal/src/linux/user_space/OsalServices.c \
     quickassist/utilities/osal/src/linux/user_space/OsalUsrKrnProxy.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalCryptoInterface.c \
-    quickassist/utilities/osal/src/linux/user_space/openssl/aes_core.c \
-    quickassist/utilities/osal/src/linux/user_space/openssl/sha256.c \
-    quickassist/utilities/osal/src/linux/user_space/openssl/sha512.c \
-    quickassist/utilities/osal/src/linux/user_space/openssl/md5_dgst.c \
-    quickassist/utilities/osal/src/linux/user_space/openssl/mem_clr.c \
-    quickassist/utilities/osal/src/linux/user_space/openssl/sha1.c
+    quickassist/utilities/osal/src/linux/user_space/OsalCryptoInterface.c
 
 libosal_la_CFLAGS = -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space \
 		   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
 		   -I$(srcdir)/quickassist/utilities/osal/include \
-		   -D OSAL_ENSURE_ON \
+		   -DOSAL_ENSURE_ON -DUSE_OPENSSL \
 		   $(COMMON_FLAGS)
 
 noinst_LTLIBRARIES += libadf.la
@@ -113,7 +107,7 @@ lib@LIBUSDMNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		    -I$(srcdir)/quickassist/utilities/libusdm_drv/include \
 		    -I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
 			$(COMMON_FLAGS)
-lib@LIBUSDMNAME@_la_LDFLAGS = -version-info $(LIBADD_SO_VERSION) \
+lib@LIBUSDMNAME@_la_LDFLAGS = -version-info $(LIBUSDM_VERSION) \
 	$(COMMON_LDFLAGS) \
 	-export-symbols-regex '^(qae)'
 
@@ -214,11 +208,12 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		  -D USER_SPACE \
 		  -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
 		  $(COMMON_FLAGS)
-lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la
-lib@LIBQATNAME@_la_LDFLAGS = -version-info $(LIBADD_SO_VERSION) \
+lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la -lcrypto
+lib@LIBQATNAME@_la_LDFLAGS = -version-info $(LIBQAT_VERSION) \
 	$(COMMON_LDFLAGS) \
 	-export-symbols-regex '^(cpa|icp_sal)'
 
+pkgincludedir = "$(includedir)/qat"
 pkginclude_HEADERS = \
 	quickassist/include/cpa.h \
 	quickassist/include/cpa_types.h \
@@ -246,33 +241,35 @@ pkginclude_HEADERS = \
 	quickassist/lookaside/access_layer/include/icp_sal_versions.h \
 	quickassist/utilities/libusdm_drv/qae_mem.h
 
-systemd_unitdir = $(libdir)/systemd/system
-systemd_unit_DATA = quickassist/utilities/service/qat.service
+if HAVE_SYSTEMD
+systemdsystemunit_DATA = quickassist/utilities/service/qat.service
+endif
 
 systemd_scriptsdir = $(prefix)/sbin
 dist_systemd_scripts_SCRIPTS = quickassist/utilities/service/qat_init.sh
 
 install-data-hook:
+if SERVICE_AC
 	if [ "$(shell id -u)" == 0 ]; then \
 		/usr/sbin/groupadd qat 2> /dev/null || :; \
 		systemctl daemon-reload; \
 		systemctl start qat; \
 		systemctl enable qat; \
 	fi
-	ldconfig
+endif
 
 uninstall-hook:
+if SERVICE_AC
 	if [ "$(shell id -u)" == 0 ]; then \
 		systemctl daemon-reload; \
 		systemctl stop qat; \
 		systemctl disable qat; \
 	fi
-	ldconfig
+endif
+
+dist_man_MANS = qat_init.sh.8 qatmgr.8
 
 EXTRA_DIST = LICENSE \
-	LICENSE.OPENSSL \
-	qat_init.sh.8 \
-	qatmgr.8 \
 	autogen.sh \
 	quickassist/lookaside/firmware/include \
 	quickassist/include \
@@ -285,6 +282,9 @@ EXTRA_DIST = LICENSE \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_user_utils.h \
 	quickassist/utilities/libusdm_drv/user_space/qae_page_table.h \
 	quickassist/lookaside/access_layer/src/sample_code
+
+DISTCHECK_CONFIGURE_FLAGS = \
+        --with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
 
 ######################
 #  Build parameters  #

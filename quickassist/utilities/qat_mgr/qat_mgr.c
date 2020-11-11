@@ -109,43 +109,47 @@ void *handle_client(void *arg)
     connect_fd = (intptr_t)arg;
     tid = pthread_self();
 
-    pr_dbg("connect_fd %d, tid %ul\n", connect_fd, tid);
+    qat_log(LOG_LEVEL_DEBUG, "connect_fd %d, tid %ul\n", connect_fd, tid);
 
     while ((bytes_r = read(connect_fd, (void *)&msgreq, sizeof(msgreq))) > 0)
     {
-        pr_dbg("tid %d, Received %u bytes: Message type %d, length %d\n",
-               tid,
-               bytes_r,
-               msgreq.hdr.type,
-               msgreq.hdr.len);
+        qat_log(LOG_LEVEL_DEBUG,
+                "tid %d, Received %u bytes: Message type %d, length %d\n",
+                tid,
+                bytes_r,
+                msgreq.hdr.type,
+                msgreq.hdr.len);
 
         handle_message(&msgreq, &msgrsp, &section_name, tid, &index);
 
         /* Send response */
         bytes_w = write(connect_fd, (const void *)&msgrsp, msgrsp.hdr.len);
+        if (bytes_w < 0)
+            break;
+
         if (bytes_w < msgrsp.hdr.len)
-            pr_err("Socket write incomplete\n");
+            qat_log(LOG_LEVEL_ERROR, "Socket write incomplete\n");
     }
 
     /* If the socket is closed while a section is still held then release it */
     if (index >= 0 && section_name)
     {
-        pr_info("Force release of section %s\n", section_name);
+        qat_log(LOG_LEVEL_INFO, "Force release of section %s\n", section_name);
         release_section(
             index, tid, section_name, strnlen(section_name, QATMGR_MAX_STRLEN));
         free(section_name);
     }
 
-    if (bytes_r < 0)
+    if (bytes_r < 0 || bytes_w < 0)
     {
-        pr_err("Socket read error\n");
-        exit(-1);
+        qat_log(LOG_LEVEL_ERROR, "Socket read/write error %d\n", errno);
     }
     else if (bytes_r == 0)
     {
-        pr_info("EOF tid %d\n", tid);
-        close(connect_fd);
+        qat_log(LOG_LEVEL_INFO, "EOF tid %d\n", tid);
     }
+
+    close(connect_fd);
     return NULL;
 }
 
@@ -219,7 +223,8 @@ static void daemonise(void)
     /* Pipe used to indicate success/failure from child */
     if (pipe(pipefd))
     {
-        pr_err("Failed to create pipe. %s\n", strerror(errno));
+        qat_log(
+            LOG_LEVEL_ERROR, "Failed to create pipe. %s\n", strerror(errno));
         exit(1);
     }
 
@@ -227,7 +232,7 @@ static void daemonise(void)
 
     if (pid < 0)
     {
-        pr_err("Failed to fork. %s\n", strerror(errno));
+        qat_log(LOG_LEVEL_ERROR, "Failed to fork. %s\n", strerror(errno));
     }
     else if (pid > 0)
     {
@@ -241,12 +246,12 @@ static void daemonise(void)
         if (len > 0)
         {
             /* Error from the child */
-            pr_err("%s\n", msg);
+            qat_log(LOG_LEVEL_ERROR, "%s\n", msg);
             exit(1);
         }
         else if (len < 0)
         {
-            pr_err("Pipe error %s\n", strerror(errno));
+            qat_log(LOG_LEVEL_ERROR, "Pipe error %s\n", strerror(errno));
             exit(1);
         }
         else
@@ -266,7 +271,7 @@ static void daemonise(void)
 
         if (pid < 0)
         {
-            pr_err("Failed to fork. %s\n", strerror(errno));
+            qat_log(LOG_LEVEL_ERROR, "Failed to fork. %s\n", strerror(errno));
         }
         else if (pid > 0)
         {
@@ -278,7 +283,8 @@ static void daemonise(void)
 
             if (chdir("/") < 0)
             {
-                pr_err("Failed to chdir. %s\n", strerror(errno));
+                qat_log(
+                    LOG_LEVEL_ERROR, "Failed to chdir. %s\n", strerror(errno));
             }
 #define MAX_FILES 1024
             if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
@@ -412,7 +418,8 @@ int main(int argc, char **argv)
 
     for (i = 0; i < num_devices; i++)
     {
-        pr_info("Device %d, %X,  %04x:%02x:%02x.%01x\n",
+        qat_log(LOG_LEVEL_INFO,
+                "Device %d, %X,  %04x:%02x:%02x.%01x\n",
                 i,
                 dev_list[i].bdf,
                 BDF_NODE(dev_list[i].bdf),
@@ -424,7 +431,8 @@ int main(int argc, char **argv)
     if ((ret = qat_mgr_build_data(dev_list, num_devices, policy, 0)))
     {
         if (foreground)
-            pr_err("Failed qat_mgr_build_data. ret %d\n", ret);
+            qat_log(
+                LOG_LEVEL_ERROR, "Failed qat_mgr_build_data. ret %d\n", ret);
         else
             write_parent(parent_pipe, "Failed qat_mgr_build_data");
         exit(ret);
@@ -441,6 +449,8 @@ int main(int argc, char **argv)
     memset(&sockaddr, 0, sizeof(sockaddr));
     sockaddr.sun_family = AF_UNIX;
     strncpy(sockaddr.sun_path, sock_file, sizeof(sockaddr.sun_path) - 1);
+    sockaddr.sun_path[sizeof(sockaddr.sun_path) - 1] = 0;
+
     /* Remove an existing file if it exists */
     unlink(sock_file);
 
@@ -476,11 +486,12 @@ int main(int argc, char **argv)
         if (ret < 0)
             perror("getsockopt error");
         else
-            pr_dbg("Client pid %ld\n", (long)ucred.pid);
+            qat_log(LOG_LEVEL_DEBUG, "Client pid %ld\n", (long)ucred.pid);
 
         ret = pthread_create(
             &client_tid, NULL, handle_client, (void *)(intptr_t)connect_fd);
-        pr_dbg("Child thread %lu\n", client_tid);
+        pthread_detach(client_tid);
+        qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_tid);
     }
 
     qat_mgr_cleanup_cfg();

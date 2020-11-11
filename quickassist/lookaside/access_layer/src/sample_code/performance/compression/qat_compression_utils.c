@@ -785,6 +785,14 @@ CpaStatus qatCmpBuffers(compression_test_params_t *setup,
     {
         processedData = qaeMemAlloc(sizeOfDstFile);
         originalData = qaeMemAlloc(sizeOfSrcFile);
+        if (NULL == processedData || NULL == originalData)
+        {
+            PRINT_ERR("Memory allocation failure for data comparison\n");
+            status = CPA_STATUS_FAIL;
+        }
+    }
+    if (CPA_STATUS_SUCCESS == status)
+    {
         for (j = 0; j < setup->numberOfBuffers[i]; j++)
         {
             memcpy((originalData + offset),
@@ -827,7 +835,13 @@ CpaStatus qatCmpBuffers(compression_test_params_t *setup,
             PRINT_ERR("Buffers comparison Failed i:%d, count:%d\n", i, count);
             status = CPA_STATUS_FAIL;
         }
+    }
+    if (NULL != processedData)
+    {
         qaeMemFree((void **)&processedData);
+    }
+    if (NULL != originalData)
+    {
         qaeMemFree((void **)&originalData);
     }
 

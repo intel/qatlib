@@ -75,7 +75,7 @@ cpa_sample_code_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/samp
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-cpa_sample_code_LDADD = -lpthread -lcrypto -ludev -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la
+cpa_sample_code_LDADD = -lpthread -lcrypto -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la
 
 noinst_LTLIBRARIES += libcpa_sample_code_s.la
 libcpa_sample_code_s_la_SOURCES = \
@@ -142,7 +142,7 @@ dc_dp_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-dc_dp_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+dc_dp_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += stateless_sample
 stateless_sample_SOURCES = \
@@ -167,7 +167,7 @@ stateless_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sam
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-stateless_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+stateless_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += stateful_sample
 stateful_sample_SOURCES = \
@@ -192,7 +192,7 @@ stateful_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/samp
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-stateful_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+stateful_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += stateless_multi_op_checksum_sample
 stateless_multi_op_checksum_sample_SOURCES = \
@@ -217,7 +217,7 @@ stateless_multi_op_checksum_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/ac
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-stateless_multi_op_checksum_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+stateless_multi_op_checksum_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += dc_sample_event_notif
 dc_sample_event_notif_SOURCES = \
@@ -242,7 +242,7 @@ dc_sample_event_notif_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/sr
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-dc_sample_event_notif_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+dc_sample_event_notif_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += chaining_sample
 chaining_sample_SOURCES = \
@@ -267,7 +267,7 @@ chaining_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/samp
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-chaining_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+chaining_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += alg_chaining_sample
 alg_chaining_sample_SOURCES = \
@@ -292,7 +292,7 @@ alg_chaining_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-alg_chaining_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+alg_chaining_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += ccm_sample
 ccm_sample_SOURCES = \
@@ -317,7 +317,7 @@ ccm_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_co
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-ccm_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+ccm_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += cipher_sample
 cipher_sample_SOURCES = \
@@ -342,7 +342,7 @@ cipher_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-cipher_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+cipher_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += gcm_sample
 gcm_sample_SOURCES = \
@@ -367,7 +367,7 @@ gcm_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_co
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-gcm_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+gcm_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += hash_file_sample
 hash_file_sample_SOURCES = \
@@ -392,7 +392,7 @@ hash_file_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sam
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-hash_file_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+hash_file_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += hash_sample
 hash_sample_SOURCES = \
@@ -417,7 +417,7 @@ hash_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_c
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-hash_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+hash_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += ipsec_sample
 ipsec_sample_SOURCES = \
@@ -442,7 +442,7 @@ ipsec_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-ipsec_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+ipsec_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += ssl_sample
 ssl_sample_SOURCES = \
@@ -468,7 +468,7 @@ ssl_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_co
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-ssl_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+ssl_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += symdp_sample
 symdp_sample_SOURCES = \
@@ -493,7 +493,7 @@ symdp_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-symdp_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+symdp_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += update_sample
 update_sample_SOURCES = \
@@ -518,7 +518,7 @@ update_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-update_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+update_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += diffie_hellman_sample
 diffie_hellman_sample_SOURCES = \
@@ -543,7 +543,7 @@ diffie_hellman_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/sr
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-diffie_hellman_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+diffie_hellman_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += prime_sample
 prime_sample_SOURCES = \
@@ -568,7 +568,7 @@ prime_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-prime_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+prime_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += hkdf_sample
 hkdf_sample_SOURCES = \
@@ -593,7 +593,7 @@ hkdf_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_c
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-hkdf_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+hkdf_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 noinst_PROGRAMS += ec_montedwds_sample
 ec_montedwds_sample_SOURCES = \
@@ -618,7 +618,7 @@ ec_montedwds_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/
 	-DWITH_UPSTREAM \
 	-DDO_CRYPTO \
 	$(COMMON_FLAGS)
-ec_montedwds_sample_LDADD = -lpthread -lcrypto -ludev -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
+ec_montedwds_sample_LDADD = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la libcpa_sample_code_s.la
 
 samples: $(lib_LTLIBRARIES) cpa_sample_code dc_dp_sample stateless_sample \
 	stateful_sample stateless_multi_op_checksum_sample dc_sample_event_notif \

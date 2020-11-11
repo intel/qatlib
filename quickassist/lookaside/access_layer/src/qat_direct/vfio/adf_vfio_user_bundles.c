@@ -99,6 +99,7 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
 {
     struct qatmgr_msg_req req;
     struct qatmgr_msg_rsp rsp;
+    int device_name_len;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
 
@@ -118,14 +119,13 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
     accel_dev->arb_mask = rsp.device_info.arb_mask;
     accel_dev->maxNumRingsPerBank = rsp.device_info.max_rings_per_bank;
 
-    if (strnlen(rsp.device_info.device_name,
-                sizeof(rsp.device_info.device_name)) <
-        sizeof(accel_dev->deviceName))
+    device_name_len = strnlen(rsp.device_info.device_name,
+                              sizeof(rsp.device_info.device_name));
+    if (device_name_len < sizeof(accel_dev->deviceName))
     {
-        strncpy(accel_dev->deviceName,
-                rsp.device_info.device_name,
-                sizeof(accel_dev->deviceName));
-        accel_dev->deviceName[sizeof(accel_dev->deviceName) - 1] = '\0';
+        ICP_STRLCPY(accel_dev->deviceName,
+                    rsp.device_info.device_name,
+                    sizeof(accel_dev->deviceName));
     }
     else
         return -EINVAL;
@@ -180,13 +180,14 @@ int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
     req.device_num = dev_id;
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
         goto accel_fail;
-    strncpy(device_id, rsp.name, sizeof(device_id));
+
+    ICP_STRLCPY(device_id, rsp.name, sizeof(device_id));
 
     /* Get vfio device file name */
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_VFIO_FILE))
         goto accel_fail;
 
-    strncpy(vfio_file, rsp.vfio_file.name, sizeof(vfio_file));
+    ICP_STRLCPY(vfio_file, rsp.vfio_file.name, sizeof(vfio_file));
     group_fd = rsp.vfio_file.fd;
 
     ret = open_vfio_dev(vfio_file, device_id, group_fd, vfio_dev);

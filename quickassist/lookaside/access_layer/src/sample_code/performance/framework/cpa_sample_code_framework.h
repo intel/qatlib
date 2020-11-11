@@ -127,7 +127,7 @@
 #define DEFAULT_MAP (0x1)
 #define CRYPTO (1)
 #define COMPRESSION (2)
-#define MAX_RETRY (5)
+#define MAX_RETRY (10)
 #define SLEEP_ONE_SEC (1)
 #define SLEEP_ONE_HUNDRED_MILLISEC (100)
 
@@ -199,6 +199,7 @@ extern volatile CpaBoolean reliability_g;
 extern volatile CpaBoolean cnverr_g;
 extern volatile CpaBoolean error_flag_g;
 CpaStatus setReliability(CpaBoolean val);
+CpaStatus setUseStaticPrime(int val);
 CpaStatus printReliability(void);
 
 extern volatile CpaBoolean fineTune_g;

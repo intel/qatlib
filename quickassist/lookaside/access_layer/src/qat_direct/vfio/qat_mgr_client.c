@@ -68,25 +68,25 @@ static int qatmgr_socket_open(void)
 
     if (qatmgr_sock > 0)
     {
-        pr_info("Failed to open socket\n");
+        qat_log(LOG_LEVEL_ERROR, "Failed to open socket\n");
         return -1;
     }
 
     qatmgr_sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (qatmgr_sock < 0)
     {
-        pr_err("Failed to create socket\n");
+        qat_log(LOG_LEVEL_ERROR, "Failed to create socket\n");
         return -1;
     }
 
     memset(&sockaddr, 0, sizeof(sockaddr));
     sockaddr.sun_family = AF_UNIX;
-    strncpy(sockaddr.sun_path, QATMGR_SOCKET, sizeof(sockaddr.sun_path) - 1);
+    ICP_STRLCPY(sockaddr.sun_path, QATMGR_SOCKET, sizeof(sockaddr.sun_path));
 
     ret = connect(qatmgr_sock, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
     if (ret < 0)
     {
-        pr_info("Failed to connect to QAT manager\n");
+        qat_log(LOG_LEVEL_INFO, "Failed to connect to QAT manager\n");
         close(qatmgr_sock);
         qatmgr_sock = -1;
         return -1;
@@ -119,7 +119,7 @@ static int adf_vfio_build_sconfig()
         if (errno == ERANGE || *fin != 0 || devs < 0 ||
             devs > MAX_DEVS_STATIC_CFG)
         {
-            pr_err("Invalid environment value \"%s\"\n", env);
+            qat_log(LOG_LEVEL_ERROR, "Invalid environment value \"%s\"\n", env);
             return -EINVAL;
         }
     }
@@ -142,7 +142,7 @@ static int adf_vfio_build_sconfig()
     /* If no device is found return an error */
     if (n == 0)
     {
-        pr_err("No device found\n");
+        qat_log(LOG_LEVEL_ERROR, "No device found\n");
         return -ENODEV;
     }
 
@@ -166,7 +166,8 @@ static int adf_vfio_build_sconfig()
 
     for (i = 0; i < n; i++)
     {
-        pr_info("Device %d, %X, %04x:%02x:%02x.%01x\n",
+        qat_log(LOG_LEVEL_INFO,
+                "Device %d, %X, %04x:%02x:%02x.%01x\n",
                 i,
                 dev_list[i].bdf,
                 BDF_NODE(dev_list[i].bdf),
@@ -190,27 +191,28 @@ int qatmgr_open(void)
     ret = qatmgr_socket_open();
     if (ret)
     {
-        pr_info("Build static configuration\n");
+        qat_log(LOG_LEVEL_INFO, "Build static configuration\n");
         ret = adf_vfio_build_sconfig();
     }
 
     return ret;
 }
 
-void qatmgr_close(void)
+int qatmgr_close(void)
 {
     if (qatmgr_sock <= 0)
     {
-        pr_info("Cleanup static configuration\n");
+        qat_log(LOG_LEVEL_DEBUG, "Cleanup static configuration\n");
         qat_mgr_cleanup_cfg();
-        return;
+        return 0;
     }
 
     close(qatmgr_sock);
     qatmgr_sock = -1;
-    osalMutexDestroy(&qatmgr_mutex);
+    if (osalMutexDestroy(&qatmgr_mutex) == OSAL_FAIL)
+        return -1;
 
-    return;
+    return 0;
 }
 
 int qatmgr_query(struct qatmgr_msg_req *req,
@@ -247,7 +249,8 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             size_tx = sizeof(req->inst);
             break;
         default:
-            pr_err("Unknown qat manager message type %d\n", type);
+            qat_log(
+                LOG_LEVEL_ERROR, "Unknown qat manager message type %d\n", type);
             return -1;
     }
 
@@ -263,9 +266,10 @@ int qatmgr_query(struct qatmgr_msg_req *req,
     numchars = write(qatmgr_sock, req, req->hdr.len);
     if (numchars != req->hdr.len)
     {
-        pr_err("Failed write to qatmgr socket %lu, expected %u\n",
-               numchars,
-               req->hdr.len);
+        qat_log(LOG_LEVEL_ERROR,
+                "Failed write to qatmgr socket %lu, expected %u\n",
+                numchars,
+                req->hdr.len);
         osalMutexUnlock(&qatmgr_mutex);
         return -1;
     }
@@ -277,13 +281,15 @@ int qatmgr_query(struct qatmgr_msg_req *req,
     if (rsp->hdr.type != type)
     {
         if (rsp->hdr.type == QATMGR_MSGTYPE_BAD)
-            pr_err("Bad qatmgr response to request %d, %s\n",
-                   req->hdr.type,
-                   rsp->error_text);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Bad qatmgr response to request %d, %s\n",
+                    req->hdr.type,
+                    rsp->error_text);
         else
-            pr_err("Unexpected qatmgr response %d to request %d\n",
-                   rsp->hdr.type,
-                   req->hdr.type);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Unexpected qatmgr response %d to request %d\n",
+                    rsp->hdr.type,
+                    req->hdr.type);
         return -1;
     }
 
@@ -316,14 +322,16 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             size_rx = sizeof(rsp->instance_info);
             break;
         default:
-            pr_err("Unknown qat manager message type %d\n", type);
+            qat_log(
+                LOG_LEVEL_ERROR, "Unknown qat manager message type %d\n", type);
             return -1;
     }
     if (numchars < sizeof(rsp->hdr) + size_rx)
     {
-        pr_err("Failed to read from qatmgr socket, %lu expected %lu\n",
-               numchars,
-               sizeof(rsp->hdr) + size_rx);
+        qat_log(LOG_LEVEL_ERROR,
+                "Failed to read from qatmgr socket, %lu expected %lu\n",
+                numchars,
+                sizeof(rsp->hdr) + size_rx);
         return -1;
     }
 

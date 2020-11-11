@@ -2411,7 +2411,7 @@ CpaStatus calculateRequireBuffers2(compression_test_params_t *dcSetup)
     }
     dcSetup->numberOfOutputLists =
         qaeMemAlloc(dcSetup->sessions * sizeof(Cpa32U));
-    if (NULL == dcSetup->numberOfBuffers)
+    if (NULL == dcSetup->numberOfOutputLists)
     {
         PRINT("Could not allocate memory for dcSetup numberOfBuffers array");
         qaeMemFree((void **)&dcSetup->numberOfBuffers);
