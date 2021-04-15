@@ -78,7 +78,8 @@ void LacLn_CompileTimeAssertions(void)
        icp_qat_fw_maths_modexp_l2560_input_t,
        icp_qat_fw_maths_modexp_l3072_input_t,
        icp_qat_fw_maths_modexp_l3584_input_t,
-       icp_qat_fw_maths_modexp_l4096_input_t structures are equivalent */
+       icp_qat_fw_maths_modexp_l4096_input_t,
+       icp_qat_fw_maths_modexp_l8192_input_t structures are equivalent */
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_maths_modexp_l512_input_t, g) ==
                         LAC_IDX_OF(icp_qat_fw_maths_modexp_l1024_input_t, g));
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_maths_modexp_l512_input_t, e) ==
@@ -127,6 +128,13 @@ void LacLn_CompileTimeAssertions(void)
                         LAC_IDX_OF(icp_qat_fw_maths_modexp_l4096_input_t, e));
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_maths_modexp_l512_input_t, m) ==
                         LAC_IDX_OF(icp_qat_fw_maths_modexp_l4096_input_t, m));
+
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_maths_modexp_l512_input_t, g) ==
+                        LAC_IDX_OF(icp_qat_fw_maths_modexp_l8192_input_t, g));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_maths_modexp_l512_input_t, e) ==
+                        LAC_IDX_OF(icp_qat_fw_maths_modexp_l8192_input_t, e));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_maths_modexp_l512_input_t, m) ==
+                        LAC_IDX_OF(icp_qat_fw_maths_modexp_l8192_input_t, m));
 
     /* *************************************************************
      * MOD INV Checks - ODD
@@ -202,6 +210,13 @@ void LacLn_CompileTimeAssertions(void)
         LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l128_input_t, b) ==
         LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l4096_input_t, b));
 
+    COMPILE_TIME_ASSERT(
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l128_input_t, a) ==
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l8192_input_t, a));
+    COMPILE_TIME_ASSERT(
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l128_input_t, b) ==
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l8192_input_t, b));
+
     /* *************************************************************
      * MOD INV Checks - EVEN
      * ************************************************************* */
@@ -275,4 +290,11 @@ void LacLn_CompileTimeAssertions(void)
     COMPILE_TIME_ASSERT(
         LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l128_input_t, b) ==
         LAC_IDX_OF(icp_qat_fw_maths_modinv_even_l4096_input_t, b));
+
+    COMPILE_TIME_ASSERT(
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l128_input_t, a) ==
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_even_l8192_input_t, a));
+    COMPILE_TIME_ASSERT(
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_odd_l128_input_t, b) ==
+        LAC_IDX_OF(icp_qat_fw_maths_modinv_even_l8192_input_t, b));
 }

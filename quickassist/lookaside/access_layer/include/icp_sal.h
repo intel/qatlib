@@ -73,6 +73,10 @@
 #ifndef ICP_SAL_H
 #define ICP_SAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef ICP_DC_ERROR_SIMULATION
 /*
  * icp_sal_dc_simulate_error
@@ -125,5 +129,9 @@ CpaStatus icp_sal_dc_simulate_error(Cpa8U numErrors, Cpa8S dcError);
  * returns                           Number of failing requests of type dcError
  */
 Cpa64U icp_sal_get_dc_error(Cpa8S dcError);
+
+#ifdef __cplusplus
+} /* close the extern "C" { */
+#endif
 
 #endif

@@ -140,6 +140,9 @@
 #define TH_CY_RX_1 1
 #define DOUBLE_INCR 2
 
+#define NUM_CRYPTO_SYM_RX_RINGS 1
+#define NUM_CRYPTO_ASYM_RX_RINGS 1
+
 #ifdef KERNEL_SPACE
 #define ASYM_NOT_SUPPORTED
 #endif
@@ -2892,9 +2895,21 @@ CpaStatus cpaCySymQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
     {
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
     }
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CHACHA_POLY)
+    {
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_POLY);
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_CHACHA);
+    }
 
     pCapInfo->partialPacketSupported = CPA_TRUE;
 
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SHA3_EXT)
+    {
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_224);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_384);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_512);
+    }
     return CPA_STATUS_SUCCESS;
 }
 
@@ -3009,6 +3024,96 @@ CpaStatus icp_sal_CyPollInstance(CpaInstanceHandle instanceHandle_in,
     /* Call adf to do the polling. */
     status = icp_adf_pollInstance(trans_hndTable, num_rx_rings, response_quota);
 
+    return status;
+}
+
+/*
+ ******************************************************************************
+ * @ingroup cpaCyCommon
+ * Crypto specific polling function which polls a symmetric instance.
+ *****************************************************************************/
+CpaStatus icp_sal_CyPollSymRing(CpaInstanceHandle instanceHandle_in,
+                                Cpa32U response_quota)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    sal_crypto_service_t *crypto_handle = NULL;
+    icp_comms_trans_handle trans_hndTable[NUM_CRYPTO_SYM_RX_RINGS] = {0};
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
+    {
+        crypto_handle = (sal_crypto_service_t *)Lac_GetFirstHandle(
+            SAL_SERVICE_TYPE_CRYPTO_SYM);
+    }
+    else
+    {
+        crypto_handle = (sal_crypto_service_t *)instanceHandle_in;
+    }
+    LAC_CHECK_NULL_PARAM(crypto_handle);
+    SAL_CHECK_INSTANCE_TYPE(
+        crypto_handle, (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_SYM));
+    SAL_RUNNING_CHECK(crypto_handle);
+    /*
+     * From the instanceHandle we must get the trans_handle and send
+     * down to adf for polling.
+     * Populate trans handle table with the appropriate handle.
+     */
+    trans_hndTable[TH_CY_RX_0] = crypto_handle->trans_handle_sym_rx;
+    /* Call adf to do the polling. */
+    status = icp_adf_pollInstance(
+        trans_hndTable, NUM_CRYPTO_SYM_RX_RINGS, response_quota);
+    return status;
+}
+
+/*
+ ******************************************************************************
+ * @ingroup cpaCyCommon
+ * Crypto specific polling function which polls an asymmetric instance.
+ *****************************************************************************/
+CpaStatus icp_sal_CyPollAsymRing(CpaInstanceHandle instanceHandle_in,
+                                 Cpa32U response_quota)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    sal_crypto_service_t *crypto_handle = NULL;
+    sal_service_t *gen_handle = NULL;
+    icp_comms_trans_handle trans_hndTable[NUM_CRYPTO_ASYM_RX_RINGS] = {0};
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
+    {
+        crypto_handle = (sal_crypto_service_t *)Lac_GetFirstHandle(
+            SAL_SERVICE_TYPE_CRYPTO_ASYM);
+    }
+    else
+    {
+        crypto_handle = (sal_crypto_service_t *)instanceHandle_in;
+    }
+    LAC_CHECK_NULL_PARAM(crypto_handle);
+    SAL_CHECK_INSTANCE_TYPE(
+        crypto_handle,
+        (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+
+    gen_handle = &(crypto_handle->generic_service_info);
+
+    if ((Sal_ServiceIsInError(crypto_handle)))
+    {
+        LAC_LOG_DEBUG("Generate dummy responses\n");
+        status = SalCtrl_CyGenResponses(crypto_handle, gen_handle);
+        if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
+        {
+            LAC_LOG_ERROR("Failed to generate dummy Responses\n");
+        }
+        return status;
+    }
+
+    SAL_RUNNING_CHECK(crypto_handle);
+    /*
+     * From the instanceHandle we must get the trans_handle and send
+     * down to adf for polling.
+     * Populate trans handle table with the appropriate handle.
+     */
+    trans_hndTable[TH_CY_RX_0] = crypto_handle->trans_handle_asym_rx;
+    /* Call adf to do the polling. */
+    status = icp_adf_pollInstance(
+        trans_hndTable, NUM_CRYPTO_ASYM_RX_RINGS, response_quota);
     return status;
 }
 

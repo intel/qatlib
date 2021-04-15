@@ -463,7 +463,7 @@ CpaStatus LacPrimeParameterCheck(CpaCyPrimeTestCbFunc pCb,
      *  not-even (LSB is set) and not-null */
     LAC_CHECK_FLAT_BUFFER_PARAM_PKE(&pOpData->primeCandidate,
                                     CHECK_LESS_EQUALS,
-                                    LAC_MAX_OP_SIZE_IN_BITS,
+                                    LAC_MAX_PRIME_SIZE_IN_BITS,
                                     LAC_CHECK_LSB_YES);
 
     /* It is an error if no test is booked */

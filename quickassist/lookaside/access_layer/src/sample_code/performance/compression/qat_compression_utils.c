@@ -67,6 +67,73 @@
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
 
+CpaStatus qatGetCompressBoundDestinationBufferSize(
+    compression_test_params_t *setup,
+    Cpa32U dcInputBufferSize,
+    Cpa32U *dcDestBufferSize)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(dcDestBufferSize, status);
+
+    if (setup->setupData.compType == CPA_DC_DEFLATE)
+    {
+
+        status = cpaDcDeflateCompressBound(setup->dcInstanceHandle,
+                                           setup->setupData.huffType,
+                                           dcInputBufferSize,
+                                           dcDestBufferSize);
+    }
+    else
+    {
+        PRINT_ERR("%s : Unsupported Compression Type %d\n",
+                  __func__,
+                  setup->setupData.compType);
+        status = CPA_STATUS_FAIL;
+    }
+
+    if (status == CPA_STATUS_SUCCESS)
+    {
+        setup->dcDestBufferSize = *dcDestBufferSize;
+    }
+
+    return status;
+}
+
+static CpaStatus qatDcGetDestBufferAdditionalSize(
+    compression_test_params_t *setup,
+    Cpa32U *additionalSize)
+{
+    Cpa32U compDestBufferSize = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(additionalSize, status);
+
+    *additionalSize = 0;
+
+    if (setup->setupData.sessDirection == CPA_DC_DIR_COMPRESS)
+    {
+        status = qatGetCompressBoundDestinationBufferSize(
+            setup, setup->bufferSize, &compDestBufferSize);
+
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            *additionalSize = compDestBufferSize - setup->bufferSize;
+        }
+    }
+    else
+    {
+        if (MIN_DST_BUFFER_SIZE >= setup->bufferSize)
+        {
+            *additionalSize = setup->bufferSize;
+        }
+
+        /* Save the Destination buffer size in the setup parameters for future
+         * use*/
+        setup->dcDestBufferSize = *additionalSize + setup->bufferSize;
+    }
+
+    return status;
+}
+
 /*free the array of source and destination CpaBufferLists
  * free the array of results*/
 CpaStatus qatFreeCompressionLists(compression_test_params_t *setup,
@@ -294,7 +361,6 @@ CpaStatus qatFreeCompressionFlatBuffer(compression_test_params_t *setup,
 
     return status;
 }
-
 /*allocate the CpaFlatBuffers and privateMetaData in the CpaBufferLists array
  * for both source and destination lists*/
 CpaStatus qatAllocateCompressionFlatBuffers(
@@ -340,12 +406,13 @@ CpaStatus qatAllocateCompressionFlatBuffers(
         status = cpaDcBufferListGetMetaSize(
             setup->dcInstanceHandle, numBuffersInDstList, &metaSize);
     }
-    /*For smaller buffers in compression, allocate double the destination
-     * buffer size to store the result, incase the compression results in
-     * expansion*/
-    if (MIN_DST_BUFFER_SIZE >= sizeOfBuffersInDstList[0])
+
+    if (CPA_STATUS_SUCCESS == status)
     {
-        additionalSize = sizeOfBuffersInDstList[0];
+        /* Get Destination buffer additional size.
+         * This additionalSize will be added to the packet size
+         * and the total size is allocated for destination buffer */
+        status = qatDcGetDestBufferAdditionalSize(setup, &additionalSize);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -930,16 +997,8 @@ CpaStatus qatHandleUnconsumedData(compression_test_params_t *setup,
                                   Cpa32U remainder)
 {
     CpaFlatBuffer tempFB;
-    Cpa32U tempBufferSize = setup->bufferSize;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-    /*For smaller buffers in compression, the destination buffer will be
-     * allocated with double the buffer size to store the result,
-     * incase the compression results in expansion*/
-    if (MIN_DST_BUFFER_SIZE >= tempBufferSize)
-    {
-        tempBufferSize += setup->bufferSize;
-    }
     if (listNum == setup->numLists - 1)
     {
         PRINT_ERR("Unconsumed data not expected in the last list\n");
@@ -951,13 +1010,13 @@ CpaStatus qatHandleUnconsumedData(compression_test_params_t *setup,
             qaeMemAllocNUMA(setup->bufferSize, setup->node, BYTE_ALIGNMENT_64);
         QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(tempFB.pData, status);
         if (bufferListArray[listNum + 1].pBuffers->dataLenInBytes + remainder >
-            tempBufferSize)
+            setup->dcDestBufferSize)
         {
             PRINT_ERR("The unconsumed data (%d) does not fit the next buffer "
                       "size (%d) /n",
                       remainder +
                           bufferListArray[listNum + 1].pBuffers->dataLenInBytes,
-                      tempBufferSize);
+                      setup->dcDestBufferSize);
             return CPA_STATUS_FAIL;
         }
         if (CPA_STATUS_SUCCESS == status)
@@ -1098,7 +1157,7 @@ CpaStatus qatCompressResetBufferList(compression_test_params_t *setup,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U i, j = 0;
-    Cpa32U additionalSize = 0;
+    Cpa32U bufferSize = 0;
 
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(setup, status);
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(buffListArray, status);
@@ -1108,15 +1167,15 @@ CpaStatus qatCompressResetBufferList(compression_test_params_t *setup,
         {
             for (j = 0; j < buffListArray->numBuffers; j++)
             {
-                if (MIN_DST_BUFFER_SIZE >= flafBufferSize[i] || isCmpBuffer)
-                {
-                    additionalSize = flafBufferSize[i];
-                }
-                buffListArray[i].pBuffers[j].dataLenInBytes =
-                    flafBufferSize[i] + additionalSize;
-                memset(buffListArray[i].pBuffers[j].pData,
-                       0,
-                       flafBufferSize[i] + additionalSize);
+                /* Recalculate the buffer size as it can be double the
+                 * packet size. Destination buffer size is saved in setup */
+                if (isCmpBuffer)
+                    bufferSize = 2 * flafBufferSize[i];
+                else
+                    bufferSize = setup->dcDestBufferSize;
+
+                buffListArray[i].pBuffers[j].dataLenInBytes = bufferSize;
+                memset(buffListArray[i].pBuffers[j].pData, 0, bufferSize);
             }
         }
     }
@@ -1955,5 +2014,98 @@ CpaStatus performOffloadCalculationBusyLoop(
 
     do_div(setup->performanceStats->offloadCycles,
            setup->performanceStats->responses);
+    return status;
+}
+
+CpaStatus qatDcGetPreTestRecoveryCount(compression_test_params_t *dcSetup,
+                                       CpaDcInstanceCapabilities *capabilities,
+                                       perf_data_t *performanceStats)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaDcStats dcStats = {0};
+
+    if (CNV_RECOVERY(&(dcSetup->requestOps)) == CPA_TRUE)
+    {
+        if (CNV_RECOVERY(capabilities) == CPA_FALSE)
+        {
+            PRINT_ERR("CnVnR requested but not supported on instance\n");
+            return CPA_STATUS_FAIL;
+        }
+        status = cpaDcGetStats(dcSetup->dcInstanceHandle, &dcStats);
+        if (status == CPA_STATUS_SUCCESS)
+        {
+            performanceStats->preTestRecoveryCount =
+                GET_CNV_RECOVERY_COUNTERS(&dcStats);
+        }
+        else
+        {
+            performanceStats->preTestRecoveryCount = 0;
+        }
+    }
+
+    return status;
+}
+
+void qatDcGetPostTestRecoveryCount(compression_test_params_t *dcSetup,
+                                   perf_data_t *performanceStats)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaDcStats dcStats = {0};
+
+    if (CNV_RECOVERY(&(dcSetup->requestOps)) == CPA_TRUE)
+    {
+        status = cpaDcGetStats(dcSetup->dcInstanceHandle, &dcStats);
+        if (status == CPA_STATUS_SUCCESS)
+        {
+            performanceStats->postTestRecoveryCount =
+                GET_CNV_RECOVERY_COUNTERS(&dcStats);
+        }
+        else
+        {
+            performanceStats->postTestRecoveryCount = 0;
+        }
+    }
+}
+
+CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
+                                       CpaDcRqResults *arrayOfResults,
+                                       CpaBufferList *arrayOfSrcBufferLists,
+                                       Cpa32U listNum)
+{
+    Cpa32U i = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U totalSrcLength = 0;
+    Cpa32U numBuffs = 0;
+
+    QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(setup, status);
+    QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(arrayOfResults, status);
+    QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(arrayOfSrcBufferLists,
+                                                  status);
+
+    /*Loop through all result structures and verify consumed data size */
+    do
+    {
+        totalSrcLength = 0;
+        for (numBuffs = 0; numBuffs < arrayOfSrcBufferLists[i].numBuffers;
+             numBuffs++)
+        {
+            totalSrcLength +=
+                arrayOfSrcBufferLists[i].pBuffers[numBuffs].dataLenInBytes;
+        }
+        if ((arrayOfResults[i].status == CPA_DC_OVERFLOW) ||
+            (arrayOfResults[i].consumed < totalSrcLength))
+        {
+            PRINT_ERR(
+                "%s: Consumed %d out of %d bytes in the Source buffer for "
+                "List Number %d\n",
+                __func__,
+                arrayOfResults[i].consumed,
+                totalSrcLength,
+                i);
+            status = CPA_STATUS_FAIL;
+            break;
+        }
+    } while (++i < listNum);
+
     return status;
 }

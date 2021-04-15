@@ -59,81 +59,112 @@
  * 
  *
  ***************************************************************************/
-#ifndef QAT_PERF_SLEEPTIME_H_
-#define QAT_PERF_SLEEPTIME_H_
-typedef struct sleeptime_data_s
-{
-    Cpa32S baseThroughput, currentThroughput, desiredThroughput;
-    Cpa32S packetSize;
-    Cpa32U percentRate, previousNoOfResponses, previousNoOfRetries, loopRetries;
-    Cpa32U firstRunFlag, upperBound, lowerBound, limitFoundFlag;
-    perf_cycles_t numOfCycles;
-    Cpa64U loopResponses;
-    perf_cycles_t endLoopTimestamp;   /* end TS for x no of loops */
-    perf_cycles_t startLoopTimestamp; /* start TS for x no of loops */
-} sleeptime_data_t;
 
-/*****************************************************************************
- * @file qat_perf_sleeptime.h
+/*
+ *****************************************************************************
+ * Doxygen group definitions
+ ****************************************************************************/
+
+/**
+ *****************************************************************************
+ * @file cpa_dev.h
  *
- * @ingroup sample_code
+ * @defgroup cpaDev Device API
+ *
+ * @ingroup cpa
  *
  * @description
- * Function used by rate limiting feature to adjust sleeptime based on current
- * throughout measured. This function is called every n amount of loops, it will
- * start by increasing the sleeptime and once it will exceed the threshold
- * of the throughput it will decrease and self adjust in other words "fine tune"
+ *      These functions specify the API for device level operation.
  *
- * @param[in]   pPerfData               pointer to the performance stats
- *structure
- * @param[in]   data                    pointer to the sleeptime_data_t
- *structure
- * @param[in]   compRate                pointer to compRate stored in setup
- *structure
- * @param[in]   sleepTime               pointer to sleepTime stored in setup
- *structure
- * @param[in]   bufferSize              bufferSize stored in setup structure
+ * @remarks
+ *
  *
  *****************************************************************************/
-void adjustSleeptime(perf_data_t *pPerfData,
-                     sleeptime_data_t *data,
-                     Cpa32U *compRate,
-                     Cpa32U *sleepTime,
-                     Cpa32U bufferSize);
 
-/*****************************************************************************
- * @file qat_perf_sleeptime.h
- *
- * @ingroup sample_code
- *
- * @description
- * This function will divide global sleeptime value into 100k parts,
- * as it was discovered that there is a higher margin of error
- * with high sleeptime numbers
- *
- * @param[in]   sleepTime               bufferSize stored in setup structure
- *
- *****************************************************************************/
-void sleep_parsing(Cpa32U sleepTime);
+#ifndef CPA_DEV_H
+#define CPA_DEV_H
 
-/*****************************************************************************
- * @file qat_perf_sleeptime.h
- *
- * @ingroup sample_code
- *
- * @description
- * Re-used function from old busy loop code it will calculate the % margin
- * between two passed parameters using integer math
- *
- * @param[in]   baseVal                 baseValue to calculate margin
- * @param[in]   currentVal              value which will be calculate percentage
- *                                      difference from base
- * @param[in]   margin                  value of percentage margin in tens
- *                                      e.g. 0.5% margin is 5
- *                                           5% is 50
- *****************************************************************************/
-uint8_t findSleeptimeMargin(uint32_t baseVal,
-                            uint32_t currentVal,
-                            uint32_t margin);
-
+#ifdef __cplusplus
+extern"C" {
 #endif
+
+
+#ifndef CPA_H
+#include "cpa.h"
+#endif
+
+
+ /*****************************************************************************
+ * @ingroup cpaDev
+ *      Returns device information
+ *
+ * @description
+ *      This data structure contains the device information. The device
+ *      information are available to both Physical and Virtual Functions.
+ *      Depending on the resource partitioning configuration, the services
+ *      available may changes. This configuration will impact the size of the
+ *      Security Association Database (SADB). Other properties such device SKU
+ *      and device ID are also reported.
+ *
+ *****************************************************************************/
+typedef struct _CpaDeviceInfo {
+	Cpa32U sku;
+	/**< Identifies the SKU of the device. */
+	Cpa16U bdf;
+	/**< Identifies the Bus Device Function of the device.
+	 *   Format is reported as follow:
+	 *   - bits<2:0> represent the function number.
+	 *   - bits<7:3> represent the device
+	 *   - bits<15:8> represent the bus
+	 */
+	Cpa32U deviceId;
+	/**< Returns the device ID. */
+	Cpa32U numaNode;
+	/**< Return the local NUMA node mapped to the device. */
+	CpaBoolean isVf;
+	/**< Return whether the device is currently used in a virtual function
+	 *   or not. */
+	CpaBoolean dcEnabled;
+    /**< Compression service enabled */
+	CpaBoolean cySymEnabled;
+    /**< Symetric crypto service enabled */
+	CpaBoolean cyAsymEnabled;
+    /**< Asymetric crypto service enabled */
+	CpaBoolean inlineEnabled;
+    /**< Inline service enabled */
+	Cpa32U deviceMemorySizeAvailable;
+	/**< Return the size of the device memory available. This device memory
+	 *   section could be used for the intermediate buffers in the
+	 *   compression service.
+	 */
+} CpaDeviceInfo;
+
+
+/*****************************************************************************
+* @ingroup cpaDev
+*      Returns number devices.
+*
+* @description
+*      This API returns the number of devices available to the application.
+*      If used on the host, it will return the number of physical devices.
+*      If used on the guest, it will return the number of function mapped
+*      to the virtual machine.
+*
+*****************************************************************************/
+CpaStatus cpaGetNumDevices (Cpa16U *numDevices);
+
+/*****************************************************************************
+* @ingroup cpaDev
+*      Returns device information for a given device index.
+*
+* @description
+*      Returns device information for a given device index. This API must
+*      be used with cpaGetNumDevices().
+*****************************************************************************/
+CpaStatus cpaGetDeviceInfo (Cpa16U device, CpaDeviceInfo *deviceInfo);
+
+#ifdef __cplusplus
+} /* close the extern "C" { */
+#endif
+
+#endif /* CPA_DEV_H */

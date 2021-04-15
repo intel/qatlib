@@ -132,6 +132,7 @@
 #define SLEEP_ONE_HUNDRED_MILLISEC (100)
 
 
+
 typedef CpaStatus (*compute_test_result_func_t)(void *);
 
 /**
@@ -197,9 +198,11 @@ typedef struct single_thread_test_data_s
 extern int useStaticPrime;
 extern volatile CpaBoolean reliability_g;
 extern volatile CpaBoolean cnverr_g;
+extern volatile CpaBoolean cnvnrerr_g;
 extern volatile CpaBoolean error_flag_g;
 CpaStatus setReliability(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
+
 CpaStatus printReliability(void);
 
 extern volatile CpaBoolean fineTune_g;
@@ -285,7 +288,8 @@ typedef struct stress_test_threads_params_s
 
 extern sample_code_thread_t stress_test_threads_g;
 extern stress_test_threads_params_t stress_test_threads_params_g;
-typedef enum {
+typedef enum
+{
     THREAD_NOT_STARTED = 0,
     THREAD_STARTED,
     THREAD_COMPLETED,
@@ -638,7 +642,7 @@ void getLongestCycleCount2(perf_data_t *dest,
  *****************************************************************************
  * The variables needed to control latency measurement at runtime
  *****************************************************************************
-*/
+ */
 extern int latency_debug;  /* set to 1 for debug PRINT() */
 extern int latency_enable; /* set to 1 for enable latency testing */
 extern CpaInstanceHandle *cyInst_g;
@@ -647,6 +651,7 @@ extern Cpa32U *cyInstMap_g;
 extern Cpa32U *dcInstMap_g;
 extern Cpa32U instMap_g;
 extern Cpa16U numInst_g;
+extern Cpa8U singleInstRequired_g;
 
 CpaStatus createStartandWaitForCompletion(Cpa32U instType);
 CpaBoolean isSampleCodeBarrierLifted(void);

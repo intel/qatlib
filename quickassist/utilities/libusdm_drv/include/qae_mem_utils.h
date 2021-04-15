@@ -111,6 +111,10 @@ is built, default is 512 */
             ptr = NULL;                                                        \
         }                                                                      \
     } while (0)
+
+/* Defining Max Size limit to be used, to allocate using kmalloc as 4MB */
+#define QAE_MEM_SIZE_LIMIT (1024 * 4096)
+
 /**
  *****************************************************************************
  * @ingroup perfCodeFramework

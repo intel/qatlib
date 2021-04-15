@@ -119,8 +119,9 @@ extern CpaDcAutoSelectBest gAutoSelectBestMode;
 extern CpaBoolean testOverFlow_g;
 extern volatile CpaBoolean dc_service_started_g;
 extern CpaBoolean gRetainPartials;
-extern Cpa32U
-getThroughput(Cpa64U numPackets, Cpa32U packetSize, perf_cycles_t cycles);
+extern Cpa32U getThroughput(Cpa64U numPackets,
+                            Cpa32U packetSize,
+                            perf_cycles_t cycles);
 
 void dcPerformCallback(void *pCallbackTag, CpaStatus status);
 
@@ -154,8 +155,9 @@ CpaStatus disableZeroByteRequest(void);
  *      get the throughput in Megabits per second
  *      =(numPackets*packetSize)*(cycles/cpu_frequency)
  *****************************************************************************/
-Cpa32U
-getThroughput(Cpa64U numPackets, Cpa32U packetSize, perf_cycles_t cycles);
+Cpa32U getThroughput(Cpa64U numPackets,
+                     Cpa32U packetSize,
+                     perf_cycles_t cycles);
 #endif
 /**
  * *****************************************************************************
@@ -504,8 +506,9 @@ CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesProduced,
  * @param[in]   cycles      Total number of clock cycles
  * @param[in]   numOfLoops  Number of loops specified for compression operation
  *****************************************************************************/
-Cpa32U
-getDcThroughput(Cpa32U totalBytes, perf_cycles_t cycles, Cpa32U numOfLoops);
+Cpa32U getDcThroughput(Cpa32U totalBytes,
+                       perf_cycles_t cycles,
+                       Cpa32U numOfLoops);
 
 /**
  *****************************************************************************

@@ -824,7 +824,7 @@ typedef enum lac_expected_size_s
  * @param[in] x     size in bytes
  *
  ******************************************************************************/
-#define LAC_BYTES_TO_QUADWORDS(x) ((x) >> 3)
+#define LAC_BYTES_TO_QUADWORDS(x) (((x) >> 3) + (((x) % 8) ? 1 : 0))
 
 /**
  *******************************************************************************

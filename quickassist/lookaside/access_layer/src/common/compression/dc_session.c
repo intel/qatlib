@@ -134,10 +134,7 @@ STATIC CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
         LAC_INVALID_PARAM_LOG("Invalid autoSelectBestHuffmanTree value");
         return CPA_STATUS_INVALID_PARAM;
     }
-    if ((pSessionData->compType < CPA_DC_LZS) ||
-        (pSessionData->compType > CPA_DC_DEFLATE) ||
-        (CPA_DC_ELZS == pSessionData->compType) ||
-        (CPA_DC_LZSS == pSessionData->compType))
+    if (pSessionData->compType != CPA_DC_DEFLATE)
     {
         LAC_INVALID_PARAM_LOG("Invalid compType value");
         return CPA_STATUS_INVALID_PARAM;
@@ -169,22 +166,6 @@ STATIC CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
         (pSessionData->checksum > CPA_DC_ADLER32))
     {
         LAC_INVALID_PARAM_LOG("Invalid checksum value");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
-    /* LZS only supports stateless */
-    if ((CPA_DC_STATEFUL == pSessionData->sessState) &&
-        (CPA_DC_LZS == pSessionData->compType))
-    {
-        LAC_INVALID_PARAM_LOG("LZS only supports stateless");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
-    /* LZS only supports static trees */
-    if ((CPA_DC_HT_STATIC != pSessionData->huffType) &&
-        (CPA_DC_LZS == pSessionData->compType))
-    {
-        LAC_INVALID_PARAM_LOG("LZS only supports static trees");
         return CPA_STATUS_INVALID_PARAM;
     }
 
@@ -230,12 +211,7 @@ STATIC void dcCompHwBlockPopulate(
         dir = ICP_QAT_HW_COMPRESSION_DIR_DECOMPRESS;
     }
 
-    /* Set the algorithm */
-    if (CPA_DC_LZS == pSessionDesc->compType)
-    {
-        algo = ICP_QAT_HW_COMPRESSION_ALGO_LZS;
-    }
-    else if (CPA_DC_DEFLATE == pSessionDesc->compType)
+    if (CPA_DC_DEFLATE == pSessionDesc->compType)
     {
         algo = ICP_QAT_HW_COMPRESSION_ALGO_DEFLATE;
     }
@@ -499,19 +475,10 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     if ((CPA_DC_STATEFUL == pSessionData->sessState) &&
         (CPA_DC_DIR_DECOMPRESS != pSessionData->sessDirection))
     {
-        LAC_INVALID_PARAM_LOG("Stateful sessions are not supported");
+        LAC_UNSUPPORTED_PARAM_LOG("Stateful sessions are not supported");
         return CPA_STATUS_UNSUPPORTED;
     }
 #endif
-
-    status = checkLzsSupport(dcInstance,
-                             pSessionData->compType,
-                             CPA_FALSE,
-                             pSessionData->sessDirection);
-    if (status != CPA_STATUS_SUCCESS)
-    {
-        return status;
-    }
 
     secureRam = pService->comp_device_data.useDevRam;
 

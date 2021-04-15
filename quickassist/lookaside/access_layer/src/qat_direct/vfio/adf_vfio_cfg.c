@@ -36,7 +36,6 @@
 #include <string.h>
 #include <stdint.h>
 #include "adf_kernel_types.h"
-#include "adf.h"
 
 #include "adf_io_cfg.h"
 #include "cpa.h"
@@ -543,7 +542,7 @@ Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId)
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
     {
         ADF_ERROR("Failed to get DEVICE_INFO response from qatmgr\n");
-        return CPA_STATUS_FAIL;
+        return ADF_IO_OPERATION_FAIL_CPA32S;
     }
 
     if (sscanf(rsp.device_id, "%x:%x:%x.%x", &node, &b, &d, &f) != 4)
@@ -565,7 +564,7 @@ Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId)
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
     {
         ADF_ERROR("Failed to get DEVICE_INFO response from qatmgr\n");
-        return CPA_STATUS_FAIL;
+        return ADF_IO_OPERATION_FAIL_CPA16U;
     }
 
     if (sscanf(rsp.device_id, "%x:%x:%x.%x", &n, &b, &d, &f) != 4)
@@ -582,7 +581,7 @@ Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId)
 
 Cpa32U adf_io_cfgGetKptAcHandle(Cpa16U packageId)
 {
-    return -1;
+    return 0;
 }
 
 CpaStatus adf_io_reset_device(Cpa32U accelId)

@@ -64,8 +64,9 @@
  * @lac_lock_free_stack.h
  *
  * This file provides a lock-free stack implementation.
- * There is an assumption that effective virtual address size is 48-bit only,
+ * There is an assumption that effective virtual address size is 57-bit,
  * which is true for Linux user space applications in 32/64-bit modes.
+ * Stack is usable on 48-bit and 57-bit platforms.
  *
  ******************************************************************************/
 
@@ -77,22 +78,6 @@
 
 #include "lac_mem_pools.h"
 
-#ifdef KERNEL_SPACE
-static inline void *PTR(const uintptr_t addr48)
-{
-#ifdef __x86_64__
-    const int64_t addr64 = addr48 << 16;
-
-    /* Do arithmetic shift to restore kernel canonical address (if not NULL) */
-    return (void *)(addr64 >> 16);
-#else
-    return (void *)(addr48);
-#endif
-}
-#else
-#define PTR(x) ((void *)(uintptr_t)(x))
-#endif
-
 static inline lac_mem_blk_t *pop(lock_free_stack_t *stack)
 {
     pointer_t old_top;
@@ -102,11 +87,11 @@ static inline lac_mem_blk_t *pop(lock_free_stack_t *stack)
     do
     {
         old_top.atomic = stack->top.atomic;
-        next = PTR(old_top.ptr);
+        next = old_top.ptr;
         if (NULL == next)
             return next;
 
-        new_top.ptr = (uintptr_t)next->pNext;
+        new_top.ptr = next->pNext;
         new_top.ctr = old_top.ctr + 1;
     } while (!__sync_bool_compare_and_swap(
         &stack->top.atomic, old_top.atomic, new_top.atomic));
@@ -122,8 +107,8 @@ static inline void push(lock_free_stack_t *stack, lac_mem_blk_t *val)
     do
     {
         old_top.atomic = stack->top.atomic;
-        val->pNext = PTR(old_top.ptr);
-        new_top.ptr = (uintptr_t)val;
+        val->pNext = old_top.ptr;
+        new_top.ptr = val;
         new_top.ctr = old_top.ctr + 1;
     } while (!__sync_bool_compare_and_swap(
         &stack->top.atomic, old_top.atomic, new_top.atomic));
@@ -138,7 +123,7 @@ static inline lock_free_stack_t _init_stack(void)
 static inline lac_mem_blk_t *top(lock_free_stack_t *stack)
 {
     pointer_t old_top = stack->top;
-    lac_mem_blk_t *next = PTR(old_top.ptr);
+    lac_mem_blk_t *next = old_top.ptr;
     return next;
 }
 

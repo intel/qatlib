@@ -417,9 +417,9 @@ int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
         ring_base_cfg =
             BUILD_RING_BASE_ADDR_4XXX(ring->ring_phys_base_addr, ring_size_cfg);
         WRITE_CSR_RING_BASE_4XXX(
-            ring->bank_offset, ring->ring_num, ring_base_cfg);
+            csr_base_addr, ring->bank_offset, ring->ring_num, ring_base_cfg);
         WRITE_CSR_RING_CONFIG_4XXX(
-            ring->bank_offset, ring->ring_num, ring_config);
+            csr_base_addr, ring->bank_offset, ring->ring_num, ring_config);
     }
     else
     {
@@ -460,8 +460,10 @@ void adf_cleanup_ring(adf_dev_ring_handle_t *ring)
     /* Clear CSR configuration */
     if (IS_QAT_4XXX(deviceType))
     {
-        WRITE_CSR_RING_CONFIG_4XXX(ring->bank_offset, ring->ring_num, 0);
-        WRITE_CSR_RING_BASE_4XXX(ring->bank_offset, ring->ring_num, 0);
+        WRITE_CSR_RING_CONFIG_4XXX(
+            csr_base_addr, ring->bank_offset, ring->ring_num, 0);
+        WRITE_CSR_RING_BASE_4XXX(
+            csr_base_addr, ring->bank_offset, ring->ring_num, 0);
     }
     else
     {
@@ -476,4 +478,25 @@ void adf_cleanup_ring(adf_dev_ring_handle_t *ring)
         osalMemZeroExplicit(ring->ring_virt_addr, ring->ring_size);
         qaeMemFreeNUMA(&ring->ring_virt_addr);
     }
+}
+
+int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
+                                       uint32_t *maxInflightRequests,
+                                       uint32_t *numInflightRequests)
+{
+    int32_t status = 0;
+
+    status = ICP_MUTEX_LOCK(ring->user_lock);
+    if (OSAL_SUCCESS != status)
+    {
+        ADF_ERROR("Failed to lock bank with error %d\n", status);
+        return CPA_STATUS_FAIL;
+    }
+
+    *numInflightRequests = *ring->in_flight;
+    *maxInflightRequests = ring->max_requests_inflight;
+
+    ICP_MUTEX_UNLOCK(ring->user_lock);
+
+    return status;
 }

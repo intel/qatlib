@@ -505,29 +505,39 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
     }
+    if ((CPA_STATUS_SUCCESS != status) ||
+        (symTestSetup.performanceStats->threadReturnStatus == CPA_STATUS_FAIL))
+    {
+        /* Stop Cy Service function should be called after all threads
+         * complete their execution. This function will be called from
+         * WaitForThreadCompletion().*/
+        testSetup->statsPrintFunc =
+            (stats_print_func_t)stopCyServicesFromCallback;
+    }
+
     /*free memory and exit*/
     qaeMemFree((void **)&pPacketSize);
     qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 
-CpaStatus
-setupNewSymmetricTest(CpaCySymOp opType,
-                      CpaCySymCipherAlgorithm cipherAlg,
-                      Cpa32U cipherKeyLengthInBytes,
-                      Cpa32U cipherOffset,
-                      CpaCyPriority priority,
-                      CpaCySymHashAlgorithm hashAlg,
-                      CpaCySymHashMode hashMode,
-                      Cpa32U authKeyLengthInBytes,
-                      CpaCySymAlgChainOrder chainOrder,
-                      sync_mode_t syncMode,
-                      CpaCySymHashNestedModeSetupData *nestedModeSetupDataPtr,
-                      Cpa32U packetSize,
-                      Cpa32U bufferSizeInBytes,
-                      Cpa32U numBuffLists,
-                      Cpa32U numLoops,
-                      Cpa32U digestAppend)
+CpaStatus setupNewSymmetricTest(
+    CpaCySymOp opType,
+    CpaCySymCipherAlgorithm cipherAlg,
+    Cpa32U cipherKeyLengthInBytes,
+    Cpa32U cipherOffset,
+    CpaCyPriority priority,
+    CpaCySymHashAlgorithm hashAlg,
+    CpaCySymHashMode hashMode,
+    Cpa32U authKeyLengthInBytes,
+    CpaCySymAlgChainOrder chainOrder,
+    sync_mode_t syncMode,
+    CpaCySymHashNestedModeSetupData *nestedModeSetupDataPtr,
+    Cpa32U packetSize,
+    Cpa32U bufferSizeInBytes,
+    Cpa32U numBuffLists,
+    Cpa32U numLoops,
+    Cpa32U digestAppend)
 {
     /*thread_setup_g is a multidimensional global array that stores the setup
      * for all thread variations in an array of characters. We store our test
@@ -619,7 +629,6 @@ setupNewSymmetricTest(CpaCySymOp opType,
             setHashDigestLen(hashAlg);
     }
 #endif
-
     // check which kind of hash mode is selected
     if (CPA_CY_SYM_HASH_MODE_NESTED == hashMode)
     { // nested mode

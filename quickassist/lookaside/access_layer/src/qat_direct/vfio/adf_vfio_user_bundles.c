@@ -77,7 +77,7 @@ int adf_io_populate_bundle(icp_accel_dev_t *accel_dev,
                            struct adf_io_user_bundle *bundle)
 {
     vfio_dev_info_t *vfio_dev;
-    uint64_t addr;
+    uintptr_t addr;
 
     if (!accel_dev || !bundle)
         return -EINVAL;
@@ -89,7 +89,7 @@ int adf_io_populate_bundle(icp_accel_dev_t *accel_dev,
     if (vfio_dev->pcs.bar[0].ptr == NULL || vfio_dev->pcs.bar[0].size == 0)
         return -EINVAL;
 
-    addr = (uint64_t)vfio_dev->pcs.bar[0].ptr + (8192 * bundle->number);
+    addr = (uintptr_t)vfio_dev->pcs.bar[0].ptr + (8192 * bundle->number);
     bundle->ptr = (void *)addr;
 
     return 0;
@@ -118,6 +118,11 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
     accel_dev->deviceType = rsp.device_info.device_type;
     accel_dev->arb_mask = rsp.device_info.arb_mask;
     accel_dev->maxNumRingsPerBank = rsp.device_info.max_rings_per_bank;
+    accel_dev->pciDevId = rsp.device_info.device_pci_id;
+    accel_dev->isVf = CPA_TRUE;
+    /* Below two are not supported for now */
+    accel_dev->sku = 0;
+    accel_dev->deviceMemAvail = 0;
 
     device_name_len = strnlen(rsp.device_info.device_name,
                               sizeof(rsp.device_info.device_name));

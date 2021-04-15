@@ -221,7 +221,7 @@ CpaStatus cpaDcGenerateHeader(CpaDcSessionHandle pSessionHandle,
     }
     else
     {
-        /* There is no header for LZS or other compressed data */
+        /* There is no header for other compressed data */
         *count = 0;
     }
 #ifdef ICP_TRACE

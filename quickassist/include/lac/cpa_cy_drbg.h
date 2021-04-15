@@ -101,7 +101,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Security Strength
  * @description
@@ -122,7 +121,6 @@ typedef enum _CpaCyDrbgSecStrength {
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      DRBG Session (Instance) Setup Data
  * @description
@@ -148,7 +146,6 @@ typedef struct _CpaCyDrbgSessionSetupData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Handle to a DRBG session (or instance).
  * @description
@@ -176,7 +173,6 @@ typedef void* CpaCyDrbgSessionHandle;
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      DRBG Data Generation Operation Data
  * @description
@@ -209,7 +205,6 @@ typedef struct _CpaCyDrbgGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      DRBG Reseed Operation Data
  * @description
@@ -235,7 +230,6 @@ typedef struct _CpaCyDrbgReseedOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      DRBG Statistics
  * @description
@@ -294,7 +288,6 @@ typedef struct _CpaCyDrbgStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Returns the size (in bytes) of a DRBG session handle.
  *
@@ -346,7 +339,6 @@ cpaCyDrbgSessionGetSize(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Instantiates and seeds a DRBG session, or instance.
  *
@@ -427,7 +419,6 @@ cpaCyDrbgInitSession(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Reseeds a DRBG session, or instance.
  *
@@ -480,7 +471,6 @@ cpaCyDrbgReseed(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Generates pseudorandom bits.
  *
@@ -549,7 +539,6 @@ cpaCyDrbgGen(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Removes a previously instantiated DRBG session, or instance.
  *
@@ -601,7 +590,6 @@ cpaCyDrbgRemoveSession(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_drbg.h
  * @ingroup cpaCyDrbg
  *      Returns statistics specific to a session, or instance, of the
  *      RBG API.

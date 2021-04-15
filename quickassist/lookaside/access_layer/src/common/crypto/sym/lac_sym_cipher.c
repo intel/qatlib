@@ -280,7 +280,8 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
 #ifdef ICP_PARAM_CHECK
 
 CpaStatus LacCipher_SessionSetupDataCheck(
-    const CpaCySymCipherSetupData *pCipherSetupData)
+    const CpaCySymCipherSetupData *pCipherSetupData,
+    Cpa32U capabilitiesMask)
 {
     /* No key required for NULL algorithm */
     if (!LAC_CIPHER_IS_NULL(pCipherSetupData->cipherAlgorithm))
@@ -296,7 +297,8 @@ CpaStatus LacCipher_SessionSetupDataCheck(
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
-        else if (LAC_CIPHER_IS_CCM(pCipherSetupData->cipherAlgorithm))
+        else if (LAC_CIPHER_IS_CCM(pCipherSetupData->cipherAlgorithm) &&
+                 !LAC_CIPHER_AES_V2(capabilitiesMask))
         {
             if (pCipherSetupData->cipherKeyLenInBytes !=
                 ICP_QAT_HW_AES_128_KEY_SZ)
@@ -393,6 +395,15 @@ CpaStatus LacCipher_SessionSetupDataCheck(
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
+        else if (LAC_CIPHER_IS_CHACHA(pCipherSetupData->cipherAlgorithm))
+        {
+            if (pCipherSetupData->cipherKeyLenInBytes !=
+                ICP_QAT_HW_CHACHAPOLY_KEY_SZ)
+            {
+                LAC_INVALID_PARAM_LOG("Invalid CHACHAPOLY cipher key length");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+        }
         else
         {
             LAC_INVALID_PARAM_LOG("Invalid cipher algorithm");
@@ -447,6 +458,7 @@ CpaStatus LacCipher_PerformParamCheck(CpaCySymCipherAlgorithm algorithm,
                    LAC_CIPHER_IS_F8_MODE(algorithm) ||
                    LAC_CIPHER_IS_SNOW3G_UEA2(algorithm) ||
                    LAC_CIPHER_IS_XTS_MODE(algorithm) ||
+                   LAC_CIPHER_IS_CHACHA(algorithm) ||
                    LAC_CIPHER_IS_ZUC_EEA3(algorithm)))
         {
             /* Mask & check below is based on assumption that block size is
@@ -471,20 +483,22 @@ Cpa32U LacCipher_GetCipherSliceType(sal_service_t *pService,
                                     CpaCySymCipherAlgorithm cipherAlgorithm)
 {
     Cpa32U sliceType = ICP_QAT_FW_LA_USE_LEGACY_SLICE_TYPE;
+    Cpa32U capabilitiesMask = pService->capabilitiesMask;
 
 
     if (LAC_CIPHER_IS_XTS_MODE(cipherAlgorithm) ||
+        LAC_CIPHER_IS_CHACHA(cipherAlgorithm) ||
         LAC_CIPHER_IS_GCM(cipherAlgorithm))
     {
         sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
     }
-    else if (LAC_CIPHER_IS_AES(cipherAlgorithm) &&
-             LAC_CIPHER_IS_CTR_MODE(cipherAlgorithm) &&
-             !LAC_CIPHER_IS_CCM(cipherAlgorithm))
+    else if (LAC_CIPHER_IS_CCM(cipherAlgorithm) &&
+             LAC_CIPHER_AES_V2(capabilitiesMask))
     {
-        sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
+        sliceType = ICP_QAT_FW_LA_USE_LEGACY_SLICE_TYPE;
     }
-    else if (LAC_CIPHER_IS_CCM(cipherAlgorithm))
+    else if (LAC_CIPHER_IS_AES(cipherAlgorithm) &&
+             LAC_CIPHER_IS_CTR_MODE(cipherAlgorithm))
     {
         sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
     }

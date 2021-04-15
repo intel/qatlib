@@ -73,7 +73,8 @@ void LacDh_CompileTimeAssertions(void)
     /* Check that icp_qat_fw_mmp_dh_768_input_t,
        icp_qat_fw_mmp_dh_1024_input_t, icp_qat_fw_mmp_dh_1536_input_t,
        icp_qat_fw_mmp_dh_2048_input_t, icp_qat_fw_mmp_dh_3072_input_t,
-       icp_qat_fw_mmp_dh_4096_input_t structures are equivalent */
+       icp_qat_fw_mmp_dh_4096_input_t, icp_qat_fw_mmp_dh_8192_input_t
+       structures are equivalent */
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_768_input_t, g) ==
                         LAC_IDX_OF(icp_qat_fw_mmp_dh_1024_input_t, g));
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_768_input_t, e) ==
@@ -109,6 +110,13 @@ void LacDh_CompileTimeAssertions(void)
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_768_input_t, m) ==
                         LAC_IDX_OF(icp_qat_fw_mmp_dh_4096_input_t, m));
 
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_768_input_t, g) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_dh_8192_input_t, g));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_768_input_t, e) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_dh_8192_input_t, e));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_768_input_t, m) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_dh_8192_input_t, m));
+
     /* *************************************************************
      * DH G2 Checks
      * ************************************************************* */
@@ -136,4 +144,9 @@ void LacDh_CompileTimeAssertions(void)
                         LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_4096_input_t, e));
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_768_input_t, m) ==
                         LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_4096_input_t, m));
+
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_768_input_t, e) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_8192_input_t, e));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_768_input_t, m) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_dh_g2_8192_input_t, m));
 }

@@ -80,6 +80,7 @@
 #define POLL_AND_SLEEP 1
 
 #include "qat_perf_cycles.h"
+#include "qat_perf_buffer_utils.h"
 
 #ifdef USER_SPACE
 Cpa32U poll_type_g = 0;
@@ -309,7 +310,6 @@ static const Cpa8U m_4096[] = {
     0x4F, 0x33, 0xAC, 0xFD, 0x46, 0xCA, 0x16, 0x00, 0xDA, 0x82, 0xDD, 0xD7,
     0xE7, 0xE1, 0x39, 0xDF, 0x96, 0x77, 0x58, 0xE5};
 
-
 /*
  * RSA prime numbers
  */
@@ -498,7 +498,6 @@ static const Cpa8U q_4096[] = {
     0xA5, 0x5A, 0xB1, 0xE6, 0xCB, 0x31, 0x5E, 0xB7, 0x42, 0xD4, 0xEB, 0xCE,
     0x83, 0xE2, 0xAE, 0x46, 0x5F, 0xC5, 0x74, 0x31, 0x7D, 0x58, 0x47, 0xB7,
     0x84, 0x4E, 0xBF, 0x7B};
-
 
 
 
@@ -961,8 +960,6 @@ CpaStatus stopCyServices(void)
     Cpa32U i = 0;
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaStatus returnStatus = CPA_STATUS_SUCCESS;
-    /* set polling flag to default */
-    cy_polling_started_g = CPA_FALSE;
     /*stop only if the services are in a started state*/
     if (cy_service_started_g == CPA_TRUE)
     {
@@ -986,15 +983,20 @@ CpaStatus stopCyServices(void)
     }
 
     /*free the polling threads*/
-    /* Wait for all threads_g to complete */
-    for (i = 0; i < numPolledInstances_g; i++)
+    if (cy_polling_started_g == CPA_TRUE)
     {
-        sampleCodeThreadJoin(&pollingThread_g[i]);
-    }
-    if (0 < numPolledInstances_g)
-    {
-        qaeMemFree((void **)&pollingThread_g);
-        numPolledInstances_g = 0;
+        /* set polling flag to false */
+        cy_polling_started_g = CPA_FALSE;
+        /* Wait for all threads_g to complete */
+        for (i = 0; i < numPolledInstances_g; i++)
+        {
+            sampleCodeThreadJoin(&pollingThread_g[i]);
+        }
+        if (0 < numPolledInstances_g)
+        {
+            qaeMemFree((void **)&pollingThread_g);
+            numPolledInstances_g = 0;
+        }
     }
     if (cyInstances_g != NULL)
     {
@@ -1099,8 +1101,8 @@ CpaStatus sampleCreateBuffers(CpaInstanceHandle instanceHandle,
         {
             /* Decide flat buffers Size: if setup->flatBufferSizeInBytes is 0
              * for the IMIX case,
-            * there is only single buffer in List, and bufferSizeInBytes is
-            * equal to packetSizeInBytes */
+             * there is only single buffer in List, and bufferSizeInBytes is
+             * equal to packetSizeInBytes */
             if (0 == setup->flatBufferSizeInBytes)
             {
                 /*bufferSize includes space for the digest in the case of hash
@@ -1223,9 +1225,9 @@ void sampleFreeBuffers(CpaFlatBuffer *srcBuffPtrArray[],
             }
             pTempFlatBuffArray = srcBuffPtrArray[freeMemListCount];
             /*
-              * Loop through and free all buffers that have been
-              * pre-allocated.
-              */
+             * Loop through and free all buffers that have been
+             * pre-allocated.
+             */
             for (freeMemCount = 0;
                  freeMemCount < srcBuffListArray[freeMemListCount]->numBuffers;
                  freeMemCount++)
@@ -1281,9 +1283,9 @@ void dpSampleFreeBuffers(CpaBufferList **srcBuffListArray,
                 pTempFlatBuffArray =
                     srcBuffListArray[freeMemListCount]->pBuffers;
                 /*
-                  * Loop through and free all buffers that have been
-                  * pre-allocated.
-                  */
+                 * Loop through and free all buffers that have been
+                 * pre-allocated.
+                 */
                 for (freeMemCount = 0; freeMemCount < numBuffers;
                      freeMemCount++)
                 {
@@ -1461,8 +1463,8 @@ CpaStatus dpSampleCreateBuffers(CpaInstanceHandle instanceHandle,
              createBufferCount++)
         {
             /* Decide flat buffers Size: if setup->flatBufferSizeInBytes is 0,
-            * there is only single buffer in List, and bufferSizeInBytes is
-            * equal to packetSizeInBytes */
+             * there is only single buffer in List, and bufferSizeInBytes is
+             * equal to packetSizeInBytes */
             if (0 == setup->flatBufferSizeInBytes)
             {
                 bufferSizeInBytes = packetSizeInBytesArray[createListCount];
@@ -1514,9 +1516,11 @@ CpaStatus dpSampleCreateBuffers(CpaInstanceHandle instanceHandle,
 
             pPhyBuffListArray[createListCount]
                 ->flatBuffers[createBufferCount]
-                .bufferPhysAddr = (CpaPhysicalAddr)qaeVirtToPhysNUMA(
+                .bufferPhysAddr = (CpaPhysicalAddr)virtAddrToDevAddr(
                 (SAMPLE_CODE_UINT *)(uintptr_t)pFlatBuffArray[createBufferCount]
-                    .pData);
+                    .pData,
+                instanceHandle,
+                CPA_ACC_SVC_TYPE_CRYPTO);
             pPhyBuffListArray[createListCount]
                 ->flatBuffers[createBufferCount]
                 .dataLenInBytes =
@@ -1531,7 +1535,10 @@ CpaStatus dpSampleCreateBuffers(CpaInstanceHandle instanceHandle,
     return CPA_STATUS_SUCCESS;
 }
 
-void setCpaFlatBufferMSB(CpaFlatBuffer *buf) { buf->pData[0] |= MSB_SETTING; }
+void setCpaFlatBufferMSB(CpaFlatBuffer *buf)
+{
+    buf->pData[0] |= MSB_SETTING;
+}
 EXPORT_SYMBOL(setCpaFlatBufferMSB);
 
 /*Function assumes each number is the same length in bytes*/
@@ -1634,8 +1641,8 @@ void conformMillerRabinData(CpaFlatBuffer *pMR,
                             Cpa32U rounds)
 {
     Cpa32S difference = 0;
-    Cpa8U i = 0, mrLength = 0;
-
+    Cpa8U mrLength = 0;
+    Cpa32U i = 0;
     /* Get the length of the Miller Rabin Data */
     mrLength = pMR->dataLenInBytes / rounds;
 
@@ -2773,7 +2780,7 @@ CpaStatus waitForResponses(perf_data_t *perfData,
     {
         perfData->endCyclesTimestamp = sampleCodeTimestamp();
         sampleCodeSemaphorePost(&perfData->comp);
-        perfData->responses = numBuffers * numLoops;
+        perfData->responses = (Cpa64U)numBuffers * numLoops;
     }
     /*wait for the callback to receive all responses and free the
      * semaphore, or if in sync mode, the semaphore should already be free*/
@@ -3144,8 +3151,6 @@ void printCipherAlg(CpaCySymCipherSetupData cipherSetupData)
         case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             PRINT("ZUC-EEA3");
             break;
-
-
 #endif /*CPA_CY_API_VERSION_NUM_MAJOR >= 2*/
 
         default:
@@ -3229,6 +3234,20 @@ void printHashAlg(CpaCySymHashSetupData hashSetupData)
 }
 EXPORT_SYMBOL(printHashAlg);
 
+CpaStatus stopCyServicesFromCallback(thread_creation_data_t *dummy_ptr)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    /* stop CY Services */
+    status = stopCyServices();
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Unable to stop CY services\n");
+    }
+    return status;
+}
+EXPORT_SYMBOL(stopCyServicesFromCallback);
+
 /**
  *****************************************************************************
  * @ingroup sampleSymmetricPerf
@@ -3238,7 +3257,6 @@ EXPORT_SYMBOL(printHashAlg);
  ******************************************************************************/
 void printSymTestType(symmetric_test_params_t *setup)
 {
-    CpaStatus status;
     if (setup->setupData.symOperation == CPA_CY_SYM_OP_CIPHER)
     {
         PRINT("Cipher ");
@@ -3274,16 +3292,6 @@ void printSymTestType(symmetric_test_params_t *setup)
     else
     {
         PRINT("API                   Traditional\n");
-    }
-    /*stop crypto services if not already stopped, this is the only reasonable
-     * location we can do this as this function is called after all threads are
-     * complete*/
-    status = stopCyServices();
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        /*no need to print error, stopCyServices already does it*/
-        PRINT("stopCyServices Failed with status : %d ", status);
-        return;
     }
 
 }
@@ -3364,11 +3372,11 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
     Cpa32U *threadCountPerDevice;
     perf_data_t *stats2;
     perf_data_t **tempPerformanceStats = NULL;
-/*
-    Cpa32U perfDataDeviceOffsets[packageIdCount_g];
-    Cpa32U threadCountPerDevice[packageIdCount_g];
-    perf_data_t stats2[packageIdCount_g];
-*/
+    /*
+        Cpa32U perfDataDeviceOffsets[packageIdCount_g];
+        Cpa32U threadCountPerDevice[packageIdCount_g];
+        perf_data_t stats2[packageIdCount_g];
+    */
 
 
 
@@ -3733,7 +3741,7 @@ EXPORT_SYMBOL(getCipherDirection);
 /*
  * The setupSymmetricDpTest() function has the encrypt / decrypt
  * direction hard coded to CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT.
-  * Use setCipherDirection() before calling setupCipherDpTest().
+ * Use setCipherDirection() before calling setupCipherDpTest().
  */
 void setCipherDirection(CpaCySymCipherDirection direction)
 {

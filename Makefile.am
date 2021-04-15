@@ -187,6 +187,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/utils/sal_string_parse.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_user_process.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_versions.c \
+	quickassist/lookaside/access_layer/src/common/device/sal_dev_info.c \
 	quickassist/lookaside/access_layer/src/user/sal_user.c \
 	quickassist/lookaside/access_layer/src/user/sal_user_dyn_instance.c
 lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
@@ -213,7 +214,7 @@ lib@LIBQATNAME@_la_LDFLAGS = -version-info $(LIBQAT_VERSION) \
 	$(COMMON_LDFLAGS) \
 	-export-symbols-regex '^(cpa|icp_sal)'
 
-pkgincludedir = "$(includedir)/qat"
+pkgincludedir = $(includedir)/qat
 pkginclude_HEADERS = \
 	quickassist/include/cpa.h \
 	quickassist/include/cpa_types.h \
@@ -248,6 +249,10 @@ endif
 systemd_scriptsdir = $(prefix)/sbin
 dist_systemd_scripts_SCRIPTS = quickassist/utilities/service/qat_init.sh
 
+install-exec-hook:
+	cp -P $(DESTDIR)$(libdir)/lib@LIBQATNAME@.so $(DESTDIR)$(libdir)/lib@LIBQATNAME@-$(VERSION).so
+	cp -P $(DESTDIR)$(libdir)/lib@LIBUSDMNAME@.so $(DESTDIR)$(libdir)/lib@LIBUSDMNAME@-$(VERSION).so
+
 install-data-hook:
 if SERVICE_AC
 	if [ "$(shell id -u)" == 0 ]; then \
@@ -259,6 +264,8 @@ if SERVICE_AC
 endif
 
 uninstall-hook:
+	rm $(DESTDIR)$(libdir)/lib@LIBQATNAME@-$(VERSION).so
+	rm $(DESTDIR)$(libdir)/lib@LIBUSDMNAME@-$(VERSION).so
 if SERVICE_AC
 	if [ "$(shell id -u)" == 0 ]; then \
 		systemctl daemon-reload; \
@@ -304,7 +311,9 @@ COMMON_FLAGS = -Wformat \
 	-fno-strict-overflow \
 	-fno-delete-null-pointer-checks \
 	-fwrapv \
-	-D MAX_MR_ROUND=$(MAX_MR)
+	-D MAX_MR_ROUND=$(MAX_MR) \
+	-D _FILE_OFFSET_BITS=64 \
+	$(MCX16_CFLAGS)
 
 if ICP_DEBUG_AC
 ICP_DEBUG = 1

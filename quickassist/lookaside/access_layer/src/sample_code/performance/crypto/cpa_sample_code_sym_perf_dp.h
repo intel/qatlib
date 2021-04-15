@@ -73,21 +73,23 @@
  *      for symmetric Data Plane performance sample code.
  *
  *****************************************************************************/
+#ifndef CPA_SAMPLE_CODE_SYM_PERF_DP_H_
+#define CPA_SAMPLE_CODE_SYM_PERF_DP_H_
 
 #include "cpa_sample_code_crypto_utils.h"
 #include "cpa_cy_sym_dp.h"
 /** Macro definition **/
 
 /* Symmetric DP operation Type
-* SYM_DP_ENQUEUEING: Enqueue operation will submit one operation
-* into the queue list at one time
-*/
+ * SYM_DP_ENQUEUEING: Enqueue operation will submit one operation
+ * into the queue list at one time
+ */
 #define SYM_DP_ENQUEUEING (0)
 /* Symmetric DP operation perform flag
-* if setup->numRequests is equal to SYM_DP_PERFORM_NOW_FLAG,
-* the operation should be performed immediately (performOpNow is CPA_TRUE),
-* otherwise enqueued to be performed later (performOpNow = CPA_FALSE).
-*/
+ * if setup->numRequests is equal to SYM_DP_PERFORM_NOW_FLAG,
+ * the operation should be performed immediately (performOpNow is CPA_TRUE),
+ * otherwise enqueued to be performed later (performOpNow = CPA_FALSE).
+ */
 #define SYM_DP_PERFORM_NOW_FLAG (1)
 
 /* init value for AdditionalAuthData when Snow3g */
@@ -171,26 +173,26 @@
 * @retval CPA_STATUS_INVALID_PARAM     Invalid parameter passed in.
 *
 *****************************************************************************/
-CpaStatus
-setupSymmetricDpTest(CpaCySymOp opType,
-                     CpaCySymCipherAlgorithm cipherAlg,
-                     Cpa32U cipherKeyLengthInBytes,
-                     Cpa32U cipherOffset,
-                     CpaCyPriority priority,
-                     CpaCySymHashAlgorithm hashAlg,
-                     CpaCySymHashMode hashMode,
-                     Cpa32U authKeyLengthInBytes,
-                     CpaCySymAlgChainOrder chainOrder,
-                     sync_mode_t syncMode,
-                     CpaCySymHashNestedModeSetupData *nestedModeSetupDataPtr,
-                     Cpa32U packetSize,
-                     Cpa32U numDpBatchOp,
-                     Cpa32U numRequests,
-                     Cpa32U numSessions,
-                     Cpa32U numBuffers,
-                     Cpa32U numBuffLists,
-                     Cpa32U numLoops,
-                     Cpa32U digestAppend);
+CpaStatus setupSymmetricDpTest(
+    CpaCySymOp opType,
+    CpaCySymCipherAlgorithm cipherAlg,
+    Cpa32U cipherKeyLengthInBytes,
+    Cpa32U cipherOffset,
+    CpaCyPriority priority,
+    CpaCySymHashAlgorithm hashAlg,
+    CpaCySymHashMode hashMode,
+    Cpa32U authKeyLengthInBytes,
+    CpaCySymAlgChainOrder chainOrder,
+    sync_mode_t syncMode,
+    CpaCySymHashNestedModeSetupData *nestedModeSetupDataPtr,
+    Cpa32U packetSize,
+    Cpa32U numDpBatchOp,
+    Cpa32U numRequests,
+    Cpa32U numSessions,
+    Cpa32U numBuffers,
+    Cpa32U numBuffLists,
+    Cpa32U numLoops,
+    Cpa32U digestAppend);
 
 /**
 *****************************************************************************
@@ -459,3 +461,5 @@ CpaStatus setupAlgChainTestDpNestedMode(
     Cpa32U numSessions,
     Cpa32U numBuffLists,
     Cpa32U numLoops);
+
+#endif /* CPA_SAMPLE_CODE_SYM_PERF_DP_H_ */

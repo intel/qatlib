@@ -89,7 +89,9 @@ extern "C" {
  * @typedef OSAL_STATUS
  * @brief OSAL status
  *
- * @note Possible OSAL return status include OSAL_SUCCESS and OSAL_FAIL.
+ * @note Possible OSAL return status include OSAL_SUCCESS, OSAL_FAIL,
+ *       OSAL_RETRY, OSAL_RESOURCE, OSAL_INVALID_PARAM, OSAL_FATAL
+ *       and OSAL_UNSUPPORTED.
  */
 typedef UINT32 OSAL_STATUS;
 
@@ -187,10 +189,9 @@ typedef volatile INT32 VINT32;
  * @def OSAL_SUCCESS
  *
  * @brief Success status
- *
  */
 #ifndef OSAL_SUCCESS
-#define OSAL_SUCCESS 0L /**< #defined as 0L */
+#define OSAL_SUCCESS (0) /**< #defined as 0 */
 #endif
 
 /**
@@ -199,10 +200,66 @@ typedef volatile INT32 VINT32;
  * @def OSAL_FAIL
  *
  * @brief Failure status
- *
  */
 #ifndef OSAL_FAIL
-#define OSAL_FAIL 1L /**< #defined as 1L */
+#define OSAL_FAIL (-1) /**< #defined as -1 */
+#endif
+
+/**
+ * @ingroup Osal
+ *
+ * @def OSAL_RETRY
+ *
+ * @brief Retry status
+ */
+#ifndef OSAL_RETRY
+#define OSAL_RETRY (-2) /**< #defined as -2 */
+#endif
+
+/**
+ * @ingroup Osal
+ *
+ * @def OSAL_RESOURCE
+ *
+ * @brief The resource that has been requested is unavailable.
+ * 	  Refer to the relevant sections of the API for specifics
+ * 	  on what the suggested course of action is.
+ */
+#ifndef OSAL_RESOURCE
+#define OSAL_RESOURCE (-3) /**< #defined as -3 */
+#endif
+
+/**
+ * @ingroup Osal
+ *
+ * @def OSAL_INVALID_PARAM
+ *
+ * @brief Invalid parameter has been passed in.
+ */
+#ifndef OSAL_INVALID_PARAM
+#define OSAL_INVALID_PARAM (-4) /**< #defined as -4 */
+#endif
+
+/**
+ * @ingroup Osal
+ *
+ * @def OSAL_FATAL
+ *
+ * @brief A serious error has occurred.
+ */
+#ifndef OSAL_FATAL
+#define OSAL_FATAL (-5) /**< #defined as -5 */
+#endif
+
+/**
+ * @ingroup Osal
+ *
+ * @def OSAL_UNSUPPORTED
+ *
+ * @brief Function is not supported/implemented.
+ */
+#ifndef OSAL_UNSUPPORTED
+#define OSAL_UNSUPPORTED (-6) /**< #defined as -6 */
 #endif
 
 /**

@@ -123,7 +123,7 @@ noinst_PROGRAMS += dc_dp_sample
 dc_dp_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample.c \
-	quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample_user.c 
+	quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample_user.c
 dc_dp_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/common \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework \
@@ -148,7 +148,7 @@ noinst_PROGRAMS += stateless_sample
 stateless_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_sample.c \
-	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_sample_user.c 
+	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_sample_user.c
 stateless_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/common \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework \
@@ -173,7 +173,7 @@ noinst_PROGRAMS += stateful_sample
 stateful_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_stateful_sample.c \
-	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_sample_user.c 
+	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_sample_user.c
 stateful_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/common \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework \
@@ -198,7 +198,7 @@ noinst_PROGRAMS += stateless_multi_op_checksum_sample
 stateless_multi_op_checksum_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_multi_op_checksum_sample/cpa_dc_stateless_multi_op_checksum_sample.c \
-	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_sample_user.c 
+	quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_sample_user.c
 stateless_multi_op_checksum_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/common \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework \

@@ -96,7 +96,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_nrbg.h
  * @ingroup cpaCyNrbg
  *      NRBG Get Entropy Operation Data
  * @description
@@ -119,7 +118,6 @@ typedef struct _CpaCyNrbgOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rbg.h
  * @ingroup cpaCyNrbg
  *      Gets entropy from the NRBG.
  *

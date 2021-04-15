@@ -91,7 +91,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      SSL or TLS key generation random number length.
  *
@@ -105,7 +104,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      SSL Operation Types
  * @description
@@ -125,7 +123,6 @@ typedef enum _CpaCyKeySslOp
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      SSL data for key generation functions
  * @description
@@ -186,7 +183,6 @@ typedef struct _CpaCyKeyGenSslOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      TLS Operation Types
  * @description
@@ -376,7 +372,6 @@ typedef struct _CpaCyKeyGenHKDFExpandLabel
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      TLS data for key generation functions
  * @description
@@ -420,7 +415,6 @@ typedef struct _CpaCyKeyGenHKDFOpData
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      TLS data for key generation functions
  * @description
@@ -481,7 +475,6 @@ typedef struct _CpaCyKeyGenTlsOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Key Generation Mask Generation Function (MGF) Data
  * @description
@@ -507,7 +500,6 @@ typedef struct _CpaCyKeyGenMgfOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Extension to the original Key Generation Mask Generation Function
  *      (MGF) Data
@@ -531,7 +523,6 @@ typedef struct _CpaCyKeyGenMgfOpDataExt {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Key Generation Statistics.
  * @deprecated
@@ -582,7 +573,6 @@ typedef struct _CpaCyKeyGenStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Key Generation Statistics (64-bit version).
  * @description
@@ -631,7 +621,6 @@ typedef struct _CpaCyKeyGenStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      SSL Key Generation Function.
  * @description
@@ -711,7 +700,6 @@ cpaCyKeyGenSsl(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      TLS Key Generation Function.
  * @description
@@ -791,7 +779,6 @@ cpaCyKeyGenTls(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      TLS Key Generation Function version 2.
  * @description
@@ -876,7 +863,6 @@ cpaCyKeyGenTls2(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      TLS Key Generation Function version 3.
  * @description
@@ -964,7 +950,6 @@ cpaCyKeyGenTls3(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Mask Generation Function.
  * @description
@@ -1044,7 +1029,6 @@ cpaCyKeyGenMgf(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Extended Mask Generation Function.
  * @description
@@ -1123,7 +1107,6 @@ cpaCyKeyGenMgfExt(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Queries the Key and Mask generation statistics specific to
  *      an instance.
@@ -1186,7 +1169,6 @@ cpaCyKeyGenQueryStats(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_key.h
  * @ingroup cpaCyKeyGen
  *      Queries the Key and Mask generation statistics (64-bit version)
  *      specific to an instance.

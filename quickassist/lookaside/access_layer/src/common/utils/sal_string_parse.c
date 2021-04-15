@@ -80,12 +80,16 @@ CpaStatus Sal_StringParsing(char *string1,
                             char *string2,
                             char *result)
 {
+    char instNumStr[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
+
     LAC_ASSERT_NOT_NULL(string1);
     LAC_ASSERT_NOT_NULL(string2);
 
-    if ((strnlen(string1, SAL_CFG_MAX_VAL_LEN_IN_BYTES + 1) +
-         sizeof(instanceNumber) +
-         strnlen(string2, SAL_CFG_MAX_VAL_LEN_IN_BYTES + 1) + 1) >
+    snprintf(instNumStr, SAL_CFG_MAX_VAL_LEN_IN_BYTES, "%u", instanceNumber);
+
+    if ((strnlen(string1, SAL_CFG_MAX_VAL_LEN_IN_BYTES) +
+         strnlen(instNumStr, SAL_CFG_MAX_VAL_LEN_IN_BYTES) +
+         strnlen(string2, SAL_CFG_MAX_VAL_LEN_IN_BYTES) + 1) >
         SAL_CFG_MAX_VAL_LEN_IN_BYTES)
     {
         LAC_LOG_ERROR("Size of result too small\n");
@@ -95,7 +99,7 @@ CpaStatus Sal_StringParsing(char *string1,
     LAC_OS_BZERO(result, SAL_CFG_MAX_VAL_LEN_IN_BYTES);
     snprintf(result,
              SAL_CFG_MAX_VAL_LEN_IN_BYTES,
-             "%s%d%s",
+             "%s%u%s",
              string1,
              instanceNumber,
              string2);

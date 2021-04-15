@@ -147,6 +147,7 @@ struct qatmgr_msg_rsp
         {
             uint16_t device_num;
             uint16_t device_type;
+            uint16_t device_pci_id;
             uint32_t capability_mask;
             uint32_t extended_capabilities;
             uint16_t max_banks;
@@ -212,6 +213,7 @@ struct qatmgr_device_data
     uint64_t accel_capabilities;
     uint64_t extended_capabilities;
     int device_type;
+    uint16_t pci_id;
     uint16_t services;
 };
 
@@ -265,7 +267,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                        int policy,
                        int static_cfg);
 
-bool qat_mgr_is_dev_available();
+bool qat_mgr_is_dev_available(void);
 
 int handle_message(struct qatmgr_msg_req *req,
                    struct qatmgr_msg_rsp *rsp,

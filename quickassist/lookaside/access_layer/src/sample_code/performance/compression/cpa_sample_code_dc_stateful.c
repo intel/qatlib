@@ -835,8 +835,8 @@ static CpaStatus performDeCompressStateful(compression_test_params_t *setup,
     }
 
     /* make sure to compress the corpus before starting
-    * de compression
-    */
+     * de compression
+     */
     if (setup->corpus != LUKAS_COMPRESSED_FILES)
     {
         if (!useZlib_g)
@@ -1237,9 +1237,9 @@ CpaStatus dcPerformStateful(compression_test_params_t *setup)
     }
 
     /* Allocate bufflist list pointers
-   * This List array will be used as destination buffers
-   * for the decompression
-   */
+     * This List array will be used as destination buffers
+     * for the decompression
+     */
     cmpBuffListArray =
         qaeMemAlloc((numFilesInCorpus * sizeof(CpaBufferList *)));
     /* Check for NULL */
@@ -1252,8 +1252,8 @@ CpaStatus dcPerformStateful(compression_test_params_t *setup)
     }
 
     /* populate the bufflist array with number of Buffers required
-    * for each file and allocate the memory
-    */
+     * for each file and allocate the memory
+     */
     for (i = 0; i < numFilesInCorpus; i++)
     {
 
@@ -1315,7 +1315,7 @@ CpaStatus dcPerformStateful(compression_test_params_t *setup)
      * total number of buffers required for
      * complete corpus based on the session direction
      *
-    */
+     */
     perfData->numOperations = (Cpa64U)totalBuffs * setup->numLoops;
 
     if (CPA_DC_DIR_COMBINED == dcSessDir)
@@ -1552,7 +1552,7 @@ CpaStatus dcPerformStateful(compression_test_params_t *setup)
         }
     }
 
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
+#if DC_API_VERSION_LESS_THAN(1, 6)
 #endif
 
     if (CPA_DC_DIR_COMPRESS == dcSessDir)
@@ -1801,9 +1801,9 @@ CpaStatus setupDcStatefulTest_Depreciated(CpaDcCompType algorithm,
 #else
     dcSetup->setupData.huffType = CPA_DC_HT_STATIC;
 #endif
-    dcSetup->setupData.fileType = CPA_DC_FT_ASCII;
     dcSetup->setupData.sessState = CPA_DC_STATEFUL;
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
+#if DC_API_VERSION_LESS_THAN(1, 6)
+    dcSetup->setupData.fileType = CPA_DC_FT_ASCII;
     dcSetup->setupData.deflateWindowSize = DEFAULT_COMPRESSION_WINDOW_SIZE;
 #endif
     dcSetup->corpus = corpusType;

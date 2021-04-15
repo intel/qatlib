@@ -392,7 +392,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
         return status;
     }
     /**************************************************************************
-    * STEP 2. Alice & Bob agree on a p & g and generate secret random x
+     * STEP 2. Alice & Bob agree on a p & g and generate secret random x
      **************************************************************************/
     status = dhPhase1Setup(setup,
                            alice.ppPhase1,
@@ -483,7 +483,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
      * setup encryption, we need an encryptOpData structure, because the
      * rsaSetOpDataKeys generates a public key and needs to copy it into
      * an encryptOpData structure
-    **************************************************************************/
+     **************************************************************************/
     status = rsaEncryptDataSetup(
         bob.ppSignatures, bob.ppEncryptOpData, bob.ppPVverifier, setup);
     if (CPA_STATUS_SUCCESS != status)
@@ -521,6 +521,8 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
     status = sampleRsaDecrypt(setup,
                               bob.ppDecryptOpData,
                               bob.ppSignatures,
+                              pPrivateKey,
+                              pPublicKey,
                               setup->numBuffers,
                               ONE_LOOP);
     if (CPA_STATUS_SUCCESS != status)
@@ -577,7 +579,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
      * Setup encryption: we need an encryptOpData structure, because the
      * rsaSetOpDataKeys generates a public key and needs to copy it into
      * an encryptOpData structure
-    **************************************************************************/
+     **************************************************************************/
     status = rsaEncryptDataSetup(
         alice.ppSignatures, alice.ppEncryptOpData, alice.ppPVverifier, setup);
     if (CPA_STATUS_SUCCESS != status)
@@ -740,7 +742,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
              * Step 7d Sign all of Alices public value buffers,
              * Alices Public Value is in the Decrypt opData setup, the signature
              *  is placed in alices signature
-            ******************************************************************/
+             ******************************************************************/
             do
             {
                 status = cpaCyRsaDecrypt(setup->cyInstanceHandle,
@@ -775,10 +777,10 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
                                               alice.ppSecretKeys[innerLoop]);
 
                 /*this is a back off mechanism to stop the code
-                * continually calling the Decrypt operation when the
-                * acceleration units are busy. Without this the CPU
-                * can report a soft lockup if it continually loops
-                * on busy*/
+                 * continually calling the Decrypt operation when the
+                 * acceleration units are busy. Without this the CPU
+                 * can report a soft lockup if it continually loops
+                 * on busy*/
                 if (status == CPA_STATUS_RETRY)
                 {
                     setup->performanceStats->retries++;
@@ -867,7 +869,7 @@ void ikeRsaPerformance(single_thread_test_data_t *testSetup)
     /*give our thread a unique memory location to store performance stats*/
     ikeRsaSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
-    * instance*/
+     * instance*/
     status = cpaCyGetNumInstances(&numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {

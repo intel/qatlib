@@ -100,7 +100,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Version.
  * @description
@@ -118,7 +117,6 @@ typedef enum _CpaCyRsaVersion
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Public Key Structure.
  * @description
@@ -146,7 +144,6 @@ typedef struct _CpaCyRsaPublicKey {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Private Key Structure For Representation 1.
  * @description
@@ -181,7 +178,6 @@ typedef struct _CpaCyRsaPrivateKeyRep1 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Private Key Structure For Representation 2.
  * @description
@@ -211,7 +207,6 @@ typedef struct _CpaCyRsaPrivateKeyRep2 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA private key representation type.
  * @description
@@ -229,7 +224,6 @@ typedef enum _CpaCyRsaPrivateKeyRepType
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Private Key Structure.
  * @description
@@ -266,7 +260,6 @@ typedef struct _CpaCyRsaPrivateKey {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Key Generation Data.
  * @description
@@ -334,7 +327,6 @@ typedef struct _CpaCyRsaKeyGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Encryption Primitive Operation Data
  * @description
@@ -373,7 +365,6 @@ typedef struct _CpaCyRsaEncryptOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Decryption Primitive Operation Data
  * @description
@@ -412,7 +403,6 @@ typedef struct _CpaCyRsaDecryptOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Statistics.
  * @deprecated
@@ -461,7 +451,6 @@ typedef struct _CpaCyRsaStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      RSA Statistics (64-bit version).
  * @description
@@ -508,7 +497,6 @@ typedef struct _CpaCyRsaStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      Definition of the RSA key generation callback function.
  *
@@ -566,7 +554,6 @@ typedef void (*CpaCyRsaKeyGenCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      Generate RSA keys.
  *
@@ -658,7 +645,6 @@ cpaCyRsaGenKey(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      Perform the RSA encrypt (or verify) primitive operation on the input
  *      data.
@@ -743,7 +729,6 @@ cpaCyRsaEncrypt(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      Perform the RSA decrypt (or sign) primitive operation on the input
  *      data.
@@ -828,7 +813,6 @@ cpaCyRsaDecrypt(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      Query statistics for a specific RSA instance.
  *
@@ -889,7 +873,6 @@ cpaCyRsaQueryStats(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_rsa.h
  * @ingroup cpaCyRsa
  *      Query statistics (64-bit version) for a specific RSA instance.
  *

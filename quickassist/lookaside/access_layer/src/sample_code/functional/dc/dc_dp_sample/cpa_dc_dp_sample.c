@@ -147,13 +147,15 @@ static void dcDpCallback(CpaDcDpOpData *pOpData)
  * This function performs a compression operation.
  */
 static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
-                               CpaDcSessionHandle sessionHdl)
+                               CpaDcSessionHandle sessionHdl,
+                               CpaDcHuffType huffType)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaPhysBufferList *pBufferListSrc = NULL;
     CpaPhysBufferList *pBufferListDst = NULL;
     CpaPhysBufferList *pBufferListDst2 = NULL;
     Cpa32U bufferSize = sizeof(sampleData);
+    Cpa32U dstBufferSize = bufferSize;
     Cpa32U numBuffers = 0;
     Cpa32U bufferListMemSize = 0;
     Cpa8U *pSrcBuffer = NULL;
@@ -197,15 +199,32 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         pBufferListSrc->flatBuffers[1].bufferPhysAddr =
             sampleVirtToPhys(pSrcBuffer2);
         //</snippet>
+    }
 
+    /* Destination buffer size is set as sizeof(sampelData) for a
+     * Deflate compression operation with DC_API_VERSION < 2.5.
+     * cpaDcDeflateCompressBound API is used to get maximum output buffer size
+     * for a Deflate compression operation with DC_API_VERSION >= 2.5 */
+#if DC_API_VERSION_AT_LEAST(2, 5)
+    status = cpaDcDeflateCompressBound(
+        dcInstHandle, huffType, bufferSize, &dstBufferSize);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaDcDeflateCompressBound API failed. (status = %d)\n",
+                  status);
+        return CPA_STATUS_FAIL;
+    }
+#endif
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
         /* Allocate destination buffer the same size as source buffer but in
            an SGL with 1 buffer */
-        numBuffers = 1;
-        bufferListMemSize = sizeof(CpaPhysBufferList) +
-                            (numBuffers * sizeof(CpaPhysFlatBuffer));
+        bufferListMemSize = sizeof(CpaPhysBufferList) + dstBufferSize;
         status =
             PHYS_CONTIG_ALLOC_ALIGNED(&pBufferListDst, bufferListMemSize, 8);
     }
+
     if (CPA_STATUS_SUCCESS == status)
     {
         status = PHYS_CONTIG_ALLOC(&pDstBuffer, bufferSize);
@@ -230,7 +249,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     {
         memset(pOpData, 0, sizeof(CpaDcDpOpData));
         pOpData->bufferLenToCompress = sizeof(sampleData);
-        pOpData->bufferLenForData = sizeof(sampleData);
+        pOpData->bufferLenForData = dstBufferSize;
         pOpData->dcInstance = dcInstHandle;
         pOpData->pSessionHandle = sessionHdl;
         pOpData->srcBuffer = sampleVirtToPhys(pBufferListSrc);
@@ -337,7 +356,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
             pOpData->thisPhys = sampleVirtToPhys(pOpData);
             pOpData->pCallbackTag = (void *)0;
 
-            PRINT_DBG("cpaCySymDpEnqueueOpBatch\n");
+            PRINT_DBG("cpaDcDpEnqueueOpBatch\n");
             /** Enqueue symmetric operation */
             status = cpaDcDpEnqueueOpBatch(1, &pOpData, CPA_TRUE);
 
@@ -593,7 +612,7 @@ CpaStatus dcDpSample(void)
         CpaStatus sessionStatus = CPA_STATUS_SUCCESS;
 
         /* Perform Compression operation */
-        status = compPerformOp(dcInstHandle, sessionHdl);
+        status = compPerformOp(dcInstHandle, sessionHdl, sd.huffType);
 
         PRINT_DBG("cpaDcDpRemoveSession\n");
         //<snippet name="removeSession">

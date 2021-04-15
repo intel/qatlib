@@ -128,6 +128,28 @@ static char *dc_dir_name = "dc";
 static char *ver_file_name = "version";
 
 static subservice_registation_handle_t sal_service_reg_handle;
+
+static inline const char *get_sku_info(enum dev_sku_info info)
+{
+    switch (info)
+    {
+        case DEV_SKU_1:
+            return "SKU1";
+        case DEV_SKU_2:
+            return "SKU2";
+        case DEV_SKU_3:
+            return "SKU3";
+        case DEV_SKU_4:
+            return "SKU4";
+        case DEV_SKU_VF:
+            return "SKUVF";
+        case DEV_SKU_UNKNOWN:
+        default:
+            break;
+    }
+    return "Unknown SKU";
+}
+
 /**< Data structure used by ADF to keep a reference to this component. */
 
 /*
@@ -594,8 +616,7 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
             }
             pInst->debug_parent_dir = debug_dir;
             pInst->capabilitiesMask = device->accelCapabilitiesMask;
-            pInst->isGen4 = DEVICE_4XXX == device->deviceType ||
-                            DEVICE_4XXXVF == device->deviceType;
+            pInst->isGen4 = IS_QAT_4XXX(device->deviceType);
 
             status = SalList_add(services, &tail_list, pInst);
             if (CPA_STATUS_SUCCESS != status)

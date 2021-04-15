@@ -362,7 +362,7 @@ OSAL_PUBLIC UINT32 osalSysClockRateGet(void)
     return (HZ);
 }
 
-OSAL_PUBLIC void osalTicksToTimeval(UINT32 ticks, OsalTimeval *pTv)
+OSAL_PUBLIC void osalTicksToTimeval(UINT64 ticks, OsalTimeval *pTv)
 {
     UINT32 tickPerSecs = 0;
     UINT32 nanoSecsPerTick = 0;
@@ -410,7 +410,7 @@ OSAL_PUBLIC UINT32 osalTimevalToTicks(OsalTimeval tv)
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
                 "osalTimevalToTicks(): Timeval too high. Max value allowed"
-                "in seconds is %u < %u\n",
+                " in seconds is %u < %llu\n",
                 maxSecs,
                 tv.secs);
         return OSAL_TIMEVAL_TOO_LARGE;

@@ -68,7 +68,7 @@ void icp_adf_getQueueMemory(icp_comms_trans_handle trans_hnd,
 
     /* Check if there is enough space in the ring */
     in_flight = *pRingHandle->in_flight + numberRequests;
-    if (in_flight >= pRingHandle->max_requests_inflight)
+    if (in_flight > pRingHandle->max_requests_inflight)
     {
         *targetAddr = NULL;
         return;
@@ -94,7 +94,7 @@ void icp_adf_getSingleQueueAddr(icp_comms_trans_handle trans_hnd,
 
     /* Check if there is enough space in the ring */
     in_flight = *pRingHandle->in_flight + 1;
-    if (in_flight >= pRingHandle->max_requests_inflight)
+    if (in_flight > pRingHandle->max_requests_inflight)
     {
         *targetAddr = NULL;
         return;
@@ -128,6 +128,21 @@ void icp_adf_getQueueNext(icp_comms_trans_handle trans_hnd,
     /* Get the address of next message */
     *targetAddr = (Cpa32U *)(((UARCH_INT)pRingHandle->ring_virt_addr) +
                              pRingHandle->tail);
+}
+
+/*
+ * icp_adf_getDpInflightRequests
+ * Data plane function to fetch in-flight and max in-flight request counts
+ * for the given trans_handle.
+ */
+void icp_adf_getDpInflightRequests(icp_comms_trans_handle trans_hnd,
+                                   Cpa32U *maxInflightRequests,
+                                   Cpa32U *numInflightRequests)
+{
+    adf_dev_ring_handle_t *pRingHandle = (adf_dev_ring_handle_t *)trans_hnd;
+
+    *numInflightRequests = *pRingHandle->in_flight;
+    *maxInflightRequests = pRingHandle->max_requests_inflight;
 }
 
 /*

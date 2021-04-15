@@ -118,7 +118,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Modular Exponentiation Function Operation Data.
  * @description
@@ -157,7 +156,6 @@ typedef struct _CpaCyLnModExpOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Modular Inversion Function Operation Data.
  * @description
@@ -193,7 +191,6 @@ typedef struct _CpaCyLnModInvOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Look Aside Cryptographic large number Statistics.
  * @deprecated
@@ -234,7 +231,6 @@ typedef struct _CpaCyLnStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Look Aside Cryptographic large number Statistics.
  * @description
@@ -272,7 +268,6 @@ typedef struct _CpaCyLnStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Perform modular exponentiation operation.
  *
@@ -349,7 +344,6 @@ cpaCyLnModExp(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Perform modular inversion operation.
  *
@@ -429,7 +423,6 @@ cpaCyLnModInv(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Query statistics for large number operations
  *
@@ -490,7 +483,6 @@ cpaCyLnStatsQuery(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ln.h
  * @ingroup cpaCyLn
  *      Query statistics (64-bit version) for large number operations
  *

@@ -213,11 +213,10 @@ static CpaStatus cipherPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
         setup->setupData.cipherSetupData.cipherAlgorithm ==
             CPA_CY_SYM_CIPHER_SNOW3G_UEA2
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-        ||
-        setup->setupData.cipherSetupData.cipherAlgorithm ==
-            CPA_CY_SYM_CIPHER_ZUC_EEA3
+        || setup->setupData.cipherSetupData.cipherAlgorithm ==
+               CPA_CY_SYM_CIPHER_ZUC_EEA3
 #endif
-        )
+    )
     {
         pOpdata->ivLenInBytes = IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
     }
@@ -460,7 +459,7 @@ CpaStatus sampleCipherPerform(symmetric_test_params_t *setup)
     }
 
     /* calculate memory size which is required for pPrivateMetaData
-    * member of CpaBufferList */
+     * member of CpaBufferList */
     status = cpaCyBufferListGetMetaSize(
         setup->cyInstanceHandle, setup->numBuffers, &bufferMetaSize);
     if (CPA_STATUS_SUCCESS != status)

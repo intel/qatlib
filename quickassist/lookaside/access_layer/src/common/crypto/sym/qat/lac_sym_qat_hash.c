@@ -556,7 +556,7 @@ STATIC void LacSymQat_HashSetupBlockInit(
 {
     Cpa32U innerConfig = 0;
     lac_hash_blk_ptrs_t hashBlkPtrs = {0};
-    Cpa32U aed_hash_cmp_length = 0;
+    Cpa32U aedHashCmpLength = 0;
 
     LacSymQat_HashHwBlockPtrsInit(
         pHashControlBlock, pHwBlockBase, &hashBlkPtrs);
@@ -712,7 +712,7 @@ STATIC void LacSymQat_HashSetupBlockInit(
                                            ICP_QAT_HW_CIPHER_ALGO_SNOW_3G_UEA2,
                                            ICP_QAT_HW_CIPHER_KEY_CONVERT,
                                            ICP_QAT_HW_CIPHER_ENCRYPT,
-                                           aed_hash_cmp_length);
+                                           aedHashCmpLength);
 
         pCipherConfig->reserved = 0;
 
@@ -735,7 +735,7 @@ STATIC void LacSymQat_HashSetupBlockInit(
             ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3,
             ICP_QAT_HW_CIPHER_KEY_CONVERT,
             ICP_QAT_HW_CIPHER_ENCRYPT,
-            aed_hash_cmp_length);
+            aedHashCmpLength);
 
         pCipherConfig->reserved = 0;
 

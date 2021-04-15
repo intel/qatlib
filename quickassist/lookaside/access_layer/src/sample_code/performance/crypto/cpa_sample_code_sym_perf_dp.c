@@ -90,6 +90,7 @@
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
 #include "qat_perf_sleeptime.h"
+#include "qat_perf_buffer_utils.h"
 
 #define REL_LOOP_MULTIPLIER (2)
 #define SYM_OPERATIONS_DEFAULT_POLLING_INTERVAL (16)
@@ -166,11 +167,11 @@ CpaStatus printSymPollingInterval(void)
 EXPORT_SYMBOL(printSymPollingInterval);
 
 /*****************************************************************************
-* @ingroup sampleSymmetricDpPerf
-*
-* @description
-* Poll the number of DP operations
-* ***************************************************************************/
+ * @ingroup sampleSymmetricDpPerf
+ *
+ * @description
+ * Poll the number of DP operations
+ * ***************************************************************************/
 CpaStatus cyDpPollNumOperations(perf_data_t *pPerfData,
                                 CpaInstanceHandle instanceHandle,
                                 Cpa64U numOperations)
@@ -257,9 +258,9 @@ static CpaPhysicalAddr symDpCalDigestAddress(Cpa32U packetSize,
     else
     {
         /* since Digest address (pDigestResult) need to align with
-        * blockSizeInBytes, we will check if packetSize is align with
-        * blockSizeInBytes,
-        * if not, padding will added after message */
+         * blockSizeInBytes, we will check if packetSize is align with
+         * blockSizeInBytes,
+         * if not, padding will added after message */
         if (packetSize % blockSizeInBytes != 0)
         {
             packsetSizePad = blockSizeInBytes - (packetSize % blockSizeInBytes);
@@ -268,7 +269,7 @@ static CpaPhysicalAddr symDpCalDigestAddress(Cpa32U packetSize,
         digestOffset = (packetSize + packsetSizePad) % bufferSizeInByte;
 
         /* calculate the which flat buffer store pDigestResult
-        * pDigestResult will appended in the end of pData */
+         * pDigestResult will appended in the end of pData */
         indexBuffer = (packetSize + packsetSizePad) / bufferSizeInByte;
         pDigestResult = (CpaPhysicalAddr)(SAMPLE_CODE_UINT)(
             pBufferList->flatBuffers[indexBuffer].bufferPhysAddr +
@@ -294,7 +295,7 @@ static void symDpSetDigestBuffer(Cpa32U messageLenToCipherInBytes,
     Cpa32U i = 0;
     Cpa32U bufferSizeInByte = pBufferList->pBuffers[0].dataLenInBytes;
     /*  all the rest of data including padding will initialized ,
-    * so ivLenInBytes is 1.*/
+     * so ivLenInBytes is 1.*/
     if (bufferSizeInByte == 0)
     {
         pDigestResult = (Cpa8U *)(pBufferList->pBuffers[0].pData +
@@ -479,8 +480,8 @@ void symDpPerformCallback(CpaCySymDpOpData *pOpData,
         }
     }
 #endif // LATENCY_CODE
-       /*if we have received the pre-set numOperations, then get the clock cycle
-        * as a timestamp and post the Semaphore to release parent thread*/
+    /*if we have received the pre-set numOperations, then get the clock cycle
+     * as a timestamp and post the Semaphore to release parent thread*/
     if (pPerfData->numOperations == pPerfData->responses)
     {
         pPerfData->endCyclesTimestamp = sampleCodeTimestamp();
@@ -546,7 +547,7 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
                                          CpaBoolean digestVerify,
                                          CpaBoolean digestIsEncrypted,
                                          symmetric_test_params_t *setup
-                                         )
+)
 {
     Cpa32U sessionCtxSizeInBytes = 0;
 #if CPA_CY_API_VERSION_NUM_MINOR >= 8
@@ -588,11 +589,10 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
     else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
                  setup->setupData.hashSetupData.hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-             ||
-             CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                 setup->setupData.hashSetupData.hashAlgorithm
+             || CPA_CY_SYM_HASH_ZUC_EIA3 ==
+                    setup->setupData.hashSetupData.hashAlgorithm
 #endif
-             )
+    )
     {
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
             KEY_SIZE_128_IN_BYTES;
@@ -679,13 +679,13 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
  * @description
  * Setup symmetric operation data
  * ***************************************************************************/
-static CpaStatus
-symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
-                              Cpa32U *pPacketSize,
-                              CpaCySymDpOpData *pOpdata[],
-                              symmetric_test_params_t *setup,
-                              CpaPhysBufferList *ppSrcBuffListArray[],
-                              CpaPhysBufferList *ppDestBuffListArray[])
+static CpaStatus symmetricDpPerformOpDataSetup(
+    CpaCySymDpSessionCtx *pSessionCtx,
+    Cpa32U *pPacketSize,
+    CpaCySymDpOpData *pOpdata[],
+    symmetric_test_params_t *setup,
+    CpaPhysBufferList *ppSrcBuffListArray[],
+    CpaPhysBufferList *ppDestBuffListArray[])
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U createCount = 0;
@@ -753,11 +753,10 @@ symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
         if (CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
                 setup->setupData.hashSetupData.hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-            ||
-            CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                setup->setupData.hashSetupData.hashAlgorithm
+            || CPA_CY_SYM_HASH_ZUC_EIA3 ==
+                   setup->setupData.hashSetupData.hashAlgorithm
 #endif
-            )
+        )
         {
 
             pOpdata[createCount]->pAdditionalAuthData =
@@ -810,12 +809,10 @@ symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
             setup->setupData.cipherSetupData.cipherAlgorithm ==
                 CPA_CY_SYM_CIPHER_AES_XTS
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-            ||
-            setup->setupData.cipherSetupData.cipherAlgorithm ==
-                CPA_CY_SYM_CIPHER_ZUC_EEA3
+            || setup->setupData.cipherSetupData.cipherAlgorithm ==
+                   CPA_CY_SYM_CIPHER_ZUC_EEA3
 #endif
-
-            )
+        )
         {
             pOpdata[createCount]->ivLenInBytes =
                 IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
@@ -893,7 +890,9 @@ symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
         if (0 != pOpdata[createCount]->ivLenInBytes)
         {
             pOpdata[createCount]->iv = (CpaPhysicalAddr)(
-                SAMPLE_CODE_UINT)qaeVirtToPhysNUMA(pOpdata[createCount]->pIv);
+                SAMPLE_CODE_UINT)virtAddrToDevAddr(pOpdata[createCount]->pIv,
+                                                   setup->cyInstanceHandle,
+                                                   CPA_ACC_SVC_TYPE_CRYPTO);
         }
         else
         {
@@ -903,8 +902,10 @@ symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
         if (NULL != pOpdata[createCount]->pAdditionalAuthData)
         {
             pOpdata[createCount]->additionalAuthData =
-                (CpaPhysicalAddr)(SAMPLE_CODE_UINT)qaeVirtToPhysNUMA(
-                    pOpdata[createCount]->pAdditionalAuthData);
+                (CpaPhysicalAddr)(SAMPLE_CODE_UINT)virtAddrToDevAddr(
+                    pOpdata[createCount]->pAdditionalAuthData,
+                    setup->cyInstanceHandle,
+                    CPA_ACC_SVC_TYPE_CRYPTO);
         }
         else
         {
@@ -944,16 +945,20 @@ symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
         {
             /* Set physical address for srcbuffer */
             pOpdata[createCount]->srcBuffer =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(
+                (CpaPhysicalAddr)virtAddrToDevAddr(
                     (SAMPLE_CODE_UINT *)(uintptr_t)
-                        ppSrcBuffListArray[createCount]);
+                        ppSrcBuffListArray[createCount],
+                    setup->cyInstanceHandle,
+                    CPA_ACC_SVC_TYPE_CRYPTO);
             /* Set length of srcbuffer */
             pOpdata[createCount]->srcBufferLen = CPA_DP_BUFLIST;
             /* Set physical address for dstBuffer */
             pOpdata[createCount]->dstBuffer =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(
+                (CpaPhysicalAddr)virtAddrToDevAddr(
                     (SAMPLE_CODE_UINT *)(uintptr_t)
-                        ppDestBuffListArray[createCount]);
+                        ppDestBuffListArray[createCount],
+                    setup->cyInstanceHandle,
+                    CPA_ACC_SVC_TYPE_CRYPTO);
             /* Set length of dstBuffer */
             pOpdata[createCount]->dstBufferLen = CPA_DP_BUFLIST;
         }
@@ -962,7 +967,9 @@ symmetricDpPerformOpDataSetup(CpaCySymDpSessionCtx *pSessionCtx,
 
         /* the physical address of this structure  */
         pOpdata[createCount]->thisPhys =
-            (CpaPhysicalAddr)qaeVirtToPhysNUMA(pOpdata[createCount]);
+            (CpaPhysicalAddr)virtAddrToDevAddr(pOpdata[createCount],
+                                               setup->cyInstanceHandle,
+                                               CPA_ACC_SVC_TYPE_CRYPTO);
         /* Set response : initialize pCallbackTag with perf_data_t to
          * callback operation */
         pOpdata[createCount]->pCallbackTag = setup->performanceStats;
@@ -1122,9 +1129,9 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     {
 
         /* This inner for-loop loops around the number of Buffer Lists
-        * that have been preallocated.  Once the array has completed
-        * exit to the outer loop to move on the next iteration of the
-        * preallocated loop. */
+         * that have been preallocated.  Once the array has completed
+         * exit to the outer loop to move on the next iteration of the
+         * preallocated loop. */
         for (insideLoopCount = 0; insideLoopCount < setup->numBuffLists;
              insideLoopCount++)
         {
@@ -1181,10 +1188,10 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
                                              performNowFlag);
                 coo_req_stop(pSymData, status);
                 /* When cpaCySymDpEnqueueOp return CPA_STATUS_RETRY, perform
-                * cpaCySymDpPerformOpNow to clear those requests in the queue,
-                * and pSymData->retries will increase 1
-                * also re-schedule thread and wait for finishing operation.
-                */
+                 * cpaCySymDpPerformOpNow to clear those requests in the queue,
+                 * and pSymData->retries will increase 1
+                 * also re-schedule thread and wait for finishing operation.
+                 */
                 if (CPA_STATUS_RETRY == status)
                 {
                     pSymData->retries++;
@@ -1289,7 +1296,7 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
             }
 #endif
             /*If reach the limitation,
-            * system will poll all requests in the queue*/
+             * system will poll all requests in the queue*/
             ++numOps;
             if (numOps == nextPoll)
             {
@@ -1308,8 +1315,8 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
 
     } /* End of outside Loop */
       /* When the callback returns it will increment the responses
-      * counter and test if its equal to numBuffLists, in that
-      * case all responses have been successfully received. */
+       * counter and test if its equal to numBuffLists, in that
+       * case all responses have been successfully received. */
     if (CPA_STATUS_SUCCESS == status)
     {
         /*
@@ -1537,9 +1544,9 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
             {
                 batchCount = maxRequestNum - queueRequestNum;
                 /* current queued requests is more than request number
-                *  which allowed to be queued,
-                *  all batch operations need to perform directly
-                */
+                 *  which allowed to be queued,
+                 *  all batch operations need to perform directly
+                 */
                 performNow = CPA_TRUE;
                 queueRequestNum = 0;
             }
@@ -1557,10 +1564,10 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
                     batchCount, &ppOpData[insideLoopCount], performNow);
 
                 /* When cpaCySymDpEnqueueOp return CPA_STATUS_RETRY,
-                * perform cpaCySymDpPerformOpNow to clear those requests
-                *  in the queue,and pSymData->retries will increase 1
-                * also re-schedule thread and wait for finishing operation.
-                */
+                 * perform cpaCySymDpPerformOpNow to clear those requests
+                 *  in the queue,and pSymData->retries will increase 1
+                 * also re-schedule thread and wait for finishing operation.
+                 */
                 if (CPA_STATUS_RETRY == status)
                 {
                     setup->performanceStats->retries++;
@@ -1569,7 +1576,7 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
             } while (CPA_STATUS_RETRY == status);
 
             /* if status isn't CPA_STATUS_SUCCESS,
-            * break the inside loop directly */
+             * break the inside loop directly */
             if (CPA_STATUS_SUCCESS != status)
             {
                 break;
@@ -1594,8 +1601,8 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
     } /* End of outside Loop */
 
     /* When the callback returns it will increment the responses
-      * counter and test if its equal to numBuffLists, in that
-      * case all responses have been successfully received. */
+     * counter and test if its equal to numBuffLists, in that
+     * case all responses have been successfully received. */
     if (CPA_STATUS_SUCCESS == status)
     {
         /*
@@ -1623,12 +1630,12 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
  *  affected then steps back to the last increment value, i.e. the last
  *  increment step(BUSY_LOOP_INCREMENT) before performance was affected.
  *****************************************************************************/
-static CpaStatus
-performOffloadCalculation(symmetric_test_params_t *setup,
-                          Cpa32U numOfLoops,
-                          CpaCySymDpOpData **ppOpData,
-                          CpaBufferList **ppSrcBuffListArray,
-                          CpaCySymCipherDirection cipherDirection)
+static CpaStatus performOffloadCalculation(
+    symmetric_test_params_t *setup,
+    Cpa32U numOfLoops,
+    CpaCySymDpOpData **ppOpData,
+    CpaBufferList **ppSrcBuffListArray,
+    CpaCySymCipherDirection cipherDirection)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32S baseThroughput = 0, currentThroughput = 0;
@@ -1706,7 +1713,7 @@ performOffloadCalculation(symmetric_test_params_t *setup,
                                               pPerfData->startCyclesTimestamp);
 
         /* If no retries and we're within ERROR_MARGIN (0.1%) of base throughput
-        */
+         */
         if (pPerfData->retries == 0 &&
             (withinMargin(baseThroughput, currentThroughput, ERROR_MARGIN) ==
              1))
@@ -1885,9 +1892,8 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
          setup->setupData.hashSetupData.hashAlgorithm ==
              CPA_CY_SYM_HASH_KASUMI_F9
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-         ||
-         setup->setupData.hashSetupData.hashAlgorithm ==
-             CPA_CY_SYM_HASH_ZUC_EIA3
+         || setup->setupData.hashSetupData.hashAlgorithm ==
+                CPA_CY_SYM_HASH_ZUC_EIA3
 #endif
          ))
     {
@@ -1901,9 +1907,9 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
          insideLoopCount++)
     {
         /* Calculate totalSizeInBytes:
-        * It should no more than packetSizeInBytes + digestResultLenInBytes.
-        * In cipher algorithm, digestResultLenInBytes should be 0.
-        */
+         * It should no more than packetSizeInBytes + digestResultLenInBytes.
+         * In cipher algorithm, digestResultLenInBytes should be 0.
+         */
         totalSizeInBytes[insideLoopCount] =
             setup->packetSizeInBytesArray[insideLoopCount] +
             setup->setupData.hashSetupData.digestResultLenInBytes;
@@ -1925,7 +1931,7 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
                                          CPA_FALSE,
                                          CPA_FALSE,
                                          setup
-                                         );
+        );
 
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1995,17 +2001,18 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
 
 
     /*Perform different symmetric Data Plane Operations with four functions
-    *numOpDpBatch        : numRequests              : Functions
-    *SYM_DP_ENQUEUEING   : >SYM_DP_PERFORM_NOW_FLAG : symDpPerformEnqueueOp
-    *Description: enqueue a single symmetric request, perform later
-    *SYM_DP_ENQUEUEING   : SYM_DP_PERFORM_NOW_FLAG  : symDpPerformEnqueueOpNow
-    *Description: perform a single symmetric request immediately
-    *!=SYM_DP_ENQUEUEING : >SYM_DP_PERFORM_NOW_FLAG : symDpPerformEnqueueOpBatch
-    *Description: enqueue multiple requests with one operation, perform later
-    *!=SYM_DP_ENQUEUEING : SYM_DP_PERFORM_NOW_FLAG
-    *:symDpPerformEnqueueOpBatchNow
-    *Description: perform multiple requests with one operation immediately
-    */
+     *numOpDpBatch        : numRequests              : Functions
+     *SYM_DP_ENQUEUEING   : >SYM_DP_PERFORM_NOW_FLAG : symDpPerformEnqueueOp
+     *Description: enqueue a single symmetric request, perform later
+     *SYM_DP_ENQUEUEING   : SYM_DP_PERFORM_NOW_FLAG  : symDpPerformEnqueueOpNow
+     *Description: perform a single symmetric request immediately
+     *!=SYM_DP_ENQUEUEING : >SYM_DP_PERFORM_NOW_FLAG :
+     *symDpPerformEnqueueOpBatch Description: enqueue multiple requests with one
+     *operation, perform later
+     *!=SYM_DP_ENQUEUEING : SYM_DP_PERFORM_NOW_FLAG
+     *:symDpPerformEnqueueOpBatchNow
+     *Description: perform multiple requests with one operation immediately
+     */
 
     if (SYM_DP_ENQUEUEING == setup->numOpDpBatch)
     {
@@ -2108,7 +2115,7 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     memset(&symTestSetup, 0, sizeof(symmetric_test_params_t));
 
     /*cast the setup to a known structure so that we can populate our local
-         * test setup*/
+     * test setup*/
     symTestSetup.setupData = pSetup->setupData;
     /*this barrier is to halt this thread when run in user space context, the
      * startThreads function releases this barrier, in kernel space it does
@@ -2184,7 +2191,8 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
         PRINT("Data-Plane operations not supported on Epoll instances\n");
         qaeMemFree((void **)&cyInstances);
         icp_sal_CyPutFileDescriptor(symTestSetup.cyInstanceHandle, fd);
-        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        symTestSetup.performanceStats->threadReturnStatus =
+            CPA_STATUS_UNSUPPORTED;
         sampleCodeThreadExit();
     }
 #endif
@@ -2279,9 +2287,19 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     else
     {
         /*set the print function that can be used to print stats at the end of
-             * the test*/
+         * the test*/
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
+    }
+
+    if ((CPA_STATUS_SUCCESS != status) ||
+        (symTestSetup.performanceStats->threadReturnStatus == CPA_STATUS_FAIL))
+    {
+        /* Stop Cy Service function should be called after all threads
+         * complete their execution. This function will be called from
+         * WaitForThreadCompletion().*/
+        testSetup->statsPrintFunc =
+            (stats_print_func_t)stopCyServicesFromCallback;
     }
 exit:
     /*free memory and exit*/
@@ -2312,26 +2330,26 @@ EXPORT_SYMBOL(sampleSymmetricDpPerformance);
  * then the framework createThreads function is used to propagate this setup
  * across cores using different crypto logical instances
  ****************************************************************************/
-CpaStatus
-setupSymmetricDpTest(CpaCySymOp opType,
-                     CpaCySymCipherAlgorithm cipherAlg,
-                     Cpa32U cipherKeyLengthInBytes,
-                     Cpa32U cipherOffset,
-                     CpaCyPriority priority,
-                     CpaCySymHashAlgorithm hashAlg,
-                     CpaCySymHashMode hashMode,
-                     Cpa32U authKeyLengthInBytes,
-                     CpaCySymAlgChainOrder chainOrder,
-                     sync_mode_t syncMode,
-                     CpaCySymHashNestedModeSetupData *nestedModeSetupDataPtr,
-                     Cpa32U packetSize,
-                     Cpa32U numDpBatchOp,
-                     Cpa32U numRequests,
-                     Cpa32U numSessions,
-                     Cpa32U bufferSizeInBytes,
-                     Cpa32U numBuffLists,
-                     Cpa32U numLoops,
-                     Cpa32U digestAppend)
+CpaStatus setupSymmetricDpTest(
+    CpaCySymOp opType,
+    CpaCySymCipherAlgorithm cipherAlg,
+    Cpa32U cipherKeyLengthInBytes,
+    Cpa32U cipherOffset,
+    CpaCyPriority priority,
+    CpaCySymHashAlgorithm hashAlg,
+    CpaCySymHashMode hashMode,
+    Cpa32U authKeyLengthInBytes,
+    CpaCySymAlgChainOrder chainOrder,
+    sync_mode_t syncMode,
+    CpaCySymHashNestedModeSetupData *nestedModeSetupDataPtr,
+    Cpa32U packetSize,
+    Cpa32U numDpBatchOp,
+    Cpa32U numRequests,
+    Cpa32U numSessions,
+    Cpa32U bufferSizeInBytes,
+    Cpa32U numBuffLists,
+    Cpa32U numLoops,
+    Cpa32U digestAppend)
 {
     symmetric_test_params_t *symmetricSetup = NULL;
     Cpa8S name[] = {'D', 'P', '_', 'S', 'Y', 'M', '\0'};
@@ -2402,21 +2420,21 @@ setupSymmetricDpTest(CpaCySymOp opType,
     symmetricSetup->setupData.hashSetupData.digestResultLenInBytes =
         authKeyLengthInBytes;
 
-    if (CPA_CY_SYM_HASH_AES_GCM == hashAlg &&
+    if ((CPA_CY_SYM_HASH_AES_GCM == hashAlg ||
+         CPA_CY_SYM_HASH_AES_CCM == hashAlg) &&
         (authKeyLengthInBytes != 8 && authKeyLengthInBytes != 12 &&
          authKeyLengthInBytes != 16))
     {
-        PRINT("CPA_CY_SYM_HASH_AES_GCM digest length %u unsupported "
+        PRINT("For CPA_CY_SYM_HASH_AES_GCM and CPA_CY_SYM_HASH_AES_CCM, digest "
+              "length %u unsupported "
               "defaulting to 16 \n",
               authKeyLengthInBytes);
         symmetricSetup->setupData.hashSetupData.digestResultLenInBytes = 16;
     }
-
     if (((hashAlg == CPA_CY_SYM_HASH_KASUMI_F9) ||
          (hashAlg == CPA_CY_SYM_HASH_SNOW3G_UIA2)
 #ifdef SC_WITH_QAT17
-         ||
-         (hashAlg == CPA_CY_SYM_HASH_ZUC_EIA3)
+         || (hashAlg == CPA_CY_SYM_HASH_ZUC_EIA3)
 #endif
              ) &&
         (authKeyLengthInBytes != 4))
@@ -2441,8 +2459,6 @@ setupSymmetricDpTest(CpaCySymOp opType,
 
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
 #endif
-
-
     /* check which kind of hash mode is selected */
     /*nested mode */
     if (CPA_CY_SYM_HASH_MODE_NESTED == hashMode)

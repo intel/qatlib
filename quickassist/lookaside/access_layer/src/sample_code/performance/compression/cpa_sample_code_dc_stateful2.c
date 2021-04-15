@@ -451,11 +451,11 @@ CpaStatus createBuffers2(Cpa32U listSize,
     return status;
 }
 
-static CpaStatus
-dcSampleCreateStatefulContextBuffer2(Cpa32U buffSize,
-                                     Cpa32U metaSize,
-                                     CpaBufferList **pBuffListArray,
-                                     Cpa32U nodeId)
+static CpaStatus dcSampleCreateStatefulContextBuffer2(
+    Cpa32U buffSize,
+    Cpa32U metaSize,
+    CpaBufferList **pBuffListArray,
+    Cpa32U nodeId)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
 
@@ -1078,8 +1078,8 @@ static CpaStatus performCompressStateful2(compression_test_params_t *setup,
     } /* End of compression Loops */
 #ifndef USE_ZLIB
     /* check if synchronous flag is set
-         * if set, invoke the callback API
-         */
+     * if set, invoke the callback API
+     */
     if (CPA_SAMPLE_SYNCHRONOUS == setup->syncFlag)
     {
         /* invoke the Compression Callback only */
@@ -1486,8 +1486,8 @@ static CpaStatus performDeCompressStateful2(compression_test_params_t *setup,
     }
 
     /* make sure to compress the corpus before starting
-    * de compression
-    */
+     * de compression
+     */
     if (!useZlib_g)
     {
         status = compressCorpusStateful2(setup,
@@ -1838,9 +1838,9 @@ CpaStatus dcPerformStateful2(compression_test_params_t *setup)
     }
 
     /* Allocate bufflist list pointers
-   * This List array will be used as destination buffers
-   * for the decompression
-   */
+     * This List array will be used as destination buffers
+     * for the decompression
+     */
     cmpBuffListArray = qaeMemAlloc((setup->sessions * sizeof(CpaBufferList *)));
     /* Check for NULL */
     if (NULL == cmpBuffListArray)
@@ -1852,8 +1852,8 @@ CpaStatus dcPerformStateful2(compression_test_params_t *setup)
     }
 
     /* populate the bufflist array with number of Buffers required
-    * for each file and allocate the memory
-    */
+     * for each file and allocate the memory
+     */
     for (i = 0; i < setup->sessions; i++)
     {
 
@@ -1951,7 +1951,7 @@ CpaStatus dcPerformStateful2(compression_test_params_t *setup)
      * total number of buffers required for
      * complete corpus based on the session direction
      *
-    */
+     */
     perfData->numOperations = (Cpa64U)totalBuffs * setup->numLoops;
 
     if (CPA_DC_DIR_COMBINED == dcSessDir)
@@ -2318,7 +2318,7 @@ CpaStatus dcPerformStateful2(compression_test_params_t *setup)
         }
     }
 
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
+#if DC_API_VERSION_LESS_THAN(1, 6)
 #endif
 
     if (CPA_DC_DIR_COMPRESS == dcSessDir)
@@ -2667,9 +2667,9 @@ CpaStatus setupDcStatefulTest2(CpaDcCompType algorithm,
     dcSetup->setupData.sessDirection = CPA_DC_DIR_COMBINED;
     dcSetup->setupData.checksum = checksum2_g;
     dcSetup->setupData.huffType = huffmanType_g;
-    dcSetup->setupData.fileType = CPA_DC_FT_ASCII;
     dcSetup->setupData.sessState = CPA_DC_STATEFUL;
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
+#if DC_API_VERSION_LESS_THAN(1, 6)
+    dcSetup->setupData.fileType = CPA_DC_FT_ASCII;
     dcSetup->setupData.deflateWindowSize = DEFAULT_COMPRESSION_WINDOW_SIZE;
 #endif
     dcSetup->corpus = corpusType;

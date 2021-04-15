@@ -1396,7 +1396,7 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
 #ifdef CNV_STRICT_MODE
     if (CPA_FALSE == pDcOpData->compressAndVerify)
     {
-        LAC_INVALID_PARAM_LOG(
+        LAC_UNSUPPORTED_PARAM_LOG(
             "Data compression without verification not allowed");
         return CPA_STATUS_UNSUPPORTED;
     }

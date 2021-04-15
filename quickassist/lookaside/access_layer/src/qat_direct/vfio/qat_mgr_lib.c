@@ -46,6 +46,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
+#include <search.h>
 #include <grp.h>
 #include "icp_accel_devices.h"
 #include "icp_platform.h"
@@ -151,17 +152,6 @@ static char *qat_device_name(int device_id)
 }
 
 
-static int bit_is_set(uint32_t bitmap[], unsigned index)
-{
-    const int bits = CHAR_BIT * sizeof(uint32_t);
-    return bitmap[index / bits] & (1 << (index % bits));
-}
-
-static void set_bit(uint32_t bitmap[], unsigned index)
-{
-    const int bits = CHAR_BIT * sizeof(uint32_t);
-    bitmap[index / bits] |= (1 << (index % bits));
-}
 
 void qat_mgr_cleanup_cfg(void)
 {
@@ -501,7 +491,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
 }
 
 int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
-                       const int num_devices,
+                       const int num_vf_devices,
                        int policy,
                        int static_cfg)
 {
@@ -515,11 +505,13 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     int num_vfs_this_section;
     int num_procs;
     int core = 0;
-    uint32_t bus_map[256 / sizeof(uint32_t)];
-    int bus;
+    int pf;
     unsigned devid;
+    char pf_str[10];
+    ENTRY pf_entry = {pf_str, NULL};
+    int pfs_per_vf_group[ADF_MAX_DEVICES] = {0};
 
-    if (!num_devices)
+    if (!num_vf_devices)
         return -EINVAL;
 
     num_procs = get_nprocs();
@@ -528,31 +520,60 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
      * A VF group is a set of VFs with the same device/function
      * but from different PFs.
      * The dev_list is sorted so that each VF in a group are consecutive.
-     * We know we have a new group when we find a bus that already exists in
+     * We know we have a new group when we find a PF that already exists in
      * the first group.
      */
     if (!static_cfg)
     {
         num_vf_groups = 1;
-        memset(bus_map, 0, sizeof(bus_map));
-        for (i = 0; i < num_devices; i++)
+
+        /* Create hash table for mapping devices */
+        if (hcreate(ADF_MAX_DEVICES) == 0)
         {
-            bus = BDF_BUS(dev_list[i].bdf);
-            /* Has this bus number been seen already? */
-            if (bit_is_set(bus_map, bus))
+            qat_log(LOG_LEVEL_ERROR, "Error while creating hash table\n");
+            return -ENOMEM;
+        }
+
+        /* Count VF groups */
+        for (i = 0; i < num_vf_devices; i++)
+        {
+            /* Convert PF address to int - take node into account */
+            pf = BDF_BUS(dev_list[i].bdf);
+            pf += (BDF_NODE(dev_list[i].bdf) << 8);
+            /* Convert address to string to use as hash table key */
+            snprintf(pf_str, sizeof(pf_str), "%d", pf);
+            /* Check if pf is already in the hash table */
+            if (hsearch(pf_entry, FIND) != NULL)
             {
+                /* Device already in hash table - increment vf groups */
                 num_vf_groups++;
-                memset(bus_map, 0, sizeof(bus_map));
+                /* Need to create new hash table */
+                hdestroy();
+                if (hcreate(ADF_MAX_DEVICES) == 0)
+                {
+                    qat_log(LOG_LEVEL_ERROR,
+                            "Error while creating hash table\n");
+                    return -ENOMEM;
+                }
             }
-            set_bit(bus_map, bus);
+            pfs_per_vf_group[num_vf_groups - 1]++;
+
+            /* Insert device to hash table */
+            if (hsearch(pf_entry, ENTER) == NULL)
+            {
+                qat_log(LOG_LEVEL_ERROR, "No space left in hash table\n");
+                return -ENOMEM;
+            }
         }
         qat_log(LOG_LEVEL_DEBUG, "num_vf_groups %d\n", num_vf_groups);
+        /* Destroy hash table */
+        hdestroy();
 
         /*
-         * For policy 0, each process will get a VF from each PF so there will
-         * be num_vf_groups processes.
-         * For policy <n>, each process will get <n> VFs so there will be
-         * num_devices / <n> processes.
+         * For policy 0, each process will get a VF from each PF so there can
+         * be a max of num_vf_groups processes.
+         * For policy <n>, each process will get <n> VFs so there can be
+         * a max of num_vf_devices / <n> processes.
          */
         if (policy == 0)
         {
@@ -560,8 +581,8 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         }
         else
         {
-            num_section_data = num_devices / policy;
-            if (num_devices % policy)
+            num_section_data = num_vf_devices / policy;
+            if (num_vf_devices % policy)
                 num_section_data++;
         }
 
@@ -574,7 +595,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         }
         qat_log(LOG_LEVEL_DEBUG, "num_section_data %d\n", num_section_data);
     }
-    else if (num_devices >= policy)
+    else if (num_vf_devices >= policy)
     {
         num_section_data = 1;
     }
@@ -584,7 +605,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 "Policy %d is incompatible with the number of "
                 "available devices %d\n",
                 policy,
-                num_devices);
+                num_vf_devices);
         return -EINVAL;
     }
 
@@ -609,27 +630,16 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         if (policy)
         {
             num_vfs_this_section = policy;
-            if (num_vfs_this_section > num_devices - vf_idx)
-                num_vfs_this_section = num_devices - vf_idx;
+            if (num_vfs_this_section > num_vf_devices - vf_idx)
+                num_vfs_this_section = num_vf_devices - vf_idx;
         }
         else
         {
             /*
              * Policy 0, one VF from each different PF.
-             * Count the number of different PF from here.
-             * Not all sectons necessarily have the same number of VFs.
+             * Use cached number of PFs.
              */
-            num_vfs_this_section = 0;
-            memset(bus_map, 0, sizeof(bus_map));
-            for (j = vf_idx; j < num_devices; j++)
-            {
-                bus = BDF_BUS(dev_list[j].bdf);
-                /* Has this bus number been seen already? */
-                if (bit_is_set(bus_map, bus))
-                    break;
-                num_vfs_this_section++;
-                set_bit(bus_map, bus);
-            }
+            num_vfs_this_section = pfs_per_vf_group[i];
         }
         section->num_devices = num_vfs_this_section;
 
@@ -676,16 +686,19 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                     ICP_ACCEL_CAPABILITIES_CIPHER |
                     ICP_ACCEL_CAPABILITIES_AUTHENTICATION |
                     ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3 |
+                    ICP_ACCEL_CAPABILITIES_SHA3_EXT |
                     ICP_ACCEL_CAPABILITIES_HKDF |
                     ICP_ACCEL_CAPABILITIES_ECEDMONT |
-                    ICP_ACCEL_CAPABILITIES_AESGCM_SPC;
+                    ICP_ACCEL_CAPABILITIES_CHACHA_POLY |
+                    ICP_ACCEL_CAPABILITIES_AESGCM_SPC |
+                    ICP_ACCEL_CAPABILITIES_AES_V2;
                 device_data->extended_capabilities = 0x0;
             snprintf(device_data->name,
                      sizeof(device_data->name),
                      "%s",
                      qat_device_name(devid));
             device_data->device_type = qat_device_type(devid);
-
+            device_data->pci_id = devid;
             device_data->services = SERV_TYPE_CY;
         }
 
@@ -827,6 +840,8 @@ bool qat_mgr_is_dev_available()
         }
     }
 
+    closedir(devvfio_dir);
+
     return dev_found;
 }
 
@@ -966,6 +981,7 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
     rsp->device_info.services = section->device_data[device_num].services;
     rsp->device_info.pkg_id = section->device_data[device_num].accelid;
     rsp->device_info.node_id = section->device_data[device_num].node;
+    rsp->device_info.device_pci_id = section->device_data[device_num].pci_id;
     build_msg_header(rsp, QATMGR_MSGTYPE_DEVICE_INFO, sizeof(rsp->device_info));
 
     dump_message(rsp, "QATMGR_MSGTYPE_DEVICE_INFO");
@@ -1136,7 +1152,7 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
 
     if (instance_type == SERV_TYPE_DC)
     {
-        if (instance_num < 0 || instance_num >= section->num_dc_inst)
+        if (instance_num >= section->num_dc_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad dc instance number %d for section %d\n",
@@ -1153,7 +1169,7 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_CY)
     {
-        if (instance_num < 0 || instance_num >= section->num_cy_inst)
+        if (instance_num >= section->num_cy_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy instance number %d for section %d\n",
@@ -1170,7 +1186,7 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_SYM)
     {
-        if (instance_num < 0 || instance_num >= section->num_sym_inst)
+        if (instance_num >= section->num_sym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.sym instance number %d for section %d\n",
@@ -1187,7 +1203,7 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_ASYM)
     {
-        if (instance_num < 0 || instance_num >= section->num_asym_inst)
+        if (instance_num >= section->num_asym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.asym instance number %d for section %d\n",
@@ -1258,7 +1274,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
 
     if (instance_type == SERV_TYPE_DC)
     {
-        if (instance_num < 0 || instance_num >= section->num_dc_inst)
+        if (instance_num >= section->num_dc_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad dc instance number %d for section %d\n",
@@ -1283,7 +1299,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_CY)
     {
-        if (instance_num < 0 || instance_num >= section->num_cy_inst)
+        if (instance_num >= section->num_cy_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy instance number %d for section %d\n",
@@ -1318,7 +1334,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_SYM)
     {
-        if (instance_num < 0 || instance_num >= section->num_sym_inst)
+        if (instance_num >= section->num_sym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.sym instance number %d for section %d\n",
@@ -1343,8 +1359,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_ASYM)
     {
-        if (instance_num < 0 ||
-            instance_num >= section_data[index].num_asym_inst)
+        if (instance_num >= section_data[index].num_asym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.asym instance number %d for section %d\n",

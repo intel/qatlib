@@ -518,12 +518,12 @@ void freeIkeDsaMem(dsa_test_params_t *setup,
     freeIkeDsaMem(setup, pDsaX, pDsaY, pDsaK, pDsaP, pDsaQ, pDsaG, pDsaH)
 
 /******************************************************************************
-  * @ingroup sampleDSACode
-  *
-  * @description
-  * this function allocates space and generates arrays of DSA keys, based on the
-  * parameters within the setup
-  * ****************************************************************************/
+ * @ingroup sampleDSACode
+ *
+ * @description
+ * this function allocates space and generates arrays of DSA keys, based on the
+ * parameters within the setup
+ * ****************************************************************************/
 CpaStatus genDsaPara(dsa_test_params_t *setup,
                      CpaCyDsaRSSignOpData **ppSignOpData,
                      CpaCyDsaVerifyOpData **ppVerifyOpData,
@@ -536,10 +536,10 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
 
     /*DSA parameters */
     /*DSA P parameter, this shall be populated by the hard coded P at the top
-        * of this file */
+     * of this file */
     CpaFlatBuffer *pDsaP = NULL;
     /*DSA Q parameter, this shall be populated by the hard coded Q at the top
-        * of this file */
+     * of this file */
     CpaFlatBuffer *pDsaQ = NULL;
     /* DSA G parameter used to generate Y, the signature R&S, and to verify */
     CpaFlatBuffer *pDsaG = NULL;
@@ -557,7 +557,7 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
     CpaFlatBuffer *pDsaS2 = NULL;
 
     /*GCC compiler complains without the double {{}} to init the following
-        * structures*/
+     * structures*/
     CpaCyDsaGParamGenOpData gOpData = {{0, NULL}, {0, NULL}, {0, NULL}};
     CpaCyDsaYParamGenOpData yOpData = {{0}};
 
@@ -657,12 +657,12 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
     }
 
     /************************************************************************
-       * STAGE 1 Setup up the DSA parameters, generate X, G, Y, K, Z,
-       *          generate user defined number of messages to be signed
-       *          calculate the digest of the messages
-       *          sign all the messages
-       *          setup the verification data structure
-       **************************************************************************/
+     * STAGE 1 Setup up the DSA parameters, generate X, G, Y, K, Z,
+     *          generate user defined number of messages to be signed
+     *          calculate the digest of the messages
+     *          sign all the messages
+     *          setup the verification data structure
+     **************************************************************************/
     /*set P */
     pDsaP = qaeMemAllocNUMA(sizeof(CpaFlatBuffer), node, BYTE_ALIGNMENT_64);
     if (NULL == pDsaP)
@@ -706,9 +706,9 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
     }
 
     /***************************************************************************
-      * set genG opData and generate G
-      *
-      ************************************************************************/
+     * set genG opData and generate G
+     *
+     ************************************************************************/
     /*H is required to genG */
     pDsaH = qaeMemAllocNUMA(sizeof(CpaFlatBuffer), node, BYTE_ALIGNMENT_64);
     if (NULL == pDsaH)
@@ -777,7 +777,7 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
         {
             PRINT_ERR("Error Generating Y for buffer %d\n", i);
             /*free all the pData buffers allocated and Array of pointers
-                     * allocated */
+             * allocated */
             FREE_ikeDSA_MEM;
             return CPA_STATUS_FAIL;
         }
@@ -1086,7 +1086,7 @@ static void ikeDsaMemFree(dsa_test_params_t *setup,
  * this function sets up the data to be decrypted and allocates space to
  * store the output
  *
-****************************************************************************/
+ ****************************************************************************/
 CpaStatus dsaZSetup(CpaFlatBuffer **ppPublicValues,
                     CpaCyDsaRSSignOpData **ppSignatureOpData,
                     CpaCyDsaVerifyOpData **ppVerifyOpData,
@@ -1219,8 +1219,8 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     }
 
     /**************************************************************************
-        * STEP 1. Alice & Bob generate public & private DSA keys
-        * ************************************************************************/
+     * STEP 1. Alice & Bob generate public & private DSA keys
+     * ************************************************************************/
     status = genDsaPara(setup,
                         alice.ppRSSignOpData,
                         alice.ppVerifyOpData,
@@ -1248,8 +1248,8 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     }
 
     /**************************************************************************
-        * STEP 2. Alice & Bob agree on a p & g and generate secret random x
-        **************************************************************************/
+     * STEP 2. Alice & Bob agree on a p & g and generate secret random x
+     **************************************************************************/
     status = dhPhase1Setup((asym_test_params_t *)setup,
                            alice.ppPhase1,
                            bob.ppPhase1,
@@ -1264,9 +1264,9 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     }
 
     /**************************************************************************
-        * STEP 3. Alice & Bob Perform DH Phase1 to produce Public Value -
-        * PV = g^x mod p
-        **************************************************************************/
+     * STEP 3. Alice & Bob Perform DH Phase1 to produce Public Value -
+     * PV = g^x mod p
+     **************************************************************************/
     /**************************************************************************/
     /*Perform DH phase1 for Alice */
     /**************************************************************************/
@@ -1332,9 +1332,9 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     }
 
     /***************************************************************************
-        * STEP 5. Sign Bobs Public Value using peers public key ->
-        * Bobs Signature = DSA sign bobsPV
-        *************************************************************************/
+     * STEP 5. Sign Bobs Public Value using peers public key ->
+     * Bobs Signature = DSA sign bobsPV
+     *************************************************************************/
     status = dsaZSetup(bob.ppPublicValues,
                        bob.ppRSSignOpData,
                        bob.ppVerifyOpData,
@@ -1376,8 +1376,8 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
         return status;
     }
     /* Copy the DSA signature output into the verification structure
-       * in the performance loop we verify bobs signature. Bobs signature is
-       * the input the the verification operation*/
+     * in the performance loop we verify bobs signature. Bobs signature is
+     * the input the the verification operation*/
     for (i = 0; i < setup->numBuffers; i++)
     {
         /*check that the signature is the expected length*/
@@ -1427,9 +1427,9 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
                bob.ppVerifyOpData2[i]->S.dataLenInBytes);
     }
     /***************************************************************************
-        * STEP 6. Setup Alices Decrypt and Diffie Hellman Data for performance
-      *Loop
-        *************************************************************************/
+     * STEP 6. Setup Alices Decrypt and Diffie Hellman Data for performance
+     *Loop
+     *************************************************************************/
     /**************************************************************************/
     /* Perform Phase2 setup for Alice                                         */
     /**************************************************************************/
@@ -1447,8 +1447,8 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     }
 
     /***************************************************************************
-        * STEP 7 IKE main mode Asymmetric steps
-        **************************************************************************/
+     * STEP 7 IKE main mode Asymmetric steps
+     **************************************************************************/
     /*this barrier will wait until all threads get to this point*/
     sampleCodeBarrier();
     memset(setup->performanceStats, 0, sizeof(perf_data_t));
@@ -1456,8 +1456,8 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     setup->performanceStats->packageId = instanceInfo2.physInstId.packageId;
     /*pre-set the number of ops we plan to submit*/
     /*number of responses equals the number of QA APIs we have chained together
-        * multiplied by the number of buffers and how many times we have looped
-        * over the buffers */
+     * multiplied by the number of buffers and how many times we have looped
+     * over the buffers */
     setup->performanceStats->numOperations =
         NUMBER_OF_CHAINED_OPS * setup->numBuffers * setup->numLoops;
     setup->performanceStats->averagePacketSizeInBytes = setup->pLenInBytes;
@@ -1471,17 +1471,17 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
         {
             /******************************************************************/
             /* Step 7a Perform DH phase1 for Alice
-                     * This step, performs setup->NumBuffers DH Phase1
+             * This step, performs setup->NumBuffers DH Phase1
              * Operations to
-                     * Calculate setup->numBuffers Public Values for Alice*/
+             * Calculate setup->numBuffers Public Values for Alice*/
             /******************************************************************/
             do
             {
                 /*****************************************************************/
                 /* ikeRsaCallback  : used in asynchronous mode
-                         * performanceStats: Opaque user data
-                         * ppPhase1        : Structure containing p, g and x
-                         * ppPublicValues  : Public value (output) */
+                 * performanceStats: Opaque user data
+                 * ppPhase1        : Structure containing p, g and x
+                 * ppPublicValues  : Public value (output) */
                 /******************************************************************/
 
                 status = cpaCyDhKeyGenPhase1(setup->cyInstanceHandle,
@@ -1491,10 +1491,10 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
                                              alice.ppPublicValues[innerLoop]);
 
                 /*this is a back off mechanism to stop the code
-                            * continually submitting requests. Without this the
+                 * continually submitting requests. Without this the
                  * CPU
-                            * can report a soft lockup if it continually loops
-                            * on busy*/
+                 * can report a soft lockup if it continually loops
+                 * on busy*/
                 if (status == CPA_STATUS_RETRY)
                 {
                     setup->performanceStats->retries++;
@@ -1510,11 +1510,11 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
             }
             /******************************************************************/
             /* Step 7b Perform RSA verify of third party...normally this is done
-                     *  on at third party to verify that bob is who he says he
+             *  on at third party to verify that bob is who he says he
              * is, but
-                     *  here we are performing a second RSA encrypt on Bobs
+             *  here we are performing a second RSA encrypt on Bobs
              * signature to
-                     *  test the sequence of calls */
+             *  test the sequence of calls */
             /******************************************************************/
             do
             {
@@ -1527,7 +1527,7 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
                 {
                     setup->performanceStats->retries++;
                     /*once we get to many retries, perform a context switch
-                                    * to give the acceleration engine a small
+                     * to give the acceleration engine a small
                      * break */
                     if (RETRY_LIMIT ==
                         (setup->performanceStats->retries % (RETRY_LIMIT + 1)))
@@ -1561,7 +1561,7 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
                 {
                     setup->performanceStats->retries++;
                     /*once we get to many retries, perform a context switch
-                                    * to give the acceleration engine a small
+                     * to give the acceleration engine a small
                      * break */
                     if (RETRY_LIMIT ==
                         (setup->performanceStats->retries % (RETRY_LIMIT + 1)))
@@ -1582,7 +1582,7 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
              * Step 7d Sign all of Alices public value buffers,
              * Alices Public Value is in the Decrypt opData setup, the signature
              *  is placed in alices signature
-            ******************************************************************/
+             ******************************************************************/
             /*status = sampleDsaSign(setup,
             alice.ppRSSignOpData,
             alice.ppR,
@@ -1629,10 +1629,10 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
                                               alice.ppSecretKeys[innerLoop]);
 
                 /*this is a back off mechanism to stop the code
-                * continually calling the Decrypt operation when the
-                * acceleration units are busy. Without this the CPU
-                * can report a soft lockup if it continually loops
-                * on busy*/
+                 * continually calling the Decrypt operation when the
+                 * acceleration units are busy. Without this the CPU
+                 * can report a soft lockup if it continually loops
+                 * on busy*/
                 if (status == CPA_STATUS_RETRY)
                 {
                     setup->performanceStats->retries++;
@@ -1716,7 +1716,7 @@ void ikeDsaPerformance(single_thread_test_data_t *testSetup)
     /*give our thread a unique memory location to store performance stats*/
     ikeDsaSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
-    * instance*/
+     * instance*/
     status = cpaCyGetNumInstances(&numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {

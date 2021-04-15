@@ -113,13 +113,19 @@
 #include "cpa.h"
 #include "lac_common.h"
 
+#ifdef __LP64__
+typedef unsigned int atomic_int __attribute__((mode(TI)));
+#else
+typedef unsigned int atomic_int __attribute__((mode(DI)));
+#endif
+
 typedef union {
     struct
     {
-        uint64_t ctr : 16;
-        uint64_t ptr : 48;
+        unsigned long ctr;
+        void *ptr;
     };
-    uint64_t atomic;
+    atomic_int atomic;
 } pointer_t;
 
 typedef struct

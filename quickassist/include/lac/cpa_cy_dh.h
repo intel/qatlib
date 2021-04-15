@@ -92,7 +92,6 @@ extern "C" {
 #include "cpa_cy_common.h"
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Diffie-Hellman Phase 1 Key Generation Data.
  * @description
@@ -136,7 +135,6 @@ typedef struct _CpaCyDhPhase1KeyGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Diffie-Hellman Phase 2 Secret Key Generation Data.
  * @description
@@ -174,7 +172,6 @@ typedef struct _CpaCyDhPhase2SecretKeyGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Diffie-Hellman Statistics.
  * @deprecated
@@ -214,7 +211,6 @@ typedef struct _CpaCyDhStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Diffie-Hellman Statistics (64-bit version).
  * @description
@@ -252,7 +248,6 @@ typedef struct _CpaCyDhStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Function to implement Diffie-Hellman phase 1 operations.
  *
@@ -340,7 +335,6 @@ cpaCyDhKeyGenPhase1(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Function to implement Diffie-Hellman phase 2 operations.
  *
@@ -425,7 +419,6 @@ cpaCyDhKeyGenPhase2Secret(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Query statistics for Diffie-Hellman operations
  *
@@ -485,7 +478,6 @@ cpaCyDhQueryStats(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dh.h
  * @ingroup cpaCyDh
  *      Query statistics (64-bit version) for Diffie-Hellman operations
  *

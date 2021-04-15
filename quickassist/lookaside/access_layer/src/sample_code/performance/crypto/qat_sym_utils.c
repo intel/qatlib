@@ -299,10 +299,9 @@ CpaStatus qatSymSessionInit(symmetric_test_params_t *setup,
 
     if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-        ||
-        CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm
+        || CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm
 #endif
-        )
+    )
     {
         authModeSetupData->aadLenInBytes = KEY_SIZE_128_IN_BYTES;
     }
@@ -585,10 +584,9 @@ CpaStatus qatSymOpDataSetup(symmetric_test_params_t *pSetup,
 
         if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-            ||
-            CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm
+            || CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm
 #endif
-            )
+        )
         {
 
             pOpdata[idx].pAdditionalAuthData = qaeMemAllocNUMA(

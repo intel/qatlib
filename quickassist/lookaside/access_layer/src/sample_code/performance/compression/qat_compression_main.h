@@ -161,6 +161,35 @@ CpaStatus qatCompressionValidateChecksum(compression_test_params_t *setup,
                                          Cpa32U listNum,
                                          CpaDcSessionDir compressDirection);
 
+/**
+ *****************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sampleCode
+ *
+ * @description
+ *         This API is added to perform overflow validation of the
+ *         compression request. With the use of Compress Bound API to get
+ *         the destination buffer size for compression request, it is expected
+ *         that all the input data will be consumed successfully and there
+ should
+ *         not be any overflow case. Overflow is considered as Failed result.
+ *
+ * @param[in]   setup               pointer to the compression setup
+ *                                  structure that the list was setup with
+ * @param[in]   srcBufferListArray  array of CpaBufferLists to check
+                                    totak input data size
+ * @param[in]   resultArray         array of cpaDcResults for consumed bytes
+ * @param[in]   listNum             Total number of Buffer lists
+ *
+ *     @retval CPA_STATUS_SUCCESS   Function executed successfully
+ *
+ *     @retval CPA_STATUS_FAIL      Overflow is observed
+ ****************************************************************************/
+CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
+                                       CpaDcRqResults *arrayOfResults,
+                                       CpaBufferList *arrayOfSrcBufferLists,
+                                       Cpa32U listNum);
 #ifdef SC_CHAINING_ENABLED
 /**
  *****************************************************************************

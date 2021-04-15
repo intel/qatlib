@@ -599,6 +599,16 @@ CpaStatus dcChainPerformOpDataSetup(compression_test_params_t *setup,
                 setup->symSetupData.hashSetupData.digestResultLenInBytes,
                 nodeId,
                 BYTE_ALIGNMENT_64);
+            if (NULL == pCySymOp->pDigestResult)
+            {
+                PRINT_ERR(
+                    "qaeMemAllocNuMA for pCySymOp->pDigestResult error\n");
+                qaeMemFree((void **)&pDcOp);
+                qaeMemFree((void **)&pCySymOp);
+                dcChainOpDataMemFree(
+                    chainOpDataArray, listNum, setup->numSessions);
+                return CPA_STATUS_FAIL;
+            }
         }
 
         switch (setup->chainOperation)
@@ -635,6 +645,8 @@ CpaStatus dcChainPerformOpDataSetup(compression_test_params_t *setup,
             default:
                 PRINT_ERR("Unsupported chaining operation.\n");
                 qaeMemFree((void **)&pDcOp);
+                dcChainOpDataMemFree(
+                    chainOpDataArray, listNum, setup->numSessions);
                 qaeMemFreeNUMA((void **)&(pCySymOp->pDigestResult));
                 qaeMemFree((void **)&pCySymOp);
                 return CPA_STATUS_FAIL;
@@ -841,11 +853,26 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                     }
 
                     pSWDigestBuffer = qaeMemAlloc(sizeof(CpaFlatBuffer));
+                    if (NULL == pSWDigestBuffer)
+                    {
+                        PRINT_ERR(
+                            "Unable to allocate Memory for pSWDigestBuffer\n");
+                        status = CPA_STATUS_FAIL;
+                        break;
+                    }
                     pSWDigestBuffer->pData =
                         qaeMemAllocNUMA(setup->symSetupData.hashSetupData
                                             .digestResultLenInBytes,
                                         nodeId,
                                         BYTE_ALIGNMENT_64);
+                    if (NULL == pSWDigestBuffer->pData)
+                    {
+                        PRINT_ERR("Unable to allocate Memory for "
+                                  "pSWDigestBuffer->pData\n");
+                        qaeMemFree((void **)&pSWDigestBuffer);
+                        status = CPA_STATUS_FAIL;
+                        break;
+                    }
                     for (listNum = 0; listNum < setup->numLists; listNum++)
                     {
                         status = calcSWDigest(
@@ -1101,6 +1128,8 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT("Error calculating required buffers\n");
+        testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        sampleCodeThreadExit();
     }
     dcSetup.numLists = dcSetup.numberOfBuffers[dcSetup.corpusFileIndex];
     if (CPA_STATUS_SUCCESS == status)
@@ -1121,6 +1150,7 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR(" Unable to get number of DC instances\n");
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
         }
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -1128,7 +1158,7 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
         if (0 == numInstances)
         {
             PRINT_ERR(" DC Instances are not present\n");
-            status = CPA_STATUS_FAIL;
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
         }
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -1137,7 +1167,7 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
         if (NULL == instances)
         {
             PRINT_ERR("Unable to allocate Memory for Instances\n");
-            status = CPA_STATUS_FAIL;
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
         }
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -1392,7 +1422,6 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
 #else
     dcSetup->setupData.huffType = CPA_DC_HT_STATIC;
 #endif
-    dcSetup->setupData.fileType = fileType;
     dcSetup->setupData.sessState = state;
     dcSetup->specific_sleeptime_flag = sleepTime > 0 ? CPA_TRUE : CPA_FALSE;
     if (CPA_DC_STATELESS == state)
@@ -1401,6 +1430,7 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
         dcSetup->compRate = compRate;
     }
 #if DC_API_VERSION_LESS_THAN(1, 6)
+    dcSetup->setupData.fileType = fileType;
     /* Windows size is depreciated in new versions of the QA-API */
     dcSetup->setupData.deflateWindowSize = windowsSize;
 #endif

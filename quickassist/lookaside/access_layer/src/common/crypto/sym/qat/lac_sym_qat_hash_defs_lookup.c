@@ -170,11 +170,33 @@ STATIC Cpa8U sha512InitialState[LAC_HASH_SHA512_STATE_SIZE] = {
     0x2b, 0x3e, 0x6c, 0x1f, 0x1f, 0x83, 0xd9, 0xab, 0xfb, 0x41, 0xbd,
     0x6b, 0x5b, 0xe0, 0xcd, 0x19, 0x13, 0x7e, 0x21, 0x79};
 
+/* SHA3 224 - 28 bytes  */
+STATIC Cpa8U sha3_224InitialState[LAC_HASH_SHA3_224_STATE_SIZE] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
 /* SHA3 256 - 32 bytes  */
 STATIC Cpa8U sha3_256InitialState[LAC_HASH_SHA3_256_STATE_SIZE] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+/* SHA3 384 - 48 bytes  */
+STATIC Cpa8U sha3_384InitialState[LAC_HASH_SHA3_384_STATE_SIZE] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+/* SHA3 512 - 64 bytes  */
+STATIC Cpa8U sha3_512InitialState[LAC_HASH_SHA3_512_STATE_SIZE] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /* Constants used in generating K1, K2, K3 from a Key for AES_XCBC_MAC
  * State defined in RFC 3566 */
@@ -234,11 +256,34 @@ STATIC lac_sym_qat_hash_alg_info_t sha512Info = {LAC_HASH_SHA512_DIGEST_SIZE,
                                                  sha512InitialState,
                                                  LAC_HASH_SHA512_STATE_SIZE};
 
+STATIC lac_sym_qat_hash_alg_info_t sha3_224Info = {
+    LAC_HASH_SHA3_224_DIGEST_SIZE,
+    LAC_HASH_SHA3_224_BLOCK_SIZE,
+    sha3_224InitialState,
+    LAC_HASH_SHA3_224_STATE_SIZE};
+
 STATIC lac_sym_qat_hash_alg_info_t sha3_256Info = {
     LAC_HASH_SHA3_256_DIGEST_SIZE,
     LAC_HASH_SHA3_256_BLOCK_SIZE,
     sha3_256InitialState,
     LAC_HASH_SHA3_256_STATE_SIZE};
+
+STATIC lac_sym_qat_hash_alg_info_t sha3_384Info = {
+    LAC_HASH_SHA3_384_DIGEST_SIZE,
+    LAC_HASH_SHA3_384_BLOCK_SIZE,
+    sha3_384InitialState,
+    LAC_HASH_SHA3_384_STATE_SIZE};
+
+STATIC lac_sym_qat_hash_alg_info_t sha3_512Info = {
+    LAC_HASH_SHA3_512_DIGEST_SIZE,
+    LAC_HASH_SHA3_512_BLOCK_SIZE,
+    sha3_512InitialState,
+    LAC_HASH_SHA3_512_STATE_SIZE};
+
+STATIC lac_sym_qat_hash_alg_info_t polyInfo = {LAC_HASH_POLY_DIGEST_SIZE,
+                                               LAC_HASH_POLY_BLOCK_SIZE,
+                                               NULL, /* intial state */
+                                               LAC_HASH_POLY_STATE_SIZE};
 
 STATIC lac_sym_qat_hash_alg_info_t xcbcMacInfo = {
     LAC_HASH_XCBC_MAC_128_DIGEST_SIZE,
@@ -323,12 +368,35 @@ STATIC lac_sym_qat_hash_qat_info_t sha512Config = {ICP_QAT_HW_AUTH_ALGO_SHA512,
                                                    ICP_QAT_HW_SHA512_STATE1_SZ,
                                                    ICP_QAT_HW_SHA512_STATE2_SZ};
 
+STATIC lac_sym_qat_hash_qat_info_t sha3_224Config = {
+    ICP_QAT_HW_AUTH_ALGO_SHA3_224,
+    LAC_HASH_SHA3_224_BLOCK_SIZE,
+    ICP_QAT_HW_SHA3_224_STATE1_SZ,
+    ICP_QAT_HW_SHA3_224_STATE2_SZ};
+
 STATIC lac_sym_qat_hash_qat_info_t sha3_256Config = {
     ICP_QAT_HW_AUTH_ALGO_SHA3_256,
     LAC_HASH_SHA3_256_BLOCK_SIZE,
     ICP_QAT_HW_SHA3_256_STATE1_SZ,
     ICP_QAT_HW_SHA3_256_STATE2_SZ,
 };
+
+STATIC lac_sym_qat_hash_qat_info_t sha3_384Config = {
+    ICP_QAT_HW_AUTH_ALGO_SHA3_384,
+    LAC_HASH_SHA3_384_BLOCK_SIZE,
+    ICP_QAT_HW_SHA3_384_STATE1_SZ,
+    ICP_QAT_HW_SHA3_384_STATE2_SZ};
+
+STATIC lac_sym_qat_hash_qat_info_t sha3_512Config = {
+    ICP_QAT_HW_AUTH_ALGO_SHA3_512,
+    LAC_HASH_SHA3_512_BLOCK_SIZE,
+    ICP_QAT_HW_SHA3_512_STATE1_SZ,
+    ICP_QAT_HW_SHA3_512_STATE2_SZ};
+
+STATIC lac_sym_qat_hash_qat_info_t polyConfig = {ICP_QAT_HW_AUTH_ALGO_POLY,
+                                                 LAC_HASH_POLY_BLOCK_SIZE,
+                                                 0,
+                                                 0};
 
 STATIC lac_sym_qat_hash_qat_info_t xcbcMacConfig = {
     ICP_QAT_HW_AUTH_ALGO_AES_XCBC_MAC,
@@ -388,7 +456,11 @@ STATIC lac_sym_qat_hash_def_map_t lacHashDefsMapping[] = {
     {CPA_CY_SYM_HASH_SHA256, {&sha256Info, &sha256Config}},
     {CPA_CY_SYM_HASH_SHA384, {&sha384Info, &sha384Config}},
     {CPA_CY_SYM_HASH_SHA512, {&sha512Info, &sha512Config}},
+    {CPA_CY_SYM_HASH_SHA3_224, {&sha3_224Info, &sha3_224Config}},
     {CPA_CY_SYM_HASH_SHA3_256, {&sha3_256Info, &sha3_256Config}},
+    {CPA_CY_SYM_HASH_SHA3_384, {&sha3_384Info, &sha3_384Config}},
+    {CPA_CY_SYM_HASH_SHA3_512, {&sha3_512Info, &sha3_512Config}},
+    {CPA_CY_SYM_HASH_POLY, {&polyInfo, &polyConfig}},
     {CPA_CY_SYM_HASH_AES_XCBC, {&xcbcMacInfo, &xcbcMacConfig}},
     {CPA_CY_SYM_HASH_AES_CMAC, {&aesCmacInfo, &aesCmacConfig}},
     {CPA_CY_SYM_HASH_AES_CCM, {&aesCcmInfo, &aesCcmConfig}},

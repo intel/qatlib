@@ -113,11 +113,16 @@ extern CpaBoolean timeStampInLoop;
 
 #define REMOVE_SESSION_WAIT (50)
 
+/* KPT Stolen Key Test */
 
 #define CY_API_VERSION_AT_LEAST(major, minor)                                  \
     (CPA_CY_API_VERSION_NUM_MAJOR > major ||                                   \
      (CPA_CY_API_VERSION_NUM_MAJOR == major &&                                 \
       CPA_CY_API_VERSION_NUM_MINOR >= minor))
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#include "cpa_cy_kpt.h"
+#endif
 
 /*Each buffer list used in crypto performance code uses NUM_UNCHAINED_BUFFERS*/
 #define NUM_UNCHAINED_BUFFERS (1)
@@ -153,11 +158,11 @@ extern CpaBoolean timeStampInLoop;
  * this setting determines weather DP API uses flat buffer or CpaFlatBuffer*/
 #define DEFAULT_CPA_FLAT_BUFFERS_PER_LIST (0)
 
-#define CHECK_AND_STOPCYSERVICES()              \
-        if (cy_service_started_g == CPA_TRUE)   \
-        {                                       \
-                stopCyServices();               \
-        }
+#define CHECK_AND_STOPCYSERVICES()                                             \
+    if (cy_service_started_g == CPA_TRUE)                                      \
+    {                                                                          \
+        stopCyServices();                                                      \
+    }
 
 #define DECLARE_IA_CYCLE_COUNT_VARIABLES()                                     \
     Cpa32U submissions = 0;                                                    \
@@ -260,25 +265,39 @@ extern CpaBoolean timeStampInLoop;
     PRINT("Offload cycles %llu\n", setup->performanceStats->offloadCycles);
 
 /*enum to define API usage as synchronous or asynchronous*/
-typedef enum sync_mode_s { SYNC = 0, ASYNC } sync_mode_t;
+typedef enum sync_mode_s
+{
+    SYNC = 0,
+    ASYNC
+} sync_mode_t;
 
-typedef enum tlspfs_sign_mode_s {
+typedef enum tlspfs_sign_mode_s
+{
     TLSPFS_SIGN_MODE_RSA = 0,
     TLSPFS_SIGN_MODE_ECDSA
 } tlspfs_sign_mode_t;
 
 /*enum to define Diffie-Hellman phase*/
-typedef enum dh_phase_s { DH_PHASE_1 = 0, DH_PHASE_2 } dh_phase_t;
+typedef enum dh_phase_s
+{
+    DH_PHASE_1 = 0,
+    DH_PHASE_2
+} dh_phase_t;
 
 /*enum to define ECDSA step*/
-typedef enum ecdsa_step_s {
+typedef enum ecdsa_step_s
+{
     ECDSA_STEP_SIGNRS = 0,
     ECDSA_STEP_VERIFY,
     ECDSA_STEP_POINT_MULTIPLY
 } ecdsa_step_t;
 
 /*enum to define DSA step*/
-typedef enum dsa_step_s { DSA_STEP_SIGNRS = 0, DSA_STEP_VERIFY } dsa_step_t;
+typedef enum dsa_step_s
+{
+    DSA_STEP_SIGNRS = 0,
+    DSA_STEP_VERIFY
+} dsa_step_t;
 
 #if CY_API_VERSION_AT_LEAST(3, 0)
 /*enum to define EC-Gen step */
@@ -366,6 +385,7 @@ typedef enum ec_gen_step_s
 #define BUFFER_SIZE_752 (752)
 #define BUFFER_SIZE_768 (768)
 #define BUFFER_SIZE_1024 (1024)
+#define BUFFER_SIZE_1027 (1027)
 #define BUFFER_SIZE_1152 (1152)
 #define BUFFER_SIZE_1280 (1280)
 #define BUFFER_SIZE_1408 (1408)
@@ -640,10 +660,10 @@ typedef struct symmetric_test_params_s
     /*number of times numBuffers is looped over performing operations*/
     Cpa32U numOpDpBatch;
     /* number of request will execute at one time.
-    * If numRequests is 0, the operation should be performed immediately
-    * (performOpNow = CPA_TRUE)
-    * otherwise, On every Nth request (e.g. N=16), the operations will be
-    * performed. */
+     * If numRequests is 0, the operation should be performed immediately
+     * (performOpNow = CPA_TRUE)
+     * otherwise, On every Nth request (e.g. N=16), the operations will be
+     * performed. */
     Cpa32U numRequests;
     /*numberOfSession per thread*/
     Cpa32U threadID;
@@ -705,6 +725,10 @@ typedef struct asym_test_params_s
     CpaBoolean performEncrypt;
     Cpa32U threadID;
     CpaBoolean checkCongestion;
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    CpaBoolean enableKPT;
+    CpaCyKptHandle kptKeyHandle;
+#endif
 } asym_test_params_t;
 
 /**
@@ -1028,8 +1052,9 @@ CpaStatus stopCyServices(void);
  *      get the throughput in Megabits per second
  *      =(numPackets*packetSize)*(cycles/cpu_frequency)
  *****************************************************************************/
-Cpa32U
-getThroughput(Cpa64U numPackets, Cpa32U packetSize, perf_cycles_t cycles);
+Cpa32U getThroughput(Cpa64U numPackets,
+                     Cpa32U packetSize,
+                     perf_cycles_t cycles);
 
 /**
  *****************************************************************************
@@ -1206,6 +1231,35 @@ CpaStatus setupRsaEncryptTest(Cpa32U modulusSize,
                               sync_mode_t syncMode,
                               Cpa32U numBuffs,
                               Cpa32U numLoops);
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setupKpt2RsaTest
+ *
+ * @description
+ *      setup a test to run KPT RSA test
+ *      - should be called before createTheads framework function
+ *****************************************************************************/
+CpaStatus setupKpt2RsaTest(Cpa32U modulusSize,
+                           CpaCyRsaPrivateKeyRepType rsaKeyRepType,
+                           sync_mode_t syncMode,
+                           Cpa32U numBuffs,
+                           Cpa32U numLoops);
+
+/**
+ *****************************************************************************
+ * @ingroup sampleKPTRSACode
+ *
+ * @description
+ * This function frees all memory related to KPT2 data.
+ * ****************************************************************************/
+void kpt2RsaFreeDataMemory(asym_test_params_t *setup,
+                           CpaCyKptUnwrapContext **pKptUnwrapCtx,
+                           CpaCyKptRsaDecryptOpData **ppKPTDecryptOpData);
+#endif
+
 /**
  *****************************************************************************
  * @ingroup cryptoThreads
@@ -1352,7 +1406,7 @@ CpaStatus setupIpSecTest(CpaCySymCipherAlgorithm cipherAlg,
  * This function needs to be called from main to setup an alg chain test.
  * then the framework createThreads function is used to propagate this setup
  * across IA cores using different crypto logical instances
-*******************************************************************************/
+ *******************************************************************************/
 CpaStatus setupAlgChainTestNestedMode(
     CpaCySymCipherAlgorithm cipherAlg,
     Cpa32U cipherKeyLengthInBytes,
@@ -1373,7 +1427,7 @@ CpaStatus setupAlgChainTestNestedMode(
  * This function needs to be called from main to setup an alg chain test.
  * then the framework createThreads function is used to propagate this setup
  * across IA cores using different crypto logical instances
-*******************************************************************************/
+ *******************************************************************************/
 CpaStatus setupAlgChainTestHP(CpaCySymCipherAlgorithm cipherAlg,
                               Cpa32U cipherKeyLengthInBytes,
                               CpaCySymHashAlgorithm hashAlg,
@@ -1393,7 +1447,7 @@ CpaStatus setupAlgChainTestHP(CpaCySymCipherAlgorithm cipherAlg,
  * This function needs to be called from main to setup an alg chain test.
  * then the framework createThreads function is used to propagate this setup
  * across IA cores using different crypto logical instances
-*******************************************************************************/
+ *******************************************************************************/
 CpaStatus setupAlgChainTestNP(CpaCySymCipherAlgorithm cipherAlg,
                               Cpa32U cipherKeyLengthInBytes,
                               CpaCySymHashAlgorithm hashAlg,
@@ -1599,7 +1653,7 @@ CpaStatus sampleCreateBuffers(CpaInstanceHandle instanceHandle,
  * @description
  *      This function frees the memory allocated for the array of buffer
  *        lists and flat buffers.
-*****************************************************************************/
+ *****************************************************************************/
 void sampleFreeBuffers(CpaFlatBuffer *srcBuffPtrArray[],
                        CpaBufferList *srcBuffListArray[],
                        symmetric_test_params_t *setup);
@@ -1625,7 +1679,7 @@ CpaStatus dpSampleCreateBuffers(CpaInstanceHandle instanceHandle,
  * @description
  *      This function frees the memory allocated for the array of physical
  *      bufferlists and physical flat buffers.
-*****************************************************************************/
+ *****************************************************************************/
 void dpSampleFreeBuffers(CpaBufferList *srcBuffListArray[],
                          CpaPhysBufferList *srcPhyBuffListArray[],
                          Cpa32U numBuffLists,
@@ -1637,7 +1691,7 @@ void dpSampleFreeBuffers(CpaBufferList *srcBuffListArray[],
  *
  * @description
  *      This is a thread context function that performs the RSA operations
-*****************************************************************************/
+ *****************************************************************************/
 CpaStatus sampleRsaPerform(asym_test_params_t *setup);
 
 /**
@@ -2209,6 +2263,8 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
 CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
                            CpaCyRsaDecryptOpData **pDecryptOpData,
                            CpaFlatBuffer **pOutputData,
+                           CpaCyRsaPrivateKey **pPrivateKey,
+                           CpaCyRsaPublicKey **pPublicKey,
                            Cpa32U numBuffers,
                            Cpa32U numLoops);
 
@@ -2388,4 +2444,16 @@ CpaStatus sampleCodeAsymPollInstance(CpaInstanceHandle instanceHandle,
  ******************************************************************************/
 CpaStatus sampleCodeSymPollInstance(CpaInstanceHandle instanceHandle,
                                     Cpa32U response_quota);
+/**
+ ********************************************************************************
+ * @ingroup sampleCryptoCode
+ * stopCyServices
+ *
+ * @description
+ *     this API stops the Crypto services.
+ * @threadSafe
+ *     No
+ * @param[in] data  pointer to test data structure
+ ********************************************************************************/
+CpaStatus stopCyServicesFromCallback(thread_creation_data_t *data);
 #endif /*_CRYPTO_UTILS_H_*/

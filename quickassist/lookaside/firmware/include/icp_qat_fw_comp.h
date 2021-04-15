@@ -90,7 +90,8 @@
  *
  *****************************************************************************/
 
-typedef enum {
+typedef enum
+{
     ICP_QAT_FW_COMP_CMD_STATIC = 0,
     /*!< Static Compress Request */
 
@@ -225,8 +226,8 @@ typedef enum {
  * @enhanced_asb           Enhanced AutoSelectBest
  * @ret_uncomp             RetUnCompressed
  * @secure_ram             Secure Ram usage
-*
- *********************************************************************************/
+ *
+ ******************************************************************************/
 #define ICP_QAT_FW_COMP_FLAGS_BUILD(                                           \
     sesstype, autoselect, enhanced_asb, ret_uncomp, secure_ram)                \
     (((sesstype & ICP_QAT_FW_COMP_SESSION_TYPE_MASK)                           \
@@ -339,8 +340,7 @@ typedef union icp_qat_fw_comp_req_hdr_cd_pars_s {
          * parameters describe the session setup configuration info for the
          * slices that this request relies upon i.e. the configuration word and
          * cipher key needed by the cipher slice if there is a request for
-         * cipher
-         * processing. */
+         * cipher processing. */
 
         uint8_t content_desc_hdr_resrvd2;
         /**< Content descriptor reserved field */
@@ -475,11 +475,11 @@ typedef struct icp_qat_fw_comp_req_params_s
 
 #define ICP_QAT_FW_COMP_NO_CNV_RECOVERY 0
 /**< @ingroup icp_qat_fw_comp
-* Flag indicating that NO cnv recovery is to be performed on the request */
+ * Flag indicating that NO cnv recovery is to be performed on the request */
 
 #define ICP_QAT_FW_COMP_CNV_RECOVERY 1
 /**< @ingroup icp_qat_fw_comp
-* Flag indicating that a cnv recovery is to be performed on the request */
+ * Flag indicating that a cnv recovery is to be performed on the request */
 
 #define ICP_QAT_FW_COMP_SOP_BITPOS 0
 /**< @ingroup icp_qat_fw_comp
@@ -515,11 +515,11 @@ typedef struct icp_qat_fw_comp_req_params_s
 
 #define ICP_QAT_FW_COMP_CNV_RECOVERY_MASK 0x1
 /**< @ingroup icp_qat_fw_comp
-* One bit mask for the CNV Recovery bit */
+ * One bit mask for the CNV Recovery bit */
 
 #define ICP_QAT_FW_COMP_CNV_RECOVERY_BITPOS 17
 /**< @ingroup icp_qat_fw_comp
-* Starting bit position for the CNV Recovery bit */
+ * Starting bit position for the CNV Recovery bit */
 
 /**
  ******************************************************************************
@@ -591,10 +591,10 @@ typedef struct icp_qat_fw_xlt_req_params_s
     /**< LWs 20-21 */
     uint64_t inter_buff_ptr;
     /**< This field specifies the physical address of an intermediate
-      *  buffer SGL array. The array contains a pair of 64-bit
-      *  intermediate buffer pointers to SGL buffer descriptors, one pair
-      *  per CPM. Please refer to the CPM1.6 Firmware Interface HLD
-      *  specification for more details. */
+     * buffer SGL array. The array contains a pair of 64-bit
+     * intermediate buffer pointers to SGL buffer descriptors, one pair
+     * per CPM. Please refer to the CPM1.6 Firmware Interface HLD
+     * specification for more details. */
 
 } icp_qat_fw_xlt_req_params_t;
 
@@ -623,11 +623,11 @@ typedef struct icp_qat_fw_comp_cd_hdr_s
 
     uint8_t next_curr_id;
     /**< This field combines the next and current id (each four bits) -
-      * the next id is the most significant nibble.
-      * Next Id:  Set to the next slice to pass the compressed data through.
-      * Set to ICP_QAT_FW_SLICE_DRAM_WR if the data is not to go through
-      * anymore slices after compression
-      * Current Id: Initialised with the compression slice type */
+     * the next id is the most significant nibble.
+     * Next Id:  Set to the next slice to pass the compressed data through.
+     * Set to ICP_QAT_FW_SLICE_DRAM_WR if the data is not to go through
+     * anymore slices after compression
+     * Current Id: Initialised with the compression slice type */
 
     /**< LW 25 */
     uint32_t resrvd;
@@ -668,11 +668,11 @@ typedef struct icp_qat_fw_xlt_cd_hdr_s
 
     uint8_t next_curr_id;
     /**< This field combines the next and current id (each four bits) -
-      * the next id is the most significant nibble.
-      * Next Id:  Set to the next slice to pass the translated data through.
-      * Set to ICP_QAT_FW_SLICE_DRAM_WR if the data is not to go through
-      * any more slices after compression
-      * Current Id: Initialised with the translation slice type */
+     * the next id is the most significant nibble.
+     * Next Id:  Set to the next slice to pass the translated data through.
+     * Set to ICP_QAT_FW_SLICE_DRAM_WR if the data is not to go through
+     * any more slices after compression
+     * Current Id: Initialised with the translation slice type */
 
     /**< LW 31 */
     uint32_t resrvd3;
@@ -753,11 +753,10 @@ typedef struct icp_qat_fw_comp_req_s
 /**
  *****************************************************************************
  * @ingroup icp_qat_fw_comp
- *        Definition of the compression QAT FW response descriptor
- *        parameters
+ *        Definition of the compression QAT FW response descriptor parameters
  * @description
  *        This part of the response is specific to the compression response.
-  *
+ *
  *****************************************************************************/
 typedef struct icp_qat_fw_resp_comp_pars_s
 {
@@ -789,7 +788,7 @@ typedef struct icp_qat_fw_resp_comp_pars_s
  *       number of requests in the 'batch'.
  * @description
  *        This structure is specific to the compression output.
-  *
+ *
  *****************************************************************************/
 typedef struct icp_qat_fw_comp_bnp_out_tbl_entry_s
 {
@@ -823,7 +822,8 @@ typedef struct icp_qat_fw_comp_bnp_out_tbl_entry_s
 *      input or output buffers.
 *
 *****************************************************************************/
-typedef enum icp_qat_fw_comp_bnp_skip_mode_s {
+typedef enum icp_qat_fw_comp_bnp_skip_mode_s
+{
     ICP_QAT_FW_SKIP_DISABLED = 0,
     /**< Skip mode is disabled */
     ICP_QAT_FW_SKIP_AT_START = 1,
@@ -832,8 +832,7 @@ typedef enum icp_qat_fw_comp_bnp_skip_mode_s {
     /**< Skip region is at the end of the buffer. */
     ICP_QAT_FW_SKIP_STRIDE = 3
     /**< Skip region occurs at regular intervals within the buffer.
-     specifies the number of bytes between each
-     skip region. */
+     * specifies the number of bytes between each skip region. */
 } icp_qat_fw_comp_bnp_skip_mode_t;
 
 /**
@@ -867,8 +866,7 @@ typedef struct icp_qat_fw_comp_bnp_skip_info_s
 
     /**< LW 1 */
     uint16_t stride_length;
-    /**<Size of the stride between skip regions when skip mode is
-     * enabled */
+    /**<Size of the stride between skip regions when skip mode is enabled */
 
     /**< LW 2 */
     uint16_t firstSkipOffset;
@@ -897,7 +895,7 @@ typedef struct icp_qat_fw_comp_bnp_op_header_s
     /**< LW 0*/
     uint64_t next_opdata_addr;
     /**< Physical pointer to the Address of the next bnp op data structure.
-    */
+     */
 
     /**< LW 2*/
     uint32_t comp_len;
@@ -925,8 +923,7 @@ typedef struct icp_qat_fw_comp_bnp_op_header_s
 typedef struct icp_qat_fw_comp_bnp_op_data_s
 {
     icp_qat_fw_comp_bnp_op_header_t bnp_op_header;
-    /**< Pointer to next Op data, and general information on the operation
-    */
+    /**< Pointer to next Op data, and general information on the operation */
     icp_qat_fw_comp_bnp_skip_info_t src_bnp_skip_info;
     /**< Optional skip regions in the input buffers */
     icp_qat_fw_comp_bnp_skip_info_t dst_bnp_skip_info;
@@ -980,7 +977,8 @@ typedef struct icp_qat_fw_comp_resp_s
  *      Enumeration used to define whether a ram bank is enabled or not
  *
  *****************************************************************************/
-typedef enum {
+typedef enum
+{
     ICP_QAT_FW_COMP_BANK_DISABLED = 0, /*!< BANK DISABLED */
     ICP_QAT_FW_COMP_BANK_ENABLED = 1,  /*!< BANK ENABLED */
     ICP_QAT_FW_COMP_BANK_DELIMITER = 2 /**< Delimiter type */

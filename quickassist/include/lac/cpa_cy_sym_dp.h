@@ -151,7 +151,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Cryptographic component symmetric session context handle for the
  *      data plane API.
@@ -170,7 +169,6 @@ typedef void * CpaCySymDpSessionCtx;
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Operation Data for cryptographic data plane API.
  *
@@ -398,7 +396,6 @@ typedef struct _CpaCySymDpOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Definition of callback function for cryptographic data plane API.
  *
@@ -451,7 +448,6 @@ typedef void (*CpaCySymDpCbFunc)(CpaCySymDpOpData *pOpData,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Registration of the operation completion callback function.
  *
@@ -499,7 +495,6 @@ CpaStatus cpaCySymDpRegCbFunc(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Gets the size required to store a session context for the data plane
  *      API.
@@ -574,7 +569,6 @@ cpaCySymDpSessionCtxGetSize(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Gets the minimum size required to store a session context for the data 
  *      plane API.
@@ -642,7 +636,6 @@ cpaCySymDpSessionCtxGetDynamicSize(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Initialize a session for the symmetric cryptographic data plane API.
  *
@@ -714,7 +707,6 @@ cpaCySymDpInitSession(CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *      Remove (delete) a symmetric cryptographic session for the data plane
  *      API.
@@ -739,7 +731,7 @@ cpaCySymDpInitSession(CpaInstanceHandle instanceHandle,
  * @reentrant
  *      No
  * @threadSafe
- *      Yes
+ *      No
  *
  * @param[in]      instanceHandle    Instance handle.
  * @param[in,out]  sessionCtx        Session context to be removed.
@@ -773,7 +765,6 @@ cpaCySymDpRemoveSession(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *         Enqueue a single symmetric cryptographic request.
  *
@@ -862,7 +853,6 @@ cpaCySymDpEnqueueOp(CpaCySymDpOpData *pOpData,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *         Enqueue multiple requests to the symmetric cryptographic data plane
  *      API.
@@ -964,7 +954,6 @@ cpaCySymDpEnqueueOpBatch(const Cpa32U numberRequests,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym_dp.h
  * @ingroup cpaCySymDp
  *         Submit any previously enqueued requests to be performed now on the
  *         symmetric cryptographic data plane API.

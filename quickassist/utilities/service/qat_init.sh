@@ -77,7 +77,7 @@ unbind() {
         if [ $? -eq 0 ]; then
             break
         else
-           LOOP=`expr $LOOP + 1` 
+           LOOP=`expr $LOOP + 1`
             sleep 1
         fi
     done
@@ -90,7 +90,7 @@ override() {
     LOOP=0
     while [ $LOOP -lt  5 ]
     do
-        echo -n 2> /dev/null  $NEW_DRIVER > /sys/bus/pci/devices/$BSF/driver_override 
+        echo -n 2> /dev/null  $NEW_DRIVER > /sys/bus/pci/devices/$BSF/driver_override
         if [ $? -eq 0 ]; then
                 break
         else
@@ -139,7 +139,7 @@ bind_driver() {
         $DH895_DEVICE_PCI_ID_VM )
             NEW_DRIVER=${DH895_DEVICE_NAME}vf
             MODULE=${DH895_DRIVER_NAME}vf
-            ;; 
+            ;;
         $C62X_DEVICE_PCI_ID_VM )
             NEW_DRIVER=${C62X_DEVICE_NAME}vf
             MODULE=${C62X_DRIVER_NAME}vf
@@ -213,7 +213,7 @@ enable_sriov() {
             # Enable sriov on the PF_DEV
             if [ -r $PF_DEV/sriov_totalvfs -a -w $PF_DEV/sriov_numvfs ]; then
                 TOTALVFS=`cat $PF_DEV/sriov_totalvfs`
-                NUMVFS=`cat $PF_DEV/sriov_numvfs` 
+                NUMVFS=`cat $PF_DEV/sriov_numvfs`
                 if [ $TOTALVFS -ne $NUMVFS ]; then
                     echo $TOTALVFS > $PF_DEV/sriov_numvfs
                 fi
@@ -245,4 +245,3 @@ enable_sriov() {
 enable_sriov
 
 exit 0
-

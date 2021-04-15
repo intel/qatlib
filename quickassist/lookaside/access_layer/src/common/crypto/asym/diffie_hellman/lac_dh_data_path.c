@@ -171,7 +171,8 @@ static const Cpa32U lacDHSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_1536_BITS, PKE_DH_1536},
     {LAC_2048_BITS, PKE_DH_2048},
     {LAC_3072_BITS, PKE_DH_3072},
-    {LAC_4096_BITS, PKE_DH_4096}};
+    {LAC_4096_BITS, PKE_DH_4096},
+    {LAC_8192_BITS, PKE_DH_8192}};
 
 /* Maps between operation sizes and PKE function ids */
 static const Cpa32U lacDHG2SizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
@@ -180,8 +181,8 @@ static const Cpa32U lacDHG2SizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_1536_BITS, PKE_DH_G2_1536},
     {LAC_2048_BITS, PKE_DH_G2_2048},
     {LAC_3072_BITS, PKE_DH_G2_3072},
-    {LAC_4096_BITS, PKE_DH_G2_4096}};
-
+    {LAC_4096_BITS, PKE_DH_G2_4096},
+    {LAC_8192_BITS, PKE_DH_G2_8192}};
 /*
 *******************************************************************************
 * Define static function definitions
@@ -263,11 +264,12 @@ STATIC CpaBoolean LacDh_IsValidDhSize(Cpa32U opSizeInBytes)
 
     if ((LAC_768_BITS != opSizeInBits) && (LAC_1024_BITS != opSizeInBits) &&
         (LAC_1536_BITS != opSizeInBits) && (LAC_2048_BITS != opSizeInBits) &&
-        (LAC_3072_BITS != opSizeInBits) && (LAC_4096_BITS != opSizeInBits))
+        (LAC_3072_BITS != opSizeInBits) && (LAC_4096_BITS != opSizeInBits) &&
+        (LAC_8192_BITS != opSizeInBits))
     {
         LAC_INVALID_PARAM_LOG(
             "Invalid operation size. Valid op sizes for "
-            "DH are 768, 1024, 1536, 2048, 3072 and 4096 bits.");
+            "DH are 768, 1024, 1536, 2048, 3072, 4096 and 8192 bits.");
         return CPA_FALSE;
     }
 

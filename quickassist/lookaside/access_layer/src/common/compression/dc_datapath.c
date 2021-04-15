@@ -1126,21 +1126,7 @@ STATIC CpaStatus dcCompDecompData(sal_compression_service_t *pService,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     dc_compression_cookie_t *pCookie = NULL;
-    CpaBoolean compressAndVerify = CPA_FALSE;
 
-    if (DC_NO_CNV != cnvMode)
-    {
-        compressAndVerify = CPA_TRUE;
-    }
-
-    status = checkLzsSupport(dcInstance,
-                             pSessionDesc->compType,
-                             compressAndVerify,
-                             pSessionDesc->sessDirection);
-    if (status != CPA_STATUS_SUCCESS)
-    {
-        return status;
-    }
     if ((LacSync_GenWakeupSyncCaller == pSessionDesc->pCompressionCb) &&
         isAsyncMode == CPA_TRUE)
     {

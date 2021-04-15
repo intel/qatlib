@@ -55,7 +55,6 @@ static int container_fd_ref = 0;
 
 #define VFIO_GET_REGION_ADDR(x) ((uint64_t)x << 40ULL)
 
-/* set PCI bus mastering */
 static int pci_vfio_set_command(int dev_fd, int command, bool op)
 {
     uint16_t reg;
@@ -274,7 +273,7 @@ int open_vfio_dev(const char *vfio_file,
 
     if (pci_vfio_set_command(dev->vfio_dev_fd, PCI_COMMAND_MASTER, true))
     {
-        ADF_ERROR("Cannot set up bus mastering!\n");
+        ADF_ERROR("Fail to set BME.\n");
         close_vfio_dev(dev);
 
         return -1;

@@ -270,7 +270,7 @@ CpaStatus icp_sal_userCyGetAvailableNumDynInstancesByPkgAccel(
     LAC_CHECK_NULL_PARAM(pNumCyInstances);
     if (accelerator_number > 0)
     {
-        LAC_LOG_ERROR1("accelerator_number is invalid(%ld)\n",
+        LAC_LOG_ERROR1("accelerator_number is invalid(%u)\n",
                        accelerator_number);
         return CPA_STATUS_INVALID_PARAM;
     }
@@ -891,7 +891,7 @@ CpaStatus icp_sal_userCyInstancesAllocByPkgAccel(
     LAC_CHECK_NULL_PARAM(pCyInstances);
     if (accelerator_number > 0)
     {
-        LAC_LOG_ERROR1("accelerator_number is invalid(%ld)\n",
+        LAC_LOG_ERROR1("accelerator_number is invalid(%u)\n",
                        accelerator_number);
         return CPA_STATUS_INVALID_PARAM;
     }

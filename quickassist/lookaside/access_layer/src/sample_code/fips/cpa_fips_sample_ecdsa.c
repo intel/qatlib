@@ -112,9 +112,9 @@
  *         CPA_FALSE               h value does not conform to the spec
  *
  *****************************************************************************/
-static inline CpaBoolean
-checkEcdsaCofactorDomainParamSizeInBits(Cpa32U baseOrderBitLength,
-                                        Cpa32U hValueBitLength)
+static inline CpaBoolean checkEcdsaCofactorDomainParamSizeInBits(
+    Cpa32U baseOrderBitLength,
+    Cpa32U hValueBitLength)
 {
 
     /*if baseOrderBitLength < 224, h must be <= 2^10*/

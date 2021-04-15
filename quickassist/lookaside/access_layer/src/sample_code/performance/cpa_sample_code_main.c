@@ -191,6 +191,7 @@ Cpa32U *cyInstMap_g = NULL;
 Cpa32U *dcInstMap_g = NULL;
 Cpa32U instMap_g;
 Cpa16U numInst_g = 0;
+Cpa8U singleInstRequired_g = 0;
 extern Cpa32U packageIdCount_g;
 extern CpaBoolean devicesCounted_g;
 
@@ -254,6 +255,9 @@ CpaStatus checkSingleInstance()
 #define DH_CODE (16)
 #define COMPRESSION_CODE (32)
 #define CHAINING_CODE (128)
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#define KPT_RSA_CODE (256)
+#endif
 #define FIRST_INSTANCE (1)
 
 /***************************************************************************
@@ -348,6 +352,8 @@ int main(int argc, char *argv[])
     {
         const char *const op = computeLatency != 0 ? "Latency" : "Offload Cost";
 
+        /* use single instance for latency and COO */
+        singleInstRequired_g = 1;
         /* Sign of Life has too little iteration to do
          * computation of latency or offload cost. Flag
          * a warning and continue with the test.
@@ -460,6 +466,11 @@ int main(int argc, char *argv[])
     }
     if (numInst_g > 0)
     {
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            numInst_g = 1;
+        }
         /*allocate memory to store the instance handles*/
         cyInst_g = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInst_g);
         if (cyInst_g == NULL)
@@ -546,6 +557,16 @@ int main(int argc, char *argv[])
             runTests ^= 1 << 4;
             PRINT("runTests=%d\n", runTests);
         }
+#if CY_API_VERSION_AT_LEAST(3, 0)
+        if (cap.kpt2Supported == CPA_FALSE && runTests & KPT_RSA_CODE)
+        {
+            PRINT(
+                "Warning! Skipping KPT RSA tests as they are not supported on "
+                "Instance\n");
+            runTests ^= 1 << 8;
+            PRINT("runTests=%d\n", runTests);
+        }
+#endif
         /* Check capabilities before running kasumi wireless alg tests*/
         if (cap.symSupported == CPA_TRUE && (runTests & SYMMETRIC_CODE))
         {
@@ -585,6 +606,11 @@ int main(int argc, char *argv[])
 
     if (numInst_g > 0)
     {
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            numInst_g = 1;
+        }
         /*allocate memory to store the instance handles*/
         dcInst_g = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInst_g);
         if (dcInst_g == NULL)
@@ -647,7 +673,7 @@ int main(int argc, char *argv[])
     if (((computeLatency != 0) || (computeOffloadCost != 0)) &&
         (checkSingleInstance() != CPA_STATUS_SUCCESS))
     {
-        PRINT("WARNING! Use single QAT Instance for %s computation\n",
+        PRINT("Limiting to use single QAT Instance for %s computation\n",
               computeLatency != 0 ? "Latency" : "Offload Cost");
     }
 #endif /* USER_SPACE */
@@ -995,8 +1021,8 @@ int main(int argc, char *argv[])
 
 #ifdef DO_CRYPTO
     /**************************************************************************
-    * RSA PERFORMANCE
-    **************************************************************************/
+     * RSA PERFORMANCE
+     **************************************************************************/
     if ((RSA_CODE & runTests) == RSA_CODE)
     {
         if (signOfLife)
@@ -1022,6 +1048,36 @@ int main(int argc, char *argv[])
             }
         }
     }
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    /**************************************************************************
+     * KPT RSA PERFORMANCE
+     **************************************************************************/
+    if ((KPT_RSA_CODE & runTests) == KPT_RSA_CODE)
+    {
+        if (signOfLife)
+        {
+            numModSizes = ONE_PACKET;
+        }
+        for (lv_count = 0; lv_count < numModSizes; lv_count++)
+        {
+            status = setupKpt2RsaTest(modSizes[lv_count],
+                                      CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_2,
+                                      ASYNC,
+                                      cyNumBuffers,
+                                      cyAsymLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("Error calling setupKpt2RsaTest\n");
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletion(CRYPTO);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+        }
+    }
+#endif
 #endif /*DO_CRYPTO*/
 
 #ifdef DO_CRYPTO
@@ -1136,8 +1192,8 @@ int main(int argc, char *argv[])
         }
     }
     /**************************************************************************
-    * COMPRESSION TESTS CALGARY CORPUS
-    **************************************************************************/
+     * COMPRESSION TESTS CALGARY CORPUS
+     **************************************************************************/
 
     if ((COMPRESSION_CODE & runTests) == COMPRESSION_CODE)
     {
@@ -1595,154 +1651,154 @@ int main(int argc, char *argv[])
     }     // End of if((COMPRESSION_CODE & runTests)== COMPRESSION_CODE
 #ifdef USER_SPACE
 #ifdef SC_CHAINING_ENABLED
-        /*
-         * Chaining Sample Code
-         */
-        if ((CHAINING_CODE & runTests) == CHAINING_CODE)
+    /*
+     * Chaining Sample Code
+     */
+    if ((CHAINING_CODE & runTests) == CHAINING_CODE)
+    {
+        if (numDcInst > 0)
         {
-            if (numDcInst > 0)
+            useZlib();
+            prevCnVRequestFlag = getSetupCnVRequestFlag();
+            setSetupCnVRequestFlag(STRICT_CNV_WITH_RECOVERY |
+                                   LOOSE_CNV_WITH_RECOVERY);
+
+            /* sha1 + stateless static compress chaining */
+            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
+                                      2,
+                                      CPA_DC_DEFLATE,
+                                      CPA_DC_DIR_COMPRESS,
+                                      SAMPLE_CODE_CPA_DC_L1,
+                                      CPA_DC_HT_STATIC,
+                                      CPA_DC_FT_ASCII,
+                                      CPA_DC_STATELESS,
+                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                      dcBufferSize,
+                                      sampleCorpus,
+                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      CPA_CY_SYM_OP_HASH,
+                                      CPA_CY_SYM_CIPHER_NULL,
+                                      0,
+                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
+                                      CPA_CY_PRIORITY_NORMAL,
+                                      CPA_CY_SYM_HASH_SHA1,
+                                      CPA_CY_SYM_HASH_MODE_PLAIN,
+                                      SHA1_DIGEST_LENGTH_IN_BYTES,
+                                      dcLoops);
+            if (CPA_STATUS_SUCCESS != status)
             {
-                useZlib();
-                prevCnVRequestFlag = getSetupCnVRequestFlag();
-                setSetupCnVRequestFlag(STRICT_CNV_WITH_RECOVERY |
-                                       LOOSE_CNV_WITH_RECOVERY);
-
-                /* sha1 + stateless static compress chaining */
-                status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                          2,
-                                          CPA_DC_DEFLATE,
-                                          CPA_DC_DIR_COMPRESS,
-                                          SAMPLE_CODE_CPA_DC_L1,
-                                          CPA_DC_HT_STATIC,
-                                          CPA_DC_FT_ASCII,
-                                          CPA_DC_STATELESS,
-                                          DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                          dcBufferSize,
-                                          sampleCorpus,
-                                          CPA_SAMPLE_ASYNCHRONOUS,
-                                          CPA_CY_SYM_OP_HASH,
-                                          CPA_CY_SYM_CIPHER_NULL,
-                                          0,
-                                          CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                          CPA_CY_PRIORITY_NORMAL,
-                                          CPA_CY_SYM_HASH_SHA1,
-                                          CPA_CY_SYM_HASH_MODE_PLAIN,
-                                          SHA1_DIGEST_LENGTH_IN_BYTES,
-                                          dcLoops);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    PRINT_ERR("Error calling setupDcChainTest\n");
-                    return CPA_STATUS_FAIL;
-                }
-                status = createStartandWaitForCompletion(COMPRESSION);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    retStatus = CPA_STATUS_FAIL;
-                }
-
-                /* sha256 + stateless static compress chaining */
-                status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                          2,
-                                          CPA_DC_DEFLATE,
-                                          CPA_DC_DIR_COMPRESS,
-                                          SAMPLE_CODE_CPA_DC_L1,
-                                          CPA_DC_HT_STATIC,
-                                          CPA_DC_FT_ASCII,
-                                          CPA_DC_STATELESS,
-                                          DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                          dcBufferSize,
-                                          sampleCorpus,
-                                          CPA_SAMPLE_ASYNCHRONOUS,
-                                          CPA_CY_SYM_OP_HASH,
-                                          CPA_CY_SYM_CIPHER_NULL,
-                                          0,
-                                          CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                          CPA_CY_PRIORITY_NORMAL,
-                                          CPA_CY_SYM_HASH_SHA256,
-                                          CPA_CY_SYM_HASH_MODE_PLAIN,
-                                          SHA256_DIGEST_LENGTH_IN_BYTES,
-                                          dcLoops);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    PRINT_ERR("Error calling setupDcChainTest\n");
-                    return CPA_STATUS_FAIL;
-                }
-                status = createStartandWaitForCompletion(COMPRESSION);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    retStatus = CPA_STATUS_FAIL;
-                }
-
-                /* sha1 + stateless dynamic compress chaining */
-                status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                          2,
-                                          CPA_DC_DEFLATE,
-                                          CPA_DC_DIR_COMPRESS,
-                                          SAMPLE_CODE_CPA_DC_L1,
-                                          CPA_DC_HT_FULL_DYNAMIC,
-                                          CPA_DC_FT_ASCII,
-                                          CPA_DC_STATELESS,
-                                          DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                          dcBufferSize,
-                                          sampleCorpus,
-                                          CPA_SAMPLE_ASYNCHRONOUS,
-                                          CPA_CY_SYM_OP_HASH,
-                                          CPA_CY_SYM_CIPHER_NULL,
-                                          0,
-                                          CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                          CPA_CY_PRIORITY_NORMAL,
-                                          CPA_CY_SYM_HASH_SHA1,
-                                          CPA_CY_SYM_HASH_MODE_PLAIN,
-                                          SHA1_DIGEST_LENGTH_IN_BYTES,
-                                          dcLoops);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    PRINT_ERR("Error calling setupDcChainTest\n");
-                    return CPA_STATUS_FAIL;
-                }
-                status = createStartandWaitForCompletion(COMPRESSION);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    retStatus = CPA_STATUS_FAIL;
-                }
-
-                /* sha256 + stateless dynamic compress chaining */
-                status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                          2,
-                                          CPA_DC_DEFLATE,
-                                          CPA_DC_DIR_COMPRESS,
-                                          SAMPLE_CODE_CPA_DC_L1,
-                                          CPA_DC_HT_FULL_DYNAMIC,
-                                          CPA_DC_FT_ASCII,
-                                          CPA_DC_STATELESS,
-                                          DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                          dcBufferSize,
-                                          sampleCorpus,
-                                          CPA_SAMPLE_ASYNCHRONOUS,
-                                          CPA_CY_SYM_OP_HASH,
-                                          CPA_CY_SYM_CIPHER_NULL,
-                                          0,
-                                          CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                          CPA_CY_PRIORITY_NORMAL,
-                                          CPA_CY_SYM_HASH_SHA256,
-                                          CPA_CY_SYM_HASH_MODE_PLAIN,
-                                          SHA256_DIGEST_LENGTH_IN_BYTES,
-                                          dcLoops);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    PRINT_ERR("Error calling setupDcChainTest\n");
-                    return CPA_STATUS_FAIL;
-                }
-                status = createStartandWaitForCompletion(COMPRESSION);
-                if (CPA_STATUS_SUCCESS != status)
-                {
-                    retStatus = CPA_STATUS_FAIL;
-                }
-
-                setSetupCnVRequestFlag(prevCnVRequestFlag);
-                useAccelCompression();
+                PRINT_ERR("Error calling setupDcChainTest\n");
+                return CPA_STATUS_FAIL;
             }
+            status = createStartandWaitForCompletion(COMPRESSION);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+
+            /* sha256 + stateless static compress chaining */
+            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
+                                      2,
+                                      CPA_DC_DEFLATE,
+                                      CPA_DC_DIR_COMPRESS,
+                                      SAMPLE_CODE_CPA_DC_L1,
+                                      CPA_DC_HT_STATIC,
+                                      CPA_DC_FT_ASCII,
+                                      CPA_DC_STATELESS,
+                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                      dcBufferSize,
+                                      sampleCorpus,
+                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      CPA_CY_SYM_OP_HASH,
+                                      CPA_CY_SYM_CIPHER_NULL,
+                                      0,
+                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
+                                      CPA_CY_PRIORITY_NORMAL,
+                                      CPA_CY_SYM_HASH_SHA256,
+                                      CPA_CY_SYM_HASH_MODE_PLAIN,
+                                      SHA256_DIGEST_LENGTH_IN_BYTES,
+                                      dcLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("Error calling setupDcChainTest\n");
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletion(COMPRESSION);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+
+            /* sha1 + stateless dynamic compress chaining */
+            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
+                                      2,
+                                      CPA_DC_DEFLATE,
+                                      CPA_DC_DIR_COMPRESS,
+                                      SAMPLE_CODE_CPA_DC_L1,
+                                      CPA_DC_HT_FULL_DYNAMIC,
+                                      CPA_DC_FT_ASCII,
+                                      CPA_DC_STATELESS,
+                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                      dcBufferSize,
+                                      sampleCorpus,
+                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      CPA_CY_SYM_OP_HASH,
+                                      CPA_CY_SYM_CIPHER_NULL,
+                                      0,
+                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
+                                      CPA_CY_PRIORITY_NORMAL,
+                                      CPA_CY_SYM_HASH_SHA1,
+                                      CPA_CY_SYM_HASH_MODE_PLAIN,
+                                      SHA1_DIGEST_LENGTH_IN_BYTES,
+                                      dcLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("Error calling setupDcChainTest\n");
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletion(COMPRESSION);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+
+            /* sha256 + stateless dynamic compress chaining */
+            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
+                                      2,
+                                      CPA_DC_DEFLATE,
+                                      CPA_DC_DIR_COMPRESS,
+                                      SAMPLE_CODE_CPA_DC_L1,
+                                      CPA_DC_HT_FULL_DYNAMIC,
+                                      CPA_DC_FT_ASCII,
+                                      CPA_DC_STATELESS,
+                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                      dcBufferSize,
+                                      sampleCorpus,
+                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      CPA_CY_SYM_OP_HASH,
+                                      CPA_CY_SYM_CIPHER_NULL,
+                                      0,
+                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
+                                      CPA_CY_PRIORITY_NORMAL,
+                                      CPA_CY_SYM_HASH_SHA256,
+                                      CPA_CY_SYM_HASH_MODE_PLAIN,
+                                      SHA256_DIGEST_LENGTH_IN_BYTES,
+                                      dcLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("Error calling setupDcChainTest\n");
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletion(COMPRESSION);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+
+            setSetupCnVRequestFlag(prevCnVRequestFlag);
+            useAccelCompression();
         }
+    }
 #endif
 #endif
 

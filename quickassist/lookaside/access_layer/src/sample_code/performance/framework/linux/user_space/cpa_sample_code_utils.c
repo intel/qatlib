@@ -169,7 +169,10 @@ perf_cycles_t sampleCodeTimestamp(void)
     return (perf_cycles_t)sampleCodeRdtscp();
 }
 
-void sampleCodeSleep(Cpa32U seconds) { sleep(seconds); }
+void sampleCodeSleep(Cpa32U seconds)
+{
+    sleep(seconds);
+}
 
 static void sampleCodeSleepUsingNanoSleep(Cpa32U milliseconds,
                                           Cpa32U nanoseconds)
@@ -255,7 +258,10 @@ Cpa32U updateCPUSpeed()
     return cpuSpeed;
 }
 
-Cpa32U sampleCodeGetCpuFreq() { return cpu_freq_g; }
+Cpa32U sampleCodeGetCpuFreq()
+{
+    return cpu_freq_g;
+}
 
 void generateRandomData(Cpa8U *pWriteRandData, Cpa32U lengthOfRand)
 {
@@ -434,7 +440,10 @@ CpaStatus sampleCodeThreadStart(sample_code_thread_t *thread)
     return CPA_STATUS_SUCCESS;
 }
 
-void sampleCodeThreadExit(void) { pthread_exit(NULL); }
+void sampleCodeThreadExit(void)
+{
+    pthread_exit(NULL);
+}
 
 CpaStatus sampleCodeThreadKill(sample_code_thread_t *thread)
 {
@@ -703,11 +712,11 @@ CpaStatus sampleCodeSemaphoreWait(sample_code_semaphore_t *semPtr,
     else
     {
         /*
-        * Convert the inputted time into appropriate timespec struct.
-        * Since timespec and sample_code_time_t timeval are of the the same
-        * type.
-        * Reuse the timeval to timespec macros.
-        */
+         * Convert the inputted time into appropriate timespec struct.
+         * Since timespec and sample_code_time_t timeval are of the the same
+         * type.
+         * Reuse the timeval to timespec macros.
+         */
         SAMPLE_CODE_TIMEVAL_TO_MS(timeout, &timeoutVal);
 
         /* Get current time */

@@ -187,8 +187,9 @@ static void gMultiply(Cpa8U *pX, const Cpa8U *restrict pY)
  *
  *
  *****************************************************************************/
-static CpaStatus
-gHash(const Cpa8U *restrict pH, const CpaFlatBuffer *restrict pX, Cpa8U *pY)
+static CpaStatus gHash(const Cpa8U *restrict pH,
+                       const CpaFlatBuffer *restrict pX,
+                       Cpa8U *pY)
 {
     Cpa32U i = 0, loop_count = 0;
 
@@ -697,8 +698,9 @@ static CpaStatus checkGcmData(const usr_gcm_data_t *restrict pGcmData)
     return CPA_STATUS_SUCCESS;
 }
 
-static CpaStatus
-sampleThreadCreate(sampleThread *thread, void *funct, void *args)
+static CpaStatus sampleThreadCreate(sampleThread *thread,
+                                    void *funct,
+                                    void *args)
 {
     if (pthread_create(thread, NULL, funct, args) != 0)
     {
@@ -711,7 +713,10 @@ sampleThreadCreate(sampleThread *thread, void *funct, void *args)
     }
 }
 
-static void sampleThreadExit(void) { pthread_exit(NULL); }
+static void sampleThreadExit(void)
+{
+    pthread_exit(NULL);
+}
 
 static void sal_polling(CpaInstanceHandle cyInstHandle)
 {

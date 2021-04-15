@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [20.10.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [21.05.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,7 +11,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [0:0:0])
+AC_SUBST([LIBQAT_VERSION], [1:0:1])
 AC_SUBST([LIBUSDM_VERSION], [0:0:0])
 
 # Checks for programs.
@@ -55,6 +55,20 @@ AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_STRNLEN
 AC_CHECK_FUNCS([alarm clock_gettime getpagesize gettimeofday memmove memset munmap select socket strerror strstr strtoul strtoull])
+
+# Check if using gcc and if it supports mcx16
+AS_IF([test "x$CC" = "xgcc"],
+    [saved_cflags="$CFLAGS"
+     CFLAGS=-mcx16
+     AC_MSG_CHECKING([whether $CC supports -mcx16])
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+        [AC_MSG_RESULT([yes])]
+        [MCX16_CFLAGS="-mcx16"],
+        [AC_MSG_RESULT([no])])
+     CFLAGS="$saved_cflags"
+     AC_SUBST(MCX16_CFLAGS)],
+    []
+)
 
 # Check for systemd.
 AS_IF([test "x$PKGCONFIG" = "x"],

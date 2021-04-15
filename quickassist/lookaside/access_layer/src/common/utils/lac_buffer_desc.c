@@ -93,12 +93,24 @@
 /* Invalid physical address value */
 #define INVALID_PHYSICAL_ADDRESS 0
 
+/* Indicates what type of buffer writes need to be perfomed */
+typedef enum lac_buff_write_op_e
+{
+    WRITE_NORMAL = 0,
+    WRITE_AND_GET_SIZE,
+    WRITE_AND_ALLOW_ZERO_BUFFER,
+} lac_buff_write_op_t;
+
+
 /* This function implements the buffer description writes for the traditional
  * APIs */
-CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
-                                          Cpa64U *pBufListAlignedPhyAddr,
-                                          CpaBoolean isPhysicalAddress,
-                                          sal_service_t *pService)
+STATIC CpaStatus
+LacBuffDesc_CommonBufferListDescWrite(const CpaBufferList *pUserBufferList,
+                                      Cpa64U *pBufListAlignedPhyAddr,
+                                      CpaBoolean isPhysicalAddress,
+                                      Cpa64U *totalDataLenInBytes,
+                                      sal_service_t *pService,
+                                      lac_buff_write_op_t operationType)
 {
     Cpa32U numBuffers = 0;
     icp_qat_addr_width_t bufListDescPhyAddr = 0;
@@ -111,6 +123,12 @@ CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
     LAC_ENSURE_NOT_NULL(pUserBufferList->pBuffers);
     LAC_ENSURE_NOT_NULL(pUserBufferList->pPrivateMetaData);
     LAC_ENSURE_NOT_NULL(pBufListAlignedPhyAddr);
+
+    if (WRITE_AND_GET_SIZE == operationType)
+    {
+        LAC_ENSURE_NOT_NULL(totalDataLenInBytes);
+        *totalDataLenInBytes = 0;
+    }
 
     numBuffers = pUserBufferList->numBuffers;
     pCurrClientFlatBuffer = pUserBufferList->pBuffers;
@@ -142,22 +160,31 @@ CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
 
     pBufferListDesc->numBuffers = numBuffers;
 
-    /* Defining zero buffers is useful for example if running zero length
-     * hash */
-    if (0 == numBuffers)
+    if (WRITE_AND_GET_SIZE != operationType)
     {
-        /* In the case where there are zero buffers within the BufList
-         * it is required by firmware that the number is set to 1
-         * but the phyBuffer and dataLenInBytes are set to NULL.*/
-        pBufferListDesc->numBuffers = 1;
-        pCurrFlatBufDesc->dataLenInBytes = 0;
-        pCurrFlatBufDesc->phyBuffer = 0;
+        /* Defining zero buffers is useful for example if running zero length
+         * hash */
+        if (0 == numBuffers)
+        {
+            /* In the case where there are zero buffers within the BufList
+             * it is required by firmware that the number is set to 1
+             * but the phyBuffer and dataLenInBytes are set to NULL.*/
+            pBufferListDesc->numBuffers = 1;
+            pCurrFlatBufDesc->dataLenInBytes = 0;
+            pCurrFlatBufDesc->phyBuffer = 0;
+        }
     }
 
     while (0 != numBuffers)
     {
         pCurrFlatBufDesc->dataLenInBytes =
             pCurrClientFlatBuffer->dataLenInBytes;
+
+        if (WRITE_AND_GET_SIZE == operationType)
+        {
+            /* Calculate the total data length in bytes */
+            *totalDataLenInBytes += pCurrClientFlatBuffer->dataLenInBytes;
+        }
 
         /* Check if providing a physical address in the function. If not we
          * need to convert it to a physical one */
@@ -172,11 +199,14 @@ CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
                 LAC_MEM_CAST_PTR_TO_UINT64(LAC_OS_VIRT_TO_PHYS_EXTERNAL(
                     (*pService), pCurrClientFlatBuffer->pData));
 
-            if (INVALID_PHYSICAL_ADDRESS == pCurrFlatBufDesc->phyBuffer)
+            if (WRITE_AND_ALLOW_ZERO_BUFFER != operationType)
             {
-                LAC_LOG_ERROR("Unable to get the physical address of the "
-                              "client buffer\n");
-                return CPA_STATUS_FAIL;
+                if (INVALID_PHYSICAL_ADDRESS == pCurrFlatBufDesc->phyBuffer)
+                {
+                    LAC_LOG_ERROR("Unable to get the physical address of the "
+                                  "client buffer\n");
+                    return CPA_STATUS_FAIL;
+                }
             }
         }
 
@@ -188,6 +218,38 @@ CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
 
     *pBufListAlignedPhyAddr = bufListAlignedPhyAddr;
     return CPA_STATUS_SUCCESS;
+}
+
+/* This function implements the buffer description writes for the traditional
+ * APIs Zero length buffers are allowed, should be used for CHA-CHA-POLY and
+ * GCM aglorithms */
+CpaStatus LacBuffDesc_BufferListDescWriteAndAllowZeroBuffer(
+    const CpaBufferList *pUserBufferList,
+    Cpa64U *pBufListAlignedPhyAddr,
+    CpaBoolean isPhysicalAddress,
+    sal_service_t *pService)
+{
+    return LacBuffDesc_CommonBufferListDescWrite(pUserBufferList,
+                                                 pBufListAlignedPhyAddr,
+                                                 isPhysicalAddress,
+                                                 NULL,
+                                                 pService,
+                                                 WRITE_AND_ALLOW_ZERO_BUFFER);
+}
+
+/* This function implements the buffer description writes for the traditional
+ * APIs */
+CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
+                                          Cpa64U *pBufListAlignedPhyAddr,
+                                          CpaBoolean isPhysicalAddress,
+                                          sal_service_t *pService)
+{
+    return LacBuffDesc_CommonBufferListDescWrite(pUserBufferList,
+                                                 pBufListAlignedPhyAddr,
+                                                 isPhysicalAddress,
+                                                 NULL,
+                                                 pService,
+                                                 WRITE_NORMAL);
 }
 
 /* This function does the same processing as LacBuffDesc_BufferListDescWrite

@@ -1,4 +1,4 @@
-/****************************************************************************
+/***************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
@@ -59,81 +59,86 @@
  * 
  *
  ***************************************************************************/
-#ifndef QAT_PERF_SLEEPTIME_H_
-#define QAT_PERF_SLEEPTIME_H_
-typedef struct sleeptime_data_s
-{
-    Cpa32S baseThroughput, currentThroughput, desiredThroughput;
-    Cpa32S packetSize;
-    Cpa32U percentRate, previousNoOfResponses, previousNoOfRetries, loopRetries;
-    Cpa32U firstRunFlag, upperBound, lowerBound, limitFoundFlag;
-    perf_cycles_t numOfCycles;
-    Cpa64U loopResponses;
-    perf_cycles_t endLoopTimestamp;   /* end TS for x no of loops */
-    perf_cycles_t startLoopTimestamp; /* start TS for x no of loops */
-} sleeptime_data_t;
 
-/*****************************************************************************
- * @file qat_perf_sleeptime.h
+/*
+ ***************************************************************************
+ * @file icp_sal_congestion_mgmt.h
  *
- * @ingroup sample_code
+ * @ingroup SalUserCongsMgmt
+ *
+ * This file contains function prototypes for Congestion Management APIs.
+ *
+ ***************************************************************************/
+
+#ifndef ICP_SAL_CONGESTION_MGMT_H
+#define ICP_SAL_CONGESTION_MGMT_H
+
+#include "icp_sal.h"
+
+/*
+ *****************************************************************************
+ * @ingroup SalUserCongsMgmt
+ *      Symmetric get in-flight requests
  *
  * @description
- * Function used by rate limiting feature to adjust sleeptime based on current
- * throughout measured. This function is called every n amount of loops, it will
- * start by increasing the sleeptime and once it will exceed the threshold
- * of the throughput it will decrease and self adjust in other words "fine tune"
+ *      This function is used to fetch in-flight and max in-flight request
+ *      counts for the given symmetric instance handle.
  *
- * @param[in]   pPerfData               pointer to the performance stats
- *structure
- * @param[in]   data                    pointer to the sleeptime_data_t
- *structure
- * @param[in]   compRate                pointer to compRate stored in setup
- *structure
- * @param[in]   sleepTime               pointer to sleepTime stored in setup
- *structure
- * @param[in]   bufferSize              bufferSize stored in setup structure
+ * @param[in]  instanceHandle         Symmetric instance handle
+ * @param[out] maxInflightRequests    Max in-flight request count
+ * @param[out] numInflightRequests    Current in-flight request count
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_FAIL           Function failed
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter
  *
  *****************************************************************************/
-void adjustSleeptime(perf_data_t *pPerfData,
-                     sleeptime_data_t *data,
-                     Cpa32U *compRate,
-                     Cpa32U *sleepTime,
-                     Cpa32U bufferSize);
+CpaStatus icp_sal_SymGetInflightRequests(CpaInstanceHandle instanceHandle,
+                                         Cpa32U *maxInflightRequests,
+                                         Cpa32U *numInflightRequests);
 
-/*****************************************************************************
- * @file qat_perf_sleeptime.h
- *
- * @ingroup sample_code
+/*
+ *****************************************************************************
+ * @ingroup SalUserCongsMgmt
+ *      Asymmetric get in-flight requests
  *
  * @description
- * This function will divide global sleeptime value into 100k parts,
- * as it was discovered that there is a higher margin of error
- * with high sleeptime numbers
+ *      This function is used to fetch in-flight and max in-flight request
+ *      counts for the given asymmetric instance handle.
  *
- * @param[in]   sleepTime               bufferSize stored in setup structure
+ * @param[in]  instanceHandle         Asymmetric instance handle
+ * @param[out] maxInflightRequests    Max in-flight request count
+ * @param[out] numInflightRequests    Current in-flight request count
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_FAIL           Function failed
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter
  *
  *****************************************************************************/
-void sleep_parsing(Cpa32U sleepTime);
+CpaStatus icp_sal_AsymGetInflightRequests(CpaInstanceHandle instanceHandle,
+                                          Cpa32U *maxInflightRequests,
+                                          Cpa32U *numInflightRequests);
 
-/*****************************************************************************
- * @file qat_perf_sleeptime.h
- *
- * @ingroup sample_code
+/*
+ *****************************************************************************
+ * @ingroup SalUserCongsMgmt
+ *      Symmetric data plane get in-flight requests
  *
  * @description
- * Re-used function from old busy loop code it will calculate the % margin
- * between two passed parameters using integer math
+ *      Data plane API to fetch in-flight and max in-flight request counts
+ *      for the given symmetric instance handle.
  *
- * @param[in]   baseVal                 baseValue to calculate margin
- * @param[in]   currentVal              value which will be calculate percentage
- *                                      difference from base
- * @param[in]   margin                  value of percentage margin in tens
- *                                      e.g. 0.5% margin is 5
- *                                           5% is 50
+ * @param[in]  instanceHandle         Symmetric instance handle
+ * @param[out] maxInflightRequests    Max in-flight request count
+ * @param[out] numInflightRequests    Current in-flight request count
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_FAIL           Function failed
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter
+ *
  *****************************************************************************/
-uint8_t findSleeptimeMargin(uint32_t baseVal,
-                            uint32_t currentVal,
-                            uint32_t margin);
+CpaStatus icp_sal_dp_SymGetInflightRequests(CpaInstanceHandle instanceHandle,
+                                            Cpa32U *maxInflightRequests,
+                                            Cpa32U *numInflightRequests);
 
 #endif

@@ -69,6 +69,10 @@
 #ifndef QAE_MEM_H_
 #define QAE_MEM_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else
@@ -272,6 +276,10 @@ int qaeUnregisterDevice(int fd);
  *
  ****************************************************************************/
 void qaeAtFork(void);
+#endif
+
+#ifdef __cplusplus
+} /* close the extern "C" { */
 #endif
 
 #endif /* #ifndef QAE_MEM_H_ */

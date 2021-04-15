@@ -203,10 +203,10 @@ STATIC void LacSymCb_ProcessCallbackInternal(lac_sym_bulk_cookie_t *pCookie,
 
     /* For a digest verify operation - for full packet and final partial
      * only, perform a comparison with the digest generated and with the one
-     * supplied in the packet. */
+     * supplied in the packet. In case of AES_GCM in SPC mode, destination
+     * buffer needs to be cleared if digest verify operation fails */
 
-    if (((pSessionDesc->isSinglePass &&
-          (CPA_CY_SYM_CIPHER_AES_GCM == pSessionDesc->cipherAlgorithm)) ||
+    if ((pSessionDesc->isSinglePass ||
          (CPA_CY_SYM_OP_CIPHER != operationType)) &&
         (CPA_TRUE == pSessionDesc->digestVerify) &&
         ((CPA_CY_SYM_PACKET_TYPE_FULL == pOpData->packetType) ||
@@ -372,8 +372,9 @@ STATIC void LacSymCb_ProcessDpCallback(CpaCySymDpOpData *pResponse,
      * cleaned as stated in RFC 3610; in DP mode, it is the user responsability
      * to do so */
 
-    if ((CPA_CY_SYM_OP_CIPHER == pSessionDesc->symOperation) ||
-        (CPA_FALSE == pSessionDesc->digestVerify))
+    if (((CPA_CY_SYM_OP_CIPHER == pSessionDesc->symOperation &&
+          !pSessionDesc->isSinglePass) ||
+         (CPA_FALSE == pSessionDesc->digestVerify)))
     {
         /* If not doing digest compare and qatRespStatusOkFlag != CPA_TRUE
            then there is something very wrong */

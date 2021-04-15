@@ -133,7 +133,11 @@
  * gives full authentication/verification and encrypt/decrypt. GMAC mode gives
  * only authentication/verification based on Plain Text inputs.
  **/
-typedef enum { GCM_MODE = 0, GMAC_MODE } gcm_mode_t;
+typedef enum
+{
+    GCM_MODE = 0,
+    GMAC_MODE
+} gcm_mode_t;
 
 /**
  *****************************************************************************

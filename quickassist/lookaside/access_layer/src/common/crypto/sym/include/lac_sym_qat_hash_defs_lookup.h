@@ -88,7 +88,7 @@
 * MUST be updated to being the last hash algorithm in the struct
 * CpaCySymHashAlgorithm in the file cpa_cy_sym.h
 *****************************************************************************/
-#define CPA_CY_HASH_ALG_END CPA_CY_SYM_HASH_SHA3_256
+#define CPA_CY_HASH_ALG_END CPA_CY_SYM_HASH_SHA3_512
 
 /***************************************************************************/
 

@@ -254,6 +254,21 @@ CpaStatus icp_adf_transPutMsg(icp_comms_trans_handle trans_handle,
                               Cpa64U *seq_num);
 
 /*
+ * icp_adf_getInflightRequests
+ *
+ * Description:
+ * Retrieves in-flight and max in-flight request counts
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS        on success
+ *   CPA_STATUS_FAIL           on failure
+ *   CPA_STATUS_INVALID_PARAM  invalid parameter
+ */
+CpaStatus icp_adf_getInflightRequests(icp_comms_trans_handle trans_handle,
+                                      Cpa32U *maxInflightRequests,
+                                      Cpa32U *numInflightRequests);
+
+/*
  * icp_adf_transPutMsgSync
  *
  * Description:

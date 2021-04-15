@@ -338,7 +338,7 @@ CpaStatus icp_adf_userProxyInit(char const *const name)
     if (CPA_STATUS_SUCCESS != status)
     {
         ADF_ERROR("Init adf_io proxy failed\n");
-        return CPA_STATUS_FAIL;
+        return status;
     }
 
     return status;

@@ -171,14 +171,20 @@
 /**
  * Only RSA PSS is supported in the FIPS sample code
  **/
-typedef enum {
+typedef enum
+{
     RSA_PSS = 0,
 } rsa_mode_t;
 
 /**
  * Different RSA operations
  **/
-typedef enum { RSA_KEYGEN = 0, RSA_SIGN, RSA_VERIFY } rsa_operation_t;
+typedef enum
+{
+    RSA_KEYGEN = 0,
+    RSA_SIGN,
+    RSA_VERIFY
+} rsa_operation_t;
 
 /**
  * Different Key Generation modes. These only effect the size of the 'e'
@@ -186,12 +192,17 @@ typedef enum { RSA_KEYGEN = 0, RSA_SIGN, RSA_VERIFY } rsa_operation_t;
  * FIPS 186-3 allows (e > 2^16) OR (e < 2^256) ANS X9.31 allows (e > 2) OR
  * (e < 2^(k -160)), where k is the modulus size in bits
  **/
-typedef enum { FIPS_186_3_KEYGEN = 0, ANS_X9_31_KEYGEN } rsa_prime_gen_type_t;
+typedef enum
+{
+    FIPS_186_3_KEYGEN = 0,
+    ANS_X9_31_KEYGEN
+} rsa_prime_gen_type_t;
 
 /**
  * Different RSA prime check types
  **/
-typedef enum {
+typedef enum
+{
     FIPS_RSA_PRIME_SMALL = 0,
     FIPS_RSA_PRIME_LARGE
 } rsa_prime_check_type_t;

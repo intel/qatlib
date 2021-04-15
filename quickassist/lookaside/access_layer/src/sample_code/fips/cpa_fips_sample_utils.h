@@ -645,9 +645,9 @@ static inline CpaBoolean checkOne(const CpaFlatBuffer *restrict pFb)
  *      pFb is not NULL and it has an associated data area
  * @post
  *****************************************************************************/
-CpaBoolean
-isFlatBufValGreaterThanOrEqualTo32UVal(const CpaFlatBuffer *restrict pFb,
-                                       Cpa32U val);
+CpaBoolean isFlatBufValGreaterThanOrEqualTo32UVal(const CpaFlatBuffer *restrict
+                                                      pFb,
+                                                  Cpa32U val);
 
 /**
  *****************************************************************************

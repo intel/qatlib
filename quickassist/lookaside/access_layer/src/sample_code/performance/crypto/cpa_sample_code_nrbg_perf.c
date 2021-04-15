@@ -296,7 +296,7 @@ CpaStatus nrbgPerform(nrbg_test_params_t *setup)
  *
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
-***************************************************************************/
+ ***************************************************************************/
 void nrbgPrintStats(thread_creation_data_t *data)
 {
     PRINT("NRBG\n");
@@ -309,7 +309,7 @@ void nrbgPrintStats(thread_creation_data_t *data)
  *
  * @description
  *      setup an elliptic curve performance thread
-***************************************************************************/
+ ***************************************************************************/
 void nrbgPerformance(single_thread_test_data_t *testSetup)
 {
     nrbg_test_params_t nrbgSetup;
@@ -407,13 +407,13 @@ void nrbgPerformance(single_thread_test_data_t *testSetup)
  *
  * @description
  *      This function is used to set the parameters to be used in the
-*Non-Deterministic
+ *Non-Deterministic
  *      Random Bit Generation Sample Code performance thread. It is called
-*before the
+ *before the
  *      createThreads function of the framework. The framework replicates it
-*across many
+ *across many
  *      cores
-***************************************************************************/
+ ***************************************************************************/
 CpaStatus setupNrbgTest(Cpa32U nLenInBytes,
                         sync_mode_t syncMode,
                         Cpa32U numBuffers,

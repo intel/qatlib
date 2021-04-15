@@ -226,6 +226,8 @@ SalCtrl_CompressionInit_CompData(icp_accel_dev_t *device,
             break;
         case DEVICE_C3XXX:
         case DEVICE_C3XXXVF:
+        case DEVICE_200XX:
+        case DEVICE_200XXVF:
             pCompService->numInterBuffs =
                 DC_QAT_MAX_NUM_INTER_BUFFERS_6COMP_SLICES;
             pCompService->comp_device_data.oddByteDecompNobFinal = CPA_FALSE;
@@ -292,11 +294,9 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U numCompConcurrentReq = 0;
-    Cpa32U request_ring_id = 0;
-    Cpa32U response_ring_id = 0;
 
-    char adfGetParam[ADF_CFG_MAX_VAL_LEN_IN_BYTES];
-    char compMemPool[SAL_CFG_MAX_VAL_LEN_IN_BYTES];
+    char adfGetParam[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
+    char compMemPool[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     char temp_string2[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     char *instance_name = NULL;
@@ -521,14 +521,9 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
         msgSize,
         (icp_comms_trans_handle *)&(
             pCompressionService->trans_handle_compression_tx));
-    LAC_CHECK_STATUS(status);
-
-    if (icp_adf_transGetRingNum(
-            pCompressionService->trans_handle_compression_tx,
-            &request_ring_id) != CPA_STATUS_SUCCESS)
+    if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to get DC TX ring number");
-        status = CPA_STATUS_FAIL;
+        LAC_LOG_ERROR("Failed to create DC TX handle");
         goto cleanup;
     }
 
@@ -561,15 +556,6 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
     if (CPA_STATUS_SUCCESS != status)
     {
         LAC_LOG_ERROR("Failed to create DC RX handle");
-        goto cleanup;
-    }
-
-    if (icp_adf_transGetRingNum(
-            pCompressionService->trans_handle_compression_rx,
-            &response_ring_id) != CPA_STATUS_SUCCESS)
-    {
-        LAC_LOG_ERROR("Failed to get DC RX ring number");
-        status = CPA_STATUS_FAIL;
         goto cleanup;
     }
 
@@ -1586,26 +1572,7 @@ CpaStatus cpaDcQueryCapabilities(
 
     osalMemSet(pInstanceCapabilities, 0, sizeof(CpaDcInstanceCapabilities));
 
-    /* Set compression capabilities */
-    if (pService->generic_service_info.capabilitiesMask &
-        ICP_ACCEL_CAPABILITIES_LZS_COMPRESSION)
-    {
-#ifndef CNV_STRICT_MODE
-        pInstanceCapabilities->statelessLZSCompression = CPA_TRUE;
-#endif
-        pInstanceCapabilities->statelessLZSDecompression = CPA_TRUE;
-    }
     pInstanceCapabilities->endOfLastBlock = CPA_TRUE;
-    pInstanceCapabilities->statefulLZSCompression = CPA_FALSE;
-    pInstanceCapabilities->statefulLZSDecompression = CPA_FALSE;
-    pInstanceCapabilities->statefulLZSSCompression = CPA_FALSE;
-    pInstanceCapabilities->statefulLZSSDecompression = CPA_FALSE;
-    pInstanceCapabilities->statelessLZSSCompression = CPA_FALSE;
-    pInstanceCapabilities->statelessLZSSDecompression = CPA_FALSE;
-    pInstanceCapabilities->statefulELZSCompression = CPA_FALSE;
-    pInstanceCapabilities->statefulELZSDecompression = CPA_FALSE;
-    pInstanceCapabilities->statelessELZSCompression = CPA_FALSE;
-    pInstanceCapabilities->statelessELZSDecompression = CPA_FALSE;
 #ifdef CNV_STRICT_MODE
     pInstanceCapabilities->statefulDeflateCompression = CPA_FALSE;
 #else

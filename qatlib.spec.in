@@ -14,7 +14,7 @@ Source0:          https://github.com/intel/%{name}/archive/%{version}/%{name}-%{
 BuildRequires:    systemd gcc make autoconf automake libtool systemd-devel openssl-devel zlib-devel
 Requires(pre):    shadow-utils
 # https://bugzilla.redhat.com/show_bug.cgi?id=1897661
-ExcludeArch:      %{arm} aarch64 %{power64} s390x
+ExcludeArch:      %{arm} aarch64 %{power64} s390x i686
 
 %{?systemd_requires}
 
@@ -70,6 +70,8 @@ exit 0
 %license LICENSE*
 %{_libdir}/libqat.so.%{libqat_soversion}*
 %{_libdir}/libusdm.so.%{libusdm_soversion}*
+%{_libdir}/libqat-%{version}.so
+%{_libdir}/libusdm-%{version}.so
 %{_sbindir}/qatmgr
 %{_sbindir}/qat_init.sh
 %{_unitdir}/qat.service
@@ -84,8 +86,22 @@ exit 0
 %exclude %{_libdir}/libusdm.la
 
 %changelog
+* Wed Apr 14 2021 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 21.05.0-1
+- Update to qatlib 21.05
+
+* Tue Mar 02 2021 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 20.10.0-4
+- Rebuilt for updated systemd-rpm-macros
+  See https://pagure.io/fesco/issue/2583.
+
+* Wed Jan 27 2021 Fedora Release Engineering <releng@fedoraproject.org> - 20.10.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
+
+* Mon Dec  14 2020 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 20.10.0-2
+- Add ExcludeArch i686
+
 * Mon Nov  16 2020 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 20.10.0-1
 - Update to qatlib 20.10
 - Fixes to spec to address comments from Fedora review
+
 * Mon Aug  10 2020 Mateusz Polrola <mateuszx.potrola@intel.com> - 20.08.0-1
 - Initial version of the package

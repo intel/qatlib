@@ -92,10 +92,15 @@
 #define LAC_3072_BITS (3072)
 #define LAC_3584_BITS (3584)
 #define LAC_4096_BITS (4096)
+#define LAC_8192_BITS (8192)
 
-#define LAC_MAX_OP_SIZE_IN_BITS LAC_4096_BITS
+#define LAC_MAX_OP_SIZE_IN_BITS LAC_8192_BITS
 /**< @ingroup LacAsymCommon
  * Maximum PKE operation in bits */
+
+#define LAC_MAX_PRIME_SIZE_IN_BITS LAC_4096_BITS
+/**< @ingroup LacAsymCommon
+ * Maximum prime size in bits */
 
 #define LAC_QAT_ASYM_REQ_SZ_LW 16
 /**< @ingroup LacAsymCommon

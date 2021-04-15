@@ -144,7 +144,8 @@
 /**
  * Different supported DSA operations
  **/
-typedef enum {
+typedef enum
+{
     DSA_SIGN = 0,
     DSA_VERIFY,
     DSA_KEYGEN,
@@ -157,7 +158,11 @@ typedef enum {
 /**
  * Different prime check candidate types
  **/
-typedef enum { FIPS_DSA_PRIME_Q = 0, FIPS_DSA_PRIME_P } dsa_prime_check_type_t;
+typedef enum
+{
+    FIPS_DSA_PRIME_Q = 0,
+    FIPS_DSA_PRIME_P
+} dsa_prime_check_type_t;
 
 /**
  ****************************************************************************

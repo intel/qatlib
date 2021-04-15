@@ -275,6 +275,13 @@ void LacRsa_CompileTimeAssertions(void)
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_1024_input_t, n) ==
                         LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_4096_input_t, n));
 
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_1024_input_t, m) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_8192_input_t, m));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_1024_input_t, e) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_8192_input_t, e));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_1024_input_t, n) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_ep_8192_input_t, n));
+
     /* *************************************************************
      * DECRYPT TYPE 1 Checks
      * ************************************************************* */
@@ -312,6 +319,13 @@ void LacRsa_CompileTimeAssertions(void)
                         LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_4096_input_t, d));
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_1024_input_t, n) ==
                         LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_4096_input_t, n));
+
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_1024_input_t, c) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_8192_input_t, c));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_1024_input_t, d) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_8192_input_t, d));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_1024_input_t, n) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_8192_input_t, n));
 
     /* *************************************************************
      * DECRYPT TYPE 2 Checks
@@ -380,4 +394,17 @@ void LacRsa_CompileTimeAssertions(void)
                         LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_4096_input_t, dq));
     COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, qinv) ==
                         LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_4096_input_t, qinv));
+
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, c) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_8192_input_t, c));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, p) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_8192_input_t, p));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, q) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_8192_input_t, q));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, dp) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_8192_input_t, dp));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, dq) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_8192_input_t, dq));
+    COMPILE_TIME_ASSERT(LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_1024_input_t, qinv) ==
+                        LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_8192_input_t, qinv));
 }

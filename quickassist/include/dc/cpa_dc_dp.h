@@ -119,7 +119,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_dc_dp.h
  * @ingroup cpaDcDp
  *      Operation Data for compression data plane API.
  *
@@ -247,7 +246,6 @@ typedef struct _CpaDcDpOpData
 
 /**
  *****************************************************************************
- * @file cpa_dc_dp.h
  * @ingroup cpaDcDp
  *      Definition of callback function for compression data plane API.
  *
@@ -357,7 +355,6 @@ cpaDcDpGetSessionSize(CpaInstanceHandle dcInstance,
 
 /**
  *****************************************************************************
- * @file cpa_dc_dp.h
  * @ingroup cpaDcDp
  *      Initialize compression or decompression data plane session.
  *
@@ -550,7 +547,6 @@ cpaDcDpRemoveSession(const CpaInstanceHandle dcInstance,
 
 /**
  *****************************************************************************
- * @file cpa_dc_dp.h
  * @ingroup cpaDcDp
  *      Registration of the operation completion callback function.
  *
@@ -597,7 +593,6 @@ CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
 
 /**
  *****************************************************************************
- * @file cpa_dp_dp.h
  * @ingroup cpaDcDp
  *      Enqueue a single compression or decompression request.
  *
@@ -683,7 +678,6 @@ cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
 
 /**
  *****************************************************************************
- * @file cpa_dc_dp.h
  * @ingroup cpaDcDp
  *      Enqueue multiple requests to the compression data plane API.
  *
@@ -780,7 +774,6 @@ cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
 
 /**
  *****************************************************************************
- * @file cpa_dp_dp.h
  * @ingroup cpaDcDp
  *      Submit any previously enqueued requests to be performed now on the
  *      compression data plane API.

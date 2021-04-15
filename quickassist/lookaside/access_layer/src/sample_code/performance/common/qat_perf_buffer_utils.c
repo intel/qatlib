@@ -60,6 +60,8 @@
  *
  ***************************************************************************/
 #include "qat_perf_buffer_utils.h"
+#include "cpa_cy_common.h"
+#include "cpa_dc.h"
 
 CpaStatus qatAllocateFlatBuffersInDpList(CpaPhysBufferList *list,
                                          Cpa32U node,
@@ -326,14 +328,16 @@ CpaStatus AllocArrayOfStructures(void **structureArrayPtr,
     }
     else
     {
-        *structureArrayPtr = qaeMemAlloc(sizeOfStructure * numStructures);
+        *structureArrayPtr =
+            qaeMemAlloc((size_t)sizeOfStructure * numStructures);
         if (*structureArrayPtr == NULL)
         {
             allocationStatus = CPA_STATUS_FAIL;
         }
         else
         {
-            memset(*structureArrayPtr, 0, sizeOfStructure * numStructures);
+            memset(
+                *structureArrayPtr, 0, (size_t)sizeOfStructure * numStructures);
         }
     }
     return allocationStatus;
@@ -571,4 +575,41 @@ CpaStatus copyBuffers(CpaBufferList *srcBufferListArray,
     }
 
     return CPA_STATUS_SUCCESS;
+}
+
+CpaPhysicalAddr virtAddrToDevAddr(void *pVirtAddr,
+                                  CpaInstanceHandle instanceHandle,
+                                  CpaAccelerationServiceType type)
+{
+    CpaStatus status;
+    CpaInstanceInfo2 instanceInfo = {0};
+
+    /*get the addressTranslation mode*/
+    switch (type)
+    {
+#ifdef DO_CRYPTO
+        case CPA_ACC_SVC_TYPE_CRYPTO:
+            status = cpaCyInstanceGetInfo2(instanceHandle, &instanceInfo);
+            break;
+#endif
+        case CPA_ACC_SVC_TYPE_DATA_COMPRESSION:
+            status = cpaDcInstanceGetInfo2(instanceHandle, &instanceInfo);
+            break;
+        default:
+            status = CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        return (CpaPhysicalAddr)NULL;
+    }
+
+    if (instanceInfo.requiresPhysicallyContiguousMemory)
+    {
+        return qaeVirtToPhysNUMA(pVirtAddr);
+    }
+    else
+    {
+        return (CpaPhysicalAddr)pVirtAddr;
+    }
 }

@@ -108,8 +108,7 @@
        (CPA_CY_SYM_HASH_AES_CMAC == (alg)) ||                                  \
        (CPA_CY_SYM_HASH_ZUC_EIA3 == (alg))) &&                                 \
       (CPA_CY_SYM_HASH_MODE_AUTH != (mode))) ||                                \
-     ((CPA_CY_SYM_HASH_SHA3_256 == (alg)) &&                                   \
-      (CPA_CY_SYM_HASH_MODE_NESTED == (mode))))
+     ((LAC_HASH_IS_SHA3(alg)) && (CPA_CY_SYM_HASH_MODE_NESTED == (mode))))
 /**< Macro to check for valid algorithm-mode combination */
 
 void LacSync_GenBufListVerifyCb(void *pCallbackTag,
@@ -298,20 +297,29 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
     else if (CPA_CY_SYM_HASH_AES_CCM == hashAlgorithm)
     {
         /*
-         * The Inner Hash Initial State2 block must contain K
-         * (the cipher key) and 16 zeroes which will be replaced with
-         * EK(Ctr0) by the QAT-ME.
+         * The Inner Hash Initial State2 block is 32 bytes long.
+         * Therefore, for keys bigger than 128 bits (16 bytes),
+         * there is no space for 16 zeroes.
          */
+        if (pSessionSetup->cipherSetupData.cipherKeyLenInBytes ==
+            ICP_QAT_HW_AES_128_KEY_SZ)
+        {
+            /*
+             * The Inner Hash Initial State2 block must contain K
+             * (the cipher key) and 16 zeroes which will be replaced with
+             * EK(Ctr0) by the QAT-ME.
+             */
 
-        /* write the auth key which for CCM is equivalent to cipher key */
-        memcpy(pState2,
-               pSessionSetup->cipherSetupData.pCipherKey,
-               pSessionSetup->cipherSetupData.cipherKeyLenInBytes);
+            /* write the auth key which for CCM is equivalent to cipher key */
+            osalMemCopy(pState2,
+                        pSessionSetup->cipherSetupData.pCipherKey,
+                        pSessionSetup->cipherSetupData.cipherKeyLenInBytes);
 
-        /* initialize remaining buffer space to all zeroes */
-        LAC_OS_BZERO(pState2 +
-                         pSessionSetup->cipherSetupData.cipherKeyLenInBytes,
-                     ICP_QAT_HW_AES_CCM_CBC_E_CTR0_SZ);
+            /* initialize remaining buffer space to all zeroes */
+            LAC_OS_BZERO(pState2 +
+                             pSessionSetup->cipherSetupData.cipherKeyLenInBytes,
+                         ICP_QAT_HW_AES_CCM_CBC_E_CTR0_SZ);
+        }
 
         /* There is no request sent to the QAT for this operation,
          * so just invoke the user's callback directly to signal
@@ -411,6 +419,14 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
          */
         callbackFn(pCallbackTag);
     }
+    else if (CPA_CY_SYM_HASH_POLY == hashAlgorithm)
+    {
+        /* There is no request sent to the QAT for this operation,
+         * so just invoke the user's callback directly to signal
+         * completion of the precompute
+         */
+        callbackFn(pCallbackTag);
+    }
     else /* For Hmac Precomputes */
     {
         status = LacSymHash_HmacPreComputes(instanceHandle,
@@ -471,8 +487,8 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
     if (LAC_HASH_ALG_MODE_NOT_SUPPORTED(pHashSetupData->hashAlgorithm,
                                         pHashSetupData->hashMode))
     {
-        LAC_INVALID_PARAM_LOG("hashAlgorithm and hashMode combination");
-        return CPA_STATUS_INVALID_PARAM;
+        LAC_UNSUPPORTED_PARAM_LOG("hashAlgorithm and hashMode combination");
+        return CPA_STATUS_UNSUPPORTED;
     }
 
     LacSymQat_HashAlgLookupGet(
@@ -634,6 +650,20 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
                 ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ)
             {
                 LAC_INVALID_PARAM_LOG("aadLenInBytes");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+        }
+        else if (CPA_CY_SYM_HASH_POLY == pHashSetupData->hashAlgorithm)
+        {
+            if (pHashSetupData->digestResultLenInBytes != ICP_QAT_HW_SPC_CTR_SZ)
+            {
+                LAC_INVALID_PARAM_LOG("Digest Length for CCP");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+            if (pHashSetupData->authModeSetupData.aadLenInBytes >
+                ICP_QAT_FW_CCM_GCM_AAD_SZ_MAX)
+            {
+                LAC_INVALID_PARAM_LOG("AAD Length for CCP");
                 return CPA_STATUS_INVALID_PARAM;
             }
         }

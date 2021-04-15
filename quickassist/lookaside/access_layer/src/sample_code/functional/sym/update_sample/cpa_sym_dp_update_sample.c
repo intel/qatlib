@@ -535,9 +535,9 @@ CpaStatus symDpUpdateSample(void)
     CpaInstanceHandle cyInstHandle = NULL;
 
     /*
-    * In this simplified version of instance discovery, we discover
-    * exactly one instance of a crypto service.
-    */
+     * In this simplified version of instance discovery, we discover
+     * exactly one instance of a crypto service.
+     */
     sampleCyGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {

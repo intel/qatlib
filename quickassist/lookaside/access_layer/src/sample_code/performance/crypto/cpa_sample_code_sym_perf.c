@@ -182,9 +182,9 @@ static Cpa8U *symCalDigestAddress(Cpa32U packetSize,
     else
     {
         /* since Digest address (pDigestResult) need to align with
-        * blockSizeInBytes, we will check if packetSize is align with
-        * blockSizeInBytes,
-        * if not, padding will added after message */
+         * blockSizeInBytes, we will check if packetSize is align with
+         * blockSizeInBytes,
+         * if not, padding will added after message */
         if (packetSize % blockSizeInBytes != 0)
         {
             packsetSizePad = blockSizeInBytes - (packetSize % blockSizeInBytes);
@@ -193,7 +193,7 @@ static Cpa8U *symCalDigestAddress(Cpa32U packetSize,
         digestOffset = (packetSize + packsetSizePad) % bufferSizeInByte;
 
         /* calculate the which flat buffer store pDigestResult
-           * pDigestResult will appended in the end of pData */
+         * pDigestResult will appended in the end of pData */
         indexBuffer = (packetSize + packsetSizePad) / bufferSizeInByte;
         pDigestResult = pBufferList->pBuffers[indexBuffer].pData + digestOffset;
     }
@@ -225,7 +225,7 @@ static void symSetDigestBuffer(Cpa32U messageLenToCipherInBytes,
     Cpa32U indexBuffer = 0;
     Cpa32U i = 0;
     /*  all the rest of data including padding will initialized ,
-    * so ivLenInBytes is 1.*/
+     * so ivLenInBytes is 1.*/
     pDigestResult = symCalDigestAddress(messageLenToCipherInBytes,
                                         1,
                                         pBufferList->pBuffers[0].dataLenInBytes,
@@ -259,7 +259,7 @@ static CpaStatus symmetricSetupSession(CpaCySymCbFunc pSymCb,
                                        Cpa8U *pAuthKey,
                                        CpaCySymSessionCtx *pSession,
                                        symmetric_test_params_t *setup
-                                       )
+)
 {
     Cpa32U sessionCtxSizeInBytes = 0;
 #if CPA_CY_API_VERSION_NUM_MINOR >= 8
@@ -299,11 +299,10 @@ static CpaStatus symmetricSetupSession(CpaCySymCbFunc pSymCb,
     else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
                  setup->setupData.hashSetupData.hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-             ||
-             CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                 setup->setupData.hashSetupData.hashAlgorithm
+             || CPA_CY_SYM_HASH_ZUC_EIA3 ==
+                    setup->setupData.hashSetupData.hashAlgorithm
 #endif
-             )
+    )
     {
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
             KEY_SIZE_128_IN_BYTES;
@@ -466,11 +465,10 @@ static CpaStatus symmetricPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
         if (CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
                 setup->setupData.hashSetupData.hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-            ||
-            CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                setup->setupData.hashSetupData.hashAlgorithm
+            || CPA_CY_SYM_HASH_ZUC_EIA3 ==
+                   setup->setupData.hashSetupData.hashAlgorithm
 #endif
-            )
+        )
         {
 
             pOpdata[createCount]->pAdditionalAuthData =
@@ -998,13 +996,13 @@ void symPerformMemFree(symmetric_test_params_t *setup,
  *  affected then steps back to the last increment value, i.e. the last
  *  increment step(BUSY_LOOP_INCREMENT) before performance was affected.
  *****************************************************************************/
-static CpaStatus
-performOffloadCalculation(symmetric_test_params_t *setup,
-                          perf_data_t *pSymData,
-                          Cpa32U numOfLoops,
-                          CpaCySymOpData **ppOpData,
-                          CpaBufferList **ppSrcBuffListArray,
-                          CpaCySymCipherDirection cipherDirection)
+static CpaStatus performOffloadCalculation(
+    symmetric_test_params_t *setup,
+    perf_data_t *pSymData,
+    Cpa32U numOfLoops,
+    CpaCySymOpData **ppOpData,
+    CpaBufferList **ppSrcBuffListArray,
+    CpaCySymCipherDirection cipherDirection)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32S baseThroughput = 0, currentThroughput = 0;
@@ -1064,7 +1062,7 @@ performOffloadCalculation(symmetric_test_params_t *setup,
                                           pPerfData->endCyclesTimestamp -
                                               pPerfData->startCyclesTimestamp);
         /* If no retries and we're within ERROR_MARGIN (0.1%) of base throughput
-        */
+         */
         if (pPerfData->retries == 0 &&
             (withinMargin(baseThroughput, currentThroughput, ERROR_MARGIN) ==
              1))
@@ -1181,9 +1179,8 @@ CpaStatus sampleSymmetricPerform(symmetric_test_params_t *setup)
          setup->setupData.hashSetupData.hashAlgorithm ==
              CPA_CY_SYM_HASH_KASUMI_F9
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-         ||
-         setup->setupData.hashSetupData.hashAlgorithm ==
-             CPA_CY_SYM_HASH_ZUC_EIA3
+         || setup->setupData.hashSetupData.hashAlgorithm ==
+                CPA_CY_SYM_HASH_ZUC_EIA3
 #endif
          ))
     {
@@ -1214,7 +1211,7 @@ CpaStatus sampleSymmetricPerform(symmetric_test_params_t *setup)
                                    authKey,
                                    &pEncryptSessionCtx,
                                    setup
-                                   );
+    );
 
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -1489,6 +1486,15 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
     }
+    if ((CPA_STATUS_SUCCESS != status) ||
+        (symTestSetup.performanceStats->threadReturnStatus == CPA_STATUS_FAIL))
+    {
+        /* Stop Cy Service function should be called after all threads
+         * complete their execution. This function will be called from
+         * WaitForThreadCompletion().*/
+        testSetup->statsPrintFunc =
+            (stats_print_func_t)stopCyServicesFromCallback;
+    }
 exit:
     /*free memory and exit*/
     if (pPacketSize != NULL)
@@ -1589,6 +1595,7 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
         (performance_func_t)sampleSymmetricPerformance;
     {
         testSetupData_g[testTypeCount_g].packetSize = packetSize;
+        symmetricSetup->setupData.partialsNotRequired = CPA_TRUE;
     }
     /*then we store the test setup in the above location*/
     // symmetricSetup->setupData.sessionPriority=CPA_CY_PRIORITY_HIGH;
@@ -1621,7 +1628,6 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
 
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
 #endif
-
     // check which kind of hash mode is selected
     if (CPA_CY_SYM_HASH_MODE_NESTED == hashMode)
     { // nested mode

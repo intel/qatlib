@@ -171,6 +171,7 @@ CpaStatus Lac_MemPoolCreate(
         LAC_LOG_ERROR("Unable to allocate memory for creation of the pool");
         return CPA_STATUS_RESOURCE; /*Error*/
     }
+    osalMemSet(lac_mem_pools[poolSearch], 0, sizeof(lac_mem_pool_hdr_t));
 
     /* Copy in Pool Name */
     if (poolName != NULL)
@@ -261,10 +262,10 @@ CpaStatus Lac_MemPoolCreate(
                 (lac_mem_blk_t *)pMemBlkCurrent;
         }
         __sync_add_and_fetch(&lac_mem_pools[poolSearch]->availBlks, 1);
+        (lac_mem_pools[poolSearch])->numElementsInPool = counter + 1;
     }
 
     /* Set Pool details in the header */
-    (lac_mem_pools[poolSearch])->numElementsInPool = numElementsInPool;
     (lac_mem_pools[poolSearch])->blkSizeInBytes = blkSizeInBytes;
     (lac_mem_pools[poolSearch])->blkAlignmentInBytes = blkAlignmentInBytes;
     (lac_mem_pools[poolSearch])->active = CPA_TRUE;

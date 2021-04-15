@@ -75,6 +75,9 @@
  *      operation.
  *
  *****************************************************************************/
+#ifndef CPA_SAMPLE_CODE_SYM_UPDATE_COMMON_H_
+#define CPA_SAMPLE_CODE_SYM_UPDATE_COMMON_H_
+
 #include "cpa.h"
 #include "cpa_cy_sym.h"
 #include "cpa_cy_sym_dp.h"
@@ -163,3 +166,5 @@ CpaStatus symSetupSessionUpdateTest(CpaCySymOp symOperation,
                                     CpaBoolean isDpApi,
                                     void *samplePerformanceFunction);
 #endif /* CY_API_VERSION_AT_LEAST(2, 2) */
+
+#endif /* CPA_SAMPLE_CODE_SYM_UPDATE_COMMON_H_ */

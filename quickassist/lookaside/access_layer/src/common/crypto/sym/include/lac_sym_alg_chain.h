@@ -178,6 +178,16 @@
 *******************************************************************************
 */
 
+/* Macro for checking if zero length buffer are supported
+ * only for CHACHA-POLY or both cipher and hash are AES-GCM */
+#define IS_ZERO_LENGTH_BUFFER_SUPPORTED(cipherAlgo, hashAlgo)                  \
+    ((CPA_CY_SYM_CIPHER_CHACHA == cipherAlgo &&                                \
+      CPA_CY_SYM_HASH_POLY == hashAlgo) ||                                     \
+     (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgo &&                               \
+      CPA_CY_SYM_HASH_AES_GCM == hashAlgo) ||                                  \
+     (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgo &&                               \
+      CPA_CY_SYM_HASH_AES_GMAC == hashAlgo))
+
 /**
 *******************************************************************************
 * @ingroup LacAlgChain

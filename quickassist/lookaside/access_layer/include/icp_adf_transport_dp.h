@@ -124,4 +124,12 @@ extern CpaStatus icp_adf_pollQueue(icp_comms_trans_handle trans_handle,
  */
 extern CpaBoolean icp_adf_queueDataToSend(icp_comms_trans_handle trans_hnd);
 
+/*
+ * icp_adf_getDpInflightRequests
+ * Retrieves in-flight and max in-flight request counts
+ */
+extern void icp_adf_getDpInflightRequests(icp_comms_trans_handle trans_handle,
+                                          Cpa32U *maxInflightRequests,
+                                          Cpa32U *numInflightRequests);
+
 #endif /* ICP_ADF_TRANSPORT_DP_H */

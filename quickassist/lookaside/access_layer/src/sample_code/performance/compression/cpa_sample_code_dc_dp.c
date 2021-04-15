@@ -89,6 +89,7 @@
 #include "icp_sal_poll.h"
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
+#include "qat_perf_buffer_utils.h"
 #ifdef LATENCY_CODE
 extern int
     latency_single_buffer_mode; /* set to 1 for single buffer processing */
@@ -273,8 +274,9 @@ static CpaStatus createBuffersDp(Cpa32U buffSize,
  * @description
  *  Allocate memory for OpData structures
  ******************************************************************************/
-static CpaStatus
-createOpDataDp(Cpa32U numBuffs, CpaDcDpOpData **pOpDataArray, Cpa32U nodeId)
+static CpaStatus createOpDataDp(Cpa32U numBuffs,
+                                CpaDcDpOpData **pOpDataArray,
+                                Cpa32U nodeId)
 {
     Cpa32U i = 0;
 
@@ -546,8 +548,8 @@ static CpaStatus performDcDpBatchOp(compression_test_params_t *setup,
                 do
                 {
                     /* Is the next batch size greater than the amount of
-                    * buffers that we have left
-                    */
+                     * buffers that we have left
+                     */
                     if (j + numOfOpsToBatch > setup->numberOfBuffers[i])
                     {
                         remainingOps = setup->numberOfBuffers[i] - j;
@@ -900,7 +902,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                     /* Have we been requested to process one buffer at a time.
                      * This
                      * will result in no retries and so the best latency times.
-                    */
+                     */
                     if (latency_single_buffer_mode != 0)
                     {
                         /* Must now wait until this buffer is processed by the
@@ -1244,6 +1246,9 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     /* Buffer size */
     Cpa32U bufferSize = 0;
 
+    /* Dest Buffer size */
+    Cpa32U destBufferSize = 0;
+
     /* Session size */
     Cpa32U sessionSize = 0;
 
@@ -1346,8 +1351,8 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     /* populate the flat buffer array with number of buffers required
-    * for each file and allocate the memory
-    */
+     * for each file and allocate the memory
+     */
     for (i = 0; i < numFiles; i++)
     {
         /* add up the number of buffers required for
@@ -1444,6 +1449,24 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
         }
     }
 
+    /* For compression,the destination buffer size is obtained using
+     * Compress Bound API.*/
+    status = qatGetCompressBoundDestinationBufferSize(
+        setup, bufferSize, &destBufferSize);
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Unable to get the destination buffer size using Compress "
+                  "Bound API\n");
+        freeBuffersDp(srcFlatBuffArray, numFiles, setup);
+        freeBuffersDp(dstFlatBuffArray, numFiles, setup);
+        freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
+        freeOpDataDp(compressionOpData, numFiles, setup);
+        freeOpDataDp(decompressionOpData, numFiles, setup);
+
+        return CPA_STATUS_FAIL;
+    }
+
     /* Allocate flat buffers for each file */
     for (i = 0; i < numFiles; i++)
     {
@@ -1477,24 +1500,10 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
             return CPA_STATUS_FAIL;
         }
 
-        /* When compressing,small packet sizes the destination buffer
-         * may need to be larger than the source buffer to accommodate
-         * huffman data, so allocate double the source buffer size
-         */
-        if (MIN_DST_BUFFER_SIZE >= bufferSize)
-        {
-            status = createBuffersDp(bufferSize * EXTRA_BUFFER,
-                                     setup->numberOfBuffers[i],
-                                     dstFlatBuffArray[i],
-                                     nodeId);
-        }
-        else
-        {
-            status = createBuffersDp(bufferSize,
-                                     setup->numberOfBuffers[i],
-                                     dstFlatBuffArray[i],
-                                     nodeId);
-        }
+        status = createBuffersDp(destBufferSize,
+                                 setup->numberOfBuffers[i],
+                                 dstFlatBuffArray[i],
+                                 nodeId);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("Unable to create buffers for dstFlatBuffArray\n");
@@ -1636,12 +1645,16 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
             compressionOpData[i][j]->pSessionHandle = pSessionHandle;
 
             compressionOpData[i][j]->srcBuffer =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(
-                    (void *)(uintptr_t)srcFlatBuffArray[i][j]->bufferPhysAddr);
+                (CpaPhysicalAddr)virtAddrToDevAddr(
+                    (void *)(uintptr_t)srcFlatBuffArray[i][j]->bufferPhysAddr,
+                    setup->dcInstanceHandle,
+                    CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 
             compressionOpData[i][j]->destBuffer =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(
-                    (void *)(uintptr_t)dstFlatBuffArray[i][j]->bufferPhysAddr);
+                (CpaPhysicalAddr)virtAddrToDevAddr(
+                    (void *)(uintptr_t)dstFlatBuffArray[i][j]->bufferPhysAddr,
+                    setup->dcInstanceHandle,
+                    CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 
             compressionOpData[i][j]->srcBufferLen =
                 srcFlatBuffArray[i][j]->dataLenInBytes;
@@ -1664,8 +1677,11 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 
             compressionOpData[i][j]->sessDirection = CPA_DC_DIR_COMPRESS;
             SET_DC_DP_CNV_PARAMS_DEFAULT(compressionOpData[i][j]);
-            compressionOpData[i][j]->thisPhys = (CpaPhysicalAddr)(
-                SAMPLE_CODE_UINT)qaeVirtToPhysNUMA(compressionOpData[i][j]);
+            compressionOpData[i][j]->thisPhys =
+                (CpaPhysicalAddr)(SAMPLE_CODE_UINT)virtAddrToDevAddr(
+                    compressionOpData[i][j],
+                    setup->dcInstanceHandle,
+                    CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
         }
     }
 
@@ -1702,15 +1718,17 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 
                 decompressionOpData[i][j]->pSessionHandle = pSessionHandle;
 
-                decompressionOpData[i][j]->srcBuffer =
-                    (CpaPhysicalAddr)qaeVirtToPhysNUMA(
-                        (void *)(uintptr_t)dstFlatBuffArray[i]
-                                                           [j]->bufferPhysAddr);
+                decompressionOpData[i][j]
+                    ->srcBuffer = (CpaPhysicalAddr)virtAddrToDevAddr(
+                    (void *)(uintptr_t)dstFlatBuffArray[i][j]->bufferPhysAddr,
+                    setup->dcInstanceHandle,
+                    CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 
-                decompressionOpData[i][j]->destBuffer =
-                    (CpaPhysicalAddr)qaeVirtToPhysNUMA(
-                        (void *)(uintptr_t)cmpFlatBuffArray[i]
-                                                           [j]->bufferPhysAddr);
+                decompressionOpData[i][j]
+                    ->destBuffer = (CpaPhysicalAddr)virtAddrToDevAddr(
+                    (void *)(uintptr_t)cmpFlatBuffArray[i][j]->bufferPhysAddr,
+                    setup->dcInstanceHandle,
+                    CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 
                 decompressionOpData[i][j]->srcBufferLen =
                     dstFlatBuffArray[i][j]->dataLenInBytes;
@@ -1736,8 +1754,10 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
                 SET_DC_DP_CNV_PARAMS_DEFAULT(decompressionOpData[i][j]);
 
                 decompressionOpData[i][j]->thisPhys =
-                    (CpaPhysicalAddr)(SAMPLE_CODE_UINT)qaeVirtToPhysNUMA(
-                        decompressionOpData[i][j]);
+                    (CpaPhysicalAddr)(SAMPLE_CODE_UINT)virtAddrToDevAddr(
+                        decompressionOpData[i][j],
+                        setup->dcInstanceHandle,
+                        CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
             }
         }
 
@@ -1924,6 +1944,13 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
+    if (CPA_STATUS_SUCCESS !=
+        qatDcGetPreTestRecoveryCount(
+            &dcSetup, &capabilities, testSetup->performanceStats))
+    {
+        testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        goto exit;
+    }
 #if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
 
     status = icp_sal_DcGetFileDescriptor(dcSetup.dcInstanceHandle, &fd);
@@ -1934,7 +1961,8 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         qaeMemFree((void **)&dcSetup.numberOfBuffers);
         qaeMemFree((void **)&instanceInfo);
         icp_sal_DcPutFileDescriptor(dcSetup.dcInstanceHandle, fd);
-        testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        testSetup->performanceStats->threadReturnStatus =
+            CPA_STATUS_UNSUPPORTED;
         sampleCodeThreadExit();
     }
 #endif
@@ -1949,6 +1977,11 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
     }
     else
+    {
+        qatDcGetPostTestRecoveryCount(&dcSetup, testSetup->performanceStats);
+    }
+    if ((CPA_STATUS_SUCCESS == status) &&
+        (CPA_STATUS_FAIL != testSetup->performanceStats->threadReturnStatus))
     {
         /*set the print function that can be used to print
          * statistics at the end of the test
@@ -2145,15 +2178,15 @@ CpaStatus setupDcDpTest(CpaDcCompType algorithm,
     dcSetup->setupData.compLevel = compLevel;
     dcSetup->setupData.compType = algorithm;
     dcSetup->setupData.sessDirection = CPA_DC_DIR_COMPRESS;
-    dcSetup->setupData.checksum = CPA_DC_NONE;
+    dcSetup->setupData.checksum = gChecksum;
 #ifdef SC_ENABLE_DYNAMIC_COMPRESSION
     dcSetup->setupData.huffType = huffmanType;
 #else
     dcSetup->setupData.huffType = CPA_DC_HT_STATIC;
 #endif
-    dcSetup->setupData.fileType = fileType;
     dcSetup->setupData.sessState = CPA_DC_STATELESS;
 #if DC_API_VERSION_LESS_THAN(1, 6)
+    dcSetup->setupData.fileType = fileType;
     dcSetup->setupData.deflateWindowSize = DEFAULT_COMPRESSION_WINDOW_SIZE;
 #endif
     dcSetup->corpus = corpusType;

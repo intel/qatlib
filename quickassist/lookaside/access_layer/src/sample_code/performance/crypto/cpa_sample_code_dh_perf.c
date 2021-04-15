@@ -101,6 +101,9 @@
 #include "cpa_sample_code_utils_common.h"
 #include "cpa_sample_code_crypto_utils.h"
 
+#ifdef SC_DEV_INFO_ENABLED
+#include "cpa_dev.h"
+#endif
 #include "icp_sal_poll.h"
 #include "qat_perf_cycles.h"
 extern Cpa32U packageIdCount_g;
@@ -644,7 +647,7 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
     }
     /*pre-set the number of ops we plan to submit*/
     memset(setup->performanceStats, 0, sizeof(perf_data_t));
-    setup->performanceStats->numOperations = numLoops * numBuffers;
+    setup->performanceStats->numOperations = (Cpa64U)numLoops * numBuffers;
     setup->performanceStats->responses = 0;
     setup->performanceStats->retries = 0;
     setup->performanceStats->packageId = instanceInfo.physInstId.packageId;
@@ -693,11 +696,12 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
                                                    pCpaDhOpDataP2[i],
                                                    pOctetStringSecretKey[i]);
                 coo_req_stop(setup->performanceStats, status);
-                /*this is a back off mechanism to stop the code
-                * continually calling the Decrypt operation when the
-                * acceleration units are busy. Without this the CPU
-                * can report a soft lockup if it continually loops
-                * on busy*/
+                /* this is a back off mechanism to stop the code
+                 * continually calling the Decrypt operation when the
+                 * acceleration units are busy. Without this the CPU
+                 * can report a soft lockup if it continually loops
+                 * on busy
+                 */
                 if (status == CPA_STATUS_RETRY)
                 {
 #ifdef POLL_INLINE
@@ -1049,8 +1053,8 @@ static CpaStatus dhPerform(asym_test_params_t *setup)
     pDhData->packageId = instanceInfo2.physInstId.packageId;
 
     /***************************************************************************
-    * PHASE1
-    ***************************************************************************/
+     * PHASE1
+     ***************************************************************************/
     if (DH_PHASE_1 == setup->phase)
     {
         // we will execute only phase 1
@@ -1216,6 +1220,9 @@ void dhPerformance(single_thread_test_data_t *testSetup)
     CpaStatus status = CPA_STATUS_FAIL;
     asym_test_params_t *params = (asym_test_params_t *)testSetup->setupPtr;
     CpaInstanceInfo2 instanceInfo = {0};
+#ifdef SC_DEV_INFO_ENABLED
+    CpaDeviceInfo deviceInfo = {0};
+#endif
 
     testSetup->passCriteria = getPassCriteria();
 
@@ -1276,6 +1283,28 @@ void dhPerformance(single_thread_test_data_t *testSetup)
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
+
+#ifdef SC_DEV_INFO_ENABLED
+    /* check whether asym service enabled or not for the instance */
+    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);
+        dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+    if (CPA_FALSE == deviceInfo.cyAsymEnabled)
+    {
+        PRINT_ERR("%s::%d Error! cyAsymEnabled service not enabled for the "
+                  "configured instance\n",
+                  __func__,
+                  __LINE__);
+        dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+#endif
     if (instanceInfo.physInstId.packageId > packageIdCount_g)
     {
         packageIdCount_g = instanceInfo.physInstId.packageId;

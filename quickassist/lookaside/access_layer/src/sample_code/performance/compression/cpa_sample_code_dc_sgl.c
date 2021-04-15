@@ -361,8 +361,9 @@ void freeFlatBuffers(compression_test_params_t *setup, CpaBufferList *pSGL)
     }
 }
 
-CpaStatus
-allocateFlatBufferData(Cpa32U numaNode, CpaBufferList *pSGL, Cpa32U bufferSize)
+CpaStatus allocateFlatBufferData(Cpa32U numaNode,
+                                 CpaBufferList *pSGL,
+                                 Cpa32U bufferSize)
 {
     Cpa32U i = 0;
 
@@ -840,9 +841,9 @@ CpaStatus setupDcSGLTest(CpaDcCompType algorithm,
 #else
     dcSetup->setupData.huffType = CPA_DC_HT_STATIC;
 #endif
-    dcSetup->setupData.fileType = CPA_DC_FT_ASCII;
     dcSetup->setupData.sessState = CPA_DC_STATELESS;
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
+#if DC_API_VERSION_LESS_THAN(1, 6)
+    dcSetup->setupData.fileType = CPA_DC_FT_ASCII;
     dcSetup->setupData.deflateWindowSize = DEFAULT_COMPRESSION_WINDOW_SIZE;
 #endif
     dcSetup->corpus = corpusType;

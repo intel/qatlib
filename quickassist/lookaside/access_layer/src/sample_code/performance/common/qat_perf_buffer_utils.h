@@ -541,4 +541,27 @@ CpaStatus copyBuffers(CpaBufferList *srcBufferListArray,
                       CpaBufferList *copyBufferListArray,
                       Cpa32U numberOfLists);
 
+/**
+*****************************************************************************
+* @file qat_perf_buffer_utils.c
+*
+* @ingroup sample_code
+*
+* @description                          convert virtual address of a buffer
+*                                       to address that can be accessed by
+*                                       the owner of the instance from
+*                                       device point of view
+*
+* @param[in]   pVirtAddr                virtual address of the buffer
+* @param[in]   instance                 crypto instance handle
+* @param[in]   type                     service type
+*
+* @retval CpaPhysicalAddr               address from device point of view,
+*                                       or NULL if failed to convert
+*
+****************************************************************************/
+CpaPhysicalAddr virtAddrToDevAddr(void *pVirtAddr,
+                                  CpaInstanceHandle instance,
+                                  CpaAccelerationServiceType type);
+
 #endif /* CPA_SC_BUFFER_UTILS_H*/

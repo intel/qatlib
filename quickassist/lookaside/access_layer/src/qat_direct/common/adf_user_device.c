@@ -37,7 +37,6 @@
 #include <adf_user_init.h>
 #include <icp_platform.h>
 #include <adf_user_transport.h>
-#include "adf.h"
 #include <sys/ioctl.h>
 
 #include "adf_user.h"

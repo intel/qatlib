@@ -86,6 +86,7 @@
 #include "cpa_sample_code_utils_common.h"
 #include "cpa_cy_common.h"
 #include "cpa_sample_code_sym_update_common.h"
+#include "qat_perf_buffer_utils.h"
 
 #define SYM_DP_OPS_DEFAULT_POLLING_INTERVAL (16)
 Cpa32U symDpPollingInterval_g = SYM_DP_OPS_DEFAULT_POLLING_INTERVAL;
@@ -1215,8 +1216,8 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
     {
         for (innerLoop = 0; innerLoop < setup->numBuffers; innerLoop++)
         {
-            pOpData[innerLoop]->thisPhys =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(pOpData[innerLoop]);
+            pOpData[innerLoop]->thisPhys = (CpaPhysicalAddr)virtAddrToDevAddr(
+                pOpData[innerLoop], cyInstHandle, CPA_ACC_SVC_TYPE_CRYPTO);
             pOpData[innerLoop]->instanceHandle = cyInstHandle;
             pOpData[innerLoop]->sessionCtx = sessionCtx;
             pOpData[innerLoop]->pCallbackTag = setup->performanceStats;
@@ -1224,18 +1225,18 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
             pOpData[innerLoop]->hashStartSrcOffsetInBytes = 0;
             pOpData[innerLoop]->messageLenToHashInBytes = srcBufferLen;
             pOpData[innerLoop]->messageLenToCipherInBytes = srcBufferLen;
-            pOpData[innerLoop]->srcBuffer =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(pSrcBuffer[innerLoop]);
+            pOpData[innerLoop]->srcBuffer = (CpaPhysicalAddr)virtAddrToDevAddr(
+                pSrcBuffer[innerLoop], cyInstHandle, CPA_ACC_SVC_TYPE_CRYPTO);
             pOpData[innerLoop]->srcBufferLen = srcBufferLen;
-            pOpData[innerLoop]->dstBuffer =
-                (CpaPhysicalAddr)qaeVirtToPhysNUMA(pDstBuffer[innerLoop]);
+            pOpData[innerLoop]->dstBuffer = (CpaPhysicalAddr)virtAddrToDevAddr(
+                pDstBuffer[innerLoop], cyInstHandle, CPA_ACC_SVC_TYPE_CRYPTO);
             pOpData[innerLoop]->dstBufferLen = dstBufferLen;
             if (setup->setupData.symOperation == CPA_CY_SYM_OP_CIPHER ||
                 setup->setupData.symOperation ==
                     CPA_CY_SYM_OP_ALGORITHM_CHAINING)
             {
-                pOpData[innerLoop]->iv =
-                    (CpaPhysicalAddr)qaeVirtToPhysNUMA(pIvBuffer);
+                pOpData[innerLoop]->iv = (CpaPhysicalAddr)virtAddrToDevAddr(
+                    pIvBuffer, cyInstHandle, CPA_ACC_SVC_TYPE_CRYPTO);
                 pOpData[innerLoop]->pIv = pIvBuffer;
                 pOpData[innerLoop]->ivLenInBytes = ivBufferLen;
             }
@@ -1246,7 +1247,10 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                 if (NULL != pAdditionalAuthData)
                 {
                     pOpData[innerLoop]->additionalAuthData =
-                        (CpaPhysicalAddr)qaeVirtToPhysNUMA(pAdditionalAuthData);
+                        (CpaPhysicalAddr)virtAddrToDevAddr(
+                            pAdditionalAuthData,
+                            cyInstHandle,
+                            CPA_ACC_SVC_TYPE_CRYPTO);
                     pOpData[innerLoop]->pAdditionalAuthData =
                         pAdditionalAuthData;
                 }
@@ -1257,7 +1261,10 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                     pOpData[innerLoop]->pAdditionalAuthData = NULL;
                 }
                 pOpData[innerLoop]->digestResult =
-                    (CpaPhysicalAddr)qaeVirtToPhysNUMA(pDstBuffer[innerLoop]) +
+                    (CpaPhysicalAddr)virtAddrToDevAddr(
+                        pDstBuffer[innerLoop],
+                        cyInstHandle,
+                        CPA_ACC_SVC_TYPE_CRYPTO) +
                     dstBufferLen;
                 pOpData[innerLoop]->srcBufferLen =
                     srcBufferLen +

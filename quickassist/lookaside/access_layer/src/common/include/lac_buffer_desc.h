@@ -115,6 +115,31 @@ CpaStatus LacBuffDesc_BufferListDescWrite(const CpaBufferList *pUserBufferList,
 *      Write the buffer descriptor in QAT friendly format.
 *
 * @description
+*      Updates the Meta Data associated with the pUserBufferList CpaBufferList
+*      This function will also return the (aligned) physical address
+*      associated with this CpaBufferList. Zero length buffers are allowed.
+*      Should be used for CHA-CHA-POLY and GCM algorithms.
+*
+* @param[in]  pUserBufferList           A pointer to the buffer list to
+*                                       create the meta data for the QAT.
+* @param[out] pBufferListAlignedPhyAddr The pointer to the aligned physical
+*                                       address.
+* @param[in]  isPhysicalAddress         Type of address
+* @param[in]  pService                  Pointer to generic service
+*
+*****************************************************************************/
+CpaStatus LacBuffDesc_BufferListDescWriteAndAllowZeroBuffer(
+    const CpaBufferList *pUserBufferList,
+    Cpa64U *pBufferListAlignedPhyAddr,
+    CpaBoolean isPhysicalAddress,
+    sal_service_t *pService);
+
+/**
+*******************************************************************************
+* @ingroup LacBufferDesc
+*      Write the buffer descriptor in QAT friendly format.
+*
+* @description
 *      Updates the Meta Data associated with the PClientList CpaBufferList
 *      This function will also return the (aligned) physical address
 *      associated with this CpaBufferList and the total data length of the

@@ -2436,7 +2436,7 @@ LacSymKey_CheckParamSslTls(const void *pKeyGenOpData,
         }
 
         /* Maximum/only seed length for TLS Key Gen request */
-        if (((Cpa32U)opData->tlsOp != CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE) ||
+        if (((Cpa32U)opData->tlsOp != CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE) &&
             ((Cpa32U)opData->tlsOp != CPA_CY_KEY_TLS_OP_KEY_MATERIAL_DERIVE))
         {
             if (uSeedLen > maxSeedLen)

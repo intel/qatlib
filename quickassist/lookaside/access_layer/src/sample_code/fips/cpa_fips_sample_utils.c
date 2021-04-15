@@ -108,7 +108,10 @@ extern void qaeMemDestroy(void);
  * @post
  *     none
  *****************************************************************************/
-CpaStatus osMemInit(void) { return qaeMemInit(); }
+CpaStatus osMemInit(void)
+{
+    return qaeMemInit();
+}
 
 /**
  *****************************************************************************
@@ -125,7 +128,10 @@ CpaStatus osMemInit(void) { return qaeMemInit(); }
  * @post
  *     none
  *****************************************************************************/
-void osMemDestroy(void) { (void)qaeMemDestroy(); }
+void osMemDestroy(void)
+{
+    (void)qaeMemDestroy();
+}
 
 /**
  *****************************************************************************
@@ -432,9 +438,9 @@ CpaBoolean isFbALessThanFbB(const CpaFlatBuffer *restrict pFbA,
  * @post
  *      none
  *****************************************************************************/
-CpaBoolean
-isFlatBufValGreaterThanOrEqualTo32UVal(const CpaFlatBuffer *restrict pFb,
-                                       Cpa32U val)
+CpaBoolean isFlatBufValGreaterThanOrEqualTo32UVal(const CpaFlatBuffer *restrict
+                                                      pFb,
+                                                  Cpa32U val)
 {
     CpaFlatBuffer smallBuf = {.dataLenInBytes = 0, .pData = NULL};
     Cpa8U valArray[WORD_BYTE_LEN_32U] = {
@@ -488,10 +494,10 @@ isFlatBufValGreaterThanOrEqualTo32UVal(const CpaFlatBuffer *restrict pFb,
  * @post
  *     none
  *****************************************************************************/
-static inline void
-setResultStorageLocation(CpaFlatBuffer *pResultTarget,
-                         CpaFlatBuffer *pCheckTarget,
-                         const CpaFlatBuffer *restrict pCurrentTarget)
+static inline void setResultStorageLocation(CpaFlatBuffer *pResultTarget,
+                                            CpaFlatBuffer *pCheckTarget,
+                                            const CpaFlatBuffer *restrict
+                                                pCurrentTarget)
 {
 
     if (NULL != pCheckTarget)
@@ -1506,7 +1512,10 @@ CpaStatus getNonceFunc(icp_sal_drbg_get_entropy_op_data_t *pOpData,
  * @post
  *     none
  *****************************************************************************/
-CpaBoolean isDFReqFunc(void) { return CPA_FALSE; }
+CpaBoolean isDFReqFunc(void)
+{
+    return CPA_FALSE;
+}
 
 #ifndef CPM_LACKS_DRBG
 /**

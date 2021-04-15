@@ -571,6 +571,31 @@ CpaStatus icp_adf_transPutMsg(icp_comms_trans_handle trans_handle,
 }
 
 /*
+ * icp_adf_getInflightRequests
+ * Function to fetch in-flight and max in-flight request counts for the
+ * given trans_handle.
+ */
+CpaStatus icp_adf_getInflightRequests(icp_comms_trans_handle trans_handle,
+                                      Cpa32U *maxInflightRequests,
+                                      Cpa32U *numInflightRequests)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    adf_dev_ring_handle_t *pRingHandle = (adf_dev_ring_handle_t *)trans_handle;
+
+    ICP_CHECK_FOR_NULL_PARAM(trans_handle);
+
+    status = adf_user_get_inflight_requests(
+        pRingHandle, maxInflightRequests, numInflightRequests);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        ADF_ERROR("adf_user_get_inflight_requests failed with %d status\n",
+                  status);
+    }
+    return status;
+}
+
+/*
  * adf_user_unmap_rings
  * Device is going down - unmap all rings allocated for this device
  */

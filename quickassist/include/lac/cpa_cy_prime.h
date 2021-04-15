@@ -98,7 +98,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Prime Test Operation Data.
  * @description
@@ -156,7 +155,6 @@ typedef struct _CpaCyPrimeTestOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Prime Number Test Statistics.
  * @deprecated
@@ -188,7 +186,6 @@ typedef struct _CpaCyPrimeStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Prime Number Test Statistics (64-bit version).
  * @description
@@ -217,7 +214,6 @@ typedef struct _CpaCyPrimeStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Definition of callback function invoked for cpaCyPrimeTest
  *      requests.
@@ -265,7 +261,6 @@ typedef void (*CpaCyPrimeTestCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Prime Number Test Function.
  *
@@ -362,7 +357,6 @@ cpaCyPrimeTest(const CpaInstanceHandle instanceHandle,
         CpaBoolean *pTestPassed);
 
 /******************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Query prime number statistics specific to an instance.
  *
@@ -422,7 +416,6 @@ cpaCyPrimeQueryStats(const CpaInstanceHandle instanceHandle,
 
 
 /******************************************************************************
- * @file cpa_cy_prime.h
  * @ingroup cpaCyPrime
  *      Query prime number statistics specific to an instance.
  *

@@ -80,6 +80,10 @@
 #ifndef ICP_SAL_POLL_H
 #define ICP_SAL_POLL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*************************************************************************
  * @ingroup SalPoll
  * @description
@@ -116,6 +120,80 @@
  *                                   the request.
  *************************************************************************/
 CpaStatus icp_sal_CyPollInstance(CpaInstanceHandle instanceHandle,
+                                 Cpa32U response_quota);
+
+/*************************************************************************
+ * @ingroup SalPoll
+ * @description
+ *    Poll the symmetric logical instance to retrieve requests that are on
+ *    the response rings associated with that instance and dispatch the
+ *    associated callbacks.
+ *
+ * @context
+ *      This functions is called from both the user and kernel context
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle         Instance handle.
+ * @param[in] response_quota         The maximum number of messages that
+ *                                   will be read in one polling. Setting
+ *                                   the response quota to zero means that
+ *                                   all messages on the ring will be read.
+ *
+ * @retval CPA_STATUS_SUCCESS        Successfully polled a ring with data
+ * @retval CPA_STATUS_RETRY          There are no responses on the rings
+ *                                   associated with this instance
+ * @retval CPA_STATUS_FAIL           Indicates a failure
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_RESTARTING     Device restarting. Resubmit the
+ *                                   request
+ *************************************************************************/
+CpaStatus icp_sal_CyPollSymRing(CpaInstanceHandle instanceHandle,
+                                Cpa32U response_quota);
+
+/*************************************************************************
+ * @ingroup SalPoll
+ * @description
+ *    Poll the asymmetric logical instance to retrieve requests that are on
+ *    the response rings associated with that instance and dispatch the
+ *    associated callbacks.
+ *
+ * @context
+ *      This functions is called from both the user and kernel context
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle         Instance handle.
+ * @param[in] response_quota         The maximum number of messages that
+ *                                   will be read in one polling. Setting
+ *                                   the response quota to zero means that
+ *                                   all messages on the ring will be read.
+ *
+ * @retval CPA_STATUS_SUCCESS        Successfully polled a ring with data
+ * @retval CPA_STATUS_RETRY          There are no responses on the rings
+ *                                   associated with this instance
+ * @retval CPA_STATUS_FAIL           Indicates a failure
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_RESOURCE       Error related to system resources
+ * @retval CPA_STATUS_FATAL          A serious error has occurred.
+ * @retval CPA_STATUS_RESTARTING     Device restarting. Resubmit the
+ *                                   request
+ *************************************************************************/
+CpaStatus icp_sal_CyPollAsymRing(CpaInstanceHandle instanceHandle,
                                  Cpa32U response_quota);
 
 /*************************************************************************
@@ -165,8 +243,8 @@ CpaStatus icp_sal_CyPollInstance(CpaInstanceHandle instanceHandle,
  *                               associated with this instance
  * @retval CPA_STATUS_FAIL       Indicates a failure
  *************************************************************************/
-CpaStatus icp_sal_CyPollDpInstance(CpaInstanceHandle instanceHandle,
-                                   Cpa32U response_quota);
+CpaStatus icp_sal_CyPollDpInstance(const CpaInstanceHandle instanceHandle,
+                                   const Cpa32U response_quota);
 
 /*************************************************************************
  * @ingroup SalPoll
@@ -472,5 +550,9 @@ CpaStatus icp_sal_DcPutFileDescriptor(CpaInstanceHandle instanceHandle, int fd);
  *
  *****************************************************************************/
 CpaStatus icp_sal_CyPutFileDescriptor(CpaInstanceHandle instanceHandle, int fd);
+
+#ifdef __cplusplus
+} /* close the extern "C" { */
+#endif
 
 #endif

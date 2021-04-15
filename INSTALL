@@ -41,7 +41,7 @@ This package also links against files with the following licenses:
         - ZLIB License
 
 For BSD-3-Clause license, please see the file LICENSE contained in the top
-level folder. 
+level folder.
 For Dual BSD/GPLv2 please see the file headers of the relevant files.
 
 ===============================================================================
@@ -162,7 +162,8 @@ Features flags:
                 Enables legacy names for libraries.
 
         --enable-service
-                Automatically enables systemd service during installation.
+                Automatically creates "qat" group and enables systemd service
+                during installation.
 
         MAX_MR
                 Number of Miller Rabin rounds for prime operations. Setting this
@@ -176,10 +177,15 @@ Features flags:
 
 5) System configuration
 
-To be able to use libqat functionalities as non root user, the maximum amount
-of locked memory should be set correctly by defining memlock limit in the file
-/etc/security/limits.conf.
-At least 200000 kB are required.
+qat.service requires "qat" group to be created (by calling groupadd qat).
+If --enable-service configure option was used, such group will be created
+automatically during installation and this step can be skipped.
+
+To be able to use libqat functionalities as non root user:
+ * the maximum amount of locked memory should be set correctly by defining
+   memlock limit in the file /etc/security/limits.conf. At least 200000 kB
+   are required.
+ * user has to be part of qat group
 
 
 Legal/Disclaimers
@@ -204,4 +210,3 @@ without notice.
 * Other names and brands may be claimed as the property of others.
 
 ===============================================================================
-

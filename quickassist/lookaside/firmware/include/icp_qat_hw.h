@@ -124,7 +124,8 @@ typedef enum {
  *
  *****************************************************************************/
 
-typedef enum {
+typedef enum
+{
     ICP_QAT_HW_AUTH_ALGO_NULL = 0,             /*!< Null hashing */
     ICP_QAT_HW_AUTH_ALGO_SHA1 = 1,             /*!< SHA1 hashing */
     ICP_QAT_HW_AUTH_ALGO_MD5 = 2,              /*!< MD5 hashing */
@@ -141,11 +142,14 @@ typedef enum {
     ICP_QAT_HW_AUTH_ALGO_SNOW_3G_UIA2 = 13,    /*!< UIA2/SNOW_3G F9 hashing */
     ICP_QAT_HW_AUTH_ALGO_ZUC_3G_128_EIA3 = 14, /*!< 128_EIA3/ZUC_3G hashing */
     ICP_QAT_HW_AUTH_RESERVED_1 = 15,           /*!< Reserved */
-    ICP_QAT_HW_AUTH_RESERVED_2 = 16,           /*!< Reserved */
+    ICP_QAT_HW_AUTH_ALGO_SHA3_224 = 16,        /*!< SHA3-224 hashing */
     ICP_QAT_HW_AUTH_ALGO_SHA3_256 = 17,        /*!< SHA3-256 hashing */
-    ICP_QAT_HW_AUTH_RESERVED_3 = 18,           /*!< Reserved */
+    ICP_QAT_HW_AUTH_ALGO_SHA3_384 = 18,        /*!< SHA3-384 hashing */
     ICP_QAT_HW_AUTH_ALGO_SHA3_512 = 19,        /*!< SHA3-512 hashing */
-    ICP_QAT_HW_AUTH_ALGO_DELIMITER = 20        /**< Delimiter type */
+    ICP_QAT_HW_AUTH_RESERVED_4 = 20,           /*!< Reserved */
+    ICP_QAT_HW_AUTH_RESERVED_5 = 21,           /*!< Reserved */
+    ICP_QAT_HW_AUTH_ALGO_POLY = 22,            /*!< POLY hashing */
+    ICP_QAT_HW_AUTH_ALGO_DELIMITER = 23        /**< Delimiter type */
 } icp_qat_hw_auth_algo_t;
 
 /**
@@ -380,7 +384,7 @@ typedef struct icp_qat_hw_auth_config_s
  */
 
 /**
- ***************************************************************************************
+ *******************************************************************************
  * @ingroup icp_qat_hw_defs
  *
  * @description
@@ -415,19 +419,21 @@ typedef struct icp_qat_hw_auth_config_s
  * @param algo      Auth Algorithm to use
  * @param cmp_len   The length of the digest if the QAT is to the check
  *
- ****************************************************************************************/
-#define ICP_QAT_HW_AUTH_CONFIG_BUILD(mode, algo, cmp_len)                                \
-    ((((mode)&QAT_AUTH_MODE_MASK) << QAT_AUTH_MODE_BITPOS) |                             \
-     (((algo)&QAT_AUTH_ALGO_MASK) << QAT_AUTH_ALGO_BITPOS) |                             \
-     (((algo >> 4) & QAT_AUTH_ALGO_SHA3_MASK) << QAT_AUTH_ALGO_SHA3_BITPOS) |            \
-     (((QAT_AUTH_SHA3_PADDING_DISABLE_USE_DEFAULT)&QAT_AUTH_SHA3_PADDING_DISABLE_MASK)   \
-      << QAT_AUTH_SHA3_PADDING_DISABLE_BITPOS) |                                         \
-     (((QAT_AUTH_SHA3_PADDING_OVERRIDE_USE_DEFAULT)&QAT_AUTH_SHA3_PADDING_OVERRIDE_MASK) \
-      << QAT_AUTH_SHA3_PADDING_OVERRIDE_BITPOS) |                                        \
+ ******************************************************************************/
+#define ICP_QAT_HW_AUTH_CONFIG_BUILD(mode, algo, cmp_len)                      \
+    ((((mode)&QAT_AUTH_MODE_MASK) << QAT_AUTH_MODE_BITPOS) |                   \
+     (((algo)&QAT_AUTH_ALGO_MASK) << QAT_AUTH_ALGO_BITPOS) |                   \
+     (((algo >> 4) & QAT_AUTH_ALGO_SHA3_MASK) << QAT_AUTH_ALGO_SHA3_BITPOS) |  \
+     (((QAT_AUTH_SHA3_PADDING_DISABLE_USE_DEFAULT) &                           \
+       (QAT_AUTH_SHA3_PADDING_DISABLE_MASK))                                   \
+      << QAT_AUTH_SHA3_PADDING_DISABLE_BITPOS) |                               \
+     (((QAT_AUTH_SHA3_PADDING_OVERRIDE_USE_DEFAULT) &                          \
+       (QAT_AUTH_SHA3_PADDING_OVERRIDE_MASK))                                  \
+      << QAT_AUTH_SHA3_PADDING_OVERRIDE_BITPOS) |                              \
      (((cmp_len)&QAT_AUTH_CMP_MASK) << QAT_AUTH_CMP_BITPOS))
 
 /**
- ***************************************************************************************
+ ******************************************************************************
  * @ingroup icp_qat_hw_defs
  *
  * @description
@@ -443,11 +449,13 @@ typedef struct icp_qat_hw_auth_config_s
  *      the padding sequence bits are defined relative to the 32-bit value that
  *      this macro returns.
  *
- ****************************************************************************************/
-#define ICP_QAT_HW_AUTH_CONFIG_BUILD_UPPER                                                    \
-    ((((QAT_AUTH_SHA3_PROG_PADDING_POSTFIX_RESERVED)&QAT_AUTH_SHA3_PROG_PADDING_POSTFIX_MASK) \
-      << QAT_AUTH_SHA3_PROG_PADDING_POSTFIX_BITPOS) |                                         \
-     (((QAT_AUTH_SHA3_PROG_PADDING_PREFIX_RESERVED)&QAT_AUTH_SHA3_PROG_PADDING_PREFIX_MASK)   \
+ ******************************************************************************/
+#define ICP_QAT_HW_AUTH_CONFIG_BUILD_UPPER                                     \
+    ((((QAT_AUTH_SHA3_PROG_PADDING_POSTFIX_RESERVED) &                         \
+       (QAT_AUTH_SHA3_PROG_PADDING_POSTFIX_MASK))                              \
+      << QAT_AUTH_SHA3_PROG_PADDING_POSTFIX_BITPOS) |                          \
+     (((QAT_AUTH_SHA3_PROG_PADDING_PREFIX_RESERVED) &                          \
+       (QAT_AUTH_SHA3_PROG_PADDING_PREFIX_MASK))                               \
       << QAT_AUTH_SHA3_PROG_PADDING_PREFIX_BITPOS))
 
 /**
@@ -569,6 +577,9 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_ZUC_3G_EIA3_STATE1_SZ 8
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for EIA3 */
+#define ICP_QAT_HW_SHA3_STATEFUL_STATE1_SZ 200
+/** <@ingroup icp_cpm_hw_defs
+ * State1 block size for stateful SHA3 processing*/
 
 /* State2 */
 #define ICP_QAT_HW_NULL_STATE2_SZ 32
@@ -652,8 +663,7 @@ typedef struct icp_qat_hw_auth_setup_s
  *      Definition of SHA512 auth algorithm processing struct
  * @description
  *      This structs described the parameters to pass to the slice for
- *      configuring it for SHA512 processing. This is the largest possible
- *      setup block for authentication
+ *      configuring it for SHA512 processing.
  *
  *****************************************************************************/
 typedef struct icp_qat_hw_auth_sha512_s
@@ -678,8 +688,7 @@ typedef struct icp_qat_hw_auth_sha512_s
  *      Definition of SHA3_512 auth algorithm processing struct
  * @description
  *      This structs described the parameters to pass to the slice for
- *      configuring it for SHA3_512 processing. This is the largest possible
- *      setup block for authentication
+ *      configuring it for SHA3_512 processing.
  *
  *****************************************************************************/
 typedef struct icp_qat_hw_auth_sha3_512_s
@@ -698,6 +707,32 @@ typedef struct icp_qat_hw_auth_sha3_512_s
 /**
  *****************************************************************************
  * @ingroup icp_qat_hw_defs
+ *      Definition of stateful SHA3 auth algorithm processing struct
+ * @description
+ *      This structs described the parameters to pass to the slice for
+ *      configuring it for stateful SHA3 processing. This is the largest
+ *      possible setup block for authentication
+ *
+ *****************************************************************************/
+typedef struct icp_qat_hw_auth_sha3_stateful_s
+{
+    icp_qat_hw_auth_setup_t inner_setup;
+    /**< Inner loop configuration word for the slice */
+
+    uint8_t inner_state1[ICP_QAT_HW_SHA3_STATEFUL_STATE1_SZ];
+    /**< Inner hash block */
+
+    icp_qat_hw_auth_setup_t outer_setup;
+    /**< Outer configuration word for the slice */
+
+    uint8_t outer_state1[ICP_QAT_HW_SHA3_STATEFUL_STATE1_SZ];
+    /**< Outer hash block */
+
+} icp_qat_hw_auth_sha3_stateful_t;
+
+/**
+ *****************************************************************************
+ * @ingroup icp_qat_hw_defs
  *      Supported hardware authentication algorithms
  * @description
  *      Common grouping of the auth algorithm types supported by the QAT
@@ -706,6 +741,8 @@ typedef struct icp_qat_hw_auth_sha3_512_s
 typedef union icp_qat_hw_auth_algo_blk_u {
     icp_qat_hw_auth_sha512_t sha512;
     /**< SHA512 Hashing */
+    icp_qat_hw_auth_sha3_stateful_t sha3_stateful;
+    /**< Stateful SHA3 Hashing */
 
 } icp_qat_hw_auth_algo_blk_t;
 
@@ -731,18 +768,21 @@ typedef union icp_qat_hw_auth_algo_blk_u {
  *
  *****************************************************************************/
 
-typedef enum {
-    ICP_QAT_HW_CIPHER_ALGO_NULL = 0,            /*!< Null ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_DES = 1,             /*!< DES ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_3DES = 2,            /*!< 3DES ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_AES128 = 3,          /*!< AES-128 ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_AES192 = 4,          /*!< AES-192 ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_AES256 = 5,          /*!< AES-256 ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_ARC4 = 6,            /*!< ARC4 ciphering */
-    ICP_QAT_HW_CIPHER_ALGO_KASUMI = 7,          /*!< Kasumi */
-    ICP_QAT_HW_CIPHER_ALGO_SNOW_3G_UEA2 = 8,    /*!< Snow_3G */
-    ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3 = 9, /*!< ZUC_3G */
-    ICP_QAT_HW_CIPHER_DELIMITER = 10            /**< Delimiter type */
+typedef enum
+{
+    ICP_QAT_HW_CIPHER_ALGO_NULL = 0,               /*!< Null ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_DES = 1,                /*!< DES ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_3DES = 2,               /*!< 3DES ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_AES128 = 3,             /*!< AES-128 ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_AES192 = 4,             /*!< AES-192 ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_AES256 = 5,             /*!< AES-256 ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_ARC4 = 6,               /*!< ARC4 ciphering */
+    ICP_QAT_HW_CIPHER_ALGO_KASUMI = 7,             /*!< Kasumi */
+    ICP_QAT_HW_CIPHER_ALGO_SNOW_3G_UEA2 = 8,       /*!< Snow_3G */
+    ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3 = 9,    /*!< ZUC_3G */
+    ICP_QAT_HW_CIPHER_ALGO_RESERVED = 10,          /*!< RESERVED for SM4 */
+    ICP_QAT_HW_CIPHER_ALGO_CHACHA20_POLY1305 = 11, /*!< CHACHA POLY SPC AEAD */
+    ICP_QAT_HW_CIPHER_DELIMITER = 12               /**< Delimiter type */
 } icp_qat_hw_cipher_algo_t;
 
 /**
@@ -764,8 +804,8 @@ typedef enum
     ICP_QAT_HW_CIPHER_CBC_MODE = 1,      /*!< CBC more */
     ICP_QAT_HW_CIPHER_CTR_MODE = 2,      /*!< CTR mode */
     ICP_QAT_HW_CIPHER_F8_MODE = 3,       /*!< F8 mode */
-    ICP_QAT_HW_CIPHER_AEAD_MODE = 4,     /*!< AES-GCM SPC AEAD mode */
-    ICP_QAT_HW_CIPHER_RESERVED_MODE = 5, /*!< Reserved */
+    ICP_QAT_HW_CIPHER_GCM_MODE = 4,      /*!< AES-GCM single pass AEAD mode */
+    ICP_QAT_HW_CIPHER_CCM_MODE = 5,      /*!< AES-CCM single pass AEAD mode */
     ICP_QAT_HW_CIPHER_XTS_MODE = 6,      /*!< XTS mode */
     ICP_QAT_HW_CIPHER_MODE_DELIMITER = 7 /**< Delimiter type */
 } icp_qat_hw_cipher_mode_t;
@@ -943,11 +983,7 @@ typedef enum {
  * @ingroup icp_qat_hw_defs
  *
  * @description
- *      This macro sets the upper 32 bits of the 64-bit cipher config word.
- *      The sequence bits specified in bits 50-63 of the 64-bit auth config
- *      word are included in this macro, which is therefore assumed to return
- *      a 32-bit value. are defined relative to the 32-bit value that this
- *      macro returns.
+ *      Build the second QW of cipher slice config
  *
  * @param aad_size  Specify the size of associated authentication data
  *                  for AEAD processing
@@ -1065,7 +1101,29 @@ typedef enum {
 #define ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR 2
 /**< @ingroup icp_cpm_hw_defs
  * Number of the HW register to clear in F8 mode */
-
+/**< @ingroup icp_qat_hw_defs
+ * Define the State/ Initialization Vector size for CHACHAPOLY */
+#define ICP_QAT_HW_CHACHAPOLY_KEY_SZ 32
+/**< @ingroup icp_qat_hw_defs
+ * Define the key size for CHACHA20-Poly1305*/
+#define ICP_QAT_HW_CHACHAPOLY_IV_SZ 12
+/**< @ingroup icp_qat_hw_defs
+ * Define the block size for CHACHA20-Poly1305*/
+#define ICP_QAT_HW_CHACHAPOLY_BLK_SZ 64
+/**< @ingroup icp_qat_hw_defs
+ * Define the State/ Initialization Vector size for CHACHA20-Poly1305 */
+#define ICP_QAT_HW_CHACHAPOLY_CTR_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * Define the key size for CHACHA20-Poly1305*/
+#define ICP_QAT_HW_SPC_CTR_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * Define the Single Pass tag size*/
+#define ICP_QAT_HW_CHACHAPOLY_ICV__SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * Define the key size for CHACHA20-Poly1305*/
+#define ICP_QAT_HW_CHACHAPOLY_AAD_MAX_LOG 14
+/**< @ingroup icp_qat_hw_defs
+ * Define the key size for CHACHA20-Poly1305*/
 /*
  * SHRAM constants definitions
  */
@@ -1440,9 +1498,10 @@ typedef enum {
  *
  *****************************************************************************/
 
-typedef enum {
+typedef enum
+{
     ICP_QAT_HW_COMPRESSION_ALGO_DEFLATE = 0,  /*!< Deflate compression */
-    ICP_QAT_HW_COMPRESSION_ALGO_LZS = 1,      /*!< LZS compression */
+    ICP_QAT_HW_COMPRESSION_DEPRECATED = 1,    /*!< Deprecated */
     ICP_QAT_HW_COMPRESSION_ALGO_DELIMITER = 2 /**< Delimiter type */
 } icp_qat_hw_compression_algo_t;
 

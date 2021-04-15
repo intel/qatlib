@@ -39,11 +39,11 @@ qat_init.sh \- QAT resource initializer
 initializes the Intel\(co Quick Assist Technology (Intel\(co QAT) devices in preparation for use
 by the user space library (qatlib).
 .PP
-When run on a host system with physical function (PF) QAT devices visible and bound to the QAT device driver, 
+When run on a host system with physical function (PF) QAT devices visible and bound to the QAT device driver,
 the qat_init.sh script will enable sriov on each of the PF devices. This enables the virtual function (VF) devices.
 .PP
 For each of the QAT VF devices, the qat_init.sh binds the device to the vfio-pci device driver, making it available
-for applications using the qatlib user space library. 
+for applications using the qatlib user space library.
 .SH ENVIRONMENT VARIABLES
 \fBLKCF_LIST\fR
 if set, gives a list of VF devices that should be used for accelerating operations from the Linux crypto framework instead of being available for user space applications.

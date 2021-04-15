@@ -101,15 +101,14 @@ typedef struct lac_sync_op_data_s
     /**< Output - Operation canceled */
 } lac_sync_op_data_t;
 
-#define LAC_PKE_SYNC_CALLBACK_TIMEOUT (0xFFFF)
+#define LAC_PKE_SYNC_CALLBACK_TIMEOUT (2000)
+
 /**< @ingroup LacSync
- * Timeout waiting for an asymmetric  callbacks in msecs.
- * This is derived from the max latency of a PKE request  + 1 sec, so was
- * orginally 2000ms.
- * Now adjusted until silicon will be available.
+ * Timeout waiting for an async callbacks in msecs.
+ * This is derived from the max latency of a PKE request  + 1 sec
  */
 
-#define LAC_SYM_SYNC_CALLBACK_TIMEOUT (0x5000)
+#define LAC_SYM_SYNC_CALLBACK_TIMEOUT (300)
 /**< @ingroup LacSyn
  * Timeout for wait for symmetric response in msecs
  */
@@ -119,7 +118,7 @@ typedef struct lac_sync_op_data_s
  * Timeout for wait for init messages response in msecs
  */
 
-#define DC_SYNC_CALLBACK_TIMEOUT (5000)
+#define DC_SYNC_CALLBACK_TIMEOUT (2000)
 /**< @ingroup LacSyn
  * Timeout for wait for compression response in msecs */
 

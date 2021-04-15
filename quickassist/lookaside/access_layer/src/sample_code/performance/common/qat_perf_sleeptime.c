@@ -219,8 +219,9 @@ void sleep_parsing(Cpa32U sleepTime)
     }
 }
 
-uint8_t
-findSleeptimeMargin(uint32_t baseVal, uint32_t currentVal, uint32_t margin)
+uint8_t findSleeptimeMargin(uint32_t baseVal,
+                            uint32_t currentVal,
+                            uint32_t margin)
 {
     uint32_t difference = 0;
 

@@ -118,7 +118,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA P Parameter Generation Operation Data.
  * @description
@@ -153,7 +152,6 @@ typedef struct _CpaCyDsaPParamGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA G Parameter Generation Operation Data.
  * @description
@@ -190,7 +188,6 @@ typedef struct _CpaCyDsaGParamGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA Y Parameter Generation Operation Data.
  * @description
@@ -227,7 +224,6 @@ typedef struct _CpaCyDsaYParamGenOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA R Sign Operation Data.
  * @description
@@ -266,7 +262,6 @@ typedef struct _CpaCyDsaRSignOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA S Sign Operation Data.
  * @description
@@ -311,7 +306,6 @@ typedef struct _CpaCyDsaSSignOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA R & S Sign Operation Data.
  * @description
@@ -358,7 +352,6 @@ typedef struct _CpaCyDsaRSSignOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      DSA Verify Operation Data.
  * @description
@@ -407,7 +400,6 @@ typedef struct _CpaCyDsaVerifyOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Cryptographic DSA Statistics.
  * @deprecated
@@ -504,7 +496,6 @@ typedef struct _CpaCyDsaStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Cryptographic DSA Statistics (64-bit version).
  * @description
@@ -599,7 +590,6 @@ typedef struct _CpaCyDsaStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Definition of a generic callback function invoked for a number of the
  *      DSA API functions..
@@ -652,7 +642,6 @@ typedef void (*CpaCyDsaGenCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Definition of callback function invoked for cpaCyDsaSignRS
  *      requests.
@@ -705,7 +694,6 @@ typedef void (*CpaCyDsaRSSignCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Definition of callback function invoked for cpaCyDsaVerify
  *      requests.
@@ -751,7 +739,6 @@ typedef void (*CpaCyDsaVerifyCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Generate DSA P Parameter.
  *
@@ -846,7 +833,6 @@ cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Generate DSA G Parameter.
  *
@@ -936,7 +922,6 @@ cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Generate DSA Y Parameter.
  *
@@ -1012,7 +997,6 @@ cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Generate DSA R Signature.
  *
@@ -1102,7 +1086,6 @@ cpaCyDsaSignR(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Generate DSA S Signature.
  *
@@ -1194,7 +1177,6 @@ cpaCyDsaSignS(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Generate DSA R and S Signatures.
  *
@@ -1286,7 +1268,6 @@ cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Verify DSA R and S signatures.
  *
@@ -1365,7 +1346,6 @@ cpaCyDsaVerify(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Query statistics for a specific DSA instance.
  *
@@ -1426,7 +1406,6 @@ cpaCyDsaQueryStats(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_dsa.h
  * @ingroup cpaCyDsa
  *      Query 64-bit statistics for a specific DSA instance.
  *

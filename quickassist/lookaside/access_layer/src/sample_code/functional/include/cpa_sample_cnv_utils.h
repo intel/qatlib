@@ -74,8 +74,8 @@
  *
  *
  ***************************************************************************/
-#ifndef QAT_COMPRESSION_CNV_UTILS_H_
-#define QAT_COMPRESSION_CNV_UTILS_H_
+#ifndef QAT_SAMPLE_CNV_UTILS_H_
+#define QAT_SAMPLE_CNV_UTILS_H_
 
 /* Common macro definitions */
 #ifndef DC_API_VERSION_AT_LEAST
@@ -119,13 +119,14 @@
 
 static CpaBoolean getCnVFlag(void) __attribute__((unused));
 static CpaBoolean getCnVnRFlag(void) __attribute__((unused));
-static const char *getCnVModeStr(void) __attribute__((unused));
+static const char *getSampleCnVModeStr(void) __attribute__((unused));
 
 static void getCnvFlagInternal(CpaBoolean *cnv, CpaBoolean *cnvnr);
-static void EvaluateCnVFlag(const CpaDcInstanceCapabilities *const cap,
-                            CpaBoolean *cnv,
-                            CpaBoolean *cnvnr);
-static CpaStatus getDcCapabilities(CpaDcInstanceCapabilities *capabilities);
+static void EvaluateSampleCnVFlag(const CpaDcInstanceCapabilities *const cap,
+                                  CpaBoolean *cnv,
+                                  CpaBoolean *cnvnr);
+static CpaStatus getSampleDcCapabilities(
+    CpaDcInstanceCapabilities *capabilities);
 
 static CpaBoolean getCnVFlag(void)
 {
@@ -155,7 +156,7 @@ static CpaBoolean getCnVnRFlag(void)
     return cnvnrOpFlag;
 }
 
-static const char *getCnVModeStr(void)
+static const char *getSampleCnVModeStr(void)
 {
     static const char *cmpWithVer = "Compression with Verification";
     static const char *cmpOnly = "Compression Only";
@@ -166,17 +167,17 @@ static const char *getCnVModeStr(void)
 static void getCnvFlagInternal(CpaBoolean *cnv, CpaBoolean *cnvnr)
 {
     CpaDcInstanceCapabilities cap = {0};
-    if (getDcCapabilities(&cap) != CPA_STATUS_SUCCESS)
+    if (getSampleDcCapabilities(&cap) != CPA_STATUS_SUCCESS)
     {
-        return EvaluateCnVFlag(NULL, cnv, cnvnr);
+        return EvaluateSampleCnVFlag(NULL, cnv, cnvnr);
     }
 
-    return EvaluateCnVFlag(&cap, cnv, cnvnr);
+    return EvaluateSampleCnVFlag(&cap, cnv, cnvnr);
 }
 
-static void EvaluateCnVFlag(const CpaDcInstanceCapabilities *const cap,
-                            CpaBoolean *cnv,
-                            CpaBoolean *cnvnr)
+static void EvaluateSampleCnVFlag(const CpaDcInstanceCapabilities *const cap,
+                                  CpaBoolean *cnv,
+                                  CpaBoolean *cnvnr)
 {
     CpaBoolean fw_cnv_capable = CPA_FALSE;
     CpaBoolean cnv_loose_mode = CPA_FALSE;
@@ -230,7 +231,8 @@ static void EvaluateCnVFlag(const CpaDcInstanceCapabilities *const cap,
     return;
 }
 
-static CpaStatus getDcCapabilities(CpaDcInstanceCapabilities *capabilities)
+static CpaStatus getSampleDcCapabilities(
+    CpaDcInstanceCapabilities *capabilities)
 {
     CpaStatus status;
     CpaInstanceHandle instHandle;
@@ -254,4 +256,4 @@ static CpaStatus getDcCapabilities(CpaDcInstanceCapabilities *capabilities)
 
     return CPA_STATUS_SUCCESS;
 }
-#endif /* QAT_COMPRESSION_CNV_UTILS_H_ */
+#endif /* QAT_SAMPLE_CNV_UTILS_H_ */

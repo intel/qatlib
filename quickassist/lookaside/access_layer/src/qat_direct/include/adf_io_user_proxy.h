@@ -65,6 +65,7 @@
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
  * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Provided argument is invalid.
  */
 CpaStatus adf_io_userProcessToStart(char const *const name_in,
                                     size_t name_tml_len,
@@ -84,6 +85,7 @@ CpaStatus adf_io_userProcessToStart(char const *const name_in,
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
  * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Provided argument is invalid.
  */
 CpaStatus adf_io_userProxyInit(char const *const name);
 

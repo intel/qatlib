@@ -269,8 +269,10 @@ typedef struct user_mem_dev_s
     _IOWR(DEV_MEM_MAGIC, DEV_MEM_CMD_CORPUS, dev_mem_file_t)
 
 #ifdef BLOCKOUT
-qae_dev_mem_info_t *
-userMemAlloc(user_mem_dev_t *dev, Cpa32U sizeInBytes, Cpa32U node, Cpa32U pid);
+qae_dev_mem_info_t *userMemAlloc(user_mem_dev_t *dev,
+                                 Cpa32U sizeInBytes,
+                                 Cpa32U node,
+                                 Cpa32U pid);
 qae_dev_mem_info_t *userMemGetInfo(user_mem_dev_t *dev, Cpa32U id, Cpa32U pid);
 void userMemFree(user_mem_dev_t *dev, Cpa32U id, Cpa32U pid);
 

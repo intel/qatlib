@@ -75,6 +75,10 @@
 #ifndef _ICP_SAL_VERSIONS_H_
 #define _ICP_SAL_VERSIONS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define ICP_SAL_VERSIONS_FW_VERSION_SIZE 16
 /**< Max length of firmware version string */
 #define ICP_SAL_VERSIONS_SW_VERSION_SIZE 16
@@ -85,8 +89,8 @@
 /**< Max length of hardware version string */
 
 /* Part name and number of the accelerator device  */
-#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 20
-#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 10
+#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 21
+#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 5
 #define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 0
 #define SAL_INFO2_DRIVER_SW_VERSION_TYPE "in-tree"
 
@@ -165,5 +169,9 @@ typedef struct icp_sal_dev_version_info_s
 *****************************************************************************/
 CpaStatus icp_sal_getDevVersionInfo(Cpa32U accelId,
                                     icp_sal_dev_version_info_t *pVerInfo);
+
+#ifdef __cplusplus
+} /* close the extern "C" { */
+#endif
 
 #endif

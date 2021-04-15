@@ -25,6 +25,7 @@ qat_init.sh.8
 qatlib.spec.in
 qatmgr.8
 quickassist/include/cpa.h
+quickassist/include/cpa_dev.h
 quickassist/include/cpa_types.h
 quickassist/include/dc/cpa_dc.h
 quickassist/include/dc/cpa_dc_bp.h
@@ -58,6 +59,7 @@ quickassist/lookaside/access_layer/include/icp_adf_transport_dp.h
 quickassist/lookaside/access_layer/include/icp_adf_user_proxy.h
 quickassist/lookaside/access_layer/include/icp_buffer_desc.h
 quickassist/lookaside/access_layer/include/icp_sal.h
+quickassist/lookaside/access_layer/include/icp_sal_congestion_mgmt.h
 quickassist/lookaside/access_layer/include/icp_sal_iommu.h
 quickassist/lookaside/access_layer/include/icp_sal_poll.h
 quickassist/lookaside/access_layer/include/icp_sal_user.h
@@ -163,6 +165,7 @@ quickassist/lookaside/access_layer/src/common/ctrl/sal_crypto.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_ctrl_services.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_dc_chain.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_list.c
+quickassist/lookaside/access_layer/src/common/device/sal_dev_info.c
 quickassist/lookaside/access_layer/src/common/include/lac_buffer_desc.h
 quickassist/lookaside/access_layer/src/common/include/lac_common.h
 quickassist/lookaside/access_layer/src/common/include/lac_hooks.h
@@ -221,7 +224,6 @@ quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_user_ring.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_user_transport.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/icp_platform.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/icp_platform_user.h
-quickassist/lookaside/access_layer/src/qat_direct/include/adf.h
 quickassist/lookaside/access_layer/src/qat_direct/include/adf_io_bundles.h
 quickassist/lookaside/access_layer/src/qat_direct/include/adf_io_cfg.h
 quickassist/lookaside/access_layer/src/qat_direct/include/adf_io_ring.h
@@ -360,6 +362,7 @@ quickassist/lookaside/access_layer/src/sample_code/performance/qae/linux/user_sp
 quickassist/lookaside/access_layer/src/sample_code/performance/qae/qae_mem.h
 quickassist/lookaside/access_layer/src/sample_code/performance/qae/qae_mem_utils.h
 quickassist/lookaside/access_layer/src/user/sal_user.c
+quickassist/lookaside/access_layer/src/user/sal_user_congestion_mgmt.c
 quickassist/lookaside/access_layer/src/user/sal_user_dyn_instance.c
 quickassist/lookaside/firmware/include/icp_qat_fw.h
 quickassist/lookaside/firmware/include/icp_qat_fw_comp.h

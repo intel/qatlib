@@ -97,7 +97,8 @@ static const Cpa32U lacRsaEncSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_1536_BITS, PKE_RSA_EP_1536},
     {LAC_2048_BITS, PKE_RSA_EP_2048},
     {LAC_3072_BITS, PKE_RSA_EP_3072},
-    {LAC_4096_BITS, PKE_RSA_EP_4096}};
+    {LAC_4096_BITS, PKE_RSA_EP_4096},
+    {LAC_8192_BITS, PKE_RSA_EP_8192}};
 /**<
  *  Maps between operation sizes and PKE function ids */
 

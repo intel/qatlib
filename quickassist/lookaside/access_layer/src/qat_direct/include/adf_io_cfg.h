@@ -51,6 +51,16 @@
 #include "cpa.h"
 #include "icp_accel_devices.h"
 
+/*
+ * Error code for functions which return variable of Cpa32S type
+ */
+#define ADF_IO_OPERATION_FAIL_CPA32S -1
+
+/*
+ * Error code for functions which return variable of Cpa16U type
+ */
+#define ADF_IO_OPERATION_FAIL_CPA16U 0xFFFF
+
 /**
  * @ingroup adf_io
  *
@@ -64,6 +74,10 @@
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
  * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  An invalid parameter was passed as input
+ *                                   to the function.
+ * @retval CPA_STATUS_UNSUPPORTED    This function is not supported for given
+ *                                   target platform.
  */
 CpaStatus adf_io_getNumDevices(unsigned int *num_devices);
 
@@ -134,7 +148,7 @@ Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId);
  * @param[in] packageId      Id of the package.
  *
  * @retval Cpa32U            KPT AC Handle of the accelerator.
- * @retval -1                Function failed.
+ * @retval 0                 Function failed.
  */
 Cpa32U adf_io_cfgGetKptAcHandle(Cpa16U packageId);
 
@@ -150,6 +164,7 @@ Cpa32U adf_io_cfgGetKptAcHandle(Cpa16U packageId);
  *                                   has been reset.
  * @retval CPA_STATUS_UNSUPPORTED    This function is not supported.
  * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RETRY          Device is busy and reset is not possible.
  */
 CpaStatus adf_io_reset_device(Cpa32U accelId);
 

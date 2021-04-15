@@ -101,7 +101,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance handle type.
  *
@@ -117,7 +116,6 @@ typedef void * CpaInstanceHandle;
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Default instantiation handle value where there is only a single instance
  *
@@ -129,7 +127,6 @@ typedef void * CpaInstanceHandle;
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Physical memory address.
  * @description
@@ -139,7 +136,6 @@ typedef Cpa64U CpaPhysicalAddr;
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Virtual to physical address conversion routine.
  *
@@ -177,7 +173,6 @@ typedef CpaPhysicalAddr (*CpaVirtualToPhysical)(void * pVirtualAddr);
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Flat buffer structure containing a pointer and length member.
  *
@@ -204,7 +199,6 @@ typedef struct _CpaFlatBuffer {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Scatter/Gather buffer list containing an array of flat buffers.
  *
@@ -244,7 +238,6 @@ typedef struct _CpaBufferList {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Flat buffer structure with physical address.
  *
@@ -272,7 +265,6 @@ typedef struct _CpaPhysFlatBuffer {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Scatter/gather list containing an array of flat buffers with
  *      physical addresses.
@@ -299,7 +291,6 @@ typedef struct _CpaPhysBufferList {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Special value which can be taken by length fields on some of the
  *      "data plane" APIs to indicate that the buffer in question is of
@@ -310,7 +301,6 @@ typedef struct _CpaPhysBufferList {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      API status value type definition
  *
@@ -363,7 +353,6 @@ typedef Cpa32S CpaStatus;
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      API status string type definition
  * @description
@@ -410,7 +399,6 @@ typedef Cpa32S CpaStatus;
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance Types
  *
@@ -438,7 +426,6 @@ typedef enum _CpaInstanceType
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Service Type
  * @description
@@ -463,7 +450,6 @@ typedef enum _CpaAccelerationServiceType
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance State
  *
@@ -485,7 +471,6 @@ typedef enum _CpaInstanceState
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance operational state
  * @description
@@ -516,7 +501,6 @@ typedef enum _CpaOperationalState
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance Info Structure
  *
@@ -542,7 +526,6 @@ typedef struct _CpaInstanceInfo {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Physical Instance ID
  * @description
@@ -585,7 +568,6 @@ typedef struct _CpaPhysicalInstanceId {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance Info Structure, version 2
  * @description
@@ -682,7 +664,6 @@ typedef struct _CpaInstanceInfo2 {
 
 /**
  *****************************************************************************
- * @file cpa.h
  * @ingroup cpa_BaseDataTypes
  *      Instance Events
  * @description

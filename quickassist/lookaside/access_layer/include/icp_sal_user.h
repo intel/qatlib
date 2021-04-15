@@ -75,6 +75,10 @@
 
 #include "icp_sal.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*************************************************************************
  * @ingroup SalUser
  * @description
@@ -746,5 +750,9 @@ CpaStatus icp_sal_reset_device(Cpa32U accelId);
  *
  */
 CpaBoolean icp_sal_userIsQatAvailable(void);
+
+#ifdef __cplusplus
+} /* close the extern "C" { */
+#endif
 
 #endif

@@ -252,6 +252,13 @@
  * Invalid parameter log macro. Has the prefix "[error]" and also accepts
  * 2 parameters in the string to be logged. */
 
+/************************** Lac UnSupported Param Macros ****************/
+
+#define LAC_UNSUPPORTED_PARAM_LOG(log)                                         \
+    _LAC_LOG_PARAM0_(OSAL_LOG_LVL_ERROR, "UnSupported API Param - " log)
+/**< @ingroup LacLog
+ *  * UnSupported parameter log macro. Has the prefix "[error]" */
+
 /************************** Lac Logging Macros **************************/
 
 #define LAC_LOG(log) _LAC_LOG_PARAM0_(OSAL_LOG_LVL_USER, log)

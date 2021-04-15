@@ -85,6 +85,9 @@
 #include "sal_types_compression.h"
 #include "icp_qat_fw_comp.h"
 
+#define CPA_DC_CEIL_DIV(x, y) (((x) + (y)-1) / (y))
+#define DC_DEST_BUFF_EXTRA_DEFLATE_GEN2 (55)
+
 CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
                                      Cpa32U numBuffers,
                                      Cpa32U *pSizeInBytes)
@@ -138,4 +141,55 @@ CpaStatus cpaDcBnpBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
     LAC_UNUSED_VARIABLE(pSizeInBytes);
 
     return CPA_STATUS_UNSUPPORTED;
+}
+
+STATIC inline CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
+                                           Cpa32U inputSize,
+                                           Cpa32U *outputSize)
+{
+    /* Formula for GEN2 deflate:
+     * ceil(9 * Total input bytes / 8) + 55 bytes.
+     * 55 bytes is the skid pad value for GEN2 devices.
+     */
+    *outputSize =
+        CPA_DC_CEIL_DIV(9 * inputSize, 8) + DC_DEST_BUFF_EXTRA_DEFLATE_GEN2;
+
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
+                                    CpaDcHuffType huffType,
+                                    Cpa32U inputSize,
+                                    Cpa32U *outputSize)
+{
+#ifdef ICP_PARAM_CHECK
+    CpaInstanceHandle insHandle = NULL;
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
+    {
+        insHandle = dcGetFirstHandle();
+    }
+    else
+    {
+        insHandle = dcInstance;
+    }
+
+    LAC_CHECK_INSTANCE_HANDLE(insHandle);
+    LAC_CHECK_NULL_PARAM(outputSize);
+    /* Ensure this is a compression instance */
+    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    if (!inputSize)
+    {
+        LAC_INVALID_PARAM_LOG("The input size needs to be greater than zero");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if ((CPA_DC_HT_STATIC != huffType) && (CPA_DC_HT_FULL_DYNAMIC != huffType))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid huffType value");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+#endif
+
+    return dcDeflateBoundGen2(huffType, inputSize, outputSize);
 }

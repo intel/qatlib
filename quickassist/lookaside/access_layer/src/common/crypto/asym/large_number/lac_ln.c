@@ -181,7 +181,8 @@ static const Cpa32U lacMathsModexpSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_2560_BITS, MATHS_MODEXP_L2560},
     {LAC_3072_BITS, MATHS_MODEXP_L3072},
     {LAC_3584_BITS, MATHS_MODEXP_L3584},
-    {LAC_4096_BITS, MATHS_MODEXP_L4096}};
+    {LAC_4096_BITS, MATHS_MODEXP_L4096},
+    {LAC_8192_BITS, MATHS_MODEXP_L8192}};
 
 /* Maps between operation sizes and Large Number Modular Inversion Odd
  *  function ids */
@@ -196,7 +197,8 @@ static const Cpa32U lacMathsModinvOddSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_1536_BITS, MATHS_MODINV_ODD_L1536},
     {LAC_2048_BITS, MATHS_MODINV_ODD_L2048},
     {LAC_3072_BITS, MATHS_MODINV_ODD_L3072},
-    {LAC_4096_BITS, MATHS_MODINV_ODD_L4096}};
+    {LAC_4096_BITS, MATHS_MODINV_ODD_L4096},
+    {LAC_8192_BITS, MATHS_MODINV_ODD_L8192}};
 
 /* Maps between operation sizes and Large Number Modular Inversion Even
  *  function ids */
@@ -211,7 +213,8 @@ static const Cpa32U lacMathsModinvEvenSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_1536_BITS, MATHS_MODINV_EVEN_L1536},
     {LAC_2048_BITS, MATHS_MODINV_EVEN_L2048},
     {LAC_3072_BITS, MATHS_MODINV_EVEN_L3072},
-    {LAC_4096_BITS, MATHS_MODINV_EVEN_L4096}};
+    {LAC_4096_BITS, MATHS_MODINV_EVEN_L4096},
+    {LAC_8192_BITS, MATHS_MODINV_EVEN_L8192}};
 
 /*
 ********************************************************************************

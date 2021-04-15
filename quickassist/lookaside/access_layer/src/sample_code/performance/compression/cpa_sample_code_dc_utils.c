@@ -753,10 +753,10 @@ CpaStatus startDcServices(Cpa32U buffSize, Cpa32U numBuffs)
                     return CPA_STATUS_FAIL;
                 }
 
-                tempBufferList[k]->pBuffers[0].pData =
-                    qaeMemAllocNUMA(expansionFactor_g * EXTRA_BUFFER * buffSize,
-                                    nodeId,
-                                    BYTE_ALIGNMENT_64);
+                tempBufferList[k]->pBuffers[0].pData = qaeMemAllocNUMA(
+                    (size_t)expansionFactor_g * EXTRA_BUFFER * buffSize,
+                    nodeId,
+                    BYTE_ALIGNMENT_64);
                 if (NULL == tempBufferList[k]->pBuffers[0].pData)
                 {
                     PRINT_ERR("Unable to allocate Memory for pBuffers\n");
@@ -851,8 +851,6 @@ CpaStatus stopDcServices(void)
     CpaBufferList **tempBufferList = NULL;
     Cpa16U numBuffers = 0;
 
-    /* set polling flag to default */
-    dc_polling_started_g = CPA_FALSE;
     /*stop only if the services is in a started state*/
     if (dc_service_started_g == CPA_TRUE)
     {
@@ -887,15 +885,20 @@ CpaStatus stopDcServices(void)
     }
     /* Free the corpus Data */
     freeCorpus();
-    /* Wait for all threads_g to complete */
-    for (i = 0; i < numDcPolledInstances_g; i++)
+    if (dc_polling_started_g == CPA_TRUE)
     {
-        sampleCodeThreadJoin(&dcPollingThread_g[i]);
-    }
-    if (numDcPolledInstances_g > 0)
-    {
-        qaeMemFree((void **)&dcPollingThread_g);
-        numDcPolledInstances_g = 0;
+        /* set polling flag to false */
+        dc_polling_started_g = CPA_FALSE;
+        /* Wait for all threads_g to complete */
+        for (i = 0; i < numDcPolledInstances_g; i++)
+        {
+            sampleCodeThreadJoin(&dcPollingThread_g[i]);
+        }
+        if (numDcPolledInstances_g > 0)
+        {
+            qaeMemFree((void **)&dcPollingThread_g);
+            numDcPolledInstances_g = 0;
+        }
     }
     if (dcInstances_g != NULL)
     {
@@ -1406,15 +1409,15 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
             do_div(stats.minLatency, data->numberOfThreads);
             statsLatency = 1000 * stats.minLatency;
             do_div(statsLatency, cpuFreqKHz);
-            PRINT("Min. Latency (\xC2\xB5s)      %llu\n", statsLatency);
+            PRINT("Min. Latency (uSecs)      %llu\n", statsLatency);
             do_div(stats.aveLatency, data->numberOfThreads);
             statsLatency = 1000 * stats.aveLatency;
             do_div(statsLatency, cpuFreqKHz);
-            PRINT("Ave. Latency (\xC2\xB5s)      %llu\n", statsLatency);
+            PRINT("Ave. Latency (uSecs)      %llu\n", statsLatency);
             do_div(stats.maxLatency, data->numberOfThreads);
             statsLatency = 1000 * stats.maxLatency;
             do_div(statsLatency, cpuFreqKHz);
-            PRINT("Max. Latency (\xC2\xB5s)      %llu\n", statsLatency);
+            PRINT("Max. Latency (uSecs)      %llu\n", statsLatency);
         }
 #endif
     }

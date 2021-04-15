@@ -161,7 +161,8 @@ extern thread_creation_data_t testSetupData_g[];
  *
  * ****************************************************************************/
 
-typedef enum _corpusType {
+typedef enum _corpusType
+{
     /* Canterbury Corpus */
     CANTERBURY_CORPUS = 0,
     /* Calgary Corpus*/
@@ -193,7 +194,8 @@ typedef enum _corpusType {
  *
  * ****************************************************************************/
 
-typedef enum _syncFlag {
+typedef enum _syncFlag
+{
     /*Synchronous flag*/
     CPA_SAMPLE_SYNCHRONOUS = 0,
     CPA_SAMPLE_ASYNCHRONOUS
@@ -229,7 +231,8 @@ typedef struct corpus_file_s
  *       The client needs pass provide this information in the setup
  *
  * ****************************************************************************/
-typedef enum _dpRequestType {
+typedef enum _dpRequestType
+{
     /*Synchronous flag*/
     DC_DP_BATCHING = 0,
     DC_DP_ENQUEUEING
@@ -327,6 +330,9 @@ typedef struct compression_test_params_s
     Cpa32U logicalQaInstance;
     sample_code_semaphore_t comp;
     CpaDcSessionHandle *pSessionHandle;
+    /* the Destination Buffer size obtained using
+     * Compress Bound API, for Compress operation */
+    Cpa32U dcDestBufferSize;
 } compression_test_params_t;
 
 /**
@@ -898,5 +904,50 @@ CpaStatus dcSampleCreateContextBuffer(Cpa32U buffSize,
  *
  ******************************************************************************/
 void dcSampleFreeContextBuffer(CpaBufferList *pBuffListArray);
+/**
+ * *****************************************************************************
+ *  @ingroup compressionThreads
+ *  qatGetCompressBoundDestinationBufferSize
+ *
+ *  @description
+ *      This API gets the destination buffer size for the compression request
+ *      by calling corresponding QAT Compress Bound API based on the compresison
+ *      type.
+ *
+ *  @param[in]  setup   Compression Test Params
+ *  @param[in]  dcInputBufferSize   The source Buffer size.
+ *
+ *  @param[out]  dcDestBufferSize   The destination Buffer size.
+ *
+ *  This API Returns CPA_STATUS_SUCCESS in success case.
+ *
+ ******************************************************************************/
+CpaStatus qatGetCompressBoundDestinationBufferSize(
+    compression_test_params_t *setup,
+    Cpa32U dcInputBufferSize,
+    Cpa32U *dcDestBufferSize);
+/**
+ * *****************************************************************************
+ *  qatDcGetPreTestRecoveryCount
+ *
+ *  @description
+ *      this API fill the CnV Recovery counter value before running the test in
+ *      Performance Stats member.
+ *
+ ******************************************************************************/
+CpaStatus qatDcGetPreTestRecoveryCount(compression_test_params_t *dcSetup,
+                                       CpaDcInstanceCapabilities *capabilities,
+                                       perf_data_t *performanceStats);
+/**
+ * *****************************************************************************
+ *  qatDcGetPostTestRecoveryCount
+ *
+ *  @description
+ *      this API fill the CnV Recovery counter value after running the test in
+ *      Performance Stats member. This API should be called after the test run.
+ *
+ ******************************************************************************/
+void qatDcGetPostTestRecoveryCount(compression_test_params_t *dcSetup,
+                                   perf_data_t *performanceStats);
 
 #endif /* CPA_SAMPLE_CODE_DC_PERF_H_ */

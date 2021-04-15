@@ -543,7 +543,7 @@ CpaStatus dcStatefulSample(void)
         !cap.checksumCRC32)
     {
         PRINT_ERR("Error: Unsupported functionality\n");
-        return CPA_STATUS_FAIL;
+        return CPA_STATUS_UNSUPPORTED;
     }
 
     /*

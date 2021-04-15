@@ -76,6 +76,9 @@
 #ifdef POLL_INLINE
 #include "icp_sal_poll.h"
 #endif
+#ifdef SC_DEV_INFO_ENABLED
+#include "cpa_dev.h"
+#endif
 #include "qat_perf_cycles.h"
 #define DEFAULT_H_VALUE (2)
 
@@ -266,8 +269,9 @@ static void dsaSignRSCb(void *pCallbackTag,
  *
  *****************************************************************************/
 
-static void
-processGenCB(void *pCallbackTag, CpaStatus status, CpaBoolean protocolStatus)
+static void processGenCB(void *pCallbackTag,
+                         CpaStatus status,
+                         CpaBoolean protocolStatus)
 {
     perf_data_t *pPerfData = (perf_data_t *)pCallbackTag;
     /*check perf_data pointer is valid*/
@@ -675,14 +679,14 @@ CpaStatus dsaGenZ(CpaInstanceHandle instanceHandle,
                   CpaFlatBuffer *dsaZ)
 {
     CpaStatus status = CPA_STATUS_FAIL;
-/*Z is:  The leftmost min(N, outlen) bits of Hash(M), where:
- * - N is the bit length of q
- * - outlen is the bit length of the hash function output block
- * - M is the message to be signed
- *
- * when q len = length of output of hash operation:
- *       N = outLen so Z = digest of msg
-  */
+    /* Z is:  The leftmost min(N, outlen) bits of Hash(M), where:
+     * - N is the bit length of q
+     * - outlen is the bit length of the hash function output block
+     * - M is the message to be signed
+     *
+     * when q len = length of output of hash operation:
+     *       N = outLen so Z = digest of msg
+     */
 
 
     CpaCyCapabilitiesInfo cap = {0};
@@ -1293,7 +1297,7 @@ CpaStatus dsaSignPerform(dsa_test_params_t *setup)
     /*random number X used to generate Y and Sign R&S */
     CpaFlatBuffer *dsaX = NULL;
     /*DSA P parameter, this shall be populated by the hard coded P at the top
-         * of this file */
+     * of this file */
     CpaFlatBuffer dsaP = {0};
     /*H is used to generate G, H is hard coded to DEFAULT_H_VALUE */
     CpaFlatBuffer dsaH = {0};
@@ -1751,6 +1755,9 @@ static void dsaPerformanceGen(single_thread_test_data_t *testSetup,
     CpaStatus status = CPA_STATUS_FAIL;
     dsa_test_params_t *params = (dsa_test_params_t *)testSetup->setupPtr;
     CpaInstanceInfo2 instanceInfo = {0};
+#ifdef SC_DEV_INFO_ENABLED
+    CpaDeviceInfo deviceInfo = {0};
+#endif
 
     testSetup->passCriteria = getPassCriteria();
 
@@ -1811,6 +1818,28 @@ static void dsaPerformanceGen(single_thread_test_data_t *testSetup,
         dsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
+
+#ifdef SC_DEV_INFO_ENABLED
+    /* check whether asym service enabled or not for the instance */
+    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);
+        dsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+    if (CPA_FALSE == deviceInfo.cyAsymEnabled)
+    {
+        PRINT_ERR("%s::%d Error! cyAsymEnabled service not enabled for the "
+                  "configured instance\n",
+                  __func__,
+                  __LINE__);
+        dsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+#endif
     if (instanceInfo.physInstId.packageId > packageIdCount_g)
     {
         packageIdCount_g = instanceInfo.physInstId.packageId;
@@ -1836,9 +1865,6 @@ static void dsaPerformanceGen(single_thread_test_data_t *testSetup,
     {
         PRINT("DSA Thread %u FAILED\n", testSetup->threadID);
         dsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-    }
-    else
-    {
     }
     qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);

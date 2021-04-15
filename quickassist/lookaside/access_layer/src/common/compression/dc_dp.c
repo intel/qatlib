@@ -190,7 +190,8 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
         !(pService->generic_service_info.dcExtendedFeatures &
           DC_CNV_EXTENDED_CAPABILITY))
     {
-        LAC_INVALID_PARAM_LOG("Invalid compressAndVerify, no CNV capability");
+        LAC_UNSUPPORTED_PARAM_LOG(
+            "CompressAndVerify not set, no CNV capability");
         return CPA_STATUS_UNSUPPORTED;
     }
     if ((CPA_TRUE != pOpData->compressAndVerifyAndRecover) &&
@@ -209,7 +210,7 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
         !(pService->generic_service_info.dcExtendedFeatures &
           DC_CNVNR_EXTENDED_CAPABILITY))
     {
-        LAC_INVALID_PARAM_LOG("Invalid CnVnR option set, no CnVnR capability");
+        LAC_UNSUPPORTED_PARAM_LOG("CnVnR not set, no CnVnR capability");
         return CPA_STATUS_UNSUPPORTED;
     }
     if ((CPA_DP_BUFLIST == pOpData->srcBufferLen) &&
@@ -507,9 +508,9 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
     icp_qat_fw_comp_req_t *pCurrentQatMsg = NULL;
     icp_comms_trans_handle trans_handle = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
+#ifdef ICP_PARAM_CHECK
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-#ifdef ICP_PARAM_CHECK
     status = dcDataPlaneParamCheck(pOpData);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -538,14 +539,6 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
                        ->trans_handle_compression_tx;
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
 
-    status = checkLzsSupport(pOpData->dcInstance,
-                             pSessionDesc->compType,
-                             pOpData->compressAndVerify,
-                             pOpData->sessDirection);
-    if (status != CPA_STATUS_SUCCESS)
-    {
-        return status;
-    }
 #ifdef ICP_PARAM_CHECK
     if ((CPA_DC_DIR_COMPRESS == pOpData->sessDirection) &&
         (CPA_DC_DIR_DECOMPRESS == pSessionDesc->sessDirection))
@@ -598,9 +591,9 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
     icp_comms_trans_handle trans_handle = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
     Cpa32U i = 0;
+#ifdef ICP_PARAM_CHECK
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-#ifdef ICP_PARAM_CHECK
     sal_compression_service_t *pService = NULL;
 
     LAC_CHECK_NULL_PARAM(pOpData);
@@ -641,18 +634,6 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
         }
     }
 #endif
-    for (i = 0; i < numberRequests; i++)
-    {
-        pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData[i]->pSessionHandle);
-        status = checkLzsSupport(pOpData[i]->dcInstance,
-                                 pSessionDesc->compType,
-                                 pOpData[i]->compressAndVerify,
-                                 pOpData[i]->sessDirection);
-        if (status != CPA_STATUS_SUCCESS)
-        {
-            return status;
-        }
-    }
 
 #ifdef ICP_TRACE
     LAC_LOG3("Called with params (%d, 0x%lx, %d)\n",
@@ -677,6 +658,8 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
 
     trans_handle = ((sal_compression_service_t *)pOpData[0]->dcInstance)
                        ->trans_handle_compression_tx;
+
+    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData[0]->pSessionHandle);
 
 #ifdef ICP_PARAM_CHECK
     for (i = 0; i < numberRequests; i++)

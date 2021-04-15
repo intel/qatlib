@@ -641,6 +641,7 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
     int mmap_size = 0;
     int alloc_size = 0;
     int large_memory = 0;
+    UINT8 *bitmask = NULL;
 
     if (size == 0 || alignment == 0)
     {
@@ -838,8 +839,8 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
         {
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
-                    "Bad virtual address alignment %x %x %x\n",
-                    (UARCH_INT)pMemInfo->virt_addr,
+                    "Bad virtual address alignment %p %x %x\n",
+                    pMemInfo->virt_addr,
                     NUM_PAGES_PER_ALLOC,
                     PAGE_SIZE);
             ioctl(fd, DEV_MEM_IOC_MEMFREE, pMemInfo);
@@ -848,15 +849,15 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
         }
 
         memcpy(pMemInfo->virt_addr, pMemInfo, sizeof(dev_mem_info_t));
-        *(UINT64 *)((UINT8 *)pMemInfo + USER_MEM_128BYTE_OFFSET) =
-            QWORD_MSB_SET;
+        bitmask = (UINT8 *)pMemInfo;
+        *(UINT64 *)(bitmask + USER_MEM_128BYTE_OFFSET) = QWORD_MSB_SET;
         pVirtAddress = mem_alloc(pMemInfo, size + alignment);
         if (NULL == pVirtAddress)
         {
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
-                    "Memory allocation failed Virtual address: %x Size: %x \n",
-                    (UARCH_INT)pMemInfo->virt_addr,
+                    "Memory allocation failed Virtual address: %p Size: %x \n",
+                    pMemInfo->virt_addr,
                     size + alignment);
             ioctl(fd, DEV_MEM_IOC_MEMFREE, pMemInfo);
             free(pMemInfo);
@@ -920,7 +921,7 @@ OSAL_PUBLIC void *osalMemAllocPage(UINT32 node, UINT64 *physAddr)
                                PROT_READ | PROT_WRITE,
                                MAP_PRIVATE,
                                fdp,
-                               pMemInfo->id * getpagesize());
+                               (__off_t)pMemInfo->id * getpagesize());
     if (pMemInfo->virt_addr == MAP_FAILED)
     {
         osalStdLog("Errno: %d\n", errno);
@@ -1202,8 +1203,8 @@ osalVirtToPhysNUMA(void *pVirtAddress)
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "Invalid block address %x !\n",
-                (UARCH_INT)pVirtAddress);
+                "Invalid block address %p !\n",
+                pVirtAddress);
 
         return (UINT64)0;
     }

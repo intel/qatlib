@@ -477,6 +477,21 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         IS_KEY_DEP_NO,
         NULL,
     },
+    /* CPA_CY_SYM_CIPHER_CHACHA */
+    {
+        ICP_QAT_HW_CIPHER_ALGO_CHACHA20_POLY1305,
+        ICP_QAT_HW_CIPHER_CTR_MODE,
+        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        IS_KEY_DEP_NO,
+        NULL,
+    },
+    /* RESERVED#1 in order to alinged with unsupported Algo in API repo */
+    {0},
+    /* RESERVED#2 in order to alinged with unsupported Algo in API repo */
+    {0},
+    /* RESERVED#3 in order to alinged with unsupported Algo in API repo */
+    {0},
 };
 
 /*****************************************************************************
@@ -583,7 +598,7 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
             ? ICP_QAT_HW_CIPHER_ENCRYPT
             : ICP_QAT_HW_CIPHER_DECRYPT;
 
-    LAC_ENSURE(cipherAlgorithm < CPA_CY_SYM_CIPHER_ZUC_EEA3,
+    LAC_ENSURE(cipherAlgorithm < CPA_CY_SYM_CIPHER_CHACHA,
                "Invalid cipherAlgorithm value\n");
     LAC_ENSURE(cipherDirection <= ICP_QAT_HW_CIPHER_DECRYPT,
                "Invalid cipherDirection value\n");
@@ -602,17 +617,20 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
                    "Invalid AES key size\n");
     }
 
-    /* AES_GCM single pass, despite being limited to CTR/AEAD mode,
+    /* CCP and AES_GCM single pass, despite being limited to CTR/AEAD mode,
      * support both Encrypt/Decrypt modes - this is because of the
      * differences in the hash computation/verification paths in
-     * encrypt/decrypt modes respectively. Set AEAD Mode for AES_GCM.
+     * encrypt/decrypt modes respectively.
+     * By default CCP is set as CTR Mode.Set AEAD Mode for AES_GCM.
      */
-    if ((pSession->isSinglePass) &&
-        (LAC_CIPHER_IS_GCM(pSession->cipherAlgorithm)))
+    if (pSession->isSinglePass)
     {
-        *pMode = ICP_QAT_HW_CIPHER_AEAD_MODE;
+        if (LAC_CIPHER_IS_GCM(pSession->cipherAlgorithm))
+            *pMode = ICP_QAT_HW_CIPHER_GCM_MODE;
+        else if (LAC_CIPHER_IS_CCM(pSession->cipherAlgorithm))
+            *pMode = ICP_QAT_HW_CIPHER_CCM_MODE;
 
-        if (ICP_QAT_HW_CIPHER_DECRYPT == cipherDirection)
+        if (cipherDirection == ICP_QAT_HW_CIPHER_DECRYPT)
             *pDir = ICP_QAT_HW_CIPHER_DECRYPT;
     }
 }
@@ -867,6 +885,10 @@ Cpa8U LacSymQat_CipherBlockSizeBytesGet(CpaCySymCipherAlgorithm cipherAlgorithm)
     {
         return LAC_CIPHER_NULL_BLOCK_LEN_BYTES;
     }
+    else if (LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
+    {
+        return ICP_QAT_HW_CHACHAPOLY_BLK_SZ;
+    }
     else
     {
         LAC_ENSURE(CPA_FALSE, "Algorithm not supported in Cipher");
@@ -891,6 +913,10 @@ Cpa32U LacSymQat_CipherIvSizeBytesGet(CpaCySymCipherAlgorithm cipherAlgorithm)
     else if (LAC_CIPHER_IS_ZUC_EEA3(cipherAlgorithm))
     {
         return ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
+    }
+    else if (LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
+    {
+        return ICP_QAT_HW_CHACHAPOLY_IV_SZ;
     }
     else if (LAC_CIPHER_IS_ECB_MODE(cipherAlgorithm))
     {

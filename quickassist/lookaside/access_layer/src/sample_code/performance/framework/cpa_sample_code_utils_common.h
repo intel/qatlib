@@ -88,7 +88,8 @@
  * Types & Structures
  * ****************************************************************************/
 
-typedef enum {
+typedef enum
+{
     CAT_CIPHER = 0,
     CAT_HASH,
     CAT_ALG_CHAIN,
@@ -1104,6 +1105,5 @@ void sampleCodeThreadComplete(Cpa32U threadId);
 
 Cpa32U getCPUSpeed(void);
 Cpa32U updateCPUSpeed(void);
-
 
 #endif /*_COMMON_SAMPLECODEUTILS_H__*/

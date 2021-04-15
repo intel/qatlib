@@ -1503,16 +1503,12 @@ typedef struct icp_qat_fw_cipher_auth_cd_ctrl_hdr_s
     QAT_FIELD_SET(flags, val, QAT_FW_LA_MODE2_BITPOS, QAT_FW_LA_MODE2_MASK)
 
 #define ICP_QAT_FW_CCM_GCM_AAD_SZ_MAX 240
+#define ICP_QAT_FW_SPC_AAD_SZ_MAX 0x3FFF
+
 /**< @ingroup icp_qat_fw_comn
  * Maximum size of AAD data allowed for CCM or GCM processing. AAD data size90 -
  * is stored in 8-bit field and must be multiple of hash block size. 240 is
  * largest value which satisfy both requirements.AAD_SZ_MAX is in byte units */
-
-#define ICP_QAT_FW_SPC_AAD_SZ_MAX 0x3FFF
-/**< @ingroup icp_qat_fw_comn
- * Maximum size of AAD data allowed for CHACHAPOLY or GCM single pass
- * processing.
- */
 
 /*
  * request parameter #defines
@@ -1583,13 +1579,14 @@ typedef struct icp_qat_fw_la_cipher_req_params_s
     uint16_t spc_aad_sz;
     /**< Size in bytes of AAD data to prefix to the packet
      * for ChaChaPoly or GCM processing */
+
     uint8_t reserved;
     /**< reserved */
+
     uint8_t spc_auth_res_sz;
     /**< Size in bytes of the authentication result */
 } icp_qat_fw_la_cipher_req_params_t;
 #pragma pack(pop)
-
 /**
  *****************************************************************************
  * @ingroup icp_qat_fw_la
@@ -1641,7 +1638,6 @@ typedef struct icp_qat_fw_la_cipher_20_req_params_s
     uint8_t spc_auth_res_sz;
 
 } icp_qat_fw_la_cipher_20_req_params_t;
-
 /**
  *****************************************************************************
  * @ingroup icp_qat_fw_la

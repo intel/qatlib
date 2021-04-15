@@ -98,7 +98,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      ECDSA Sign R Operation Data.
  * @description
@@ -147,7 +146,6 @@ typedef struct _CpaCyEcdsaSignROpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      ECDSA Sign S Operation Data.
  * @description
@@ -191,7 +189,6 @@ typedef struct _CpaCyEcdsaSignSOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      ECDSA Sign R & S Operation Data.
  * @description
@@ -243,7 +240,6 @@ typedef struct _CpaCyEcdsaSignRSOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      ECDSA Verify Operation Data, for Public Key.
 
@@ -300,7 +296,6 @@ typedef struct _CpaCyEcdsaVerifyOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Cryptographic ECDSA Statistics.
  * @description
@@ -375,7 +370,6 @@ typedef struct _CpaCyEcdsaStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Definition of a generic callback function invoked for a number of the
  *      ECDSA Sign API functions.
@@ -426,7 +420,6 @@ typedef void (*CpaCyEcdsaGenSignCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Definition of callback function invoked for cpaCyEcdsaSignRS
  *      requests.
@@ -479,7 +472,6 @@ typedef void (*CpaCyEcdsaSignRSCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Definition of callback function invoked for cpaCyEcdsaVerify requests.
  *
@@ -525,7 +517,6 @@ typedef void (*CpaCyEcdsaVerifyCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Generate ECDSA Signature R.
  *
@@ -597,7 +588,6 @@ cpaCyEcdsaSignR(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Generate ECDSA Signature S.
  *
@@ -669,7 +659,6 @@ cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Generate ECDSA Signature R & S.
  *
@@ -742,7 +731,6 @@ cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Verify ECDSA Public Key.
  *
@@ -816,7 +804,6 @@ cpaCyEcdsaVerify(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdsa.h
  * @ingroup cpaCyEcdsa
  *      Query statistics for a specific ECDSA instance.
  *

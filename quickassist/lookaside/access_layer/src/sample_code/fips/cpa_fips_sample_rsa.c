@@ -742,11 +742,11 @@ finish:
  * @post
  *      none
  *****************************************************************************/
-static inline void
-findAndSetLargestSmallestBuffer(const CpaFlatBuffer *restrict pInputBuffer1,
-                                const CpaFlatBuffer *restrict pInputBuffer2,
-                                CpaFlatBuffer *pLargerResultTarget,
-                                CpaFlatBuffer *pSmallerResultTarget)
+static inline void findAndSetLargestSmallestBuffer(
+    const CpaFlatBuffer *restrict pInputBuffer1,
+    const CpaFlatBuffer *restrict pInputBuffer2,
+    CpaFlatBuffer *pLargerResultTarget,
+    CpaFlatBuffer *pSmallerResultTarget)
 {
     /*Note, if buffers contain the same number, this returns false*/
     if (CPA_TRUE == isFbALessThanFbB(pInputBuffer1, pInputBuffer2))
@@ -1626,18 +1626,18 @@ finish:
  *      The Xp values should be cleared before returning to the module.
  *      It is stored only for FIPS audit reasons.
  *****************************************************************************/
-static CpaStatus
-rsaGeneratePrime1Prime2AndPrime(CpaFlatBuffer *pXp1,
-                                CpaFlatBuffer *pXp2,
-                                CpaFlatBuffer *pXp,
-                                CpaFlatBuffer *pP1,
-                                CpaFlatBuffer *pP2,
-                                CpaFlatBuffer *pP,
-                                CpaFlatBuffer *pE,
-                                Cpa32U nlenBits,
-                                Cpa32U securityStrength,
-                                CpaBoolean haveFipsTestXValues,
-                                const CpaInstanceHandle instanceHandle)
+static CpaStatus rsaGeneratePrime1Prime2AndPrime(
+    CpaFlatBuffer *pXp1,
+    CpaFlatBuffer *pXp2,
+    CpaFlatBuffer *pXp,
+    CpaFlatBuffer *pP1,
+    CpaFlatBuffer *pP2,
+    CpaFlatBuffer *pP,
+    CpaFlatBuffer *pE,
+    Cpa32U nlenBits,
+    Cpa32U securityStrength,
+    CpaBoolean haveFipsTestXValues,
+    const CpaInstanceHandle instanceHandle)
 {
     /*get first small prime*/
     if (CPA_STATUS_SUCCESS != rsaGenerateSmallPrime(pXp1,
@@ -1700,10 +1700,10 @@ rsaGeneratePrime1Prime2AndPrime(CpaFlatBuffer *pXp1,
  * @post
  *      none
  *****************************************************************************/
-static Cpa32U
-getFlatBuffNumberSizeDifference(const CpaFlatBuffer *restrict pInputBuffer1,
-                                const CpaFlatBuffer *restrict pInputBuffer2,
-                                const CpaInstanceHandle instanceHandle)
+static Cpa32U getFlatBuffNumberSizeDifference(
+    const CpaFlatBuffer *restrict pInputBuffer1,
+    const CpaFlatBuffer *restrict pInputBuffer2,
+    const CpaInstanceHandle instanceHandle)
 {
 
     Cpa32U sizeDifference = 0;
@@ -1788,13 +1788,13 @@ getFlatBuffNumberSizeDifference(const CpaFlatBuffer *restrict pInputBuffer1,
  *      If this function returns CPA_FALSE, the input parameters must be
  *      re-generated
  *****************************************************************************/
-static CpaBoolean
-checkXPXQandPQValuesBitLengthDifference(const CpaFlatBuffer *restrict pXp,
-                                        const CpaFlatBuffer *restrict pXq,
-                                        const CpaFlatBuffer *restrict pP,
-                                        const CpaFlatBuffer *restrict pQ,
-                                        Cpa32U nlenBits,
-                                        const CpaInstanceHandle instanceHandle)
+static CpaBoolean checkXPXQandPQValuesBitLengthDifference(
+    const CpaFlatBuffer *restrict pXp,
+    const CpaFlatBuffer *restrict pXq,
+    const CpaFlatBuffer *restrict pP,
+    const CpaFlatBuffer *restrict pQ,
+    Cpa32U nlenBits,
+    const CpaInstanceHandle instanceHandle)
 {
 
     const Cpa32S minBits =
@@ -2329,10 +2329,10 @@ static CpaStatus rsaSignPSS(usr_rsa_data_t *pRsaData,
     Cpa32U pslen = 0;
     Cpa32U securityStrength = CPA_CY_RBG_SEC_STRENGTH_128;
 
-/*PKCS#1 v2.1 section 9.1.2, part 1 -
-  Check if M is less than the Hash function max input size*/
-/*Max message size for SHA1 is 61 bits, max supported input size for
-  Quick Assist API is 32 bits, so we don't need to do this check.*/
+    /*PKCS#1 v2.1 section 9.1.2, part 1 -
+      Check if M is less than the Hash function max input size*/
+    /*Max message size for SHA1 is 61 bits, max supported input size for
+      Quick Assist API is 32 bits, so we don't need to do this check.*/
 
 
     status = getHashBytes(pRsaData->shaAlg, &hlen);
@@ -2606,10 +2606,10 @@ static CpaStatus rsaVerPSS(usr_rsa_data_t *pRsaData,
     /*default for signature check is 'inconsistent' result*/
     pRsaData->sigVerified = CPA_FALSE;
 
-/*PKCS#1 v2.1 section 9.1.2, part 1 -
-  Check M is not greater than max hash length*/
-/*Max message size for SHA1 is 61 bits, max supported input size for
-  Quick Assist API is 32 bits, so we don't need to do this check.*/
+    /*PKCS#1 v2.1 section 9.1.2, part 1 -
+      Check M is not greater than max hash length*/
+    /*Max message size for SHA1 is 61 bits, max supported input size for
+      Quick Assist API is 32 bits, so we don't need to do this check.*/
 
 
     status = getHashBytes(pRsaData->shaAlg, &mHash.dataLenInBytes);
@@ -2716,7 +2716,7 @@ static CpaStatus rsaVerPSS(usr_rsa_data_t *pRsaData,
     /*PKCS#1 v2.1 section 9.1.2, part 8 - maskedDB = DB XOR dbMask*/
     fipsSampleBufXOR(maskedDB.pData, dbMask.pData, dbMask.dataLenInBytes);
 
-       /*PKCS#1 v2.1 section 9.1.2, part 9 - set 8Emlen - EmBits bits to zero*/
+    /*PKCS#1 v2.1 section 9.1.2, part 9 - set 8Emlen - EmBits bits to zero*/
     FIPS_SAMPLE_UNSET_TOP_BIT(maskedDB.pData[0]);
 
     for (i = 0; i < pslen; i++)

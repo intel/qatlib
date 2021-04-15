@@ -103,6 +103,14 @@
 /* ARC4 256 bytes for key matrix, 2 for i and j and 6 bytes for padding */
 #define LAC_CIPHER_ARC4_STATE_LEN_BYTES 264
 
+/*
+ * Constant values for CCM AAD buffer
+ */
+#define LAC_CIPHER_CCM_B0_SIZE 16
+#define LAC_CIPHER_CCM_ENCODED_AAD_LEN_SIZE 2
+#define LAC_CIPHER_CCM_AAD_OFFSET                                              \
+    (LAC_CIPHER_CCM_B0_SIZE + LAC_CIPHER_CCM_ENCODED_AAD_LEN_SIZE)
+
 #define LAC_SYM_SNOW3G_CIPHER_CONFIG_FOR_HASH_SZ 40
 /* Snow3g cipher config required for performing a Snow3g hash operation.
  * It contains 8 Bytes of config for hardware, 16 Bytes of Key and requires
@@ -143,13 +151,14 @@
 
 /* 96-bit case of IV for CCP/GCM single pass algorithm */
 #define LAC_CIPHER_SPC_IV_SIZE 12
-
 /*
  * Constants value for NULL algorithm
  */
 /* NULL algorithm block size */
 #define LAC_CIPHER_NULL_BLOCK_LEN_BYTES 8
 
+/* Macro to check if the Algorithm is CHACHA */
+#define LAC_CIPHER_IS_CHACHA(algo) (algo == CPA_CY_SYM_CIPHER_CHACHA)
 /* Macro to check if the Algorithm is AES */
 #define LAC_CIPHER_IS_AES(algo)                                                \
     ((algo == CPA_CY_SYM_CIPHER_AES_ECB) ||                                    \
@@ -188,7 +197,7 @@
 #define LAC_CIPHER_IS_CTR_MODE(algo)                                           \
     ((algo == CPA_CY_SYM_CIPHER_AES_CTR) ||                                    \
      (algo == CPA_CY_SYM_CIPHER_3DES_CTR) || (LAC_CIPHER_IS_CCM(algo)) ||      \
-     (LAC_CIPHER_IS_GCM(algo)))
+     (LAC_CIPHER_IS_GCM(algo)) || (LAC_CIPHER_IS_CHACHA(algo)))
 
 /* Macro to check if the Algorithm is ECB */
 #define LAC_CIPHER_IS_ECB_MODE(algo)                                           \
@@ -221,11 +230,29 @@
 /* Macro to check if the Algorithm Mode is XTS */
 #define LAC_CIPHER_IS_XTS_MODE(algo) (algo == CPA_CY_SYM_CIPHER_AES_XTS)
 
-/* Macro to check if the Algorithm is single pass */
-#define LAC_CIPHER_IS_SPC(cipher, hash, mask)                                  \
+/* Macro to check if the accelerator has AES V2 capability */
+#define LAC_CIPHER_AES_V2(mask) ((mask)&ICP_ACCEL_CAPABILITIES_AES_V2)
+
+/* Macro to check if the Algorithm is single pass AES GCM/GMAC */
+#define LAC_CIPHER_IS_SPC_GCM(cipher, hash, mask)                              \
     (LAC_CIPHER_IS_GCM(cipher) &&                                              \
      ((CPA_CY_SYM_HASH_AES_GCM == hash) ||                                     \
       (CPA_CY_SYM_HASH_AES_GMAC == hash)) &&                                   \
      ((mask)&ICP_ACCEL_CAPABILITIES_AESGCM_SPC))
+
+/* Macro to check if the Algorithm is single pass ChaChaPoly */
+#define LAC_CIPHER_IS_SPC_CCP(cipher, hash, mask)                              \
+    (LAC_CIPHER_IS_CHACHA(cipher) && (CPA_CY_SYM_HASH_POLY == hash) &&         \
+     ((mask)&ICP_ACCEL_CAPABILITIES_CHACHA_POLY))
+
+/* Macro to check if the Algorithm is single pass AES CCM */
+#define LAC_CIPHER_IS_SPC_CCM(cipher, hash, mask)                              \
+    (LAC_CIPHER_IS_CCM(cipher) && LAC_CIPHER_AES_V2(mask))
+
+/* Macro to check if the Algorithm is single pass */
+#define LAC_CIPHER_IS_SPC(cipher, hash, mask)                                  \
+    (LAC_CIPHER_IS_SPC_GCM(cipher, hash, mask) ||                              \
+     LAC_CIPHER_IS_SPC_CCP(cipher, hash, mask) ||                              \
+     LAC_CIPHER_IS_SPC_CCM(cipher, hash, mask))
 
 #endif /* LAC_CIPHER_DEFS_H */

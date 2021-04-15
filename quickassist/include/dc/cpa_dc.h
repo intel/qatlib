@@ -95,7 +95,6 @@ extern"C" {
 
 /**
  *****************************************************************************
- * @file cpa_dc.h
  * @ingroup cpaDc
  *      CPA Dc Major Version Number
  * @description
@@ -109,7 +108,6 @@ extern"C" {
 
 /**
  *****************************************************************************
- * @file cpa_dc.h
  * @ingroup cpaDc
  *       CPA DC Minor Version Number
  * @description
@@ -119,7 +117,7 @@ extern"C" {
  *      this interface.
  *
  *****************************************************************************/
-#define CPA_DC_API_VERSION_NUM_MINOR (4)
+#define CPA_DC_API_VERSION_NUM_MINOR (6)
 
 /**
  *****************************************************************************
@@ -431,6 +429,8 @@ typedef enum _CpaDcReqStatus
     CPA_DC_EMPTY_DYM_BLK = -19,
     /**< Decompression request contained an empty dynamic stored block
      * (not supported) */
+    CPA_DC_CRC_INTEG_ERR = -20,
+    /**< A data integrity CRC error was detected */
 } CpaDcReqStatus;
 
 /**
@@ -442,6 +442,9 @@ typedef enum _CpaDcReqStatus
  *      This enumeration lists the supported modes for automatically selecting
  *      the best Huffman encoding which would lead to the best compression
  *      results.
+ *
+ *      The CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS value is deprecated
+ *      and should not be used.
  *
  *****************************************************************************/
 typedef enum _CpaDcAutoSelectBest
@@ -645,6 +648,9 @@ typedef struct _CpaDcInstanceCapabilities  {
              * by compressAndVerify by generating a stored block in the
              * compressed output data buffer. This stored block replaces any
              * compressed content that resulted in a compressAndVerify error. */
+        CpaBoolean integrityCrcs;
+            /**<True if the instance supports integrity CRC checking in the
+             * compression/decompression datapath. */
         CPA_BITMAP(dcChainCapInfo, CPA_DC_CHAIN_CAP_BITMAP_SIZE);
            /**< Bitmap representing which chaining capabilities are supported by the instance.
               * Bits can be tested using the macro @ref CPA_BITMAP_BIT_TEST.
@@ -694,9 +700,9 @@ typedef struct _CpaDcSessionSetupData  {
          * has a larger window size.
          * As of v1.6 of the Compression API, this field has been deprecated and
          * should not be used. */
-        CpaDcChecksum   checksum;
+        CpaDcChecksum checksum;
         /**<Desired checksum required for the session */
-} CpaDcSessionSetupData ;
+} CpaDcSessionSetupData;
 
 /**
  *****************************************************************************
@@ -750,7 +756,7 @@ typedef struct _CpaDcStats  {
         Cpa64U numDecompCompletedErrors;
           /**< Decompression requests not completed due to errors */
 
-} CpaDcStats ;
+} CpaDcStats;
 
 /**
  *****************************************************************************
@@ -771,7 +777,7 @@ typedef struct _CpaDcStats  {
  *
  ****************************************************************************/
 typedef struct _CpaDcRqResults  {
-        CpaDcReqStatus  status;
+        CpaDcReqStatus status;
           /**< Additional status details from accelerator */
         Cpa32U produced;
           /**< Octets produced by the operation */
@@ -783,7 +789,46 @@ typedef struct _CpaDcRqResults  {
        CpaBoolean endOfLastBlock;
           /**< Decompression operation has stopped at the end of the last
            * block in a deflate stream. */
-} CpaDcRqResults ;
+} CpaDcRqResults;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Integrity CRC calculation details
+ * @description
+ *      This structure contains information about resulting integrity CRC
+ *      calculations performed for a single request.
+ *
+ ****************************************************************************/
+typedef struct _CpaIntegrityCrc {
+        Cpa32U iCrc;   /**< CRC calculated on request's input  buffer */
+        Cpa32U oCrc;   /**< CRC calculated on request's output buffer */
+} CpaIntegrityCrc;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Collection of CRC related data
+ * @description
+ *      This structure contains data facilitating CRC calculations.
+ *      After successful request, this structure will contain
+ *      all resulting CRCs.
+ *      Integrity specific CRCs (when enabled/supported) are located in
+ *      'CpaIntegrityCrc integrityCrc' field.
+ * @note
+ *      this structure must be allocated in physical contiguous memory
+ *
+ ****************************************************************************/
+typedef struct _CpaCrcData {
+        Cpa32U crc32;
+        /**< CRC32 calculated on the input buffer during compression
+         * requests and on the output buffer during decompression requests. */
+        Cpa32U adler32;
+        /**< ADLER32 calculated on the input buffer during compression
+         * requests and on the output buffer during decompression requests. */
+        CpaIntegrityCrc integrityCrc;
+          /**< Integrity CRCs */
+} CpaCrcData;
 
 /**
  *****************************************************************************
@@ -836,11 +881,27 @@ typedef struct _CpaDcOpData  {
          * compressAndVerifyAndRecover capability.
          * The compressAndVerify field in CpaDcOpData MUST be set to CPA_TRUE
          * if compressAndVerifyAndRecover is set to CPA_TRUE. */
-         CpaDcSkipData inputSkipData;
+        CpaBoolean integrityCrcCheck;
+        /**< If set to true, the implementation will verify that data
+         * integrity is preserved through the processing pipeline.
+         * This behaviour supports stateless and stateful behavior for
+         * both static and dynamic Huffman encoding.
+         *
+         * Integrity CRC checking is not supported for decompression operations
+         * over data that contains multiple gzip headers. */
+        CpaBoolean verifyHwIntegrityCrcs;
+        /**< If set to true, software calculated CRCs will be compared
+         * against hardware generated integrity CRCs to ensure that data
+         * integrity is maintained when transferring data to and from the
+         * hardware accelerator. */
+        CpaDcSkipData inputSkipData;
         /**< Optional skip regions in the input buffers */
         CpaDcSkipData outputSkipData;
         /**< Optional skip regions in the output buffers */
-} CpaDcOpData ;
+        CpaCrcData *pCrcData;
+        /**< Pointer to CRCs for this operation, when integrity checks
+         * are enabled. */
+} CpaDcOpData;
 
 /**
  *****************************************************************************
@@ -1155,6 +1216,58 @@ CpaStatus cpaDcUpdateSession(const CpaInstanceHandle dcInstance,
 CpaStatus
 cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
         CpaDcSessionHandle pSessionHandle );
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Deflate Compression Bound API
+ *
+ * @description
+ *      This function provides the maximum output buffer size for a Deflate
+ *      compression operation in the "worst case" (non-compressible) scenario.
+ *      It's primary purpose is for output buffer memory allocation.
+ *
+ * @context
+ *      This is a synchronous function that will not sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]      dcInstance      Instance handle.
+ * @param[in]      huffType        CpaDcHuffType to be used with this operation.
+ * @param[in]      inputSize       Input Buffer size.
+ * @param[out]     outputSize      Maximum output buffer size.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The component has been initialized via cpaDcStartInstance function.
+ * @post
+ *      None
+ * @note
+ *      This is a synchronous function and has no completion callback
+ *      associated with it.
+ *
+ * @see
+ *      None
+ *
+ *****************************************************************************/
+CpaStatus
+cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
+        CpaDcHuffType huffType,
+        Cpa32U inputSize,
+        Cpa32U *outputSize );
 
 /**
  *****************************************************************************

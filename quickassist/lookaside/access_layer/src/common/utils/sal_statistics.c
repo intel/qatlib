@@ -157,6 +157,7 @@ CpaStatus SalStatistics_InitStatisticsCollection(icp_accel_dev_t *device)
         LAC_LOG_ERROR("Failed to allocate memory for statistic.\n");
         return status;
     }
+    LAC_OS_BZERO(pStatsCollection, sizeof(sal_statistics_collection_t));
     device->pQatStats = pStatsCollection;
 
     status = SalStatistics_GetStatEnabled(

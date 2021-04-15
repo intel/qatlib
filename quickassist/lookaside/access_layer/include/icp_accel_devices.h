@@ -80,17 +80,43 @@
 #include "cpa.h"
 #include "Osal.h"
 
-#include "adf.h"
+#define ADF_CFG_MAX_STR_LEN 128
+#define MAX_DEVICE_NAME_SIZE 32
+#define ADF_DEVICE_NAME_LENGTH 32
+#define ADF_CFG_MAX_STR_LEN 128
+#define ADF_CFG_MAX_KEY_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
+#define ADF_CFG_MAX_VAL_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
+#define ADF_CFG_MAX_SECTION_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
+#define ADF_MAX_DEVICES (32 * 32)
+enum dev_sku_info
+{
+    DEV_SKU_1 = 0,
+    DEV_SKU_2,
+    DEV_SKU_3,
+    DEV_SKU_4,
+    DEV_SKU_VF,
+    DEV_SKU_UNKNOWN,
+};
+
+enum adf_event
+{
+    ADF_EVENT_INIT = 0,
+    ADF_EVENT_START,
+    ADF_EVENT_STOP,
+    ADF_EVENT_SHUTDOWN,
+    ADF_EVENT_RESTARTING,
+    ADF_EVENT_RESTARTED,
+    ADF_EVENT_ERROR,
+};
+
 
 #ifdef KERNEL_SPACE
 #include "adf_common_drv.h"
 #else
 #define ADF_CFG_NO_INSTANCE 0xFFFFFFFF
-
 #define ADF_CTL_DEVICE_NAME "/dev/qat_adf_ctl"
 #endif /* KERNEL_SPACE */
 
-#define ICP_RX_RINGS_OFFSET 8
 #define ADF_DEVICE_TYPE_LENGTH 16
 
 /**
@@ -109,7 +135,7 @@ typedef enum
     ICP_ACCEL_CAPABILITIES_CIPHER = 0x04,
     ICP_ACCEL_CAPABILITIES_AUTHENTICATION = 0x08,
     ICP_ACCEL_CAPABILITIES_COMPRESSION = 0x20,
-    ICP_ACCEL_CAPABILITIES_LZS_COMPRESSION = 0x40,
+    ICP_ACCEL_CAPABILITIES_DEPRECATED = 0x40,
     ICP_ACCEL_CAPABILITIES_RANDOM_NUMBER = 0x80,
     ICP_ACCEL_CAPABILITIES_CRYPTO_ZUC = 0x100,
     ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3 = 0x200,
@@ -118,7 +144,19 @@ typedef enum
     ICP_ACCEL_CAPABILITIES_HKDF = 0x1000,
     ICP_ACCEL_CAPABILITIES_ECEDMONT = 0x2000,
     ICP_ACCEL_CAPABILITIES_EXT_ALGCHAIN = 0x4000,
-    ICP_ACCEL_CAPABILITIES_AESGCM_SPC = 0x8000
+    ICP_ACCEL_CAPABILITIES_SHA3_EXT = 0x8000,
+    ICP_ACCEL_CAPABILITIES_AESGCM_SPC = 0x10000,
+    ICP_ACCEL_CAPABILITIES_CHACHA_POLY = 0x20000,
+    ICP_ACCEL_CAPABILITIES_SM2 = 0x40000,
+    ICP_ACCEL_CAPABILITIES_SM3 = 0x80000,
+    ICP_ACCEL_CAPABILITIES_SM4 = 0x100000,
+    ICP_ACCEL_CAPABILITIES_INLINE = 0x200000,
+    ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY = 0x400000,
+    ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY64 = 0x800000,
+    ICP_ACCEL_CAPABILITIES_LZ4_COMPRESSION = 0x1000000,
+    ICP_ACCEL_CAPABILITIES_LZ4S_COMPRESSION = 0x2000000,
+    ICP_ACCEL_CAPABILITIES_AES_V2 = 0x4000000,
+    ICP_ACCEL_CAPABILITIES_KPT2 = 0x8000000,
 } icp_accel_capabilities_t;
 
 /**
@@ -140,9 +178,24 @@ typedef enum device_type_e
     DEVICE_C3XXXVF,
     DEVICE_D15XX,
     DEVICE_D15XXVF,
+    DEVICE_200XX,
+    DEVICE_200XXVF,
     DEVICE_4XXX,
     DEVICE_4XXXVF
 } device_type_t;
+
+/*
+ * Macro for checking if given device_type_t enum value
+ * belongs to QAT 4 generation.
+ */
+#ifdef IS_QAT_4XXX
+#undef IS_QAT_4XXX
+#endif
+#define IS_QAT_4XXX(dev_type)                                                  \
+    ({                                                                         \
+        int _dt = dev_type;                                                    \
+        _dt == DEVICE_4XXX || _dt == DEVICE_4XXXVF;                            \
+    })
 
 /*
  * Enumeration on Service Type
@@ -180,6 +233,9 @@ typedef struct accel_dev_s
     struct accel_dev_s *pPrev;
     struct accel_dev_s *pNext;
 #endif
+    Cpa32U deviceMemAvail; /* Device memory for intermediate buffers */
+    Cpa32U pciDevId;
+    CpaBoolean isVf; /* Device runs on a virtual function */
     Cpa32U arb_mask;
     void *ioPriv;
 } icp_accel_dev_t;

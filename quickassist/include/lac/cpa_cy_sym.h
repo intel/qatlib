@@ -90,7 +90,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Cryptographic component symmetric session context handle.
  * @description
@@ -108,7 +107,6 @@ typedef void * CpaCySymSessionCtx;
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Packet type for the cpaCySymPerformOp function
  *
@@ -143,7 +141,6 @@ typedef enum _CpaCySymPacketType
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Types of operations supported by the cpaCySymPerformOp function.
  * @description
@@ -176,7 +173,6 @@ typedef enum _CpaCySymOp
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Cipher algorithms.
  * @description
@@ -225,12 +221,25 @@ typedef enum _CpaCySymCipherAlgorithm
     /**< AES algorithm in F8 mode */
     CPA_CY_SYM_CIPHER_AES_XTS,
     /**< AES algorithm in XTS mode */
-    CPA_CY_SYM_CIPHER_ZUC_EEA3
+    CPA_CY_SYM_CIPHER_ZUC_EEA3,
     /**< ZUC algorithm in EEA3 mode */
+    CPA_CY_SYM_CIPHER_CHACHA,
+    /**< ChaCha20 Cipher Algorithm. This cipher is only supported for
+     * algorithm chaining. When selected, the hash algorithm must be set to
+     * CPA_CY_SYM_HASH_POLY and the hash mode must be set to
+     * CPA_CY_SYM_HASH_MODE_AUTH. */
+    CPA_CY_SYM_CIPHER_SM4_ECB,
+    /**< SM4 algorithm in ECB mode This cipher supports 128 bit keys only and
+     * does not support partial processing. */
+    CPA_CY_SYM_CIPHER_SM4_CBC,
+    /**< SM4 algorithm in CBC mode This cipher supports 128 bit keys only and
+     * does not support partial processing. */
+    CPA_CY_SYM_CIPHER_SM4_CTR
+    /**< SM4 algorithm in CTR mode This cipher supports 128 bit keys only and
+     * does not support partial processing. */
 } CpaCySymCipherAlgorithm;
 
 /**
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Size of bitmap needed for cipher "capabilities" type.
  *
@@ -250,7 +259,6 @@ typedef enum _CpaCySymCipherAlgorithm
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Symmetric Cipher Direction
  * @description
@@ -267,7 +275,6 @@ typedef enum _CpaCySymCipherDirection
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Symmetric Cipher Setup Data.
  * @description
@@ -310,7 +317,6 @@ typedef struct _CpaCySymCipherSetupData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Symmetric Hash mode
  * @description
@@ -335,7 +341,6 @@ typedef enum _CpaCySymHashMode
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Hash algorithms.
  * @description
@@ -393,16 +398,49 @@ typedef enum _CpaCySymHashAlgorithm
      * CPA_CY_SYM_HASH_MODE_AUTH. Only 128-bit keys are supported. */
     CPA_CY_SYM_HASH_ZUC_EIA3,
     /**< ZUC algorithm in EIA3 mode */
-    CPA_CY_SYM_HASH_SHA3_256
+    CPA_CY_SYM_HASH_SHA3_256,
     /**< 256 bit SHA-3 algorithm. Only CPA_CY_SYM_HASH_MODE_PLAIN and
      * CPA_CY_SYM_HASH_MODE_AUTH are supported, that is, the hash
-     * mode CPA_CY_SYM_HASH_MODE_NESTED is not support for this algorithm.
+     * mode CPA_CY_SYM_HASH_MODE_NESTED is not supported for this algorithm.
      * Partial requests are not supported, that is, only requests
      * of CPA_CY_SYM_PACKET_TYPE_FULL are supported. */
-} CpaCySymHashAlgorithm;
+    CPA_CY_SYM_HASH_SHA3_224,
+    /**< 224 bit SHA-3 algorithm. Only CPA_CY_SYM_HASH_MODE_PLAIN and
+     * CPA_CY_SYM_HASH_MODE_AUTH are supported, that is, the hash
+     * mode CPA_CY_SYM_HASH_MODE_NESTED is not supported for this algorithm.
+     */
+    CPA_CY_SYM_HASH_SHA3_384,
+    /**< 384 bit SHA-3 algorithm. Only CPA_CY_SYM_HASH_MODE_PLAIN and
+     * CPA_CY_SYM_HASH_MODE_AUTH are supported, that is, the hash
+     * mode CPA_CY_SYM_HASH_MODE_NESTED is not supported for this algorithm.
+     * Partial requests are not supported, that is, only requests
+     * of CPA_CY_SYM_PACKET_TYPE_FULL are supported. */
+    CPA_CY_SYM_HASH_SHA3_512,
+    /**< 512 bit SHA-3 algorithm. Only CPA_CY_SYM_HASH_MODE_PLAIN and
+     * CPA_CY_SYM_HASH_MODE_AUTH are supported, that is, the hash
+     * mode CPA_CY_SYM_HASH_MODE_NESTED is not supported for this algorithm.
+     * Partial requests are not supported, that is, only requests
+     * of CPA_CY_SYM_PACKET_TYPE_FULL are supported. */
+    CPA_CY_SYM_HASH_SHAKE_128,
+    /**< 128 bit SHAKE algorithm. This is only supported in the hash
+     * mode CPA_CY_SYM_HASH_MODE_PLAIN. Partial requests are not
+     * supported, that is, only requests of CPA_CY_SYM_PACKET_TYPE_FULL
+     * are supported. */
+    CPA_CY_SYM_HASH_SHAKE_256,
+    /**< 256 bit SHAKE algorithm. This is only supported in the hash
+     * mode CPA_CY_SYM_HASH_MODE_PLAIN. Partial requests are not
+     * supported, that is, only requests of CPA_CY_SYM_PACKET_TYPE_FULL
+     * are supported. */
+    CPA_CY_SYM_HASH_POLY,
+    /**< Poly1305 hash algorithm. This is only supported in the hash mode
+     * CPA_CY_SYM_HASH_MODE_AUTH. This hash algorithm is only supported
+     * as part of an algorithm chain with AES_CY_SYM_CIPHER_CHACHA to
+     * implement the ChaCha20-Poly1305 AEAD algorithm. */
+    CPA_CY_SYM_HASH_SM3
+    /**< SM3 hash algorithm. Supported in all 3 hash modes. */
+ } CpaCySymHashAlgorithm;
 
 /**
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Size of bitmap needed for hash "capabilities" type.
  *
@@ -421,7 +459,6 @@ typedef enum _CpaCySymHashAlgorithm
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Hash Mode Nested Setup Data.
  * @description
@@ -453,7 +490,6 @@ typedef struct _CpaCySymHashNestedModeSetupData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Hash Auth Mode Setup Data.
  * @description
@@ -510,7 +546,6 @@ typedef struct _CpaCySymHashAuthModeSetupData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Hash Setup Data.
  * @description
@@ -555,7 +590,6 @@ typedef struct _CpaCySymHashSetupData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Algorithm Chaining Operation Ordering
  * @description
@@ -635,7 +669,6 @@ typedef enum _CpaCySymAlgChainOrder
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Session Setup Data.
  * @description
@@ -697,17 +730,16 @@ typedef struct _CpaCySymSessionSetupData  {
      * buffer when digest verification fails.
      */
     CpaBoolean partialsNotRequired;
-    /**< This flag indicates if partial packet processing is required for this 
+    /**< This flag indicates if partial packet processing is required for this
      * session. If set to true, partial packet processing will not be enabled
-     * for this session and any calls to cpaCySymPerformOp() with the 
-     * packetType parameter set to a value other than 
+     * for this session and any calls to cpaCySymPerformOp() with the
+     * packetType parameter set to a value other than
      * CPA_CY_SYM_PACKET_TYPE_FULL will fail.
      */
 } CpaCySymSessionSetupData ;
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Session Update Data.
  * @description
@@ -741,7 +773,6 @@ typedef struct _CpaCySymSessionUpdateData  {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Cryptographic Component Operation Data.
  * @description
@@ -851,7 +882,8 @@ typedef struct _CpaCySymOpData {
      *
      * @note For AES-GMAC (@ref CPA_CY_SYM_HASH_AES_GMAC) mode of
      * operation, this field specifies the length of the AAD data in the
-     * source buffer.
+     * source buffer. The maximum length supported for AAD data for AES-GMAC
+     * is 16383 bytes.
      *
      * @note On some implementations, this length may be limited to a 16-bit
      * value (65535 bytes).
@@ -936,7 +968,6 @@ typedef struct _CpaCySymOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Setup the nonce for CCM.
  * @description
@@ -951,7 +982,6 @@ typedef struct _CpaCySymOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Setup the additional authentication data for CCM.
  * @description
@@ -966,7 +996,6 @@ typedef struct _CpaCySymOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Cryptographic Component Statistics.
  * @deprecated
@@ -1002,7 +1031,6 @@ typedef struct _CpaCySymStats {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Cryptographic Component Statistics (64-bit version).
  * @description
@@ -1035,7 +1063,6 @@ typedef struct _CpaCySymStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Definition of callback function
  *
@@ -1103,7 +1130,6 @@ typedef void (*CpaCySymCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Gets the size required to store a session context.
  *
@@ -1179,7 +1205,6 @@ cpaCySymSessionCtxGetSize(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Gets the minimum size required to store a session context.
  *
@@ -1248,7 +1273,6 @@ cpaCySymSessionCtxGetDynamicSize(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Initialize a session for symmetric cryptographic API.
  *
@@ -1325,7 +1349,6 @@ cpaCySymInitSession(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Remove (delete) a symmetric cryptographic session.
  *
@@ -1382,7 +1405,6 @@ cpaCySymRemoveSession(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Update a session.
  *
@@ -1439,7 +1461,6 @@ cpaCySymUpdateSession(CpaCySymSessionCtx sessionCtx,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Indicates whether there are outstanding requests on a given
  *      session.
@@ -1462,7 +1483,6 @@ cpaCySymSessionInUse(CpaCySymSessionCtx sessionCtx,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Perform a symmetric cryptographic operation on an existing session.
  *
@@ -1517,6 +1537,13 @@ cpaCySymSessionInUse(CpaCySymSessionCtx sessionCtx,
  *      - The cipher or hash algorithm is NOT one of Kasumi or SNOW3G
  *
  *      - The cipher mode is NOT F8 mode.
+ *
+ *      - The hash algorithm is NOT SHAKE
+ *
+ *      - The cipher algorithm is not SM4
+ *
+ *      - The cipher algorithm is not CPA_CY_SYM_CIPHER_CHACHA and the hash
+ *        algorithm is not CPA_CY_SYM_HASH_POLY.
  *
  *      - The instance/implementation supports partial packets as one of
  *        its capabilities (see @ref CpaCySymCapabilitiesInfo).
@@ -1627,7 +1654,6 @@ cpaCySymPerformOp(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Query symmetric cryptographic statistics for a specific instance.
  *
@@ -1688,7 +1714,6 @@ cpaCySymQueryStats(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Query symmetric cryptographic statistics (64-bit version) for a
  *      specific instance.
@@ -1746,7 +1771,6 @@ cpaCySymQueryStats64(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Symmetric Capabilities Info
  *
@@ -1798,7 +1822,6 @@ typedef struct _CpaCySymCapabilitiesInfo
 
 /**
  *****************************************************************************
- * @file cpa_cy_sym.h
  * @ingroup cpaCySym
  *      Returns capabilities of the symmetric API group of a Cryptographic
  *      API instance.

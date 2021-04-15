@@ -72,7 +72,6 @@
 
 #include "icp_accel_devices.h"
 #include "adf_kernel_types.h"
-#include "adf.h"
 
 /*
  * Ring info operation used to enable or disable ring polling by ME

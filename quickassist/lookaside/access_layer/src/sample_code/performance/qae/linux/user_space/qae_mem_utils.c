@@ -119,7 +119,10 @@ CpaStatus qaeMemInit(void)
     return CPA_STATUS_SUCCESS;
 }
 
-void qaeMemDestroy(void) { close(fd); }
+void qaeMemDestroy(void)
+{
+    close(fd);
+}
 
 void *qaeMemAlloc(Cpa32U memsize)
 {

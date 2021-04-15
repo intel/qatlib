@@ -135,8 +135,8 @@ CpaStatus setupDcTest(CpaDcCompType algorithm,
 #else
     dcSetup->setupData.huffType = CPA_DC_HT_STATIC;
 #endif
+#if DC_API_VERSION_LESS_THAN(1, 6)
     dcSetup->setupData.fileType = fileType;
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
     /*windows size is depreciated in new versions of the QA-API*/
     dcSetup->setupData.deflateWindowSize = windowsSize;
 #endif
@@ -309,7 +309,6 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     CpaInstanceHandle *instances = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     CpaDcInstanceCapabilities capabilities = {0};
-    CpaDcStats dcStats = {0};
 
     /* Get the setup pointer */
     tmpSetup = (compression_test_params_t *)(testSetup->setupPtr);
@@ -426,23 +425,11 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
     }
 
-    if (CNV_RECOVERY(&dcSetup.requestOps) == CPA_TRUE)
+    if (CPA_STATUS_SUCCESS !=
+        qatDcGetPreTestRecoveryCount(
+            &dcSetup, &capabilities, testSetup->performanceStats))
     {
-        if (CNV_RECOVERY(&capabilities) == CPA_FALSE)
-        {
-            PRINT_ERR("CnVnR requested but not supported on instance\n");
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-        status = cpaDcGetStats(dcSetup.dcInstanceHandle, &dcStats);
-        if (status == CPA_STATUS_SUCCESS)
-        {
-            testSetup->performanceStats->preTestRecoveryCount =
-                GET_CNV_RECOVERY_COUNTERS(&dcStats);
-        }
-        else
-        {
-            testSetup->performanceStats->preTestRecoveryCount = 0;
-        }
+        QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
     }
 
     dcSetup.induceOverflow = CPA_FALSE;
@@ -469,21 +456,11 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         // seen by print function
         testSetup->performanceStats->numLoops = dcSetup.numLoops;
         testSetup->statsPrintFunc = (stats_print_func_t)dcPrintStats;
-        if (CNV_RECOVERY(&dcSetup.requestOps) == CPA_TRUE)
-        {
-            status = cpaDcGetStats(dcSetup.dcInstanceHandle, &dcStats);
-            if (status == CPA_STATUS_SUCCESS)
-            {
-                testSetup->performanceStats->postTestRecoveryCount =
-                    GET_CNV_RECOVERY_COUNTERS(&dcStats);
-            }
-            else
-            {
-                testSetup->performanceStats->preTestRecoveryCount = 0;
-            }
-        }
+
+        qatDcGetPostTestRecoveryCount(&dcSetup, testSetup->performanceStats);
     }
-    else
+    if ((CPA_STATUS_SUCCESS != status) ||
+        (testSetup->performanceStats->threadReturnStatus == CPA_STATUS_FAIL))
     {
         // In case of test failure stopDcServicesFromPrintStats function call
         // from waitForThreadCompletion funtion stops the dc services and not
@@ -608,12 +585,12 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
     {
         if (setup->induceOverflow == CPA_TRUE)
         {
-            status = qatInduceOverflow(setup,
-                                       pSessionHandle,
-                                       srcBufferListArray,
-                                       destBufferListArray,
-                                       cmpBufferListArray,
-                                       resultArray);
+                status = qatInduceOverflow(setup,
+                                           pSessionHandle,
+                                           srcBufferListArray,
+                                           destBufferListArray,
+                                           cmpBufferListArray,
+                                           resultArray);
         }
         else if (setup->dcSessDir == CPA_DC_DIR_COMPRESS &&
                  reliability_g == CPA_FALSE)
@@ -692,6 +669,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             setup->numLoops = 1;
             for (i = 0; i < numLoops; i++)
             {
+
                 status = qatCompressData(setup,
                                          pSessionHandle,
                                          CPA_DC_DIR_COMPRESS,
@@ -740,6 +718,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
                     PRINT_ERR("qatCompressData returned status %d\n", status);
                     break;
                 }
+
                 if (CPA_TRUE == stopTestsIsEnabled_g)
                 {
                     /* Check if terminated by global flag.
@@ -972,6 +951,8 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
     Cpa32U listNum = 0;
     Cpa32U previousChecksum = 0;
     CpaDcChecksum checksum = CPA_DC_NONE;
+    CpaDcStats dcStats = {0};
+    CpaBoolean isCnVerrorRecovered = CPA_FALSE;
     checksum = gChecksum;
     /* init checksum */
     if (CPA_DC_ADLER32 == checksum)
@@ -1216,6 +1197,45 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
             }
         }
 
+        if (CNV_RECOVERY(&(setup->requestOps)) == CPA_TRUE)
+        {
+            status = cpaDcGetStats(setup->dcInstanceHandle, &dcStats);
+            if (status == CPA_STATUS_SUCCESS)
+            {
+                setup->performanceStats->postTestRecoveryCount =
+                    GET_CNV_RECOVERY_COUNTERS(&dcStats);
+            }
+            else
+            {
+                setup->performanceStats->postTestRecoveryCount = 0;
+            }
+
+            if (setup->performanceStats->postTestRecoveryCount >
+                setup->performanceStats->preTestRecoveryCount)
+            {
+                isCnVerrorRecovered = CPA_TRUE;
+            }
+        }
+        /* As the destination buffer size for the compression request is
+         * obtained using the Compress Bound APIs, There should not be any
+         * unconsumed data left in the src buffer except for the case when
+         * FW identifies CnV Error and recovers it. Any such case is treated as
+         * test failure*/
+
+        if (CPA_STATUS_SUCCESS == status &&
+            (CPA_DC_DIR_COMPRESS == compressDirection) &&
+            (setup->induceOverflow == CPA_FALSE) &&
+            (isCnVerrorRecovered == CPA_FALSE))
+        {
+
+            status = qatCompressionVerifyOverflow(
+                setup, arrayOfResults, arrayOfSrcBufferLists, listNum);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("qatCompressionVerifyOverflow Failed.\n");
+                setup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+            }
+        }
         /*check the results structure for any failed responses
          * caught by the callback function*/
         qatCompressionResponseStatusCheck(
@@ -1489,4 +1509,5 @@ err:
     qaeMemFree((void **)&overflowResArray);
     return status;
 }
+
 

@@ -273,43 +273,4 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
                            Cpa32U *pSessionSize,
                            Cpa32U *pContextSize);
 
-/**
- *****************************************************************************
- * @ingroup Dc_DataCompression
- *     Check if QAT device supports LZS algorithm
- *
- * @description
- *      This function will check if device supports LZS
- *
- * @param[in]       dcInstance         Instance handle derived from discovery
- *                                     functions
- * @param[in]       type               Compression type
- * @param[in]       compressAndVerify  compressAndVerify Flag
- * @param[in]       sessDirection      Session Direction
- *
- * @retval CPA_STATUS_SUCCESS          Function executed successfully
- * @retval CPA_STATUS_UNSUPPORTED      LZS compression algorithm is unsupported
- *****************************************************************************/
-static inline CpaStatus checkLzsSupport(CpaInstanceHandle dcInstance,
-                                        CpaDcCompType type,
-                                        CpaBoolean compressAndVerify,
-                                        CpaDcSessionDir sessDirection)
-{
-    CpaDcInstanceCapabilities instanceCapabilities = {0};
-
-    cpaDcQueryCapabilities(dcInstance, &instanceCapabilities);
-    if (CPA_DC_LZS == type)
-    {
-        if ((CPA_TRUE != instanceCapabilities.statelessLZSCompression ||
-             CPA_TRUE != instanceCapabilities.statelessLZSDecompression) ||
-            ((CPA_FALSE != compressAndVerify) &&
-             (CPA_DC_DIR_DECOMPRESS != sessDirection)))
-        {
-            LAC_LOG_ERROR("LZS compression is not supported!");
-            return CPA_STATUS_UNSUPPORTED;
-        }
-    }
-    return CPA_STATUS_SUCCESS;
-}
-
 #endif /* DC_SESSION_H */

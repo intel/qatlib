@@ -271,18 +271,24 @@ typedef struct lac_session_desc_s
     icp_qat_la_bulk_req_ftr_t shramReqCacheFtr;
     /**< Alternative pre-built request (header, mid & footer)
      * for use with symConstantsTable. */
-    CpaBoolean isSinglePass : 1;
-    /**< Flag indicating whether symOperation is single pass operation */
-    icp_qat_fw_serv_specif_flags laCmdFlags;
-    /**< Common request - Service specific flags type  */
-    icp_qat_fw_comn_flags cmnRequestFlags;
-    /**< Common request flags type  */
-    icp_qat_la_bulk_req_hdr_t reqSpcCacheHdr;
-    /**< request header for use with Single Pass. */
-    icp_qat_la_bulk_req_ftr_t reqSpcCacheFtr;
-    /**< request footer for use with Single Pass. */
     icp_qat_hw_auth_mode_t qatHashMode;
     /**< Hash Mode for the qat slices. Not to be confused with QA-API hashMode
+     */
+    Cpa32U cipherSliceType;
+    /**< Cipher slice type to be used, set at init session time */
+    Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< Cached AES XTS Forward key
+     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * Because use can update session direction at any time,
+     * also forward key needs to be cached
+     */
+    Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< AES XTS Reverse key
+     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * Reverse key always will be calcilated at session setup time and
+     * cached to be used when needed */
+    Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< For AES XTS session need to store Key2 value in order to generate tweak
      */
     void *writeRingMsgFunc;
     /**< function which will be called to write ring message */
@@ -290,6 +296,17 @@ typedef struct lac_session_desc_s
     /**< Session access lock */
     Cpa32U accessReaders;
     /**< Session readers counter */
+    CpaBoolean isSinglePass : 1;
+    /**< Flag indicating whether symOperation is single pass operation */
+    icp_qat_fw_serv_specif_flags laCmdFlags;
+    /**< Common request - Service specific flags type  */
+    icp_qat_fw_comn_flags cmnRequestFlags;
+    /**< Common request flags type  */
+    icp_qat_fw_ext_serv_specif_flags laExtCmdFlags;
+    /**< Common request - Service specific flags type  */
+    icp_qat_la_bulk_req_hdr_t reqSpcCacheHdr;
+    icp_qat_la_bulk_req_ftr_t reqSpcCacheFtr;
+    /**< request (header & footer)for use with Single Pass. */
     Cpa32U aadLenInBytes;
     /**< For CCM,GCM and Snow3G cases, this parameter holds the AAD size,
      * otherwise it is set to zero */
@@ -316,22 +333,6 @@ typedef struct lac_session_desc_s
     /**< The physical address of the ARC4 initial state, set at init
     ** session time .
     */
-    Cpa32U cipherSliceType;
-    /**< Cipher slice type to be used, set at init session time */
-    Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
-    /**< Cached AES XTS Forward key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
-     * Because use can update session direction at any time,
-     * also forward key needs to be cached
-     */
-    Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
-    /**< AES XTS Reverse key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
-     * Reverse key always will be calcilated at session setup time and
-     * cached to be used when needed */
-    Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
-    /**< For AES XTS session need to store Key2 value in order to generate tweak
-     */
 } lac_session_desc_t;
 
 /**
@@ -440,18 +441,24 @@ typedef struct lac_session_desc_d1_s
     icp_qat_la_bulk_req_ftr_t shramReqCacheFtr;
     /**< Alternative pre-built request (header, mid & footer)
      * for use with symConstantsTable. */
-    CpaBoolean isSinglePass : 1;
-    /**< Flag indicating whether symOperation is single pass operation */
-    icp_qat_fw_serv_specif_flags laCmdFlags;
-    /**< Common request - Service specific flags type  */
-    icp_qat_fw_comn_flags cmnRequestFlags;
-    /**< Common request flags type  */
-    icp_qat_la_bulk_req_hdr_t reqSpcCacheHdr;
-    /**< request header for use with Single Pass. */
-    icp_qat_la_bulk_req_ftr_t reqSpcCacheFtr;
-    /**< request footer for use with Single Pass. */
     icp_qat_hw_auth_mode_t qatHashMode;
     /**< Hash Mode for the qat slices. Not to be confused with QA-API hashMode
+     */
+    Cpa32U cipherSliceType;
+    /**< Cipher slice type to be used, set at init session time */
+    Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< Cached AES XTS Forward key
+     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * Because use can update session direction at any time,
+     * also forward key needs to be cached
+     */
+    Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< AES XTS Reverse key
+     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * Reverse key always will be calcilated at session setup time and
+     * cached to be used when needed */
+    Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< For AES XTS session need to store Key2 value in order to generate tweak
      */
     void *writeRingMsgFunc;
     /**< function which will be called to write ring message */
@@ -565,18 +572,24 @@ typedef struct lac_session_desc_d2_s
     icp_qat_la_bulk_req_ftr_t shramReqCacheFtr;
     /**< Alternative pre-built request (header. mid & footer)
      * for use with symConstantsTable. */
-    CpaBoolean isSinglePass : 1;
-    /**< Flag indicating whether symOperation is single pass operation */
-    icp_qat_fw_serv_specif_flags laCmdFlags;
-    /**< Common request - Service specific flags type  */
-    icp_qat_fw_comn_flags cmnRequestFlags;
-    /**< Common request flags type  */
-    icp_qat_la_bulk_req_hdr_t reqSpcCacheHdr;
-    /**< request header for use with Single Pass. */
-    icp_qat_la_bulk_req_ftr_t reqSpcCacheFtr;
-    /**< request footer for use with Single Pass. */
     icp_qat_hw_auth_mode_t qatHashMode;
     /**< Hash Mode for the qat slices. Not to be confused with QA-API hashMode
+     */
+    Cpa32U cipherSliceType;
+    /**< Cipher slice type to be used, set at init session time */
+    Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< Cached AES XTS Forward key
+     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * Because use can update session direction at any time,
+     * also forward key needs to be cached
+     */
+    Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< AES XTS Reverse key
+     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * Reverse key always will be calcilated at session setup time and
+     * cached to be used when needed */
+    Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
+    /**< For AES XTS session need to store Key2 value in order to generate tweak
      */
     void *writeRingMsgFunc;
     /**< function which will be called to write ring message */
@@ -584,6 +597,16 @@ typedef struct lac_session_desc_d2_s
     /**< Session access lock */
     Cpa32U accessReaders;
     /**< Session readers counter */
+    CpaBoolean isSinglePass : 1;
+    /**< Flag indicating whether symOperation is single pass operation */
+    icp_qat_fw_serv_specif_flags laCmdFlags;
+    /**< Common request - Service specific flags type  */
+    icp_qat_fw_comn_flags cmnRequestFlags;
+    /**< Common request flags type  */
+    icp_qat_la_bulk_req_hdr_t reqSpcCacheHdr;
+    icp_qat_la_bulk_req_ftr_t reqSpcCacheFtr;
+    /**< request (header & footer)for use with Single Pass. */
+
     Cpa32U aadLenInBytes;
     /**< For CCM,GCM and Snow3G cases, this parameter holds the AAD size,
      * otherwise it is set to zero */

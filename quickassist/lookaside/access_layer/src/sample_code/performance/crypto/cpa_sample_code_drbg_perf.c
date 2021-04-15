@@ -203,7 +203,7 @@ static void nrbgCallback(void *pCallbackTag,
  *
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
-***************************************************************************/
+ ***************************************************************************/
 void drbgPrintStats(thread_creation_data_t *data)
 {
     PRINT("DRBG Size %23u\n", data->packetSize);

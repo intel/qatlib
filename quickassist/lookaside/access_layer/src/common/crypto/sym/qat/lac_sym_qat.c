@@ -190,6 +190,13 @@ void LacSymQat_LaPacketCommandFlagSet(Cpa32U qatPacketType,
                                       Cpa16U *pLaCommandFlags,
                                       Cpa32U ivLenInBytes)
 {
+    /* For Chacha ciphers set command flag as partial none to proceed
+     * with stateless processing */
+    if (LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
+    {
+        ICP_QAT_FW_LA_PARTIAL_SET(*pLaCommandFlags, ICP_QAT_FW_LA_PARTIAL_NONE);
+        return;
+    }
     ICP_QAT_FW_LA_PARTIAL_SET(*pLaCommandFlags, qatPacketType);
 
     /* For ECB-mode ciphers, IV is NULL so update-state flag
@@ -210,11 +217,16 @@ void LacSymQat_LaPacketCommandFlagSet(Cpa32U qatPacketType,
         ICP_QAT_FW_LA_UPDATE_STATE_SET(*pLaCommandFlags,
                                        ICP_QAT_FW_LA_UPDATE_STATE);
 
-        ICP_QAT_FW_LA_RET_AUTH_SET(*pLaCommandFlags,
-                                   ICP_QAT_FW_LA_NO_RET_AUTH_RES);
+        if (laCmdId == ICP_QAT_FW_LA_CMD_AUTH)
+        {
+            /* For hash only partial - verify and return auth result are
+             * disabled */
+            ICP_QAT_FW_LA_RET_AUTH_SET(*pLaCommandFlags,
+                                       ICP_QAT_FW_LA_NO_RET_AUTH_RES);
 
-        ICP_QAT_FW_LA_CMP_AUTH_SET(*pLaCommandFlags,
-                                   ICP_QAT_FW_LA_NO_CMP_AUTH_RES);
+            ICP_QAT_FW_LA_CMP_AUTH_SET(*pLaCommandFlags,
+                                       ICP_QAT_FW_LA_NO_CMP_AUTH_RES);
+        }
     }
 
     if ((LAC_CIPHER_IS_GCM(cipherAlgorithm)) &&

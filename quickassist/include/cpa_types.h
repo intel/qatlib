@@ -159,7 +159,6 @@ typedef int64_t Cpa64S;
 
 /**
  *****************************************************************************
- * @file cpa_types.h
  * @ingroup cpa_Types
  *      Boolean type.
  *
@@ -177,7 +176,6 @@ typedef enum _CpaBoolean
 
 /**
  *****************************************************************************
- * @file cpa_types.h
  * @ingroup cpa_Types
  *      Declare a bitmap of specified size (in bits).
  *

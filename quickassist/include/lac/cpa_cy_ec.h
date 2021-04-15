@@ -158,7 +158,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Field types for Elliptic Curve
 
@@ -187,7 +186,6 @@ typedef enum _CpaCyEcFieldType
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Curve types for Elliptic Curves defined in RFC#7748
 
@@ -212,7 +210,6 @@ typedef enum _CpaCyEcMontEdwdsCurveType
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      EC Point Multiplication Operation Data.
  *
@@ -263,7 +260,6 @@ typedef struct _CpaCyEcPointMultiplyOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      EC Point Verification Operation Data.
  *
@@ -308,7 +304,6 @@ typedef struct _CpaCyEcPointVerifyOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      EC Point Multiplication Operation Data for Edwards or
  8      Montgomery curves as specificied in RFC#7748.
@@ -365,7 +360,6 @@ typedef struct _CpaCyEcMontEdwdsPointMultiplyOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Cryptographic EC Statistics.
  *
@@ -410,7 +404,6 @@ typedef struct _CpaCyEcStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Definition of callback function invoked for cpaCyEcPointMultiply
  *      requests.
@@ -458,7 +451,6 @@ typedef void (*CpaCyEcPointMultiplyCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Definition of callback function invoked for cpaCyEcPointVerify
  *      requests.
@@ -503,7 +495,6 @@ typedef void (*CpaCyEcPointVerifyCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Perform EC Point Multiplication.
  *
@@ -579,7 +570,6 @@ cpaCyEcPointMultiply(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Verify that a point is on an elliptic curve.
  *
@@ -663,7 +653,6 @@ cpaCyEcPointVerify(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Perform EC Point Multiplication on an Edwards or Montgomery curve as
  *      defined in RFC#7748.
@@ -739,7 +728,6 @@ cpaCyEcMontEdwdsPointMultiply(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ec.h
  * @ingroup cpaCyEc
  *      Query statistics for a specific EC instance.
  *

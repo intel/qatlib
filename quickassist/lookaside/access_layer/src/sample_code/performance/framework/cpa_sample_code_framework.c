@@ -132,6 +132,7 @@ int useStaticPrime = 1;
 int useStaticPrime = 0;
 #endif
 
+
 /*this array stores the setup and performance data of all threads created.
  * there is duplication between this and testSetupData_g,
  * however this makes it easier for collation of stats when there are
@@ -225,6 +226,7 @@ volatile thread_state_e threadState_g = THREAD_NOT_STARTED;
 
 volatile CpaBoolean reliability_g = CPA_FALSE;
 volatile CpaBoolean cnverr_g = CPA_FALSE;
+volatile CpaBoolean cnvnrerr_g = CPA_FALSE;
 int verboseOutput = 1;
 
 CpaStatus setReliability(CpaBoolean val)
@@ -265,6 +267,7 @@ CpaStatus printReliability(void)
     }
     return CPA_STATUS_SUCCESS;
 }
+
 EXPORT_SYMBOL(reliability_g);
 EXPORT_SYMBOL(setReliability);
 EXPORT_SYMBOL(setUseStaticPrime);
@@ -376,7 +379,10 @@ CpaStatus setCycleCountMode(int mode)
 
 /*this function enables extra output from sample code such as: per thread and
  * per device performance.*/
-int getVerboseOutput(void) { return verboseOutput; }
+int getVerboseOutput(void)
+{
+    return verboseOutput;
+}
 
 /*this function disables extra output from sample code such as: per thread and
  * per device performance.*/
@@ -732,7 +738,8 @@ CpaStatus waitForThreadCompletion(void)
     return status;
 }
 
-/*this function reset the thread related variables and release memory on error exit */
+/*this function reset the thread related variables and release memory on error
+ * exit */
 void threadExitCleanup(void)
 {
     Cpa32U i = 0;
@@ -1203,6 +1210,11 @@ CpaStatus getCryptoInstanceMapping(void)
     }
     if (numInst_g > 0)
     {
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            numInst_g = 1;
+        }
         /*allocate memory to store the instance handles*/
         cyInst_g = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInst_g);
         if (cyInst_g == NULL)
@@ -1300,6 +1312,11 @@ CpaStatus getCompressionInstanceMapping(void)
     }
     if (numInst_g > 0)
     {
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            numInst_g = 1;
+        }
         /*allocate memory to store the instance handles*/
         dcInst_g = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInst_g);
         if (dcInst_g == NULL)
@@ -1443,7 +1460,7 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
     return status;
 }
 
-int latency_debug = 0;  /* set to 1 for debug PRINT() */
+int latency_debug = 0; /* set to 1 for debug PRINT() */
 EXPORT_SYMBOL(latency_debug);
 int latency_enable = 0; /* set to 1 for enable latency testing */
 EXPORT_SYMBOL(latency_enable);

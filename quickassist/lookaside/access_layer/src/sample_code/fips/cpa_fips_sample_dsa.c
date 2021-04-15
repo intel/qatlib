@@ -401,13 +401,13 @@ static CpaStatus checkLN(Cpa32U L, Cpa32U N, Cpa32U *secStrength)
  *      none
  *
  *****************************************************************************/
-static CpaStatus
-checkPorQPrimalityFipsC1(const usr_dsa_data_t *restrict pDsaData,
-                         const CpaFlatBuffer *restrict pCandidate,
-                         dsa_prime_check_type_t primeCheckType,
-                         CpaBoolean *pIsPrime,
-                         const CpaInstanceHandle instanceHandle,
-                         Cpa32U securityStrength)
+static CpaStatus checkPorQPrimalityFipsC1(
+    const usr_dsa_data_t *restrict pDsaData,
+    const CpaFlatBuffer *restrict pCandidate,
+    dsa_prime_check_type_t primeCheckType,
+    CpaBoolean *pIsPrime,
+    const CpaInstanceHandle instanceHandle,
+    Cpa32U securityStrength)
 {
     Cpa32U numMillerRabin = 0;
     *pIsPrime = CPA_FALSE;

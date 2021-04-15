@@ -120,7 +120,6 @@ static CpaStatus do_userReset()
      * it and re-initializing. */
     if (sync_lock)
         osalMutexDestroy(&sync_lock);
-
     if (CPA_STATUS_SUCCESS != LAC_INIT_MUTEX(&sync_lock))
     {
         LAC_LOG_ERROR("Mutex init failed for sync_lock\n");

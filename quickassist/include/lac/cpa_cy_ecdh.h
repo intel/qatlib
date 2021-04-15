@@ -97,7 +97,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdh.h
  * @ingroup cpaCyEcdh
  *      ECDH Point Multiplication Operation Data.
  *
@@ -161,7 +160,6 @@ typedef struct _CpaCyEcdhPointMultiplyOpData {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdh.h
  * @ingroup cpaCyEcdh
  *      Cryptographic ECDH Statistics.
  * @description
@@ -192,7 +190,6 @@ typedef struct _CpaCyEcdhStats64 {
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdh.h
  * @ingroup cpaCyEcdh
  *      Definition of callback function invoked for cpaCyEcdhPointMultiply
  *      requests.
@@ -247,7 +244,6 @@ typedef void (*CpaCyEcdhPointMultiplyCbFunc)(void *pCallbackTag,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdh.h
  * @ingroup cpaCyEcdh
  *      ECDH Point Multiplication.
  *
@@ -327,7 +323,6 @@ cpaCyEcdhPointMultiply(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_ecdh.h
  * @ingroup cpaCyEcdh
  *      Query statistics for a specific ECDH instance.
  *

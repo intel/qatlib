@@ -63,5 +63,7 @@ int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
                          uint64_t *seq_num);
 int32_t adf_user_notify_msgs(adf_dev_ring_handle_t *ring);
 int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring);
-
+int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
+                                       uint32_t *maxInflightRequests,
+                                       uint32_t *numInflightRequests);
 #endif /* ADF_UIO_USER_RING_H */

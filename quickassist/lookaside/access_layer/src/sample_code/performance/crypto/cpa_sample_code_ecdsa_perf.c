@@ -80,6 +80,9 @@
 #include "cpa_sample_code_crypto_utils.h"
 #include "cpa_sample_code_ec_curves.h"
 #include "cpa_cy_im.h"
+#ifdef SC_DEV_INFO_ENABLED
+#include "cpa_dev.h"
+#endif
 #ifdef POLL_INLINE
 #include "icp_sal_poll.h"
 #endif
@@ -98,7 +101,7 @@ CpaBoolean msgFlagSym2 = CPA_FALSE;
  *
  * @description
  *      Callback function for ECDSA verify operations
-***************************************************************************/
+ ***************************************************************************/
 void ecdsaPerformCallback(void *pCallbackTag,
                           CpaStatus status,
                           void *pOpData,
@@ -112,7 +115,7 @@ void ecdsaPerformCallback(void *pCallbackTag,
  *
  * @description
  *      Callback function for ECDSA Point Multiply operations
-***************************************************************************/
+ ***************************************************************************/
 void ecdsaPointMultiplyPerformCallback(void *pCallbackTag,
                                        CpaStatus status,
                                        void *pOpData,
@@ -140,7 +143,7 @@ void ecdsaPointMultiplyPerformCallback(void *pCallbackTag,
  *
  * @description
  *      Callback function for ECDSA verify operations
-***************************************************************************/
+ ***************************************************************************/
 void ecdsaSignOnlyPerformCallback(void *pCallbackTag,
                                   CpaStatus status,
                                   void *pOpData,
@@ -205,7 +208,7 @@ static void ecdsaSignRSCb(void *pCallbackTag,
  *
  * @description
  *      get the relevant curve data for the test parameters passed in
-***************************************************************************/
+ ***************************************************************************/
 CpaStatus getCurveData(ecdsa_test_params_t *setup)
 {
     Cpa32U i = 0;
@@ -247,7 +250,7 @@ CpaStatus getCurveData(ecdsa_test_params_t *setup)
  *      Calculate a point on an Elliptic curve, using the curve in the setup
  *      parameter and a given k, and place the calculated point in pXk and
  *      pYk
-***************************************************************************/
+ ***************************************************************************/
 CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
                       CpaFlatBuffer *k,
                       CpaFlatBuffer *pXk,
@@ -414,7 +417,7 @@ EXPORT_SYMBOL(calcEcPoint);
  *
  * @description
  *      Free any memory allocated in the ecdsaSignRS function
-***************************************************************************/
+ ***************************************************************************/
 #define ECDSA_SIGN_RS_OPDATA_MEM_FREE                                          \
     do                                                                         \
     {                                                                          \
@@ -584,7 +587,7 @@ EXPORT_SYMBOL(ecdsaSignRSOpDataSetup);
  * @description
  *      Sign the digest of a random message using elliptic curve data in setup
  *      parameter
-***************************************************************************/
+ ***************************************************************************/
 CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
                       CpaFlatBuffer *d,
                       CpaFlatBuffer *r,
@@ -970,7 +973,7 @@ void ecdsaPerformRsOnlyMemFree(
  * @description
  *      setup a number of buffers to be signed by ECDSA then verified using
  *      EC curve data
-***************************************************************************/
+ ***************************************************************************/
 CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
 {
     Cpa32U i = 0;
@@ -1442,7 +1445,7 @@ EXPORT_SYMBOL(ecdsaPerform);
  *
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
-***************************************************************************/
+ ***************************************************************************/
 void ecdsaPrintStats(thread_creation_data_t *data)
 {
     ecdsa_test_params_t *params = (ecdsa_test_params_t *)data->setupPtr;
@@ -1467,7 +1470,7 @@ void ecdsaPrintStats(thread_creation_data_t *data)
  *
  * @description
  *      setup an elliptic curve performance thread
-***************************************************************************/
+ ***************************************************************************/
 void ecdsaPerformance(single_thread_test_data_t *testSetup)
 {
     ecdsa_test_params_t ecdsaSetup = {0};
@@ -1476,6 +1479,9 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     CpaStatus status = CPA_STATUS_FAIL;
     ecdsa_test_params_t *params = (ecdsa_test_params_t *)testSetup->setupPtr;
     CpaInstanceInfo2 instanceInfo = {0};
+#ifdef SC_DEV_INFO_ENABLED
+    CpaDeviceInfo deviceInfo = {0};
+#endif
 
     testSetup->passCriteria = getPassCriteria();
 
@@ -1492,7 +1498,7 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     /*give our thread a unique memory location to store performance stats*/
     ecdsaSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
-    * instance*/
+     * instance*/
     status = cpaCyGetNumInstances(&numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
@@ -1530,6 +1536,28 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
+
+#ifdef SC_DEV_INFO_ENABLED
+    /* check whether asym service enabled or not for the instance */
+    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);
+        ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+    if (CPA_FALSE == deviceInfo.cyAsymEnabled)
+    {
+        PRINT_ERR("%s::%d Error! cyAsymEnabled service not enabled for the "
+                  "configured instance\n",
+                  __func__,
+                  __LINE__);
+        ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+#endif
     if (instanceInfo.physInstId.packageId > packageIdCount_g)
     {
         packageIdCount_g = instanceInfo.physInstId.packageId;
@@ -1562,9 +1590,6 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
         PRINT("ECDSA Thread %u FAILED\n", testSetup->threadID);
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
     }
-    else
-    {
-    }
     qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);
 }
@@ -1578,7 +1603,7 @@ EXPORT_SYMBOL(ecdsaPerformance);
  *      curve performance thread. It is called before the createThreads
  *      function of the framework. The framework replicates it across many
  *      cores
-***************************************************************************/
+ ***************************************************************************/
 CpaStatus setupEcdsaTest(Cpa32U nLenInBits,
                          CpaCyEcFieldType fieldType,
                          sync_mode_t syncMode,

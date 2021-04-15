@@ -283,8 +283,8 @@ typedef struct icp_qat_fw_init_admin_capability_resp_s
             uint32_t resrvd1;
             /**< Reserved field */
 
-            uint32_t lzs_capabilities;
-            /**< QAT FW supported LZS capabilities */
+            uint32_t deprecated;
+            /**< Deprecated field */
 
         } compression;
 
@@ -504,7 +504,6 @@ typedef struct icp_qat_fw_init_admin_resp_s
 #define ICP_QAT_FW_CAP_COMP_EXT_BNP_BITPOS 1
 
 #define ICP_QAT_FW_CAP_COMP_COMPRESSION_DEFLATE_BITPOS 0
-#define ICP_QAT_FW_CAP_COMP_COMPRESSION_LZS_BITPOS 1
 
 #define ICP_QAT_FW_CAP_COMP_CHECKSUM_CRC32_BITPOS 0
 #define ICP_QAT_FW_CAP_COMP_CHECKSUM_ADLER_BITPOS 1
@@ -518,11 +517,6 @@ typedef struct icp_qat_fw_init_admin_resp_s
 #define ICP_QAT_FW_CAP_COMP_DEFLATE_DYN_HUFFMAN_BUFFER_BITPOS 10
 #define ICP_QAT_FW_CAP_COMP_DEFLATE_AUTO_SELECT_BEST_BITPOS 11
 #define ICP_QAT_FW_CAP_COMP_DEFLATE_END_OF_LAST_BLOCK_BITPOS 12
-
-#define ICP_QAT_FW_CAP_COMP_LZS_COMPRESS_BITPOS 0
-#define ICP_QAT_FW_CAP_COMP_LZS_DECOMPRESS_BITPOS 1
-#define ICP_QAT_FW_CAP_COMP_LZS_STATEFUL_BITPOS 2
-#define ICP_QAT_FW_CAP_COMP_LZS_STATELESS_BITPOS 3
 
 /* Cryptography */
 #define ICP_QAT_FW_CAP_CRYPTO_CIPHER_NULL_BITPOS 0

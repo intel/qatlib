@@ -158,7 +158,7 @@ OSAL_PUBLIC void osalLogSetPrefix(CHAR *moduleName);
  *
  * Logging function, similar to printf. This provides a barebones logging
  * mechanism for users without differing verbosity levels. This interface
- * is not quaranteed to be IRQ safe.
+ * is not guaranteed to be IRQ safe.
  *
  *
  * @li Reentrant: yes
@@ -420,7 +420,7 @@ void *osalMemAllocAtomic(UINT32 size);
  *
  * Allocates a memory zone of a given size on the specified node
  * The returned memory is guaraunteed to be physically contiguous if the
- * given size is less than 128Kb and belonging to the node specified
+ * given size is less than 128KB and belonging to the node specified
  *
  * @li Reentrant: yes
  * @li IRQ safe:  no
@@ -757,7 +757,7 @@ OSAL_PUBLIC void osalMemAlignedFree(void *ptr);
  * @param pTv - pointer to the destination structure
  *
  * Internal function to convert the specified number of ticks into
- * a OsalTimeval structure
+ * an OsalTimeval structure
  *
  * @li Reentrant: yes
  * @li IRQ safe:  yes
@@ -765,7 +765,7 @@ OSAL_PUBLIC void osalMemAlignedFree(void *ptr);
  * @return - Corresponding OsalTimeval structure
  * Note: This function is OS-independent and internal to OSAL
  */
-OSAL_PUBLIC void osalTicksToTimeval(UINT32 ticks, OsalTimeval *pTv);
+OSAL_PUBLIC void osalTicksToTimeval(UINT64 ticks, OsalTimeval *pTv);
 
 /**
  * @ingroup Osal
@@ -957,9 +957,8 @@ OSAL_PUBLIC OSAL_STATUS osalUnlockIrqRestore(OsalLock *pLock,
  *           shared between user context & bottom half handler
  *
  * @return - returns OSAL_SUCCESS if spinlock is acquired. If the spinlock is
- * not
- *           available then it busy loops/spins till slock available.  If the
- *           spinlock handle passed is NULL then returns OSAL_FAIL.
+ *           not available then it busy loops/spins till slock available. If
+ *           the spinlock handle passed is NULL then returns OSAL_FAIL.
  */
 OSAL_PUBLIC OSAL_STATUS osalLockBh(OsalLock *slock);
 
@@ -1059,7 +1058,6 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphoreWaitInterruptible(OsalSemaphore *pSid,
  * increments a semaphore if the value less than one and wakes up the thread
  * which is waiting for the semaphore.
  *
- *
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
@@ -1146,7 +1144,7 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphoreGetValue(OsalSemaphore *sid,
  * @param pMutex - pMutex handle
  *
  * Initializes a pMutex object
- * Note: Mutex initialization OsalMutexInit API must be called
+ * @note Mutex initialization OsalMutexInit API must be called
  * first before using any OSAL Mutex APIs
  *
  * @li Reentrant: yes
@@ -1244,6 +1242,9 @@ OSAL_PUBLIC OSAL_STATUS osalMutexTryLock(OsalMutex *pMutex);
  * @li IRQ safe:  no
  *
  * @return - OSAL_SUCCESS/OSAL_FAIL
+ *
+ * @note In certain operating systems, this API function will both create and
+ * start a thread in the same call.
  */
 OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *pTid,
                                          OsalThreadAttr *threadAttr,
@@ -1278,7 +1279,9 @@ OSAL_PUBLIC void osalThreadBind(OsalThread *pTid, UINT32 cpu);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED
+ *
+ * @note This function may not be supported by certain operating systems.
  */
 OSAL_PUBLIC OSAL_STATUS osalThreadStart(OsalThread *pTid);
 
@@ -1841,6 +1844,7 @@ osalPCIStateRestore(void *dev, void *state);
  * @return - none
  */
 void osalSetPCICapabilitiesOffset(void *dev);
+
 
 #ifdef __cplusplus
 }

@@ -50,15 +50,6 @@
  * Define Constants and Macros
  *****************************************************************************/
 
-#ifdef IS_QAT_4XXX
-#undef IS_QAT_4XXX
-#endif
-#define IS_QAT_4XXX(dev_type)                                                  \
-    ({                                                                         \
-        int _dt = dev_type;                                                    \
-        _dt == DEVICE_4XXX || _dt == DEVICE_4XXXVF;                            \
-    })
-
 /* Ring Csrs offsets */
 #define ICP_RING_CSR_RING_CONFIG_4XXX 0x1000
 #define ICP_RING_CSR_RING_LBASE_4XXX 0x1040
@@ -73,16 +64,16 @@
     (((addr >> 6) & (0xFFFFFFFFFFFFFFFFULL << size)) << 6)
 
 /* CSR read/write macros */
-#define READ_CSR_RING_CONFIG_4XXX(bank_offset, ring)                           \
+#define READ_CSR_RING_CONFIG_4XXX(csr_base_addr, bank_offset, ring)            \
     ICP_ADF_CSR_RD(csr_base_addr,                                              \
                    bank_offset + ICP_RING_CSR_RING_CONFIG_4XXX + (ring << 2))
 
-#define WRITE_CSR_RING_CONFIG_4XXX(bank_offset, ring, value)                   \
+#define WRITE_CSR_RING_CONFIG_4XXX(csr_base_addr, bank_offset, ring, value)    \
     ICP_ADF_CSR_WR(csr_base_addr,                                              \
                    bank_offset + ICP_RING_CSR_RING_CONFIG_4XXX + (ring << 2),  \
                    value)
 
-#define WRITE_CSR_RING_BASE_4XXX(bank_offset, ring, value)                     \
+#define WRITE_CSR_RING_BASE_4XXX(csr_base_addr, bank_offset, ring, value)      \
     do                                                                         \
     {                                                                          \
         Cpa32U l_base = 0, u_base = 0;                                         \

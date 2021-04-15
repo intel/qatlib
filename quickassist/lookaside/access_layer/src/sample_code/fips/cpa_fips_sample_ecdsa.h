@@ -145,7 +145,8 @@
 /**
  * Different ECDSA operations
  **/
-typedef enum {
+typedef enum
+{
     ECDSA_SIGN = 0,
     ECDSA_VERIFY,
     ECDSA_KEYGEN,
@@ -154,7 +155,8 @@ typedef enum {
 /**
  * ECDSA FIPS curves
  **/
-typedef enum {
+typedef enum
+{
     P192 = 0,
     P224,
     P256,

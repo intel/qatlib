@@ -115,27 +115,37 @@ int main(int argc, const char **argv)
 
     stat = dcStatefulSample();
 
-    if (CPA_STATUS_SUCCESS != stat)
+    if (CPA_STATUS_SUCCESS == stat)
     {
-        PRINT_ERR("\nStateful Compression Sample Code App failed\n");
+        PRINT_DBG("\nStateful Compression Sample Code App finished\n");
+    }
+    else if (CPA_STATUS_UNSUPPORTED == stat)
+    {
+        PRINT_DBG("\nStateful Compression Sample Code App execution skipped - "
+                  "unsupported\n");
     }
     else
     {
-        PRINT_DBG("\nStateful Compression Sample Code App finished\n");
+        PRINT_ERR("\nStateful Compression Sample Code App failed\n");
     }
 
 #ifdef RESET_SESSION_API
     PRINT_DBG("Starting Stateful Compression Reset Session App ...\n");
     stat = dcResetSessionSample();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR(
-            "\nStateful Reset Session Compression Sample Code App failed\n");
-    }
-    else
+    if (CPA_STATUS_SUCCESS == stat)
     {
         PRINT_DBG(
             "\nStateful Reset Session Compression Sample Code App finished\n");
+    }
+    else if (CPA_STATUS_UNSUPPORTED == stat)
+    {
+        PRINT_DBG("\nStateful Compression Sample Code App execution skipped - "
+                  "unsupported\n");
+    }
+    else
+    {
+        PRINT_ERR(
+            "\nStateful Reset Session Compression Sample Code App failed\n");
     }
 #endif
     icp_sal_userStop();

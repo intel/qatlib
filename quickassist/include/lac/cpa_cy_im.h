@@ -92,7 +92,6 @@ extern "C" {
 
 /**
  *****************************************************************************
- * @file cpa_cy_im.h
  * @ingroup cpaCyInstMaint
  *      Cryptographic Component Initialization and Start function.
  *
@@ -140,7 +139,6 @@ cpaCyStartInstance(CpaInstanceHandle instanceHandle);
 
 /**
  *****************************************************************************
- * @file cpa_cy_im.h
  * @ingroup cpaCyInstMaint
  *      Cryptographic Component Stop function.
  *
@@ -197,7 +195,6 @@ cpaCyStopInstance(CpaInstanceHandle instanceHandle);
 
 /**
  *****************************************************************************
- * @file cpa_cy_im.h
  * @ingroup cpaCyInstMaint
  *      Cryptographic Capabilities Info
  *
@@ -275,7 +272,6 @@ typedef struct _CpaCyCapabilitiesInfo
 
 /**
  *****************************************************************************
- * @file cpa_cy_im.h
  * @ingroup cpaCyInstMaint
  *      Returns capabilities of a Cryptographic API instance
  *
@@ -317,7 +313,6 @@ cpaCyQueryCapabilities(const CpaInstanceHandle instanceHandle,
 
 /**
  *****************************************************************************
- * @file cpa_cy_im.h
  * @ingroup cpaCyInstMaint
  *      Sets the address translation function
  *
