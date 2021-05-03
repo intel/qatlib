@@ -5,9 +5,11 @@
 - [Revision History](#revision-history)
 - [Overview](#overview)
 - [Features](#features)
+- [Setup](#setup)
 - [Supported Devices](#supported-devices)
 - [Limitations](#limitations)
 - [Environmental Assumptions](#environmental-assumptions)
+- [Examples](#examples)
 - [Open Issues](#open-issues)
 - [Licensing](#licensing)
 - [Legal](#legal)
@@ -15,10 +17,11 @@
 
 ## Revision History
 
-| Date      |       Revision        |       Description     |
-|----------|:-------------:|------:|
-| November 2020 | 002 | 2010 Product Release |
-| August 2020 | 001 | 2008 Product Release |
+| Date      |     Doc Revision      | Version |   Details |
+|----------|:-------------:|------:|:------|
+| May 2021 | 003 | 21.05 | - Added support for AES-CCM 192/265<br>- Added support for SHA3-224/384/512 (no partials support)<br>- Added support for ChaCha20-Poly1305<br>- Added support for PKE 8K (RSA, DH, ModExp, ModInv)<br>- Fixed device enumeration on different nodes<br>- Fixed pci_vfio_set_command for 32 bit builds |
+| November 2020 | 002 | 20.10 | - Fixed service stopping during uninstallation<br>- Fixed "Cannot open /sys/kernel/iommu_groups/vfio/devices/" error<br>- Fixes based on static code analysis<br>- Fixes based on secure code reviews<br>- Refactored logging mechanism<br>- Updated library versioning scheme<br>- Improvements to make install target<br>- Fix so service file installed in /usr/lib64 can be properly detected<br>- Remove execute permissions from non-executable files<br>- Clarified documentation of licensing<br>- Removed libudev dependency from the package<br>- Removed OpenSSL/libcrypto extracts, instead link against system OpenSSL/libcrypto |
+| August 2020 | 001 | 20.08 | - Initial Release |
 
 ## Overview
 Intel(R) QuickAssist Technology (Intel(R) QAT) provides
@@ -39,21 +42,24 @@ sample codes.
 The following services are available in qatlib via the QuickAssist API:
 * Symmetric (Bulk) Cryptography
   * Ciphers (AES-ECB, AES-CBC, AES-CTR (no partials support),
-    AES-XTS (no partials support), AES-GCM
+    AES-XTS (no partials support), AES-GCM, AES-CCM (192/256)
   * Message digest/hash (SHA1, SHA2 (224/256/384/512),
-    SHA3-256 (no partials support) and authentication (AES-CBC-MAC, AES-XCBC-MAC)
+    SHA3 (224/256/384/512) (no partials support) and
+    authentication (AES-CBC-MAC, AES-XCBC-MAC)
   * Algorithm chaining (one cipher and one hash in a single operation)
   * Authenticated encryption (CCM-128 (no partials support),
-    GCM (128/192/256) (no partials support), GMAC (no partials support))
+    GCM (128/192/256) (no partials support), GMAC (no partials support)
+    and ChaCha20-Poly1305)
 * KeyGen
   * TLS1.2
   * TLS1.3
   * HKDF
   * MGF1
 * Asymmetric (Public Key) Cryptography
-  * Modular exponentiation for Diffie-Hellman (DH)
+  * Modular exponentiation and modular inversion up to 8192 bits
+  * Diffie-Hellman (DH) key generation phase 1 and 2 up to 8192 bits
   * RSA key generation, encryption/decryption and digital signature
-    generation/verification
+    generation/verification up to 8192 bits
   * DSA parameter generation and digital signature generation/verification
   * Elliptic Curve Cryptography: ECDSA, ECDHE, Edwards Montgomery curves
 
@@ -62,6 +68,9 @@ This package includes:
 * libusdm: user space library for memory management
 * qatmgr: user space daemon for device management
 * Sample codes: applications to demo usage of the libs
+
+## Setup
+Please refer to [INSTALL](INSTALL) for details on installing the library.
 
 ## Supported Devices
 * 4xxx (QAT gen 4 devices)
@@ -102,6 +111,11 @@ The following assumptions are made concerning the deployment environment:
   will be included in a future linux kernel.
 * The library can be used by unprivilaged users if that user is included in
   the 'qat' group.
+
+## Examples
+Example applications that showcase usage of the QAT APIs are included in the
+package (quickassist/lookaside/access_layer/src/sample_code).
+Please refer to [Intel® QuickAssist Technology API Programmer's Guide](https:/01.org/sites/default/files/downloads//330684-009-intel-qat-api-programmers-guide.pdf).
 
 ## Open Issues
 Known and resolved issues relating to the Intel® QAT software are described
@@ -159,7 +173,7 @@ Intel Corporation in the U.S. and/or other countries.
 
 \*Other names and brands may be claimed as the property of others.
 
-Copyright &copy; 2016-2020, Intel Corporation. All rights reserved.
+Copyright &copy; 2016-2021, Intel Corporation. All rights reserved.
 
 ## Terminology
 

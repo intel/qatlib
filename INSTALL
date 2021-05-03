@@ -1,8 +1,9 @@
 ===============================================================================
 
 
-November, 2020
+May 2021
 ===============================================================================
+
 
 Reference
 =========
@@ -28,7 +29,7 @@ install source packages.
 
 
 Licensing
-==========
+=========
 
 This product is released under the BSD-3-Clause License.
 
@@ -47,73 +48,271 @@ For Dual BSD/GPLv2 please see the file headers of the relevant files.
 ===============================================================================
 
 
-Compilation and installation
-============================
+Using the QATlib package
+========================
 
-1) QAT compilation requires following dependencies:
+    Note: Instructions assume running on Fedora and as non-root user who can
+    get root access using sudo, i.e. user is in sudoers group. Command-lines
+    may be different in other Linux distributions.
+
+
+Check System Prerequisites
+==========================
+
+    There are some prerequisites to running the software in this package. If
+    running from a distro many of these are taken care of, if not here they
+    are:
+
+    * platform must have an Intel® Communications Chipset 4xxx Series device
+        Use "lspci -d 8086:4940" to check PF devices exist.
+        Use "lspci -d 8086:4941" to check VF devices exist.
+        VFs are only visible if all prerequisites below are satisfied.
+     * firmware must be available
+        Check that these files exist, if not contact qat-linux@intel.com
+        /lib/firmware/qat_4xxx.bin
+        /lib/firmware/qat_4xxx_mmp.bin
+     * kernel driver must be running
+        Use "lsmod | grep qat" to check that these kernel modules are running:
+        intel_qat
+        qat_4xxx
+        They should load by default if using any of the following:
+         * Linux kernel v5.11+
+         * Fedora 34+
+         * RHEL 8.4+
+     * BIOS settings
+        Intel VT-d and SR-IOV must be enabled in the platform BIOS.
+        Consult your platform guide on how to do this.
+        If using an Intel BKC these usually default to on, you can verify by
+        rebooting, entering F2 on the console to get to the BIOS menus and
+        checking these are enabled:
+        EDKII Menu
+          -> Socket Configuration
+           -> IIO Configuration
+            -> Intel VT for Directed I/O (VT-d)
+             -> Intel VT for Directed I/O
+        EDKII Menu
+         -> Platform Configuration
+          -> Miscellaneous Configuration
+           -> SR-IOV Support
+     * Grub settings
+        set intel_iommu on in grub file, e.g. in Fedora:
+         * sudo vi /etc/default/grub
+         * to GRUB_CMDLINE_LINUX add "intel_iommu=on"
+         * sudo grub2-mkconfig -o /etc/grub2-efi.cfg
+
+
+===============================================================================
+
+
+Compilation and installation - quickstart instructions
+======================================================
+
+    Note, more detailed instructions in following section.
+
+    ---------------------------------------------------------------------------
+
+    Summary if running from Fedora 34+:
+        # Install qatlib
+        sudo dnf install -y qatlib
+
+        # Add your user to qat group
+        sudo usermod -a -G qat `whoami`
+
+        # Enable qat service and make persistent after reboot
+        sudo systemctl enable qat
+        sudo systemctl start qat
+
+        # Increase amount of locked memory for your user
+        # To add 200MB:
+        sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
+        echo `whoami` - memlock 200000  | sudo tee -a /etc/security/limits.conf > /dev/null
+
+        # Re-login in order to update the user's group
+        sudo su -l $USER
+
+        # If you want to run sample code you need to build from sources, these
+        # steps will clone it into ~/qatlib, i.e. into your home directory.
+        # Install dependencies
+        sudo dnf install -y gcc systemd-devel automake autoconf libtool
+        sudo dnf install -y openssl-devel zlib-devel
+
+        # Clone qatlib repo
+        git clone https://github.com/intel/qatlib.git
+
+        # Build sample code
+        cd qatlib
+        ./autogen.sh
+        ./configure
+        make cpa_sample_code
+
+        # Run it! (takes about 5 mins)
+        ./cpa_sample_code
+
+    ----------------------------------------------------------------------------
+
+    Summary if building from sources.
+
+        # Install dependencies
+        sudo dnf install -y gcc systemd-devel automake autoconf libtool
+        sudo dnf install -y openssl-devel zlib-devel
+
+        # Clone QATlib into ~/qatlib, i.e. in your home dir
+        cd ~
+        git clone https://github.com/intel/qatlib.git
+
+        # Build and install library
+        cd qatlib
+        ./autogen.sh
+        ./configure --enable-service
+        make -j
+        sudo make install
+
+        # Add your user to the "qat" group which was automatically
+        # created by --enable-service
+        sudo usermod -a -G qat `whoami`
+
+        # Increase amount of locked memory for your user
+        # To add 200MB:
+        sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
+        echo `whoami` - memlock 200000  | sudo tee -a /etc/security/limits.conf > /dev/null
+
+        # Re-login in order to update the user group, this will move you back
+        # into your home dir
+        sudo su -l $USER
+
+        # Run! (takes about 5 mins)
+        ./qatlib/cpa_sample_code
+
+
+===============================================================================
+
+
+Compilation and installation - detailed instructions
+====================================================
+
+    1) Install compilation dependencies
+
+        If running from a distro most or all of QATlib depends are taken care
+        of, if not use your OS-specific commands to install the following:
 
         tools:
-          gcc
-          make
-          autotools (automake, autoconf, libtool)
-          systemd-devel
+            gcc
+            make
+            autotools (automake, autoconf, libtool)
+            systemd-devel
 
         libraries:
-          openssl-devel
-          zlib-devel
+            openssl-devel
+            zlib-devel
 
-===============================================================================
+    ----------------------------------------------------------------------------
 
-2) Configuration process:
-    To generate configure script - call:
-    ./autogen.sh
+    2) Download package and configure it
 
-    To setup the default build configuration - call:
-    ./configure
+        To generate configure script - call:
+            ./autogen.sh
 
-    Any other configuration setup can be found under
-    "configuration options section" or by calling:
+        To setup the default build configuration - call:
+            ./configure
 
-    ./configure --help
+        Full list of configuration options can be found under
+        "Configuration options" section below or by calling:
+            ./configure --help
 
-    To setup configuration that will automatically enable qat service
-    during installation - call:
-    ./configure --enable-service
+        To setup configuration that will automatically enable qat service
+        during installation - call:
+        ./configure --enable-service
 
-===============================================================================
+    ----------------------------------------------------------------------------
 
-3) Compilation process:
+    3) Configure the system
 
-        After the package has been configured properly,
-        follow the steps below:
+        Create the "qat" group.
+            qat.service requires "qat" group
+            This is automatically created by configure --enable-service so this
+            step can be skipped. To manually create the group:
+                sudo groupadd qat
+
+        Add your user to "qat" group.
+            To be able to use QATlib functionalities as non root user, user must
+            be part of the qat group. To add your user to the qat group
+                sudo usermod -a -G qat <your user>
+
+        Set maximum amount of locked memory for your user.
+            The maximum amount of locked memory should be set correctly by
+            defining memlock limit. At least 200000 kB are required.
+            Add a line like this
+            <your user> - memlock 200000
+            in the file /etc/security/limits.conf.
+
+        After making user changes it's necessary to re-login for them to
+        take effect
+            sudo su -l $USER
+
+    ----------------------------------------------------------------------------
+
+    4) Compile and install the library
 
         Build and install:
-        make
-        make install
+            make -j
+            sudo make install
 
-        Build and install sample code:
-        make samples
-        make samples-install
+        If the service was not configured to start automatically, by using
+        --enable-service then it will need to be started. To start it
+        and make persistent after reboot:
+            systemctl enable qat
+            systemctl start qat
 
-        Uninstall and clean up:
-        make uninstall
-        make clean
-        make distclean
+    ----------------------------------------------------------------------------
+
+    5) Run sample application
+
+        Sample code is built by default.
+        Information on running the performance sample-code is at
+        ./quickassist/lookaside/access_layer/src/sample_code/README.txt
+
+        Examples:
+            Run all performance tests:
+            ./cpa_sample_code
+
+            Symmetric crypto tests only:
+            ./cpa_sample_code runTests=1
+
+            Asymmetric crypto RSA tests only:
+            ./cpa_sample_code runTests=2
+
+            Run just one symmetric cipher operation:
+            ./cipher_sample
+
+    ----------------------------------------------------------------------------
+
+    6) Remove the libraries and cleanup
+
+        Uninstall:
+            sudo systemctl stop qat
+            sudo systemctl disable qat
+            sudo make uninstall
+
+        Clean up:
+            make clean
+            make distclean
 
 ===============================================================================
 
-4) Configuration options
 
-        Typical examples of how to update configuration options are as follows:
+Full list of Configuration options
+==================================
+
+    Typical examples of how to update configuration options are as follows:
 
                 ./configure ICP_ANY_FLAG=value or
                 ./configure --enable-something
 
-        If it is required to use more than one flag at once:
+    If it is required to use more than one flag at once:
 
                 ./configure ICP_ANY_PATH=path ICP_ANY_NAME=name --enable-something
 
-Features flags:
+    Features flags:
         Enables or disables the additional features supported by 4xxx package
 
         --disable-option-checking
@@ -173,19 +372,48 @@ Features flags:
                 Type: value
                 Default value: 50
 
+
 ===============================================================================
 
-5) System configuration
 
-qat.service requires "qat" group to be created (by calling groupadd qat).
-If --enable-service configure option was used, such group will be created
-automatically during installation and this step can be skipped.
+Common issues
+=============
 
-To be able to use libqat functionalities as non root user:
- * the maximum amount of locked memory should be set correctly by defining
-   memlock limit in the file /etc/security/limits.conf. At least 200000 kB
-   are required.
- * user has to be part of qat group
+    Issue: errors like these are seen in system logs:
+         * 4xxx 0000:6b:00.0: IOMMU should be enabled for SR-IOV to work
+         * vfio-pci: probe of 0000:6b:00.1 failed with error -22
+    Likely cause: Check VT-d, SR-IOV and intel_iommu settings are correct as
+        described above. One way to check that is to run:
+        dmesg | grep "Virtualization Technology"
+        If you get output similar to below, everything is ready, otherwise
+        there is something misconfigured.
+        "[57.503644] DMAR: Intel(R) Virtualization Technology for Directed I/O"
+
+    Issue: On running sample code:
+        qaeMemInit started
+        Open failed on /dev/vfio/15
+        No device found
+        ADF_UIO_PROXY err: icp_adf_userProcessToStart: Failed to start SSL...
+    Likely cause: Incorrect permissions. Use "id <your user>" to verify the
+        user is in the qat group and logout/login to the shell to ensure group
+        changes take effect.
+
+    Issue: On running sample code:
+        qaeMemInit started
+        No device found
+        ADF_UIO_PROXY err: icp_adf_userProcessToStart: Failed to start SSL...
+    Likely cause: (1) No PF driver available. Check that PFs are available and
+        bound to qat_4xxx:
+        sudo lspci -vvd:4940 |grep "Kernel driver in use".
+        If no driver in use, upgrade to Linux kernel 5.11 or greater.
+        (2) No VFs available. Check VFs are available and bound to vfio-pci
+        sudo lspci -vvd:4941 |grep "Kernel driver in use"
+
+    Issue: On running ./autogen.sh following warning appears:
+        aclocal: warning: couldn't open directory 'm4': No such file or dir...
+    Likely cause: This warning can be ignored, as is resolved subsequently
+
+===============================================================================
 
 
 Legal/Disclaimers
@@ -205,7 +433,7 @@ not intended for use in medical, life saving, life sustaining, critical control
 Intel may make changes to specifications and product descriptions at any time,
 without notice.
 
-(C) Intel Corporation 2020
+(C) Intel Corporation 2021
 
 * Other names and brands may be claimed as the property of others.
 
