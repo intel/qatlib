@@ -11,6 +11,7 @@
 - [Environmental Assumptions](#environmental-assumptions)
 - [Examples](#examples)
 - [Open Issues](#open-issues)
+- [Resolved Issues](#resolved-issues)
 - [Licensing](#licensing)
 - [Legal](#legal)
 - [Terminology](#terminology)
@@ -19,6 +20,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| August 2021 | 004 | 21.08 | - Added support for deflate compression - Compress and Verify (CnV) and Compress and Verify and Recover (CnVnR)<br>- Added Physical Function to Virtual Function (PFVF) communication support |
 | May 2021 | 003 | 21.05 | - Added support for AES-CCM 192/265<br>- Added support for SHA3-224/384/512 (no partials support)<br>- Added support for ChaCha20-Poly1305<br>- Added support for PKE 8K (RSA, DH, ModExp, ModInv)<br>- Fixed device enumeration on different nodes<br>- Fixed pci_vfio_set_command for 32 bit builds |
 | November 2020 | 002 | 20.10 | - Fixed service stopping during uninstallation<br>- Fixed "Cannot open /sys/kernel/iommu_groups/vfio/devices/" error<br>- Fixes based on static code analysis<br>- Fixes based on secure code reviews<br>- Refactored logging mechanism<br>- Updated library versioning scheme<br>- Improvements to make install target<br>- Fix so service file installed in /usr/lib64 can be properly detected<br>- Remove execute permissions from non-executable files<br>- Clarified documentation of licensing<br>- Removed libudev dependency from the package<br>- Removed OpenSSL/libcrypto extracts, instead link against system OpenSSL/libcrypto |
 | August 2020 | 001 | 20.08 | - Initial Release |
@@ -62,6 +64,10 @@ The following services are available in qatlib via the QuickAssist API:
     generation/verification up to 8192 bits
   * DSA parameter generation and digital signature generation/verification
   * Elliptic Curve Cryptography: ECDSA, ECDHE, Edwards Montgomery curves
+* Compression
+  * Deflate
+  * Compress and Verify (CnV)
+  * Compress and Verify and Recover (CnVnR)
 
 This package includes:
 * libqat: user space library for QAT devices exposed via the vfio kernel driver
@@ -79,17 +85,10 @@ Earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) are not
 supported.
 
 ## Limitations
-* The library assumes a default configuration of sym and asym services on the
-  device. This will not always be true as it depends on kernel driver
-  configuration. If this library is used on a platform with different
-  configuration, the capabilities will not be reported correctly and some
-  operations will fail.
-
 * If an error occurs on the host driver (Heartbeat, Uncorrectable error) it
   will not be communicated to the library.
 
 The following features are not currently supported:
-* Data Compression Services
 * Dynamic instances
 * Intel® Key Protection Technology (KPT)
 * Event driven polling
@@ -107,9 +106,10 @@ The following assumptions are made concerning the deployment environment:
   controller, and by the operating system, prevent unauthorized access to these
   memory regions.
 * A QuickAssist kernel driver for the supported device is installed, which has
-  discovered and initialised the device, exposing the VFs. Note, this driver
-  will be included in a future linux kernel.
-* The library can be used by unprivilaged users if that user is included in
+  discovered and initialised the device, exposing the VFs. This driver is
+  included in the Linux kernel from v5.11 though v5.16 and is necessary for
+  compression services.
+* The library can be used by unprivileged users if that user is included in
   the 'qat' group.
 
 ## Examples
@@ -118,7 +118,7 @@ package (quickassist/lookaside/access_layer/src/sample_code).
 Please refer to [Intel® QuickAssist Technology API Programmer's Guide](https:/01.org/sites/default/files/downloads//330684-009-intel-qat-api-programmers-guide.pdf).
 
 ## Open Issues
-Known and resolved issues relating to the Intel® QAT software are described
+Known issues relating to the Intel® QAT software are described
 in this section.
 
 Issue titles follow the pattern:
@@ -139,8 +139,10 @@ where: \<Component\> is one of the following:
 | Issue ID | Description |
 |-------------|------------|
 | QATE-3241   | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.](#qate-3241) |
-| QATE-41707  | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger. ](#qate-41707)
-
+| QATE-41707  | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger. ](#qate-41707) |
+| QATE-74786 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
+| QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
+| QATE-76698 | [GEN- Multi-process applications running in guest will fail when running with default Policy settings .](#qate-76698) |
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -163,6 +165,54 @@ where: \<Component\> is one of the following:
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Crypto |
 
+## QATE-74786
+| Title      |         DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.     |
+|----------|:-------------
+| Reference # | QATE-74786 |
+| Description | When cpaDcDeflateCompressBound API is called with input size > 477218588 bytes incorrect buffer size is returned.  For any buffer input size, the  API should not produce output buffer size greater than the max limit (4 GB).   |
+| Implication | Incorrect output buffer size is returned instead of error. |
+| Resolution | Ensure input buffer sizes are less than maximum limit size (477218588 bytes). |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - Data Compression |
+
+## QATE-76073
+| Title      |         GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.     |
+|----------|:-------------
+| Reference # | QATE-76073 |
+| Description | When qatmgr is initialized, it reads the current configuration of the PF device.  If the PF device configuration is modified without restarting the qatmgr, the updated device configuration is not comprehended by qatmgr. |
+| Implication | Undefined behavior may occur. |
+| Resolution | If PF device is reconfigured and reloaded, ensure to stop and start the qatmgr. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
+## QATE-76698
+| Title      |         GEN - Multi-process applications running in guest will fail when running with default Policy settings.     |
+|----------|:-------------
+| Reference # | QATE-76698 |
+| Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system.  In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
+| Implication | Multi-process applications running in guest OS will fail with default Policy settings. |
+| Resolution | If more than 1 process is needed in a guest OS, set POLICY=n (where n>0) in /etc/sysconfig/qat and restart qatmgr. The process will then receive n VFs. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
+## Resolved Issues
+Resolved issues relating to the Intel® QAT software are described
+in this section.
+
+| Issue ID | Description |
+|-------------|------------|
+| QATE-76846   | [GEN - Forking and re-initialising use-cases do not work](#qate-76846) |
+
+## QATE-76846
+| Title      |         GEN - Forking and re-initialising use-cases do not work     |
+|----------|:-------------
+| Reference # | QATE-76846 |
+| Description | Forking and re-initialising use-cases do not work:<br>-icp_sal_userStart()/icp_sal_userStop()/icp_sal_userStart() in single process<br>-icp_sal_userStart()/fork()/icp_sal_userStart() in child.<br> This is the usecase in openssh + QAT_Engine. |
+| Implication | The process will have undefined behaviour in these use-cases. |
+| Resolution | This issue is resolved with the 21.08 release. If using release prior to this release and using these flows, call qaeMemDestroy() immediately after icp_sal_userStop() to prevent this issue. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
 ## Licensing
 * This product is released under the BSD-3-Clause.
 
@@ -183,6 +233,8 @@ Copyright &copy; 2016-2021, Intel Corporation. All rights reserved.
 | BIOS  |    Basic Input/Output System   |
 | BSD | Berkeley Standard Distribution |
 | CY | Cryptographic |
+| CnV | Compress and Verify |
+| CnVnR | Compress and Verify and Recover |
 | DC | Compression |
 | DMA | Direct Memory Access  |
 | EFI | Extensible Firmware Interface |

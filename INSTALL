@@ -1,7 +1,7 @@
 ===============================================================================
 
 
-May 2021
+August 2021
 ===============================================================================
 
 
@@ -123,9 +123,10 @@ Compilation and installation - quickstart instructions
         sudo systemctl start qat
 
         # Increase amount of locked memory for your user
-        # To add 200MB:
+        # Note: cpa_sample_code requires a mimimum of 500MB to run compression tests.
+        # To add 500MB:
         sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
-        echo `whoami` - memlock 200000  | sudo tee -a /etc/security/limits.conf > /dev/null
+        echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null
 
         # Re-login in order to update the user's group
         sudo su -l $USER
@@ -150,6 +151,7 @@ Compilation and installation - quickstart instructions
         ./autogen.sh
         ./configure
         make cpa_sample_code
+
         # Compression sample code expects to find data files at a known location,
         # so call the samples-install target to put them there.
         sudo make samples-install
@@ -184,9 +186,10 @@ Compilation and installation - quickstart instructions
         sudo usermod -a -G qat `whoami`
 
         # Increase amount of locked memory for your user
-        # To add 200MB:
+        # Note: cpa_sample_code requires a mimimum of 500MB to run compression tests.
+        # To add 500MB:
         sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
-        echo `whoami` - memlock 200000  | sudo tee -a /etc/security/limits.conf > /dev/null
+        echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null
 
         # Re-login in order to update the user group, this will move you back
         # into your home dir
@@ -252,9 +255,10 @@ Compilation and installation - detailed instructions
 
         Set maximum amount of locked memory for your user.
             The maximum amount of locked memory should be set correctly by
-            defining memlock limit. At least 200000 kB are required.
-            Add a line like this
-            <your user> - memlock 200000
+            defining memlock limit. For cpa_sample_code running crypto at least
+            200MB are required, if running compression set at least 500MB.
+            To set 500MB add a line like this
+            <your user> - memlock 500000
             in the file /etc/security/limits.conf.
 
         After making user changes it's necessary to re-login for them to
