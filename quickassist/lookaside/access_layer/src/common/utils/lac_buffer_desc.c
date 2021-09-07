@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -84,6 +84,7 @@
 #include "lac_mem.h"
 #include "cpa_cy_common.h"
 #include "dc_session.h"
+#include "sal_misc_error_stats.h"
 
 /*
 *******************************************************************************
@@ -261,84 +262,12 @@ CpaStatus LacBuffDesc_BufferListDescWriteAndGetSize(
     Cpa64U *totalDataLenInBytes,
     sal_service_t *pService)
 {
-    Cpa32U numBuffers = 0;
-    icp_qat_addr_width_t bufListDescPhyAddr = 0;
-    icp_qat_addr_width_t bufListAlignedPhyAddr = 0;
-    CpaFlatBuffer *pCurrClientFlatBuffer = NULL;
-    icp_buffer_list_desc_t *pBufferListDesc = NULL;
-    icp_flat_buffer_desc_t *pCurrFlatBufDesc = NULL;
-    *totalDataLenInBytes = 0;
-
-    LAC_ENSURE_NOT_NULL(pUserBufferList);
-    LAC_ENSURE_NOT_NULL(pUserBufferList->pBuffers);
-    LAC_ENSURE_NOT_NULL(pUserBufferList->pPrivateMetaData);
-    LAC_ENSURE_NOT_NULL(pBufListAlignedPhyAddr);
-
-    numBuffers = pUserBufferList->numBuffers;
-    pCurrClientFlatBuffer = pUserBufferList->pBuffers;
-
-    /*
-     * Get the physical address of this descriptor - need to offset by the
-     * alignment restrictions on the buffer descriptors
-     */
-    bufListDescPhyAddr = (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-        (*pService), pUserBufferList->pPrivateMetaData);
-
-    if (INVALID_PHYSICAL_ADDRESS == bufListDescPhyAddr)
-    {
-        LAC_LOG_ERROR("Unable to get the physical address of the metadata\n");
-        return CPA_STATUS_FAIL;
-    }
-
-    bufListAlignedPhyAddr = LAC_ALIGN_POW2_ROUNDUP(
-        bufListDescPhyAddr, ICP_DESCRIPTOR_ALIGNMENT_BYTES);
-
-    pBufferListDesc = (icp_buffer_list_desc_t *)(LAC_ARCH_UINT)(
-        (LAC_ARCH_UINT)pUserBufferList->pPrivateMetaData +
-        ((LAC_ARCH_UINT)bufListAlignedPhyAddr -
-         (LAC_ARCH_UINT)bufListDescPhyAddr));
-
-    /* Go past the Buffer List descriptor to the list of buffer descriptors */
-    pCurrFlatBufDesc =
-        (icp_flat_buffer_desc_t *)((pBufferListDesc->phyBuffers));
-
-    pBufferListDesc->numBuffers = numBuffers;
-
-    while (0 != numBuffers)
-    {
-        pCurrFlatBufDesc->dataLenInBytes =
-            pCurrClientFlatBuffer->dataLenInBytes;
-
-        /* Calculate the total data length in bytes */
-        *totalDataLenInBytes += pCurrClientFlatBuffer->dataLenInBytes;
-
-        if (isPhysicalAddress == CPA_TRUE)
-        {
-            pCurrFlatBufDesc->phyBuffer = LAC_MEM_CAST_PTR_TO_UINT64(
-                (LAC_ARCH_UINT)(pCurrClientFlatBuffer->pData));
-        }
-        else
-        {
-            pCurrFlatBufDesc->phyBuffer =
-                LAC_MEM_CAST_PTR_TO_UINT64(LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-                    (*pService), pCurrClientFlatBuffer->pData));
-
-            if (INVALID_PHYSICAL_ADDRESS == pCurrFlatBufDesc->phyBuffer)
-            {
-                LAC_LOG_ERROR("Unable to get the physical address of the "
-                              "client buffer\n");
-                return CPA_STATUS_FAIL;
-            }
-        }
-
-        pCurrFlatBufDesc++;
-        pCurrClientFlatBuffer++;
-
-        numBuffers--;
-    }
-
-    *pBufListAlignedPhyAddr = bufListAlignedPhyAddr;
-    return CPA_STATUS_SUCCESS;
+    return LacBuffDesc_CommonBufferListDescWrite(pUserBufferList,
+                                                 pBufListAlignedPhyAddr,
+                                                 isPhysicalAddress,
+                                                 totalDataLenInBytes,
+                                                 pService,
+                                                 WRITE_AND_GET_SIZE);
 }
 
 CpaStatus LacBuffDesc_FlatBufferVerify(

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -165,6 +165,26 @@ CpaBoolean Sal_ServiceIsInError(CpaInstanceHandle instanceHandle);
             (SAL_SERVICE_STATE_RESTARTING != pService->state))                 \
         {                                                                      \
             LAC_LOG_ERROR("Not in the correct state to call init\n");          \
+            return CPA_STATUS_FAIL;                                            \
+        }                                                                      \
+    } while (0)
+
+/**
+ *******************************************************************************
+ * @ingroup SalServiceState
+ *      This macro checks if an instance is in a state to get restarted event.
+ *
+ * @return CPA_STATUS_FAIL Instance not in good state.
+ * @return void            Instance is in good state.
+ ******************************************************************************/
+#define SAL_SERVICE_GOOD_FOR_RESTARTED(instanceHandle)                         \
+    do                                                                         \
+    {                                                                          \
+        sal_service_t *pService = (sal_service_t *)instanceHandle;             \
+        if ((SAL_SERVICE_STATE_UNINITIALIZED != pService->state) &&            \
+            (SAL_SERVICE_STATE_RESTARTING != pService->state))                 \
+        {                                                                      \
+            LAC_LOG_ERROR("Not in the correct state to call restarted\n");     \
             return CPA_STATUS_FAIL;                                            \
         }                                                                      \
     } while (0)

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -54,13 +54,22 @@ int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
                       uint32_t num_msgs,
                       uint32_t msg_size,
                       int nodeid);
+int32_t adf_reinit_ring(adf_dev_ring_handle_t *ring,
+                        adf_dev_bank_handle_t *bank,
+                        uint32_t ring_num,
+                        uint32_t *csr_base_addr,
+                        uint32_t num_msgs,
+                        uint32_t msg_size,
+                        int nodeid);
 
 void adf_cleanup_ring(adf_dev_ring_handle_t *ring);
+void adf_reset_ring(adf_dev_ring_handle_t *ring);
 int32_t adf_ring_freebuf(adf_dev_ring_handle_t *ring);
 
 int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
                          uint32_t *inBuf,
                          uint64_t *seq_num);
+CpaBoolean adf_user_check_resp_ring(adf_dev_ring_handle_t *ring);
 int32_t adf_user_notify_msgs(adf_dev_ring_handle_t *ring);
 int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring);
 int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,

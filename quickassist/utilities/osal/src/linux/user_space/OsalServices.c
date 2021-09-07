@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,6 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <stdarg.h>
 #include <stdio.h>
-#include <bits/time.h>
 #include <string.h>
 #include <sched.h>
 #include <time.h>

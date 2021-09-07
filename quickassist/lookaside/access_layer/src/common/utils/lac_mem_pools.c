@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -276,6 +276,21 @@ CpaStatus Lac_MemPoolCreate(
     return CPA_STATUS_SUCCESS;
 }
 
+void Lac_MemPoolEnable(lac_memory_pool_id_t poolID)
+{
+    lac_mem_pool_hdr_t *pPoolID = (lac_mem_pool_hdr_t *)poolID;
+
+    if (NULL == pPoolID)
+    {
+        LAC_LOG_ERROR("Invalid Pool ID");
+        return;
+    }
+
+    pPoolID->active = CPA_TRUE;
+    osalAtomicSet(1, (OsalAtomic *)&(pPoolID->sync));
+    return;
+}
+
 void Lac_MemPoolDisable(lac_memory_pool_id_t poolID)
 {
     lac_mem_pool_hdr_t *pPoolID = (lac_mem_pool_hdr_t *)poolID;
@@ -430,8 +445,8 @@ void Lac_MemPoolStatsShow(void)
                            " No. Elements in Pool:  %10u \n" BORDER
                            " Element Size in Bytes: %10u \n" BORDER
                            " Alignment in Bytes:    %10u \n" BORDER
-                           " No. Available Blocks:  %10u \n" SEPARATOR,
-                    (LAC_ARCH_UINT)(lac_mem_pools[index]->poolName),
+                           " No. Available Blocks:  %10zu \n" SEPARATOR,
+                    lac_mem_pools[index]->poolName,
                     lac_mem_pools[index]->active ? "TRUE" : "FALSE",
                     lac_mem_pools[index]->numElementsInPool,
                     lac_mem_pools[index]->blkSizeInBytes,

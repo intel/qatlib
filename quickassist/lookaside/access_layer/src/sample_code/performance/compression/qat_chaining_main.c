@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -96,6 +96,11 @@
 #include <linux/vmalloc.h>
 #endif
 
+#ifdef USER_SPACE
+#include <zlib.h>
+#else
+#include <linux/zlib.h>
+#endif
 
 #include "icp_sal_poll.h"
 
@@ -135,6 +140,53 @@ CpaStatus compareBuffers2(CpaBufferList ***ppSrc,
                           CpaBufferList ***ppComp,
                           compression_test_params_t *setup);
 
+static Cpa32U crc32_checksum(Cpa32U inputChecksum, Cpa8U *pData, Cpa32U length)
+{
+    Cpa32U resultChecksum = 0;
+#ifdef KERNEL_SPACE
+    resultChecksum =
+        crc32(inputChecksum ^ CRC32_XOR_VALUE, pData, length) ^ CRC32_XOR_VALUE;
+#else
+    resultChecksum = crc32(inputChecksum, pData, length);
+#endif
+    return resultChecksum;
+}
+
+void computeSglChecksum(CpaBufferList *inputBuff,
+                        const Cpa32U computationSize,
+                        const CpaDcChecksum checksumType,
+                        Cpa32U *swChecksum)
+{
+    Cpa32U numBuffs = 0;
+    Cpa32U lenLeft = 0;
+    Cpa32U totalLen = 0;
+
+    for (numBuffs = 0; numBuffs < inputBuff->numBuffers; numBuffs++)
+    {
+        totalLen += inputBuff->pBuffers[numBuffs].dataLenInBytes;
+        if (totalLen > computationSize)
+        {
+            totalLen -= inputBuff->pBuffers[numBuffs].dataLenInBytes;
+            lenLeft = computationSize - totalLen;
+            if (CPA_DC_CRC32 == checksumType)
+            {
+                *swChecksum = crc32_checksum(
+                    *swChecksum, inputBuff->pBuffers[numBuffs].pData, lenLeft);
+            }
+            break;
+        }
+        else
+        {
+            lenLeft = inputBuff->pBuffers[numBuffs].dataLenInBytes;
+        }
+
+        if (CPA_DC_CRC32 == checksumType)
+        {
+            *swChecksum = crc32_checksum(
+                *swChecksum, inputBuff->pBuffers[numBuffs].pData, lenLeft);
+        }
+    }
+}
 
 extern Cpa32U dcPollingInterval_g;
 
@@ -1115,6 +1167,11 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
     dcSetup.dcSessDir = tmpSetup->dcSessDir;
     dcSetup.syncFlag = tmpSetup->syncFlag;
     dcSetup.numLoops = tmpSetup->numLoops;
+    dcSetup.useE2E = tmpSetup->useE2E;
+    dcSetup.useE2EVerify = tmpSetup->useE2EVerify;
+    /* In case of E2E Verify we need to use CRC32 only */
+    if (dcSetup.useE2EVerify)
+        dcSetup.setupData.checksum = CPA_DC_CRC32;
 
     /* Give our thread a unique memory location to store performance stats */
     dcSetup.performanceStats = testSetup->performanceStats;
@@ -1249,6 +1306,23 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
             testSetup->performanceStats->preTestRecoveryCount = 0;
         }
     }
+    if (CPA_TRUE == dcSetup.useE2E)
+    {
+        PRINT("Do CRC integrity capabilities check for this instance. %d\n",
+              testSetup->logicalQaInstance);
+            if (CPA_FALSE == capabilities.integrityCrcs)
+            {
+
+                PRINT("CRC integrity check is unsupported for this instance. "
+                      "%d\n",
+                      testSetup->logicalQaInstance);
+                testSetup->performanceStats->threadReturnStatus =
+                    CPA_STATUS_SUCCESS;
+                qaeMemFree((void **)&instances);
+                qaeMemFree((void **)&dcSetup.numberOfBuffers);
+                sampleCodeThreadExit();
+            }
+    }
 
     dcSetup.induceOverflow = CPA_FALSE;
 
@@ -1300,7 +1374,7 @@ err:
     {
         qaeMemFree((void **)&instances);
     }
-    if (&dcSetup.numberOfBuffers != NULL)
+    if (dcSetup.numberOfBuffers != NULL)
     {
         qaeMemFree((void **)&dcSetup.numberOfBuffers);
     }
@@ -1368,7 +1442,8 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Unable to load one or more corpus files, have they been "
-                  "extracted to /lib/firmware?\n");
+                  "extracted to %s?\n",
+                  SAMPLE_CODE_CORPUS_PATH);
         return CPA_STATUS_FAIL;
     }
 

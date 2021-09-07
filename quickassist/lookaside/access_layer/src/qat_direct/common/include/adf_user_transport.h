@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -116,11 +116,27 @@ CpaStatus adf_pollRing(icp_accel_dev_t *accel_dev,
 CpaStatus adf_user_transport_init(icp_accel_dev_t *accel_dev);
 
 /*
+ * adf_user_transport_reinit
+ *
+ * Description
+ * Function reinitializes internal transport data
+ */
+CpaStatus adf_user_transport_reinit(icp_accel_dev_t *accel_dev);
+
+/*
  * adf_user_transport_exit
  *
  * Description
  * Function deinitializes internal transport data
  */
 CpaStatus adf_user_transport_exit(icp_accel_dev_t *accel_dev);
+
+/*
+ * adf_user_transport_clean
+ *
+ * Description
+ * Function clean internal transport data
+ */
+CpaStatus adf_user_transport_clean(icp_accel_dev_t *accel_dev);
 
 #endif /* ADF_USER_TRANSPORT_H */

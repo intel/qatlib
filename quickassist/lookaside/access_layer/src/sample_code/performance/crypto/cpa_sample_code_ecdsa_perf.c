@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -466,7 +466,7 @@ CpaStatus ecdsaSignRSOpDataSetup(ecdsa_test_params_t *setup,
     generateRandomData(message->pData, message->dataLenInBytes);
 /*Calculate the digest of the message*/
 
-    status = getCyInstanceCapabilities(&cap);
+    status = getCySpecificInstanceCapabilities(setup->cyInstanceHandle, &cap);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("getCyInstanceCapabilities failed with status: %d\n", status);

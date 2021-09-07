@@ -1,7 +1,7 @@
 ################################################################
 #   BSD LICENSE
 # 
-#   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+#   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
 #   All rights reserved.
 # 
 #   Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@ libosal_la_CFLAGS = -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space 
 		   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
 		   -I$(srcdir)/quickassist/utilities/osal/include \
 		   -DOSAL_ENSURE_ON -DUSE_OPENSSL \
+		   -Wno-deprecated-declarations \
 		   $(COMMON_FLAGS)
 
 noinst_LTLIBRARIES += libadf.la
@@ -67,7 +68,10 @@ libadf_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_user_proxy.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_client.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_lib.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_log.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c
 libadf_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		  -I$(srcdir)/quickassist/utilities/osal/include \
 		  -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
@@ -85,7 +89,11 @@ libadf_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 sbin_PROGRAMS = qatmgr
 qatmgr_SOURCES = \
 	quickassist/utilities/qat_mgr/qat_mgr.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_lib.c
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_log.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c
 qatmgr_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
 	   -I$(srcdir)/quickassist/lookaside/access_layer/include \
 	   -I$(srcdir)/quickassist/include \
@@ -104,8 +112,9 @@ lib@LIBUSDMNAME@_la_SOURCES = \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_utils.c \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.c
 lib@LIBUSDMNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
-		    -I$(srcdir)/quickassist/utilities/libusdm_drv/include \
-		    -I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
+			-I$(srcdir)/quickassist/utilities/libusdm_drv/include \
+			-I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
+			-shared \
 			$(COMMON_FLAGS)
 lib@LIBUSDMNAME@_la_LDFLAGS = -version-info $(LIBUSDM_VERSION) \
 	$(COMMON_LDFLAGS) \
@@ -121,6 +130,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/compression/dc_header_footer.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_session.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_stats.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_err_sim.c \
 	quickassist/lookaside/access_layer/src/common/compression/icp_sal_dc_err_sim.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/diffie_hellman/lac_dh_control_path.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/diffie_hellman/lac_dh_data_path.c \
@@ -184,6 +194,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/utils/lac_sync.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_service_state.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_statistics.c \
+	quickassist/lookaside/access_layer/src/common/utils/sal_misc_error_stats.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_string_parse.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_user_process.c \
 	quickassist/lookaside/access_layer/src/common/utils/sal_versions.c \
@@ -208,6 +219,7 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
 		  -D USER_SPACE \
 		  -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
+		  -shared \
 		  $(COMMON_FLAGS)
 lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la -lcrypto
 lib@LIBQATNAME@_la_LDFLAGS = -version-info $(LIBQAT_VERSION) \
@@ -249,10 +261,6 @@ endif
 systemd_scriptsdir = $(prefix)/sbin
 dist_systemd_scripts_SCRIPTS = quickassist/utilities/service/qat_init.sh
 
-install-exec-hook:
-	cp -P $(DESTDIR)$(libdir)/lib@LIBQATNAME@.so $(DESTDIR)$(libdir)/lib@LIBQATNAME@-$(VERSION).so
-	cp -P $(DESTDIR)$(libdir)/lib@LIBUSDMNAME@.so $(DESTDIR)$(libdir)/lib@LIBUSDMNAME@-$(VERSION).so
-
 install-data-hook:
 if SERVICE_AC
 	if [ "$(shell id -u)" == 0 ]; then \
@@ -264,12 +272,11 @@ if SERVICE_AC
 endif
 
 uninstall-hook:
-	rm $(DESTDIR)$(libdir)/lib@LIBQATNAME@-$(VERSION).so
-	rm $(DESTDIR)$(libdir)/lib@LIBUSDMNAME@-$(VERSION).so
 if SERVICE_AC
 	if [ "$(shell id -u)" == 0 ]; then \
 		systemctl daemon-reload; \
-		systemctl stop qat; \
+		pidof qatmgr > /dev/null && kill `pidof qatmgr`; \
+		rm -rf /run/qat; \
 		systemctl disable qat; \
 	fi
 endif
@@ -307,12 +314,12 @@ COMMON_FLAGS = -Wformat \
 	-fstack-protector-strong \
 	-fPIE \
 	-fPIC \
-	-shared \
 	-fno-strict-overflow \
 	-fno-delete-null-pointer-checks \
 	-fwrapv \
 	-D MAX_MR_ROUND=$(MAX_MR) \
 	-D _FILE_OFFSET_BITS=64 \
+	$(NO_UNUSED_CMDLINE_ARG_CFLAGS) \
 	$(MCX16_CFLAGS)
 
 if ICP_DEBUG_AC
@@ -338,6 +345,11 @@ endif
 if ICP_TRACE_AC
 ICP_TRACE = 1
 COMMON_FLAGS += -DICP_TRACE
+endif
+
+if ICP_DC_ERROR_SIMULATION_AC
+ICP_DC_ERROR_SIMULATION = 1
+COMMON_FLAGS += -DICP_DC_ERROR_SIMULATION
 endif
 
 

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -48,8 +48,10 @@
 #include "adf_user.h"
 #include "adf_kernel_types.h"
 #include "adf_user_cfg.h"
+#include "adf_pfvf_vf_msg.h"
 #include "vfio_lib.h"
 #include "qat_mgr.h"
+#include "qat_log.h"
 #include "qae_mem.h"
 
 void adf_io_free_bundle(struct adf_io_user_bundle *bundle)
@@ -97,8 +99,8 @@ int adf_io_populate_bundle(icp_accel_dev_t *accel_dev,
 
 static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
 {
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
     int device_name_len;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
@@ -153,12 +155,13 @@ int get_vfio_fd(void)
 int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
 {
     CpaStatus status = CPA_STATUS_FAIL;
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
     char vfio_file[QATMGR_MAX_STRLEN];
     char device_id[QATMGR_MAX_STRLEN];
     int ret;
     int group_fd;
+    int pci_did;
 
     vfio_dev_info_t *vfio_dev;
 
@@ -195,7 +198,8 @@ int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
     ICP_STRLCPY(vfio_file, rsp.vfio_file.name, sizeof(vfio_file));
     group_fd = rsp.vfio_file.fd;
 
-    ret = open_vfio_dev(vfio_file, device_id, group_fd, vfio_dev);
+    pci_did = (*accel_dev)->pciDevId;
+    ret = open_vfio_dev(vfio_file, device_id, group_fd, pci_did, vfio_dev);
     if (ret)
         goto accel_fail;
 
@@ -208,6 +212,8 @@ int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
         goto accel_fail;
     }
 
+    adf_vf2pf_notify_init(&vfio_dev->pfvf);
+
     return CPA_STATUS_SUCCESS;
 
 accel_fail:
@@ -215,6 +221,35 @@ accel_fail:
     ICP_FREE(*accel_dev);
     *accel_dev = NULL;
     return status;
+}
+
+int adf_io_reinit_accel(icp_accel_dev_t **accel_dev, int dev_id)
+{
+    vfio_dev_info_t *vfio_dev;
+
+    if (!accel_dev)
+        return -ENOMEM;
+
+    if (!*accel_dev)
+        return -ENOMEM;
+
+    if (!(*accel_dev)->ioPriv)
+        return -ENOMEM;
+
+    vfio_dev = (vfio_dev_info_t *)(*accel_dev)->ioPriv;
+
+    if (adf_vfio_populate_accel_dev(dev_id, *accel_dev))
+        goto accel_fail;
+
+    return CPA_STATUS_SUCCESS;
+
+accel_fail:
+    qaeUnregisterDevice(vfio_dev->vfio_container_fd);
+    close_vfio_dev(vfio_dev);
+    ICP_FREE(vfio_dev);
+    ICP_FREE(*accel_dev);
+    *accel_dev = NULL;
+    return CPA_STATUS_FAIL;
 }
 
 void adf_io_destroy_accel(icp_accel_dev_t *accel_dev)
@@ -228,6 +263,8 @@ void adf_io_destroy_accel(icp_accel_dev_t *accel_dev)
         goto free_accel;
 
     vfio_dev = accel_dev->ioPriv;
+
+    adf_vf2pf_notify_shutdown(&vfio_dev->pfvf);
 
     qaeUnregisterDevice(vfio_dev->vfio_container_fd);
     close_vfio_dev(vfio_dev);

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -191,6 +191,14 @@ void LacEc_StatsFree(CpaInstanceHandle instanceHandle)
     {
         LAC_OS_FREE(pCryptoService->pLacEcdsaStatsArr);
     }
+}
+
+void LacEc_StatsReset(CpaInstanceHandle instanceHandle)
+{
+    sal_crypto_service_t *pCryptoService = NULL;
+    pCryptoService = (sal_crypto_service_t *)instanceHandle;
+
+    LAC_EC_ALL_STATS_CLEAR(pCryptoService);
 }
 
 /**

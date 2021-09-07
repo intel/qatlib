@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -156,7 +156,6 @@ typedef void (*sal_qat_resp_handler_func_t)(icp_qat_fw_la_cmd_id_t lacCmdId,
  * @param[in]   cmnFlags                Common request flags
  * @param[in]   serviceCmdFlags         Service command flags
  * @param[in]   extServiceCmdFlags      Extended service command flags
- * @param[in]   isGen4                  use false for CPM 1.x, true for CPM2.0
  *
  * @return
  *      None
@@ -167,8 +166,7 @@ void SalQatMsg_CmnHdrWrite(icp_qat_fw_comn_req_t *pMsg,
                            uint8_t serviceCmdId,
                            icp_qat_fw_comn_flags cmnFlags,
                            icp_qat_fw_serv_specif_flags serviceCmdFlags,
-                           icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags,
-                           CpaBoolean isGen4);
+                           icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags);
 
 /********************************************************************
  * @ingroup SalQatMsg_CmnMidWrite

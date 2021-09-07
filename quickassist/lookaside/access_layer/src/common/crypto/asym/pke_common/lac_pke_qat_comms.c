@@ -1,7 +1,7 @@
 /*
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -81,6 +81,7 @@
 #include "lac_pke_qat_comms.h"
 #include "lac_pke_utils.h"
 #include "lac_pke_mmp.h"
+#include "sal_misc_error_stats.h"
 #ifdef KPT
 #include "lac_kpt_ksp_qat_comms.h"
 #endif
@@ -488,6 +489,9 @@ void LacPke_MsgCallback(void *pRespMsg)
     cbData = pReqData->cbInfo.cbData;
     instanceHandle = pReqData->cbInfo.instanceHandle;
 
+    SAL_MISC_ERR_STATS_INC(
+        comnErr,
+        &((sal_crypto_service_t *)instanceHandle)->generic_service_info);
     /* destroy the request */
     requestHandle = (lac_pke_request_handle_t)pReqData->pHeadReqData;
     status = LacPke_DestroyRequest(&requestHandle);

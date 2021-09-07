@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #define ADF_IO_USER_PROXY_H
 
 #include "cpa.h"
+#include "icp_accel_devices.h"
 
 /**
  * @ingroup adf_io
@@ -118,4 +119,15 @@ void adf_io_userProxyShutdown(void);
  */
 CpaStatus adf_io_resetUserProxy(void);
 
+/*
+ * adf_io_pollProxyEvent
+ *
+ * Description:
+ *  check if there is any event for given device id
+ *
+ * Returns:
+ *   CPA_FALSE         there are no reported events
+ *   CPA_TRUE          there are reported events
+ */
+CpaBoolean adf_io_pollProxyEvent(Cpa32U *dev_id, enum adf_event *event);
 #endif

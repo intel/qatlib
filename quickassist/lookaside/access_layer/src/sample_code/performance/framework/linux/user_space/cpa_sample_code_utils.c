@@ -6,7 +6,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -28,7 +28,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -109,7 +109,7 @@ extern volatile Cpa32U numThreadsAtBarrier_g;
 
 Cpa32U cpu_freq_g = 0;
 
-static char *firmwarePath = "/lib/firmware/";
+static char *firmwarePath = SAMPLE_CODE_CORPUS_PATH;
 
 sample_code_thread_barrier_t barr;
 
@@ -1024,22 +1024,19 @@ int parseArg(int argc, char **argv, option_t *optArray, int numOpt)
                 return -1;
             }
             sscanf(argv[indexArgv], "%24[^'=']=%d", name, &value);
-            if (NULL != name)
+            for (indexOpt = 0; indexOpt < numOpt; indexOpt++)
             {
-                for (indexOpt = 0; indexOpt < numOpt; indexOpt++)
+                if (0 ==
+                    strncmp(name, optArray[indexOpt].optName, sizeof(name)))
                 {
-                    if (0 ==
-                        strncmp(name, optArray[indexOpt].optName, sizeof(name)))
-                    {
-                        optArray[indexOpt].optValue = value;
-                        matchFound = CPA_TRUE;
-                    }
+                    optArray[indexOpt].optValue = value;
+                    matchFound = CPA_TRUE;
                 }
-                if (matchFound == CPA_FALSE)
-                {
-                    PRINT_ERR("%s not recognized\n", name);
-                    return -1;
-                }
+            }
+            if (matchFound == CPA_FALSE)
+            {
+                PRINT_ERR("%s not recognized\n", name);
+                return -1;
             }
         }
         indexArgv++;

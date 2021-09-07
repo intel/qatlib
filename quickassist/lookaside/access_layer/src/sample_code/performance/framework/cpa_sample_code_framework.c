@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -227,7 +227,26 @@ volatile thread_state_e threadState_g = THREAD_NOT_STARTED;
 volatile CpaBoolean reliability_g = CPA_FALSE;
 volatile CpaBoolean cnverr_g = CPA_FALSE;
 volatile CpaBoolean cnvnrerr_g = CPA_FALSE;
+volatile CpaBoolean dataIntegrity_g = CPA_FALSE;
+volatile CpaBoolean dataIntegrityVerify_g = CPA_FALSE;
 int verboseOutput = 1;
+
+CpaStatus setDataIntegrity(CpaBoolean val)
+{
+    dataIntegrity_g = val;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(dataIntegrity_g);
+EXPORT_SYMBOL(setDataIntegrity);
+
+CpaStatus setDataIntegrityVerify(CpaBoolean val)
+{
+    dataIntegrity_g = val;
+    dataIntegrityVerify_g = val;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(dataIntegrityVerify_g);
+EXPORT_SYMBOL(setDataIntegrityVerify);
 
 CpaStatus setReliability(CpaBoolean val)
 {
@@ -254,6 +273,7 @@ CpaStatus setUseStaticPrime(int val)
     }
     return CPA_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(useStaticPrime);
 
 CpaStatus printReliability(void)
 {
@@ -281,12 +301,15 @@ CpaStatus enableSleeptime(void)
     sleepTime_enable = CPA_TRUE;
     return CPA_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(enableSleeptime);
 
 CpaStatus disableSleeptime(void)
 {
     sleepTime_enable = CPA_FALSE;
     return CPA_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(disableSleeptime);
+
 /*Global flag to enable adjustable sleep value*/
 CpaBoolean adjust_sleepTime_enable_g = CPA_FALSE;
 
@@ -295,12 +318,15 @@ CpaStatus enableAdjustSleepTime(void)
     adjust_sleepTime_enable_g = CPA_TRUE;
     return CPA_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(enableAdjustSleepTime);
 
 CpaStatus disableAdjustSleepTime(void)
 {
     adjust_sleepTime_enable_g = CPA_FALSE;
     return CPA_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(disableAdjustSleepTime);
+
 /*Global sleep values for DC/SYM/RSA must be set for sleeptime functionality*/
 Cpa32U dc_slv_g;
 Cpa32U cy_slv_g;
@@ -335,6 +361,17 @@ EXPORT_SYMBOL(set_buffer_count);
 EXPORT_SYMBOL(dc_bufferCount_g);
 volatile CpaBoolean fineTune_g = CPA_FALSE;
 volatile Cpa16U iaCycleCount_g = CPA_CC_DISABLE;
+
+/* Global Gbps rate for compression requests */
+volatile Cpa32U cprRate_g = 0xFFFFFFFE;
+
+/* Setter function for lobal Gbps rate for compression requests */
+CpaStatus setCprRate(Cpa32U rate)
+{
+    cprRate_g = rate;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCprRate);
 
 CpaStatus setFineTune(CpaBoolean val)
 {
@@ -1012,6 +1049,36 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
     return CPA_STATUS_SUCCESS;
 }
 
+/* This function reprocesses the threads setting the logicalQaCoreIndex
+ * correctly within each already created Crypto Thread
+ * Input Arguments:
+ * threadoffset : The thread number to start with reprocessing.
+ * cyIaCore     : The Crypto Instances array that includes both sym
+ *                and asym instances.
+ * symOrasymIaCore : The Symmetric or Asymetric Crypto array.
+ * numCyInstances : size of cyIaCore array.
+ */
+void qatModifyCyThreadLogicalQaInstance(Cpa8U threadOffset,
+                                        CpaInstanceHandle *cyIaCore,
+                                        CpaInstanceHandle *symOrAsymIaCore,
+                                        Cpa8U numCyInstances)
+{
+    Cpa8U i = 0, j = 0;
+
+    for (i = threadOffset; i < numCreatedThreads_g; i++)
+    {
+        for (j = 0; j < numCyInstances; j++)
+        {
+            if (symOrAsymIaCore[singleThreadData_g[i].logicalQaInstance] ==
+                cyIaCore[j])
+            {
+                singleThreadData_g[i].logicalQaInstance = j;
+                break;
+            }
+        }
+    }
+}
+
 CpaBoolean isSampleCodeBarrierLifted(void)
 {
     return SampleCodeBarrierLifted;
@@ -1176,6 +1243,14 @@ void freeInstanceMapping(void)
     {
         qaeMemFree((void **)&cyInst_g);
     }
+    if (NULL != symCyInst_g)
+    {
+        qaeMemFree((void **)&symCyInst_g);
+    }
+    if (NULL != asymCyInst_g)
+    {
+        qaeMemFree((void **)&asymCyInst_g);
+    }
     if (NULL != dcInst_g)
     {
         qaeMemFree((void **)&dcInst_g);
@@ -1183,6 +1258,14 @@ void freeInstanceMapping(void)
     if (NULL != cyInstMap_g)
     {
         qaeMemFree((void **)&cyInstMap_g);
+    }
+    if (NULL != symCyInstMap_g)
+    {
+        qaeMemFree((void **)&symCyInstMap_g);
+    }
+    if (NULL != asymCyInstMap_g)
+    {
+        qaeMemFree((void **)&asymCyInstMap_g);
     }
     if (NULL != dcInstMap_g)
     {
@@ -1206,7 +1289,8 @@ CpaStatus getCryptoInstanceMapping(void)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyGetNumInstances failed with status: %d\n", status);
-        return status;
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
     }
     if (numInst_g > 0)
     {
@@ -1246,6 +1330,7 @@ CpaStatus getCryptoInstanceMapping(void)
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not get instance info\n");
+                freeInstanceMapping();
                 return status;
             }
             if (CPA_STATUS_SUCCESS ==
@@ -1286,12 +1371,14 @@ CpaStatus getCryptoInstanceMapping(void)
     else
     {
         PRINT("There are no crypto instances\n");
+        freeInstanceMapping();
         return CPA_STATUS_FAIL;
     }
 #endif /* DO_CRYPTO*/
     return status;
 }
 EXPORT_SYMBOL(getCryptoInstanceMapping);
+
 
 #ifdef INCLUDE_COMPRESSION
 /*get the instance to core affinity mapping of the compression instances and
@@ -1308,7 +1395,8 @@ CpaStatus getCompressionInstanceMapping(void)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaDcGetNumInstances failed with status: %d\n", status);
-        return status;
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
     }
     if (numInst_g > 0)
     {
@@ -1348,6 +1436,7 @@ CpaStatus getCompressionInstanceMapping(void)
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not get instance info\n");
+                freeInstanceMapping();
                 return status;
             }
             if (CPA_STATUS_SUCCESS ==
@@ -1388,6 +1477,7 @@ CpaStatus getCompressionInstanceMapping(void)
     else
     {
         PRINT("There are no compression instances\n");
+        freeInstanceMapping();
         return CPA_STATUS_FAIL;
     }
     return status;
@@ -1423,7 +1513,7 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
         {
             if (CPA_STATUS_SUCCESS != getCompressionInstanceMapping())
             {
-                PRINT_ERR("Could not get Crypto Instance mapping\n");
+                PRINT_ERR("Could not get Compression Instance mapping\n");
                 return CPA_STATUS_FAIL;
             }
             instMap = dcInstMap_g;

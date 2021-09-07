@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -48,9 +48,12 @@
 #include <limits.h>
 #include <search.h>
 #include <grp.h>
+#include "adf_pfvf_vf_msg.h"
 #include "icp_accel_devices.h"
 #include "icp_platform.h"
+#include "qat_log.h"
 #include "qat_mgr.h"
+#include "vfio_lib.h"
 
 #define INTEL_VENDOR_ID 0x8086
 #define QAT_4XXXVF_DEVICE_ID 0x4941
@@ -58,73 +61,60 @@
 
 #define IOMMUGROUP_DEV_DIR "/sys/kernel/iommu_groups/%s/devices/"
 #define DEVVFIO_DIR "/dev/vfio"
-#define DEVICE_GROUP "qat"
 
 #define DEVICE_FILE IOMMUGROUP_DEV_DIR "%s/device"
 #define VENDOR_FILE IOMMUGROUP_DEV_DIR "%s/vendor"
 
 #define VFIO_ENTRY "vfio"
 
-#ifdef ADF_ERROR
-#undef ADF_ERROR
-#endif
-#define ADF_ERROR(format, args...) qat_log(LOG_LEVEL_ERROR, format, ##args)
-
 static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
 
 
-int debug_level = 0;
-
-static int pr_err(const char *fmt, va_list args)
+/* Cache of PF capabilities */
+struct pf_capabilities
 {
-    return vfprintf(stderr, fmt, args);
-}
+    uint32_t pf;
+    uint32_t ext_dc_caps;
+    uint32_t capabilities;
+    struct pf_capabilities *next;
+};
 
-static int pr_info(const char *fmt, va_list args)
+static struct pf_capabilities *pf_capabilities_head = NULL;
+
+static struct pf_capabilities *find_pf_capabilities(uint32_t pf)
 {
-    int ret;
-
-    if (debug_level < LOG_LEVEL_INFO)
-        return 1;
-
-    ret = vprintf(fmt, args);
-
-    return ret;
-}
-
-static int pr_dbg(const char *fmt, va_list args)
-{
-    int ret;
-
-    if (debug_level < LOG_LEVEL_DEBUG)
-        return 1;
-
-    ret = vprintf(fmt, args);
-
-    return ret;
-}
-
-int qat_log(int log_level, const char *fmt, ...)
-{
-    va_list args;
-    int ret = 1;
-
-    va_start(args, fmt);
-    switch (log_level)
+    struct pf_capabilities *current = pf_capabilities_head;
+    while (current)
     {
-        case LOG_LEVEL_ERROR:
-            ret = pr_err(fmt, args);
-            break;
-        case LOG_LEVEL_INFO:
-            ret = pr_info(fmt, args);
-            break;
-        case LOG_LEVEL_DEBUG:
-            ret = pr_dbg(fmt, args);
-            break;
+        if (current->pf == pf)
+            return current;
+
+        current = current->next;
     }
-    va_end(args);
-    return ret;
+
+    return NULL;
+}
+
+static void add_pf_capabilities(struct pf_capabilities *caps)
+{
+    caps->next = pf_capabilities_head;
+    pf_capabilities_head = caps;
+}
+
+static void cleanup_capabilities_cache()
+{
+    struct pf_capabilities *current = pf_capabilities_head;
+    struct pf_capabilities *next;
+
+    while (current)
+    {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
+    pf_capabilities_head = NULL;
 }
 
 static int is_qat_device(int device_id)
@@ -152,7 +142,6 @@ static char *qat_device_name(int device_id)
 }
 
 
-
 void qat_mgr_cleanup_cfg(void)
 {
     int i;
@@ -175,6 +164,8 @@ void qat_mgr_cleanup_cfg(void)
         section_data = NULL;
         num_section_data = 0;
     }
+
+    cleanup_capabilities_cache();
 }
 
 /*
@@ -490,6 +481,57 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     return 0;
 }
 
+static int qat_mgr_get_device_capabilities(
+    struct qatmgr_device_data *device_data,
+    int dev_id,
+    bool *compatible,
+    uint32_t *ext_dc_caps,
+    uint32_t *capabilities)
+{
+    int ret;
+    vfio_dev_info_t vfio_dev;
+    *compatible = CPA_TRUE;
+    ret = open_vfio_dev(device_data->device_file,
+                        device_data->device_id,
+                        device_data->group_fd,
+                        dev_id,
+                        &vfio_dev);
+    if (ret)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Cannot open vfio device\n");
+        return ret;
+    }
+
+    ret = adf_vf2pf_check_compat_version(&vfio_dev.pfvf);
+    if (ret)
+    {
+        close_vfio_dev(&vfio_dev);
+        device_data->group_fd = -1;
+        if (adf_vf2pf_available())
+        {
+            qat_log(LOG_LEVEL_ERROR, "Comms incompatible between VF and PF\n");
+            *compatible = CPA_FALSE;
+        }
+        return ret;
+    }
+
+    ret = adf_vf2pf_get_capabilities(&vfio_dev.pfvf);
+    if (ret)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Cannot query device capabilites\n");
+        close_vfio_dev(&vfio_dev);
+        device_data->group_fd = -1;
+        return ret;
+    }
+
+    *ext_dc_caps = vfio_dev.pfvf.ext_dc_caps;
+    *capabilities = vfio_dev.pfvf.capabilities;
+
+    close_vfio_dev(&vfio_dev);
+    device_data->group_fd = -1;
+    return 0;
+}
+
 int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                        const int num_vf_devices,
                        int policy,
@@ -510,6 +552,10 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     char pf_str[10];
     ENTRY pf_entry = {pf_str, NULL};
     int pfs_per_vf_group[ADF_MAX_DEVICES] = {0};
+    uint32_t ext_dc_caps, capabilities;
+    bool compatible;
+    int ret;
+    struct pf_capabilities *cached_capabilities;
 
     if (!num_vf_devices)
         return -EINVAL;
@@ -653,6 +699,11 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             return -EAGAIN;
         }
 
+        section->num_cy_inst = 0;
+        section->num_sym_inst = 0;
+        section->num_asym_inst = 0;
+        section->num_dc_inst = 0;
+
         device_data = section->device_data;
         for (j = 0; j < num_vfs_this_section; j++, device_data++, vf_idx++)
         {
@@ -693,19 +744,104 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                     ICP_ACCEL_CAPABILITIES_AESGCM_SPC |
                     ICP_ACCEL_CAPABILITIES_AES_V2;
                 device_data->extended_capabilities = 0x0;
+            /**
+             * Send query to get capabilities from PF.
+             * qat_mgr_get_device_capabilities will open device, initialize
+             * VF2PF communication, query capabilities and close device.
+             *
+             * All VFs comming from same PF will have same capabilities, to save
+             * time, after querying capabilities of given PF they can be cached
+             * and reused by other VFs.
+             *
+             * Before first query, we don't know if PF is supporting VF2PF (1st
+             * call to adf_vf2pf_available will report availability of VF2PF),
+             * in case where PF is not supporting VF2PF, consecutive calls to
+             * adf_vf2pf_available will report lack of VF2PF and hardcoded
+             * "fallback" capabilities defined above will be used.
+             */
+
+            /* Get PF number that this VF is coming from (take node into
+             * account) */
+            pf = BDF_BUS(dev_list[vf_idx].bdf);
+            pf += (BDF_NODE(dev_list[vf_idx].bdf) << 8);
+
+            cached_capabilities = find_pf_capabilities(pf);
+            if (cached_capabilities)
+            {
+                device_data->accel_capabilities =
+                    cached_capabilities->capabilities;
+                device_data->extended_capabilities =
+                    cached_capabilities->ext_dc_caps;
+            }
+            else if (adf_vf2pf_available())
+            {
+                ret = qat_mgr_get_device_capabilities(device_data,
+                                                      devid,
+                                                      &compatible,
+                                                      &ext_dc_caps,
+                                                      &capabilities);
+                if (0 == ret)
+                {
+                    device_data->accel_capabilities = capabilities;
+                    device_data->extended_capabilities = ext_dc_caps;
+                    cached_capabilities =
+                        calloc(1, sizeof(struct pf_capabilities));
+                    if (!cached_capabilities)
+                    {
+                        qat_log(LOG_LEVEL_ERROR,
+                                "Malloc failed for capabilities cache\n");
+                        qat_mgr_cleanup_cfg();
+                        return -EAGAIN;
+                    }
+                    cached_capabilities->pf = pf;
+                    cached_capabilities->capabilities = capabilities;
+                    cached_capabilities->ext_dc_caps = ext_dc_caps;
+                    add_pf_capabilities(cached_capabilities);
+                }
+                else if (!compatible)
+                {
+                    qat_log(LOG_LEVEL_ERROR,
+                            "Detected not compatible PF driver\n");
+                    qat_mgr_cleanup_cfg();
+                    return ret;
+                }
+            }
+
             snprintf(device_data->name,
                      sizeof(device_data->name),
                      "%s",
                      qat_device_name(devid));
             device_data->device_type = qat_device_type(devid);
             device_data->pci_id = devid;
-            device_data->services = SERV_TYPE_CY;
+
+            device_data->services = 0;
+            if ((device_data->accel_capabilities &
+                 ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC) &&
+                (device_data->accel_capabilities &
+                     ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC &&
+                 !(device_data->accel_capabilities &
+                   ICP_ACCEL_CAPABILITIES_COMPRESSION)))
+            {
+                qat_log(LOG_LEVEL_INFO, "Detected CY instance\n");
+                device_data->services |= SERV_TYPE_CY;
+                section->num_sym_inst = 2;
+                section->num_asym_inst = 2;
+                section->num_cy_inst = 2;
+            }
+
+            if (device_data->accel_capabilities &
+                    ICP_ACCEL_CAPABILITIES_COMPRESSION &&
+                !((device_data->accel_capabilities &
+                   ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC) ||
+                  (device_data->accel_capabilities &
+                   ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)))
+            {
+                qat_log(LOG_LEVEL_INFO, "Detected DC instance\n");
+                device_data->services |= SERV_TYPE_DC;
+                section->num_dc_inst = 4;
+            }
         }
 
-        section->num_cy_inst = 2;
-        section->num_sym_inst = 2;
-        section->num_asym_inst = 2;
-        section->num_dc_inst = 0;
 
         if (section->num_dc_inst)
         {
@@ -728,11 +864,11 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 snprintf(dc_inst->name, sizeof(dc_inst->name), "dc%d", j);
                 dc_inst->accelid = j / section->num_dc_inst;
                 dc_inst->service_type = SERV_TYPE_DC;
-                dc_inst->bank_number = 0;
 
                 devid = dev_list[dc_inst->accelid].devid;
-                    dc_inst->ring_tx = 0 + j % section->num_dc_inst;
-                    dc_inst->ring_rx = 1 + j % section->num_dc_inst;
+                    dc_inst->bank_number = (j % section->num_dc_inst);
+                    dc_inst->ring_tx = 0;
+                    dc_inst->ring_rx = 1;
                 dc_inst->is_polled = 1;
                 dc_inst->num_concurrent_requests = 512;
                 dc_inst->core_affinity = core;
@@ -796,13 +932,18 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
 
 bool qat_mgr_is_dev_available()
 {
+    DIR *devvfio_dir;
+    DIR *sysdevice_dir;
+    struct dirent *vfio_entry;
+    struct dirent *device_entry;
+    FILE *sysfile;
+    int sysfile_fd;
+    char devices_dir_name[256];
     bool dev_found = false;
     char filename[256];
-    DIR *devvfio_dir;
-    struct dirent *vfio_entry;
+    unsigned int device;
 
     devvfio_dir = open_dir_with_link_check(DEVVFIO_DIR);
-
     if (devvfio_dir == NULL)
     {
         return false;
@@ -811,35 +952,80 @@ bool qat_mgr_is_dev_available()
     /* For each <group> entry in /dev/vfio/ */
     while ((vfio_entry = readdir(devvfio_dir)) != NULL)
     {
-        struct stat info;
-        struct group *grp;
+        /* If any QAT device was found, quit immediately */
+        if (dev_found)
+            break;
 
         if (vfio_entry->d_name[0] == '.')
             continue;
 
-        if (snprintf(filename,
-                     sizeof(filename),
-                     DEVVFIO_DIR "/%s",
-                     vfio_entry->d_name) >= sizeof(filename))
+        /* /dev/vfio/vfio is special entry, should be skipped */
+        if (!strncmp(vfio_entry->d_name, VFIO_ENTRY, strlen(VFIO_ENTRY)))
+            continue;
+
+        /* open dir /sys/kernel/iommu_groups/<group>/devices/ */
+        if (snprintf(devices_dir_name,
+                     sizeof(devices_dir_name),
+                     IOMMUGROUP_DEV_DIR,
+                     vfio_entry->d_name) >= sizeof(devices_dir_name))
         {
-            qat_log(LOG_LEVEL_ERROR, "Filename %s truncated\n", filename);
+            qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
             continue;
         }
 
-        if (stat(filename, &info) != 0)
+        sysdevice_dir = open_dir_with_link_check(devices_dir_name);
+        if (sysdevice_dir == NULL)
         {
             continue;
         }
 
-        grp = getgrgid(info.st_gid);
-
-        if (ICP_STRNCMP_CONST(grp->gr_name, DEVICE_GROUP) == 0)
+        /* For each device in this group. Should only be one. */
+        while ((device_entry = readdir(sysdevice_dir)) != NULL)
         {
-            dev_found = true;
-            break;
+            if (device_entry->d_name[0] == '.')
+                continue;
+
+            /* Open /sys/kernel/iommu_groups/<group>/devices/<device>/device */
+            if (snprintf(filename,
+                         sizeof(filename),
+                         DEVICE_FILE,
+                         vfio_entry->d_name,
+                         device_entry->d_name) >= sizeof(filename))
+            {
+                qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
+                break;
+            }
+
+            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+            if (sysfile_fd < 0)
+                break;
+
+            sysfile = fdopen(sysfile_fd, "r");
+            if (!sysfile)
+            {
+                close(sysfile_fd);
+                break;
+            }
+            device = 0;
+            if (fscanf(sysfile, "%x", &device) != 1)
+            {
+                qat_log(LOG_LEVEL_INFO,
+                        "Failed to read device from %s\n",
+                        filename);
+                /*
+                 * If the fscanf fails, the check of device ids below will fail
+                 * and we will check next dev.
+                 */
+            }
+            fclose(sysfile);
+            qat_log(LOG_LEVEL_INFO, "Checking %s\n", filename);
+            if (is_qat_device(device))
+            {
+                dev_found = true;
+                break;
+            }
         }
     }
-
     closedir(devvfio_dir);
 
     return dev_found;
@@ -881,7 +1067,7 @@ void dump_message(void *ptr, char *text)
 static void err_msg(struct qatmgr_msg_rsp *rsp, char *text)
 {
     rsp->hdr.type = QATMGR_MSGTYPE_BAD;
-    rsp->hdr.version = 0;
+    rsp->hdr.version = THIS_LIB_VERSION;
     ICP_STRLCPY(rsp->error_text, text, sizeof(rsp->error_text));
     rsp->hdr.len =
         sizeof(rsp->hdr) + ICP_ARRAY_STRLEN_SANITIZE(rsp->error_text) + 1;
@@ -894,7 +1080,7 @@ static void build_msg_header(struct qatmgr_msg_rsp *rsp,
     ICP_CHECK_FOR_NULL_PARAM_VOID(rsp);
 
     rsp->hdr.type = type;
-    rsp->hdr.version = 0;
+    rsp->hdr.version = THIS_LIB_VERSION;
     rsp->hdr.len = sizeof(rsp->hdr) + payload_size;
 }
 
@@ -1025,7 +1211,7 @@ static int handle_get_device_id(struct qatmgr_msg_req *req,
     device_data += device_num;
 
     rsp->hdr.type = QATMGR_MSGTYPE_DEVICE_ID;
-    rsp->hdr.version = 0;
+    rsp->hdr.version = THIS_LIB_VERSION;
     ICP_STRLCPY(rsp->device_id, device_data->device_id, sizeof(rsp->device_id));
     build_msg_header(rsp,
                      QATMGR_MSGTYPE_DEVICE_ID,
@@ -1072,7 +1258,7 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     device_data += device_num;
 
     rsp->hdr.type = QATMGR_MSGTYPE_VFIO_FILE;
-    rsp->hdr.version = 0;
+    rsp->hdr.version = THIS_LIB_VERSION;
     rsp->vfio_file.fd = device_data->group_fd;
 
     ICP_STRLCPY(rsp->vfio_file.name,
@@ -1498,7 +1684,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
 
     *index = sec;
     rsp->hdr.type = QATMGR_MSGTYPE_SECTION_GET;
-    rsp->hdr.version = 0;
+    rsp->hdr.version = THIS_LIB_VERSION;
     ICP_STRLCPY(rsp->name, derived_name, sizeof(rsp->name));
     rsp->hdr.len = sizeof(rsp->hdr) + ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1;
 
@@ -1576,6 +1762,21 @@ int handle_message(struct qatmgr_msg_req *req,
     ICP_CHECK_FOR_NULL_PARAM(section_name);
 
     dump_message(req, "Request");
+
+    if (req->hdr.version != THIS_LIB_VERSION)
+    {
+        char qatlib_ver_str[VER_STR_LEN];
+        char qatmgr_ver_str[VER_STR_LEN];
+        VER_STR(req->hdr.version, qatlib_ver_str);
+        VER_STR(THIS_LIB_VERSION, qatmgr_ver_str);
+
+        qat_log(LOG_LEVEL_ERROR,
+                "qatmgr v%s received msg from incompatible qatlib v%s\n",
+                qatmgr_ver_str,
+                qatlib_ver_str);
+        err_msg(rsp, "Incompatible. qatmgr received msg vX from qatlib vY\n");
+        return -1;
+    }
 
     switch (req->hdr.type)
     {

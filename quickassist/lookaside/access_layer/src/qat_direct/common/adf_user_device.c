@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -39,13 +39,12 @@
 #include <adf_user_transport.h>
 #include <sys/ioctl.h>
 
-#include "adf_user.h"
+#include "adf_io_user_proxy.h"
 #include "icp_adf_user_proxy.h"
 
+#include "adf_user.h"
 #include "adf_io_cfg.h"
 
-#define ADF_MAX_PENDING_EVENT 10
-#define ADF_UIO_RESET_INTERVAL 2000
 #define ADF_DEV_EVENT_TIMEOUT 10
 
 typedef struct adf_event_node_s
@@ -69,19 +68,9 @@ STATIC adf_event_queue_t adf_event_queue[ADF_MAX_DEVICES] = {{0}};
 STATIC icp_accel_dev_t *accel_tbl[ADF_MAX_DEVICES] = {0};
 
 /*
- * Need to keep track of what device is curently in reset state
- */
-STATIC char accel_dev_reset_stat[ADF_MAX_DEVICES] = {0};
-
-/*
  * Need to keep track of what device is curently in error
  */
 STATIC char accel_dev_error_stat[ADF_MAX_DEVICES] = {0};
-
-/*
- * Need to preserv sal handle during restart
- */
-STATIC void *accel_dev_sal_hdl_ptr[ADF_MAX_DEVICES] = {0};
 
 /*
  * Mutex guarding access to accel_tbl on exit
@@ -147,6 +136,33 @@ int32_t adf_cleanup_device(int32_t dev_id)
     return stat;
 }
 
+int32_t adf_clean_device(int32_t dev_id)
+{
+    int32_t stat = CPA_STATUS_SUCCESS;
+    icp_accel_dev_t *dev;
+
+    if (ICP_MUTEX_LOCK(&accel_tbl_mutex))
+    {
+        ADF_ERROR("Failed to lock mutex \n");
+        return CPA_STATUS_FAIL;
+    }
+
+    if (accel_tbl[dev_id] == NULL)
+    {
+        ICP_MUTEX_UNLOCK(&accel_tbl_mutex);
+        return 0;
+    }
+
+    dev = accel_tbl[dev_id];
+
+
+    stat = adf_user_transport_clean(dev);
+    num_of_instances--;
+    ICP_MUTEX_UNLOCK(&accel_tbl_mutex);
+
+    return stat;
+}
+
 int32_t adf_cleanup_devices(void)
 {
     int32_t i;
@@ -181,16 +197,6 @@ int32_t adf_init_devices(void)
 
     return 0;
 }
-
-/*
- * adf_is_system_running
- * Returns user proxy running state
- */
-STATIC inline Cpa32U adf_is_system_running(icp_accel_dev_t *accel_dev)
-{
-    return accel_dev->adfSubsystemStatus;
-}
-
 /*
  * adf_stop_system
  * Sets the user proxy running state to stopped
@@ -297,6 +303,7 @@ STATIC void adf_event_dequeue(Cpa32U accelId, enum adf_event event)
 
 STATIC int adf_proxy_get_dev_events(int dev_id);
 STATIC int32_t adf_proxy_get_device(int dev_id);
+STATIC int32_t adf_proxy_restart_device(int dev_id);
 
 /*
  * subsystem_notify
@@ -317,28 +324,15 @@ STATIC CpaStatus subsystem_notify(Cpa32U accelId, Cpa32U event)
     switch (event)
     {
         case ADF_EVENT_INIT:
-            if (accel_dev_sal_hdl_ptr[accel_dev->accelId])
-            {
-                accel_dev->pSalHandle =
-                    accel_dev_sal_hdl_ptr[accel_dev->accelId];
-                accel_dev_sal_hdl_ptr[accel_dev->accelId] = NULL;
-            }
             stat = adf_user_subsystemInit(accel_dev);
             break;
         case ADF_EVENT_START:
             stat = adf_user_subsystemStart(accel_dev);
             adf_start_system(accel_dev);
-            if (accel_dev_reset_stat[accel_dev->accelId])
-            {
-                accel_dev_reset_stat[accel_dev->accelId] = 0;
-                stat_restart = adf_subsystemRestarted(accel_dev);
-            }
-            accel_dev_error_stat[accel_dev->accelId] = 0;
             break;
         case ADF_EVENT_STOP:
             adf_stop_system(accel_dev);
             stat = adf_user_subsystemStop(accel_dev);
-            ICP_MSLEEP(ADF_UIO_RESET_INTERVAL);
             break;
         case ADF_EVENT_SHUTDOWN:
             stat = adf_user_subsystemShutdown(accel_dev);
@@ -346,12 +340,17 @@ STATIC CpaStatus subsystem_notify(Cpa32U accelId, Cpa32U event)
             stat_proxy = adf_cleanup_device(accel_dev->accelId);
             break;
         case ADF_EVENT_RESTARTING:
-            accel_dev_reset_stat[accel_dev->accelId] = 1;
+            adf_stop_system(accel_dev);
             stat = adf_subsystemRestarting(accel_dev);
-            accel_dev_sal_hdl_ptr[accel_dev->accelId] = accel_dev->pSalHandle;
+            stat_proxy = adf_clean_device(accel_dev->accelId);
             break;
         case ADF_EVENT_RESTARTED:
-            adf_proxy_get_device(accelId);
+            stat_restart = adf_proxy_restart_device(accelId);
+            if (CPA_STATUS_SUCCESS == stat_restart)
+            {
+                adf_start_system(accel_tbl[accelId]);
+            }
+            accel_dev_error_stat[accelId] = 0;
             break;
         case ADF_EVENT_ERROR:
             /* accel_dev_error_stat is set after calling adf_subsystemError
@@ -389,16 +388,9 @@ STATIC void adf_poll_enqueued_events(void)
     OsalTimeval event_start;
     OsalTimeval event_curr;
     Cpa32U event_time;
-    Cpa32U num_dev;
     CpaStatus stat = CPA_STATUS_SUCCESS;
 
-    if (icp_adf_getNumDevices(&num_dev))
-    {
-        ADF_ERROR("Failed to get the number of devices.\n");
-        return;
-    }
-
-    for (accelId = 0; accelId < num_dev; accelId++)
+    for (accelId = 0; accelId < ADF_MAX_DEVICES; accelId++)
     {
         while (!adf_event_queue_is_empty(accelId))
         {
@@ -457,6 +449,46 @@ adf_proxy_get_device_exit:
     return err;
 }
 
+STATIC int32_t adf_proxy_restart_device(int dev_id)
+{
+    int32_t err;
+
+    if ((dev_id >= ADF_MAX_DEVICES))
+        return 0; /* Invalid dev_id or Already created. */
+
+    if (!adf_io_accel_dev_exist(dev_id))
+        return 0;
+
+    if (adf_io_reinit_accel(&accel_tbl[dev_id], dev_id))
+    {
+        err = ENOMEM;
+        goto adf_proxy_restart_device_exit;
+    }
+
+    err = adf_user_transport_reinit(accel_tbl[dev_id]);
+    if (0 != err)
+    {
+        goto adf_proxy_restart_device_init_failed;
+    }
+
+    err = adf_subsystemRestarted(accel_tbl[dev_id]);
+    if (0 != err)
+    {
+        goto adf_proxy_restart_device_init_failed;
+    }
+    num_of_instances++;
+
+
+    return 0;
+
+adf_proxy_restart_device_init_failed:
+    adf_user_transport_exit(accel_tbl[dev_id]);
+    free(accel_tbl[dev_id]);
+    accel_tbl[dev_id] = NULL;
+adf_proxy_restart_device_exit:
+    return err;
+}
+
 STATIC int adf_proxy_get_dev_events(int dev_id)
 {
     enum adf_event event[] = {ADF_EVENT_INIT, ADF_EVENT_START};
@@ -504,7 +536,7 @@ CpaStatus icp_adf_pollDeviceEvents(void)
 
     adf_poll_enqueued_events();
 
-    while (adf_proxy_poll_event(&accelId, &event))
+    while (adf_io_pollProxyEvent(&accelId, &event))
     {
         if (accelId >= ADF_MAX_DEVICES)
         {
@@ -591,15 +623,6 @@ icp_accel_dev_t *adf_devmgrGetAccelDevByAccelId(Cpa32U accelId)
 icp_accel_dev_t *icp_adf_getAccelDevByAccelId(Cpa32U accelId)
 {
     return adf_devmgrGetAccelDevByAccelId(accelId);
-}
-
-/*
- * icp_adf_isDevInReset
- * Check if device is in reset state.
- */
-CpaBoolean icp_adf_isDevInReset(icp_accel_dev_t *accel_dev)
-{
-    return (CpaBoolean)accel_dev_reset_stat[accel_dev->accelId];
 }
 
 /*
@@ -756,6 +779,55 @@ CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U accelId)
 }
 
 #endif
+/*
+ * icp_adf_mmap_misc_counter
+ * Function get the mmap address for miscellaneous counter
+ */
+CpaStatus icp_adf_mmap_misc_counter(Cpa64U **miscCounter)
+{
+    CpaStatus ret = CPA_STATUS_SUCCESS;
+    Cpa32U size = 0;
+    void *addr = NULL;
+
+    ICP_CHECK_FOR_NULL_PARAM(miscCounter);
+
+    int fd = open(ADF_CTL_DEVICE_NAME, O_RDWR);
+    if (fd < 0)
+        return CPA_STATUS_UNSUPPORTED;
+
+    size = getpagesize();
+
+    addr = ICP_MMAP(
+        NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED, fd, 0);
+    if (!addr || addr == MAP_FAILED)
+    {
+        close(fd);
+        return CPA_STATUS_FAIL;
+    }
+
+    *miscCounter = &((struct adf_dev_miscellaneous_stats *)addr)->misc_counter;
+
+    close(fd);
+    return ret;
+}
+
+/*
+ * icp_adf_ummap_misc_counter
+ * Function unmap micellaneous counter
+ */
+CpaStatus icp_adf_unmap_misc_counter(Cpa64U *miscCounter)
+{
+    Cpa32U size = getpagesize();
+
+    ICP_CHECK_FOR_NULL_PARAM(miscCounter);
+
+    int ret = munmap(miscCounter, size);
+    if (ret < 0)
+        return CPA_STATUS_FAIL;
+
+    return CPA_STATUS_SUCCESS;
+}
+
 /*
  * icp_adf_getNumInstances
  * Return the number of acceleration devices it the system.

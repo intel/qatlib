@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,10 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifdef PAGE_SIZE
+#undef PAGE_SIZE
 #endif
 
 #define PAGE_SHIFT 12

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -355,6 +355,58 @@ CpaStatus SalCtrl_CryptoError(icp_accel_dev_t *device, sal_service_t *service);
 /*************************************************************************
  * @ingroup SalCtrl
  * @description
+ *      This function is used to reset an instance of crypto service.
+ *  It cleans resources allocated at initialisation - e.g. cleans the
+ *  memory pools and ADF transport handles.
+ *
+ * @context
+ *    This function is called from the SalCtrl_ServiceEventRestarting function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No (ADF ensures that this function doesn't need to be thread safe)
+ *
+ * @param[in] device    An icp_accel_dev_t* type
+ * @param[in] service   A crypto instance
+ *
+ *************************************************************************/
+CpaStatus SalCtrl_CryptoRestarting(icp_accel_dev_t *device,
+                                   sal_service_t *service);
+
+/*************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *      This function is used to reinitailize an instance of crypto service.
+ *  It reinitialzes resources allocated at initialisation - e.g. reinitializes
+ *  the memory pools and ADF transport handles.
+ *
+ * @context
+ *    This function is called from the SalCtrl_ServiceEventRestarted function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No (ADF ensures that this function doesn't need to be thread safe)
+ *
+ * @param[in] device    An icp_accel_dev_t* type
+ * @param[in] service   A crypto instance
+ *
+ *************************************************************************/
+CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
+                                  sal_service_t *service);
+
+/*************************************************************************
+ * @ingroup SalCtrl
+ * @description
  *      This function sets the capability info of crypto instances.
  *
  * @context
@@ -483,6 +535,62 @@ CpaStatus SalCtrl_CompressionStop(icp_accel_dev_t *device,
 
 CpaStatus SalCtrl_CompressionShutdown(icp_accel_dev_t *device,
                                       sal_service_t *service);
+CpaStatus SalCtrl_CompressionError(icp_accel_dev_t *device,
+                                   sal_service_t *service);
+
+/*************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *      This function is used to reset(clean) an instance of compression
+ *  service. It cleans resources allocated at initialisation - e.g. cleans the
+ *  memory pools and ADF transport handles.
+ *
+ * @context
+ *    This function is called from the SalCtrl_ServiceEventRestarting function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No (ADF ensures that this function doesn't need to be thread safe)
+ *
+ * @param[in] device    An icp_accel_dev_t* type
+ * @param[in] service   A compression instance
+ *
+ *************************************************************************/
+
+CpaStatus SalCtrl_CompressionRestarting(icp_accel_dev_t *device,
+                                        sal_service_t *service);
+
+/*************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *      This function is used to reinitailize an instance of compression
+ *  service. It reinitializes resources allocated at initialisation - e.g.
+ *  initializes the memory pools and ADF transport handles.
+ *
+ * @context
+ *    This function is called from the SalCtrl_ServiceEventRestarted function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No (ADF ensures that this function doesn't need to be thread safe)
+ *
+ * @param[in] device    An icp_accel_dev_t* type
+ * @param[in] service   A compression instance
+ *
+ *************************************************************************/
+
+CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
+                                       sal_service_t *service);
 
 /*************************************************************************
  * @ingroup SalCtrl

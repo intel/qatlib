@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -102,17 +102,9 @@ CpaStatus icp_adf_resetDev(icp_accel_dev_t *accel_dev,
                            icp_adf_dev_reset_mode_t mode);
 
 /*
- * icp_adf_isDevInReset
- * Check if device is in reset state.
- *
- * Returns:
- *   CPA_TRUE   device is in reset state
- *   CPA_FALSE  device is not in reset state
- */
-CpaBoolean icp_adf_isDevInReset(icp_accel_dev_t *accel_dev);
-
-/*
  * icp_adf_isDevInError
+ *
+ * Description:
  * Check if device is in error state.
  *
  * Returns:

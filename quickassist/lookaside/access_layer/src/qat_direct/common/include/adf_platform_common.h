@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -88,6 +88,9 @@
 #define ICP_RING_NEAR_WATERMARK_KILO_64 0x0F
 #define ICP_RING_NEAR_WATERMARK_KILO_128 0x10
 #define ICP_RING_NEAR_WATERMARK_KILO_256 0x11
+
+/* Bundle size */
+#define ICP_BUNDLE_SIZE 0x1000
 
 /* For coalescing based on number of messages define the required ring message
  * count, and the limits on the allowed thresholds.

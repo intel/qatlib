@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -89,6 +89,8 @@
 #include "lac_sym_cipher_defs.h"
 #include "icp_qat_hw.h"
 #include "icp_qat_fw_la.h"
+
+#define LAC_UNUSED_POS_MASK 0x3
 
 /*****************************************************************************
  *  Internal data
@@ -525,40 +527,39 @@ void LacSymQat_CipherCtrlBlockWrite(icp_qat_la_bulk_req_ftr_t *pMsg,
         targetKeyLenInBytes = ICP_QAT_HW_UCS_AES_192_KEY_SZ;
     }
 
-    /* Base Key is not passed down to QAT in the case of ARC4 or NULL */
-    if (LAC_CIPHER_IS_ARC4(cipherAlgorithm) ||
-        LAC_CIPHER_IS_NULL(cipherAlgorithm))
+    switch (cipherAlgorithm)
     {
-        cd_ctrl->cipher_key_sz = 0;
-    }
-    else if (LAC_CIPHER_IS_KASUMI(cipherAlgorithm))
-    {
-        cd_ctrl->cipher_key_sz =
-            LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_KASUMI_F8_KEY_SZ);
-        cd_ctrl->cipher_padding_sz = ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR;
-    }
-    else if (LAC_CIPHER_IS_SNOW3G_UEA2(cipherAlgorithm))
-    {
+        /* Base Key is not passed down to QAT in the case of ARC4 or NULL */
+        case CPA_CY_SYM_CIPHER_ARC4:
+        case CPA_CY_SYM_CIPHER_NULL:
+            cd_ctrl->cipher_key_sz = 0;
+            break;
+        case CPA_CY_SYM_CIPHER_KASUMI_F8:
+            cd_ctrl->cipher_key_sz =
+                LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_KASUMI_F8_KEY_SZ);
+            cd_ctrl->cipher_padding_sz = ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR;
+            break;
         /* For Snow3G UEA2 content descriptor key size is
            key size plus iv size */
-        cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
-            ICP_QAT_HW_SNOW_3G_UEA2_KEY_SZ + ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
-    }
-    else if (LAC_CIPHER_IS_AES_F8(cipherAlgorithm))
-    {
-        cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(targetKeyLenInBytes);
-        cd_ctrl->cipher_padding_sz = 2 * ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR;
-    }
-    else if (LAC_CIPHER_IS_ZUC_EEA3(cipherAlgorithm))
-    {
+        case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
+            cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
+                ICP_QAT_HW_SNOW_3G_UEA2_KEY_SZ + ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
+            break;
+        case CPA_CY_SYM_CIPHER_AES_F8:
+            cd_ctrl->cipher_key_sz =
+                LAC_BYTES_TO_QUADWORDS(targetKeyLenInBytes);
+            cd_ctrl->cipher_padding_sz =
+                (2 * ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR);
+            break;
         /* For ZUC EEA3 content descriptor key size is
            key size plus iv size */
-        cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
-            ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ + ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
-    }
-    else
-    {
-        cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(targetKeyLenInBytes);
+        case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+            cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
+                ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ + ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
+            break;
+        default:
+            cd_ctrl->cipher_key_sz =
+                LAC_BYTES_TO_QUADWORDS(targetKeyLenInBytes);
     }
 
     cd_ctrl->cipher_state_sz =
@@ -623,7 +624,7 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
      * encrypt/decrypt modes respectively.
      * By default CCP is set as CTR Mode.Set AEAD Mode for AES_GCM.
      */
-    if (pSession->isSinglePass)
+    if (SPC_YES == pSession->singlePassState)
     {
         if (LAC_CIPHER_IS_GCM(pSession->cipherAlgorithm))
             *pMode = ICP_QAT_HW_CIPHER_GCM_MODE;
@@ -647,9 +648,8 @@ void LacSymQat_CipherHwBlockPopulateCfgData(lac_session_desc_t *pSession,
         (icp_qat_hw_cipher_config_t *)pCipherHwBlock;
     icp_qat_hw_ucs_cipher_config_t *pUCSCipherConfig =
         (icp_qat_hw_ucs_cipher_config_t *)pCipherHwBlock;
-
-    Cpa32U val, reserved;
     Cpa32U aed_hash_cmp_length = 0;
+    Cpa32U val, reserved;
 
     LAC_ENSURE_NOT_NULL(pCipherConfig);
     LAC_ENSURE_NOT_NULL(pSizeInBytes);
@@ -659,7 +659,7 @@ void LacSymQat_CipherHwBlockPopulateCfgData(lac_session_desc_t *pSession,
     LacSymQat_CipherGetCfgData(pSession, &algorithm, &mode, &dir, &key_convert);
 
     /* Build the cipher config into the hardware setup block */
-    if (pSession->isSinglePass)
+    if (SPC_YES == pSession->singlePassState)
     {
         aed_hash_cmp_length = pSession->hashResultSize;
         reserved =
@@ -672,6 +672,8 @@ void LacSymQat_CipherHwBlockPopulateCfgData(lac_session_desc_t *pSession,
 
     val = ICP_QAT_HW_CIPHER_CONFIG_BUILD(
         mode, algorithm, key_convert, dir, aed_hash_cmp_length);
+
+    *pSizeInBytes = sizeof(icp_qat_hw_cipher_config_t);
 
     /* UCS slice has 128-bit configuration register.
      * Legacy cipher slice has 64-bit config register */
@@ -752,96 +754,112 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
         }
         *pSizeInBytes += targetKeyLenInBytes;
 
-        /* For Kasumi in F8 mode Cipher Key is concatenated with
-         * Cipher Key XOR-ed with Key Modifier (CK||CK^KM) */
-        if (LAC_CIPHER_IS_KASUMI(pCipherSetupData->cipherAlgorithm))
+        switch (pCipherSetupData->cipherAlgorithm)
         {
-            Cpa32U wordIndex = 0;
-            Cpa32U *pu32CipherKey = (Cpa32U *)pCipherSetupData->pCipherKey;
-            Cpa32U *pTempKey = (Cpa32U *)(pCipherKey + targetKeyLenInBytes);
-
-            /* XOR Key with KASUMI F8 key modifier at 4 bytes level */
-            for (wordIndex = 0;
-                 wordIndex < LAC_BYTES_TO_LONGWORDS(targetKeyLenInBytes);
-                 wordIndex++)
+                /* For Kasumi in F8 mode Cipher Key is concatenated with
+                 * Cipher Key XOR-ed with Key Modifier (CK||CK^KM) */
+            case CPA_CY_SYM_CIPHER_KASUMI_F8:
             {
-                pTempKey[wordIndex] = pu32CipherKey[wordIndex] ^
-                                      LAC_CIPHER_KASUMI_F8_KEY_MODIFIER_4_BYTES;
+                Cpa32U wordIndex = 0;
+                Cpa32U *pu32CipherKey = (Cpa32U *)pCipherSetupData->pCipherKey;
+                Cpa32U *pTempKey = (Cpa32U *)(pCipherKey + targetKeyLenInBytes);
+
+                /* XOR Key with KASUMI F8 key modifier at 4 bytes level */
+                for (wordIndex = 0;
+                     wordIndex < LAC_BYTES_TO_LONGWORDS(targetKeyLenInBytes);
+                     wordIndex++)
+                {
+                    pTempKey[wordIndex] =
+                        pu32CipherKey[wordIndex] ^
+                        LAC_CIPHER_KASUMI_F8_KEY_MODIFIER_4_BYTES;
+                }
+
+                *pSizeInBytes += targetKeyLenInBytes;
+
+                /* also add padding for F8 */
+                *pSizeInBytes +=
+                    LAC_QUADWORDS_TO_BYTES(ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR);
+                LAC_OS_BZERO((Cpa8U *)pTempKey + targetKeyLenInBytes,
+                             LAC_QUADWORDS_TO_BYTES(
+                                 ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR));
             }
-
-            *pSizeInBytes += targetKeyLenInBytes;
-
-            /* also add padding for F8 */
-            *pSizeInBytes +=
-                LAC_QUADWORDS_TO_BYTES(ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR);
-            LAC_OS_BZERO(
-                (Cpa8U *)pTempKey + targetKeyLenInBytes,
-                LAC_QUADWORDS_TO_BYTES(ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR));
-        }
-        /* For AES in F8 mode Cipher Key is concatenated with
-         * Cipher Key XOR-ed with Key Mask (CK||CK^KM) */
-        else if (LAC_CIPHER_IS_AES_F8(pCipherSetupData->cipherAlgorithm))
-        {
-            Cpa32U index = 0;
-            Cpa8U *pTempKey = pCipherKey + (targetKeyLenInBytes / 2);
-            *pSizeInBytes += targetKeyLenInBytes;
-            /* XOR Key with key Mask */
-            for (index = 0; index < targetKeyLenInBytes; index++)
+            break;
+                /* For AES in F8 mode Cipher Key is concatenated with
+                 * Cipher Key XOR-ed with Key Mask (CK||CK^KM) */
+            case CPA_CY_SYM_CIPHER_AES_F8:
             {
-                pTempKey[index] = pCipherKey[index] ^ pTempKey[index];
+                Cpa32U index = 0;
+                Cpa8U *pTempKey = pCipherKey + (targetKeyLenInBytes / 2);
+                *pSizeInBytes += targetKeyLenInBytes;
+                /* XOR Key with key Mask */
+                for (index = 0; index < targetKeyLenInBytes; index++)
+                {
+                    pTempKey[index] = pCipherKey[index] ^ pTempKey[index];
+                }
+                pTempKey = (pCipherKey + targetKeyLenInBytes);
+                /* also add padding for AES F8 */
+                *pSizeInBytes += 2 * targetKeyLenInBytes;
+                LAC_OS_BZERO(pTempKey, 2 * targetKeyLenInBytes);
             }
-            pTempKey = (pCipherKey + targetKeyLenInBytes);
-            /* also add padding for AES F8 */
-            *pSizeInBytes += 2 * targetKeyLenInBytes;
-            LAC_OS_BZERO(pTempKey, 2 * targetKeyLenInBytes);
-        }
-        else if (LAC_CIPHER_IS_SNOW3G_UEA2(pCipherSetupData->cipherAlgorithm))
-        {
-            /* For Snow3G zero area after the key for FW */
-            LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
-                         ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
-
-            *pSizeInBytes += ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
-        }
-        else if (LAC_CIPHER_IS_ZUC_EEA3(pCipherSetupData->cipherAlgorithm))
-        {
-            /* For ZUC zero area after the key for FW */
-            LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
-                         ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
-
-            *pSizeInBytes += ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
-        }
-        /* For AES in XTS mode Cipher Key is concatenated with
-         * second Cipher Key which is used for tweak calculation (CK1||CK2).
-         * For decryption Cipher Key needs to be converted to reverse key.*/
-        else if (LAC_CIPHER_IS_XTS_MODE(pCipherSetupData->cipherAlgorithm) &&
-                 ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == sliceType)
-        {
-            Cpa32U key_len = pCipherSetupData->cipherKeyLenInBytes / 2;
-            osalMemCopy(pSessionDesc->cipherAesXtsKey1Forward,
-                        pCipherSetupData->pCipherKey,
-                        key_len);
-
-            osalAESKeyExpansionForward(
-                pSessionDesc->cipherAesXtsKey1Forward,
-                key_len,
-                (UINT32 *)pSessionDesc->cipherAesXtsKey1Reverse);
-
-            osalMemCopy(pSessionDesc->cipherAesXtsKey2,
-                        pCipherSetupData->pCipherKey + key_len,
-                        key_len);
-
-            if (CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT ==
-                pCipherSetupData->cipherDirection)
+            break;
+            case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
             {
-                osalMemCopy(
-                    pCipherKey, pSessionDesc->cipherAesXtsKey1Reverse, key_len);
+                /* For Snow3G zero area after the key for FW */
+                LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
+                             ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
+
+                *pSizeInBytes += ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
             }
-            else
+            break;
+            case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             {
-                osalMemCopy(
-                    pCipherKey, pSessionDesc->cipherAesXtsKey1Forward, key_len);
+                /* For ZUC zero area after the key for FW */
+                LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
+                             ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
+
+                *pSizeInBytes += ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
             }
+            break;
+            case CPA_CY_SYM_CIPHER_AES_XTS:
+            {
+                /* For AES in XTS mode Cipher Key is concatenated with
+                 * second Cipher Key which is used for tweak calculation
+                 * (CK1||CK2). For decryption Cipher Key needs to be converted
+                 * to reverse key.*/
+                if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == sliceType)
+                {
+                    Cpa32U key_len = pCipherSetupData->cipherKeyLenInBytes / 2;
+                    osalMemCopy(pSessionDesc->cipherAesXtsKey1Forward,
+                                pCipherSetupData->pCipherKey,
+                                key_len);
+
+                    osalAESKeyExpansionForward(
+                        pSessionDesc->cipherAesXtsKey1Forward,
+                        key_len,
+                        (UINT32 *)pSessionDesc->cipherAesXtsKey1Reverse);
+
+                    osalMemCopy(pSessionDesc->cipherAesXtsKey2,
+                                pCipherSetupData->pCipherKey + key_len,
+                                key_len);
+
+                    if (CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT ==
+                        pCipherSetupData->cipherDirection)
+                    {
+                        osalMemCopy(pCipherKey,
+                                    pSessionDesc->cipherAesXtsKey1Reverse,
+                                    key_len);
+                    }
+                    else
+                    {
+                        osalMemCopy(pCipherKey,
+                                    pSessionDesc->cipherAesXtsKey1Forward,
+                                    key_len);
+                    }
+                }
+            }
+            break;
+            default:
+                break;
         }
     }
 }
@@ -852,80 +870,84 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
 
 Cpa8U LacSymQat_CipherBlockSizeBytesGet(CpaCySymCipherAlgorithm cipherAlgorithm)
 {
-    if (LAC_CIPHER_IS_ARC4(cipherAlgorithm))
+    Cpa8U blockSize = 0;
+    switch (cipherAlgorithm)
     {
-        return LAC_CIPHER_ARC4_BLOCK_LEN_BYTES;
+        case CPA_CY_SYM_CIPHER_ARC4:
+            blockSize = LAC_CIPHER_ARC4_BLOCK_LEN_BYTES;
+            break;
+        /* Handle AES or AES_F8 */
+        case CPA_CY_SYM_CIPHER_AES_ECB:
+        case CPA_CY_SYM_CIPHER_AES_CBC:
+        case CPA_CY_SYM_CIPHER_AES_CTR:
+        case CPA_CY_SYM_CIPHER_AES_CCM:
+        case CPA_CY_SYM_CIPHER_AES_GCM:
+        case CPA_CY_SYM_CIPHER_AES_XTS:
+        case CPA_CY_SYM_CIPHER_AES_F8:
+            blockSize = ICP_QAT_HW_AES_BLK_SZ;
+            break;
+        /* Handle DES */
+        case CPA_CY_SYM_CIPHER_DES_ECB:
+        case CPA_CY_SYM_CIPHER_DES_CBC:
+            blockSize = ICP_QAT_HW_DES_BLK_SZ;
+            break;
+        /* Handle TRIPLE DES */
+        case CPA_CY_SYM_CIPHER_3DES_ECB:
+        case CPA_CY_SYM_CIPHER_3DES_CBC:
+        case CPA_CY_SYM_CIPHER_3DES_CTR:
+            blockSize = ICP_QAT_HW_3DES_BLK_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_KASUMI_F8:
+            blockSize = ICP_QAT_HW_KASUMI_BLK_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
+            blockSize = ICP_QAT_HW_SNOW_3G_BLK_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+            blockSize = ICP_QAT_HW_ZUC_3G_BLK_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_NULL:
+            blockSize = LAC_CIPHER_NULL_BLOCK_LEN_BYTES;
+            break;
+        case CPA_CY_SYM_CIPHER_CHACHA:
+            blockSize = ICP_QAT_HW_CHACHAPOLY_BLK_SZ;
+            break;
+        default:
+            LAC_ENSURE(CPA_FALSE, "Algorithm not supported in Cipher");
     }
-    else if (LAC_CIPHER_IS_AES(cipherAlgorithm) ||
-             LAC_CIPHER_IS_AES_F8(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_AES_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_DES(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_DES_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_TRIPLE_DES(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_3DES_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_KASUMI(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_KASUMI_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_SNOW3G_UEA2(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_SNOW_3G_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_ZUC_EEA3(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_ZUC_3G_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_NULL(cipherAlgorithm))
-    {
-        return LAC_CIPHER_NULL_BLOCK_LEN_BYTES;
-    }
-    else if (LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_CHACHAPOLY_BLK_SZ;
-    }
-    else
-    {
-        LAC_ENSURE(CPA_FALSE, "Algorithm not supported in Cipher");
-        return 0;
-    }
+    return blockSize;
 }
 
 Cpa32U LacSymQat_CipherIvSizeBytesGet(CpaCySymCipherAlgorithm cipherAlgorithm)
 {
-    if (CPA_CY_SYM_CIPHER_ARC4 == cipherAlgorithm)
+    Cpa32U ivSize = 0;
+    switch (cipherAlgorithm)
     {
-        return LAC_CIPHER_ARC4_STATE_LEN_BYTES;
+        case CPA_CY_SYM_CIPHER_ARC4:
+            ivSize = LAC_CIPHER_ARC4_STATE_LEN_BYTES;
+            break;
+        case CPA_CY_SYM_CIPHER_KASUMI_F8:
+            ivSize = ICP_QAT_HW_KASUMI_BLK_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
+            ivSize = ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+            ivSize = ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_CHACHA:
+            ivSize = ICP_QAT_HW_CHACHAPOLY_IV_SZ;
+            break;
+        case CPA_CY_SYM_CIPHER_AES_ECB:
+        case CPA_CY_SYM_CIPHER_DES_ECB:
+        case CPA_CY_SYM_CIPHER_3DES_ECB:
+        case CPA_CY_SYM_CIPHER_NULL:
+            /* for all ECB Mode IV size is 0 */
+            break;
+        default:
+            ivSize = LacSymQat_CipherBlockSizeBytesGet(cipherAlgorithm);
     }
-    else if (LAC_CIPHER_IS_KASUMI(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_KASUMI_BLK_SZ;
-    }
-    else if (LAC_CIPHER_IS_SNOW3G_UEA2(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
-    }
-    else if (LAC_CIPHER_IS_ZUC_EEA3(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
-    }
-    else if (LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
-    {
-        return ICP_QAT_HW_CHACHAPOLY_IV_SZ;
-    }
-    else if (LAC_CIPHER_IS_ECB_MODE(cipherAlgorithm))
-    {
-        return 0;
-    }
-    else
-    {
-        return (Cpa32U)LacSymQat_CipherBlockSizeBytesGet(cipherAlgorithm);
-    }
+    return ivSize;
 }
 
 inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
@@ -939,6 +961,8 @@ inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
     icp_qat_fw_la_cipher_req_params_t *pCipherReqParams;
     icp_qat_fw_cipher_cd_ctrl_hdr_t *pCipherCdCtrlHdr;
     icp_qat_fw_serv_specif_flags *pCipherSpecificFlags;
+    Cpa32U usedBufSize = 0;
+    Cpa32U totalBufSize = 0;
 
 #ifdef ICP_PARAM_CHECK
 
@@ -981,10 +1005,17 @@ inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
     {
         /* Populate the field with the contents of the buffer,
          * zero field first as data may be smaller than the field */
-        osalMemSet(pCipherReqParams->u.cipher_IV_array,
-                   0,
-                   LAC_LONGWORDS_TO_BYTES(ICP_QAT_FW_NUM_LONGWORDS_4));
-
+        totalBufSize = LAC_LONGWORDS_TO_BYTES(ICP_QAT_FW_NUM_LONGWORDS_4);
+        usedBufSize = LAC_QUADWORDS_TO_BYTES(pCipherCdCtrlHdr->cipher_state_sz);
+        /* Only initialise unused buffer if applicable*/
+        if (usedBufSize < totalBufSize)
+        {
+            osalMemSet(
+                (&pCipherReqParams->u
+                      .cipher_IV_array[usedBufSize & LAC_UNUSED_POS_MASK]),
+                0,
+                totalBufSize - usedBufSize);
+        }
         /* In case of XTS mode using UCS slice always embedd IV.
          * IV provided by user needs to be encrypted to calculate initial tweak,
          * use pCipherReqParams->u.cipher_IV_array as destination buffer for
@@ -999,10 +1030,9 @@ inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
         }
         else
         {
-            osalMemCopy(
-                pCipherReqParams->u.cipher_IV_array,
-                pIvBufferVirt,
-                LAC_QUADWORDS_TO_BYTES(pCipherCdCtrlHdr->cipher_state_sz));
+            osalMemCopy(pCipherReqParams->u.cipher_IV_array,
+                        pIvBufferVirt,
+                        usedBufSize);
         }
         /* Set the flag indicating the field format */
         ICP_QAT_FW_LA_CIPH_IV_FLD_FLAG_SET(*pCipherSpecificFlags,

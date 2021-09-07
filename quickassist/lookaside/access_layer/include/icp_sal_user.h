@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -74,6 +74,7 @@
 #define ICP_SAL_USER_H
 
 #include "icp_sal.h"
+#include "cpa_dc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -751,8 +752,47 @@ CpaStatus icp_sal_reset_device(Cpa32U accelId);
  */
 CpaBoolean icp_sal_userIsQatAvailable(void);
 
+#ifdef ICP_DC_ERROR_SIMULATION
+/*
+ * icp_sal_cnv_simulate_error
+ *
+ * @description:
+ *  This function enables the CnVError injection for the
+ *  session passed in. All Compression requests sent within
+ *  the session are injected with CnV errors. This error injection
+ *  is for the duration of the session. Resetting the session
+ *  results in setting being cleared.
+ *  CnV error injection does not apply to Data Plane API.
+ *
+ * @note Only applies when compressAndVerify is on and
+ *  compressAndVerifyAndRecover is off.
+ *
+ * @context
+ *      This function is called from the user process context
+ * @assumptions
+ *      The session has been initialized via cpaDcInitSession function
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] dcInstance             Instance Handle
+ * @param[in] pSessionHandle         Session Handle
+ *
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_SUCCESS        No error
+ *
+ */
+CpaStatus icp_sal_cnv_simulate_error(CpaInstanceHandle dcInstance,
+                                     CpaDcSessionHandle pSessionHandle);
+#endif /* ICP_DC_ERROR_SIMULATION */
+
 #ifdef __cplusplus
 } /* close the extern "C" { */
+
 #endif
 
 #endif

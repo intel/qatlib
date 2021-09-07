@@ -1,33 +1,8 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
- * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -56,19 +31,32 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * 
  *
  ***************************************************************************/
+#ifndef QAT_LOG_H
+#define QAT_LOG_H
 
-/**
- *****************************************************************************
- * @file lac_version.h version macros
- *
- * @defgroup
- *
- *****************************************************************************/
+extern int debug_level;
 
-#ifndef LAC_VERSION_H
-#define LAC_VERSION_H
+#define LOG_LEVEL_ERROR 0
+#define LOG_LEVEL_INFO 1
+#define LOG_LEVEL_DEBUG 2
 
-#endif /*LAC_VERSION_H*/
+int qat_log(int log_level, const char *fmt, ...);
+
+#ifdef ADF_ERROR
+#undef ADF_ERROR
+#endif
+#define ADF_ERROR(format, args...)                                             \
+    qat_log(LOG_LEVEL_ERROR, "err: %s: " format, (__func__), ##args)
+
+#ifdef ADF_DEBUG
+#undef ADF_DEBUG
+#endif
+#define ADF_DEBUG(format, args...)                                             \
+    qat_log(LOG_LEVEL_DEBUG, "debug: %s: " format, (__func__), ##args)
+
+#define ADF_INFO(format, args...)                                              \
+    qat_log(LOG_LEVEL_INFO, "info: %s: " format, (__func__), ##args)
+
+#endif /* QAT_LOG_H */

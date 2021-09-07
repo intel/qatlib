@@ -1,10 +1,12 @@
-/*-
+/***************************************************************************
+ *
+ *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +28,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -56,13 +58,60 @@
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * 
- **/
+ *
+ *
+ ***************************************************************************/
 
-#if !defined(__LAC_MODULE_H__)
-#define __LAC_MODULE_H__
+/****************************************************************************
+ * @file  cpa_ec_montedwds_sample_user.c
+ *
+ * @description
+ *     This file contains main function used in EDDSA sample.
+ *
+ ****************************************************************************/
 
-#include "icp_qat_hw.h"
+#include "cpa_sample_utils.h"
+#include "icp_sal_user.h"
 
-/* Lac module getter/setter for TUNABLE_INT in lac_module.c */
+#if CY_API_VERSION_AT_LEAST(2, 3)
 
-#endif
+extern CpaStatus ecMontEdwdsDsaSample(void);
+
+int gDebugParam = 1;
+
+int main(int argc, const char **argv)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    if (argc > 1)
+        gDebugParam = atoi(argv[1]);
+
+    PRINT_DBG("Starting EDDSA sample code ...\n");
+
+    status = qaeMemInit();
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to initialise memory driver\n");
+        return (int)status;
+    }
+
+    status = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to start user process SSL\n");
+        qaeMemDestroy();
+        return (int)status;
+    }
+
+    status = ecMontEdwdsDsaSample();
+    if (CPA_STATUS_SUCCESS != status)
+        PRINT_ERR("EDDSA sample code failed\n");
+    else
+        PRINT_DBG("EDDSA code finished\n");
+
+    icp_sal_userStop();
+    qaeMemDestroy();
+
+    return (int)status;
+}
+#endif /* CY_API_VERSION_AT_LEAST(2, 3) */

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -168,6 +168,22 @@
 *******************************************************************************
 */
 /**
+*****************************************************************************
+* @ingroup LacSym
+*      Spc state
+*
+* @description
+*      This enum is used to indicate the Spc state.
+*
+*****************************************************************************/
+typedef enum lac_single_pass_state_e
+{
+    SPC_NO,
+    SPC_PROBABLE,
+    SPC_YES
+} lac_single_pass_state_t;
+
+/**
 *******************************************************************************
 * @ingroup LacSym_Session
 *      Symmetric session descriptor
@@ -296,8 +312,8 @@ typedef struct lac_session_desc_s
     /**< Session access lock */
     Cpa32U accessReaders;
     /**< Session readers counter */
-    CpaBoolean isSinglePass : 1;
-    /**< Flag indicating whether symOperation is single pass operation */
+    lac_single_pass_state_t singlePassState;
+    /**< Flag indicating whether symOperation support single pass */
     icp_qat_fw_serv_specif_flags laCmdFlags;
     /**< Common request - Service specific flags type  */
     icp_qat_fw_comn_flags cmnRequestFlags;
@@ -466,6 +482,14 @@ typedef struct lac_session_desc_d1_s
     /**< Session access lock */
     Cpa32U accessReaders;
     /**< Session readers counter */
+    lac_single_pass_state_t singlePassState;
+    /**< Flag indicating whether symOperation support single pass */
+    icp_qat_fw_serv_specif_flags laCmdFlags;
+    /**< Common request - Service specific flags type  */
+    icp_qat_fw_comn_flags cmnRequestFlags;
+    /**< Common request flags type  */
+    icp_qat_fw_ext_serv_specif_flags laExtCmdFlags;
+    /**< Common request - Service specific flags type  */
 } lac_session_desc_d1_t;
 
 /**
@@ -597,16 +621,17 @@ typedef struct lac_session_desc_d2_s
     /**< Session access lock */
     Cpa32U accessReaders;
     /**< Session readers counter */
-    CpaBoolean isSinglePass : 1;
-    /**< Flag indicating whether symOperation is single pass operation */
+    lac_single_pass_state_t singlePassState;
+    /**< Flag indicating whether symOperation support single pass */
     icp_qat_fw_serv_specif_flags laCmdFlags;
     /**< Common request - Service specific flags type  */
     icp_qat_fw_comn_flags cmnRequestFlags;
     /**< Common request flags type  */
+    icp_qat_fw_ext_serv_specif_flags laExtCmdFlags;
+    /**< Common request - Service specific flags type  */
     icp_qat_la_bulk_req_hdr_t reqSpcCacheHdr;
     icp_qat_la_bulk_req_ftr_t reqSpcCacheFtr;
     /**< request (header & footer)for use with Single Pass. */
-
     Cpa32U aadLenInBytes;
     /**< For CCM,GCM and Snow3G cases, this parameter holds the AAD size,
      * otherwise it is set to zero */
@@ -615,6 +640,7 @@ typedef struct lac_session_desc_d2_s
     /**< hash state prefix buffer used for hash operations - AAD only
      * NOTE: Field must be correctly aligned in memory for access by QAT engine
      */
+
 } lac_session_desc_d2_t;
 
 #define LAC_SYM_SESSION_SIZE                                                   \

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -108,6 +108,9 @@
 #define READ_CSR_E_STAT(bank_offset)                                           \
     ICP_ADF_CSR_RD(csr_base_addr, bank_offset + ICP_RING_CSR_E_STAT)
 
+#define READ_CSR_E_STAT_EXT(csr_base_addr, bank_offset)                        \
+    ICP_ADF_CSR_RD(csr_base_addr, bank_offset + ICP_RING_CSR_E_STAT)
+
 #define READ_CSR_NE_STAT(bank_offset)                                          \
     ICP_ADF_CSR_RD(csr_base_addr, bank_offset + ICP_RING_CSR_NE_STAT)
 
@@ -152,17 +155,20 @@ static inline Cpa64U read_base(Cpa32U *csr_base_addr,
     return addr;
 }
 
-#define WRITE_CSR_RING_HEAD(bank_offset, ring, value)                          \
+#define WRITE_CSR_RING_HEAD(csr_base_addr, bank_offset, ring, value)           \
     ICP_ADF_CSR_WR(csr_base_addr,                                              \
                    bank_offset + ICP_RING_CSR_RING_HEAD_OFFSET + (ring << 2),  \
                    value)
 
-#define WRITE_CSR_RING_TAIL(bank_offset, ring, value)                          \
+#define WRITE_CSR_RING_TAIL(csr_base_addr, bank_offset, ring, value)           \
     ICP_ADF_CSR_WR(csr_base_addr,                                              \
                    bank_offset + ICP_RING_CSR_RING_TAIL_OFFSET + (ring << 2),  \
                    value)
 
 #define WRITE_CSR_INT_COL_EN(bank_offset, value)                               \
+    ICP_ADF_CSR_WR(csr_base_addr, bank_offset + ICP_RING_CSR_INT_COL_EN, value)
+
+#define WRITE_CSR_INT_COL_EN_EXT(csr_base_addr, bank_offset, value)            \
     ICP_ADF_CSR_WR(csr_base_addr, bank_offset + ICP_RING_CSR_INT_COL_EN, value)
 
 #define WRITE_CSR_INT_COL_CTL(bank_offset, value)                              \

@@ -9,7 +9,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -31,7 +31,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -164,7 +164,7 @@ OSAL_PUBLIC void osalLogSetPrefix(CHAR *moduleName);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - none
+ * @return - OSAL_SUCCESS/OSAL_FAIL
  */
 OSAL_PUBLIC OSAL_STATUS osalStdLog(const char *arg_pFmtString, ...);
 
@@ -323,7 +323,7 @@ OSAL_PUBLIC OSAL_STATUS osalAtomicDecAndTest(OsalAtomic *pAtomicVar);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - none
+ * @return - OSAL_SUCCESS/OSAL_FAIL
  */
 OSAL_PUBLIC OSAL_STATUS osalSleep(UINT32 milliseconds);
 
@@ -579,7 +579,10 @@ void *osalMemZeroExplicit(void *ptr, UINT32 count);
  *  Time
  *****************************/
 
-/* Retrieve current system time */
+/* Retrieve current system time
+ *
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
+ */
 OSAL_PUBLIC OSAL_STATUS osalTimeGet(OsalTimeval *pTime);
 
 /**
@@ -893,7 +896,10 @@ OSAL_PUBLIC OSAL_STATUS osalUnlock(OsalLock *pLock);
  * @li Reentrant: yes
  * @li IRQ safe:  yes
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL
+ * @return - returns OSAL_SUCCESS if plock is destroyed.
+ *           returns OSAL_FAIL if plock is NULL.
+ *           returns OSAL_UNSUPPORTED if current operating system does not
+ *                   support this operation.
  */
 OSAL_PUBLIC OSAL_STATUS osalLockDestroy(OsalLock *pLock);
 
@@ -956,9 +962,12 @@ OSAL_PUBLIC OSAL_STATUS osalUnlockIrqRestore(OsalLock *pLock,
  * @usage   This API can be used in user context when critical section is
  *           shared between user context & bottom half handler
  *
- * @return - returns OSAL_SUCCESS if spinlock is acquired. If the spinlock is
- *           not available then it busy loops/spins till slock available. If
- *           the spinlock handle passed is NULL then returns OSAL_FAIL.
+ * @return - returns OSAL_SUCCESS if spinlock is acquired. If spinlock is
+ *                   not available then it busy loops/spins till slock is
+ *                   available.
+ *           returns OSAL_FAIL if spinlock handle passed is NULL.
+ *           returns OSAL_UNSUPPORTED if current operating system does not
+ *                   support this operation.
  */
 OSAL_PUBLIC OSAL_STATUS osalLockBh(OsalLock *slock);
 
@@ -979,7 +988,9 @@ OSAL_PUBLIC OSAL_STATUS osalLockBh(OsalLock *slock);
  *           shared between user context & bottom half handler
  *
  * @return - returns OSAL_SUCCESS if slock is released or unlocked.
- *           Returns OSAL_FAIL if the slock is NULL.
+ *           returns OSAL_FAIL if slock is NULL.
+ *           returns OSAL_UNSUPPORTED if current operating system does not
+ *                   support this operation.
  */
 OSAL_PUBLIC OSAL_STATUS osalUnlockBh(OsalLock *slock);
 
@@ -1040,7 +1051,7 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphoreDestroy(OsalSemaphore *pSid);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalSemaphoreWaitInterruptible(OsalSemaphore *pSid,
                                                        INT32 timeout);
@@ -1098,7 +1109,7 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphoreWait(OsalSemaphore *pSid, INT32 timeout);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - SUCCESS/FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalSemaphoreTryWait(OsalSemaphore *semaphore);
 
@@ -1131,7 +1142,7 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphorePost(OsalSemaphore *pSid);
  * @li Reentrant: yes
  * @li IRQ safe:  yes
  *
- * @return - SUCCESS/FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalSemaphoreGetValue(OsalSemaphore *sid,
                                               UINT32 *value);
@@ -1262,7 +1273,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *pTid,
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL
+ * @return - None
  */
 OSAL_PUBLIC void osalThreadBind(OsalThread *pTid, UINT32 cpu);
 
@@ -1279,9 +1290,7 @@ OSAL_PUBLIC void osalThreadBind(OsalThread *pTid, UINT32 cpu);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED
- *
- * @note This function may not be supported by certain operating systems.
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalThreadStart(OsalThread *pTid);
 
@@ -1298,7 +1307,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadStart(OsalThread *pTid);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalThreadPrioritySet(OsalThread *pTid,
                                               UINT32 priority);
@@ -1321,7 +1330,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadSetPolicyAndPriority(OsalThread *thread,
  *
  * @note This function does not guarantee to kill the thread immediately.
  *
- * @return -  OSAL_SUCCESS/OSAL_FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalThreadKill(OsalThread *pTid);
 
@@ -1408,6 +1417,51 @@ osalHashMD5(UINT8 *in, UINT8 *out);
  */
 OSAL_STATUS
 osalHashMD5Full(UINT8 *in, UINT8 *out, UINT32 len);
+
+/**
+ * @ingroup Osal
+ *
+ * @brief  Calculate SM3 transform operation
+ *
+ * @param  in - pointer to data to be processed.
+ *         The buffer needs to be at least sm3 block size long as defined in
+ *         rfc1321 (64 bytes)
+ *         out - output pointer for state data after single sm3 transform
+ *         operation.
+ *         The buffer needs to be at least sm3 state size long as defined in
+ *         rfc1321 (32 bytes)
+ *
+ * @li Reentrant: yes
+ * @li IRQ safe:  yes
+ *
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED
+ *
+ */
+OSAL_STATUS
+osalHashSM3(UINT8 *in, UINT8 *out);
+
+/**
+ * @ingroup Osal
+ *
+ * @brief  Calculate SM3 transform operation
+ *
+ * @param  in - pointer to data to be processed.
+ *         The buffer needs to be at least sm3 block size long as defined in
+ *         rfc1321 (64 bytes)
+ *         out - output pointer for state data after single sm3 transform
+ *         operation.
+ *         The buffer needs to be at least sm3 state size long as defined in
+ *         rfc1321 (32 bytes)
+ *         len - Length on the input to be processed.
+ *
+ * @li Reentrant: yes
+ * @li IRQ safe:  yes
+ *
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED
+ *
+ */
+OSAL_STATUS
+osalHashSM3Full(UINT8 *in, UINT8 *out, UINT32 len);
 
 /**
  * @ingroup Osal

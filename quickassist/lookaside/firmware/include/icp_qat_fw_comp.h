@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -385,12 +385,22 @@ typedef struct icp_qat_fw_comp_req_params_s
     /**< Size of output buffer in bytes */
 
     /**< LW 16 */
-    uint32_t initial_crc32;
-    /**< CRC of previously processed bytes */
+    union {
+        struct
+        {
+            /** LW 16 */
+            uint32_t initial_crc32;
+            /**< CRC for processed bytes (input byte count) */
 
-    /**< LW 17 */
-    uint32_t initial_adler;
-    /**< Adler of previously processed bytes */
+            /** LW 17 */
+            uint32_t initial_adler;
+            /**< Adler for processed bytes (input byte count) */
+        } legacy;
+
+        /** LW 16-17 */
+        uint64_t crc_data_addr;
+        /**< CRC data structure pointer */
+    } crc;
 
     /**< LW 18 */
     uint32_t req_par_flags;
@@ -418,27 +428,35 @@ typedef struct icp_qat_fw_comp_req_params_s
  * @param cnvnr              Whether internal CNV recovery is to be performed
  *                            * ICP_QAT_FW_COMP_NO_CNV_RECOVERY
  *                            * ICP_QAT_FW_COMP_CNV_RECOVERY
+ * @param cnvdfx             Whether CNV error injection is to be performed
+ *                            * ICP_QAT_FW_COMP_NO_CNV_DFX
+ *                            * ICP_QAT_FW_COMP_CNV_DFX
+ * @param crc                CRC Mode Flag - 0 legacy, 1 crc data struct
  *
  *****************************************************************************/
-#define ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(sop, eop, bfinal, cnv, cnvnr)    \
+#define ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(                                 \
+    sop, eop, bfinal, cnv, cnvnr, cnvdfx, crc)                                 \
     (((sop & ICP_QAT_FW_COMP_SOP_MASK) << ICP_QAT_FW_COMP_SOP_BITPOS) |        \
      ((eop & ICP_QAT_FW_COMP_EOP_MASK) << ICP_QAT_FW_COMP_EOP_BITPOS) |        \
      ((bfinal & ICP_QAT_FW_COMP_BFINAL_MASK)                                   \
       << ICP_QAT_FW_COMP_BFINAL_BITPOS) |                                      \
      ((cnv & ICP_QAT_FW_COMP_CNV_MASK) << ICP_QAT_FW_COMP_CNV_BITPOS) |        \
-     ((cnvnr & ICP_QAT_FW_COMP_CNV_RECOVERY_MASK)                              \
-      << ICP_QAT_FW_COMP_CNV_RECOVERY_BITPOS))
+     ((cnvnr & ICP_QAT_FW_COMP_CNVNR_MASK) << ICP_QAT_FW_COMP_CNVNR_BITPOS) |  \
+     ((cnvdfx & ICP_QAT_FW_COMP_CNV_DFX_MASK)                                  \
+      << ICP_QAT_FW_COMP_CNV_DFX_BITPOS) |                                     \
+     ((crc & ICP_QAT_FW_COMP_CRC_MODE_MASK)                                    \
+      << ICP_QAT_FW_COMP_CRC_MODE_BITPOS))
 
 /*
  *  REQUEST FLAGS IN REQUEST PARAMETERS COMPRESSION
  *
- *  + ===== + ----- + --- + --- + ----- + --- + --- + -- + -- +
- *  |  Bit  | 31-18 | 17  | 16  | 15-7  |  6  | 5-2 | 1  | 0  |
- *  + ===== + ----- + --- + --- + ----- + --- + --- + -- + -- +
- *  | Flags | Rsvd  |CNVNR| CNV | Resvd |BFin |Resvd|EOP |SOP |
- *  |       |  =0   |     |     |   =0  |     |  =0 |    |    |
- *  |       |       |     |     |       |     |     |    |    |
- *  + ===== + ----- + --- + --- + ----- + --- + --- + -- + -- +
+ *  + ===== + ----- + --- +-----+-------+ --- + ---------+ --- + ---- + --- + --- +
+ *  |  Bit  | 31-20 |  19 |  18 |   17  | 16  |  15 - 7  |  6  |  5-2 |  1  |  0  |
+ *  + ===== + ----- + --- +-----+-------+ --- + ---------+ --- | ---- + --- + --- +
+ *  | Flags | Resvd | CRC | CNV | CNVNR | CNV |Resvd Bits|BFin |Resvd | EOP | SOP |
+ *  |       | =0    | Mode| DFX |       |     | =0       |     | =0   |     |     |
+ *  |       |       |     |     |       |     |          |     |      |     |     |
+ *  + ===== + ----- + --- +-----+-------+ --- + ---------+ --- | ---- + --- + --- +
  */
 
 #define ICP_QAT_FW_COMP_NOT_SOP 0
@@ -481,6 +499,22 @@ typedef struct icp_qat_fw_comp_req_params_s
 /**< @ingroup icp_qat_fw_comp
  * Flag indicating that a cnv recovery is to be performed on the request */
 
+#define ICP_QAT_FW_COMP_NO_CNV_DFX 0
+/**< @ingroup icp_qat_fw_comp
+ * Flag indicating that NO CNV inject error is to be performed on the request */
+
+#define ICP_QAT_FW_COMP_CNV_DFX 1
+/**< @ingroup icp_qat_fw_comp
+ * Flag indicating that CNV inject error is to be performed on the request */
+
+#define ICP_QAT_FW_COMP_CRC_MODE_LEGACY 0
+/**< @ingroup icp_qat_fw_comp
+ * Flag representing to use the legacy CRC mode */
+
+#define ICP_QAT_FW_COMP_CRC_MODE_E2E 1
+/**< @ingroup icp_qat_fw_comp
+ * Flag representing to use the external CRC data struct */
+
 #define ICP_QAT_FW_COMP_SOP_BITPOS 0
 /**< @ingroup icp_qat_fw_comp
  * Starting bit position for SOP */
@@ -513,13 +547,29 @@ typedef struct icp_qat_fw_comp_req_params_s
 /**< @ingroup icp_qat_fw_comp
  * Starting bit position for the CNV bit */
 
-#define ICP_QAT_FW_COMP_CNV_RECOVERY_MASK 0x1
+#define ICP_QAT_FW_COMP_CNVNR_MASK 0x1
 /**< @ingroup icp_qat_fw_comp
  * One bit mask for the CNV Recovery bit */
 
-#define ICP_QAT_FW_COMP_CNV_RECOVERY_BITPOS 17
+#define ICP_QAT_FW_COMP_CNVNR_BITPOS 17
 /**< @ingroup icp_qat_fw_comp
  * Starting bit position for the CNV Recovery bit */
+
+#define ICP_QAT_FW_COMP_CNV_DFX_BITPOS 18
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for the CNV DFX bit */
+
+#define ICP_QAT_FW_COMP_CNV_DFX_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask for the CNV DFX bit */
+
+#define ICP_QAT_FW_COMP_CRC_MODE_BITPOS 19
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for CRC mode */
+
+#define ICP_QAT_FW_COMP_CRC_MODE_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask used to determine CRC mode */
 
 /**
  ******************************************************************************
@@ -576,7 +626,21 @@ typedef struct icp_qat_fw_comp_req_params_s
     QAT_FIELD_GET(flags, ICP_QAT_FW_COMP_CNV_BITPOS, ICP_QAT_FW_COMP_CNV_MASK)
 
 /**
- *****************************************************************************
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ *        Macro for extraction of the crc mode bit
+ *
+ * @param flags        Flags to extract the crc mode bit from
+ *
+ ******************************************************************************/
+#define ICP_QAT_FW_COMP_CRC_MODE_GET(flags)                                    \
+    QAT_FIELD_GET(                                                             \
+        flags, ICP_QAT_FW_COMP_CRC_MODE_BITPOS, ICP_QAT_FW_COMP_CRC_MODE_MASK)
+
+/**
+ ******************************************************************************
  * @ingroup icp_qat_fw_comp
  *        Definition of the translator request parameters block
  * @description
@@ -768,13 +832,22 @@ typedef struct icp_qat_fw_resp_comp_pars_s
     uint32_t output_byte_counter;
     /**< Output byte counter */
 
-    /**< LW 6 */
-    uint32_t curr_crc32;
-    /**< Current CRC32 */
+    /** LW 6-7 */
+    union {
+        struct
+        {
+            /** LW 6 */
+            uint32_t curr_crc32;
+            /**< Current CRC32 */
 
-    /**< LW 7 */
-    uint32_t curr_adler_32;
-    /**< Current Adler32 */
+            /** LW 7 */
+            uint32_t curr_adler_32;
+            /**< Current Adler32 */
+        } legacy;
+
+        uint32_t resrvd[ICP_QAT_FW_NUM_LONGWORDS_2];
+        /**< Reserved if not in legacy mode */
+    } crc;
 
 } icp_qat_fw_resp_comp_pars_t;
 

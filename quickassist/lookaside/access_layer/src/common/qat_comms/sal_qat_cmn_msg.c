@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -107,6 +107,7 @@
  * @param[in]   cmnFlags                Common request flags
  * @param[in]   serviceCmdFlags         Service command flags
  * @param[in]   extendedServCmdFlags    Extended service command flags
+ * @param[in]   isGen4                  use false for CPM 1.x, true for CPM2.0
  *
  * @return
  *      None
@@ -117,18 +118,13 @@ void SalQatMsg_CmnHdrWrite(icp_qat_fw_comn_req_t *pMsg,
                            uint8_t serviceCmdId,
                            icp_qat_fw_comn_flags cmnFlags,
                            icp_qat_fw_serv_specif_flags serviceCmdFlags,
-                           icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags,
-                           CpaBoolean isGen4)
+                           icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags)
 {
     icp_qat_fw_comn_req_hdr_t *pHeader = &(pMsg->comn_hdr);
 
     /* LW0 */
     pHeader->hdr_flags =
         ICP_QAT_FW_COMN_HDR_FLAGS_BUILD(ICP_QAT_FW_COMN_REQ_FLAG_SET);
-
-    ICP_QAT_FW_COMN_HDR_GENERATION_FLAG_SET(pMsg->comn_hdr,
-                                            ICP_QAT_FW_COMN_CPM_2X);
-
     pHeader->service_type = (uint8_t)serviceType;
     pHeader->service_cmd_id = serviceCmdId;
     pHeader->resrvd1 = 0;

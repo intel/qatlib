@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -44,15 +44,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <sys/types.h>
 #include <sys/param.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <pthread.h>
 #ifdef QAT_WITH_LIBUDEV
 #include <libudev.h>
+#include <poll.h>
 #endif
 #include "cpa.h"
 #include "icp_accel_devices.h"
@@ -77,7 +76,6 @@
 /*
  * Time to sleep between each loop iteration in monitor devices func
  */
-#define SLEEP_TIME 2000
 
 #ifdef QAT_WITH_LIBUDEV
 STATIC struct udev *udev;
@@ -195,76 +193,6 @@ void adf_event_monitor_delete(void)
     }
 }
 #endif
-
-int adf_proxy_poll_event(Cpa32U *dev_id, enum adf_event *event)
-{
-#ifdef QAT_WITH_LIBUDEV
-    int fd;
-    struct udev_device *dev;
-    fd_set fds;
-    struct timeval tv;
-    const char *eventStr = NULL;
-    const char *accelIdStr = NULL;
-    char eventString[EVENT_MAX_LEN];
-    char accelIdString[ACCELID_MAX_LEN];
-
-    fd = udev_monitor_get_fd(mon);
-    if (fd > 0)
-    {
-        FD_ZERO(&fds);
-        FD_SET(fd, &fds);
-        tv.tv_sec = 0;
-        tv.tv_usec = 0;
-
-        if (select(fd + 1, &fds, NULL, NULL, &tv) > 0 && FD_ISSET(fd, &fds))
-        {
-            dev = udev_monitor_receive_device(mon);
-            if (dev)
-            {
-                eventStr = udev_device_get_property_value(dev, "qat_event");
-                if (eventStr)
-                {
-                    ICP_STRLCPY(eventString, eventStr, sizeof(eventString));
-                }
-                accelIdStr = udev_device_get_property_value(dev, "accelid");
-                if (accelIdStr)
-                {
-                    ICP_STRLCPY(
-                        accelIdString, accelIdStr, sizeof(accelIdString));
-                }
-                udev_device_unref(dev);
-            }
-        }
-        if (!eventStr || !accelIdStr)
-            return 0;
-
-        if (!strncmp(eventString, "init", sizeof(eventString)))
-            *event = ADF_EVENT_INIT;
-        else if (!strncmp(eventString, "shutdown", sizeof(eventString)))
-            *event = ADF_EVENT_SHUTDOWN;
-        else if (!strncmp(eventString, "restarting", sizeof(eventString)))
-            *event = ADF_EVENT_RESTARTING;
-        else if (!strncmp(eventString, "restarted", sizeof(eventString)))
-            *event = ADF_EVENT_RESTARTED;
-        else if (!strncmp(eventString, "start", sizeof(eventString)))
-            *event = ADF_EVENT_START;
-        else if (!strncmp(eventString, "stop", sizeof(eventString)))
-            *event = ADF_EVENT_STOP;
-        else if (!strncmp(eventString, "error", sizeof(eventString)))
-            *event = ADF_EVENT_ERROR;
-        else
-        {
-            ADF_ERROR("Unknown event \"%s\" received\n", eventString);
-            return 0;
-        }
-
-        *dev_id = strtoul(accelIdString, NULL, 0);
-
-        return 1;
-    }
-#endif
-    return 0;
-}
 
 /*
  * adf_process_proxy_init

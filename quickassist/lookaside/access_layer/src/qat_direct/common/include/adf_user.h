@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,11 @@ struct adf_dev_heartbeat_status_ctl
 {
     uint32_t device_id;
     enum adf_device_heartbeat_status status;
+};
+
+struct adf_dev_miscellaneous_stats
+{
+    uint64_t misc_counter;
 };
 
 #define ADF_CTL_IOC_MAGIC 'a'
@@ -145,6 +150,5 @@ struct adf_user_cfg_ctl_data
 int32_t adf_init_devices(void);
 CpaStatus adf_proxy_get_devices(void);
 int32_t adf_cleanup_devices(void);
-int adf_proxy_poll_event(Cpa32U *dev_id, enum adf_event *event);
 
 #endif /* end of include guard: UIO_USER_H */

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include "icp_sal_versions.h"
+
+/* The running qatlib/qatmgr pair must be from the same package.
+ * There's no requirement for backwards compatibility if
+ * versions are different. As all requests are initiated
+ * by qatlib only qatmgr should need to check the version in hdr.
+ * However checking is done in qatlib to catch incompatibilities if paired
+ * with an earlier qatmgr version created before this check was added.
+ */
+#define THIS_LIB_VERSION                                                       \
+    (uint16_t)((SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER << 8) +                 \
+               SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER)
+#define VER_STR_LEN 12
+#define VER_STR(n, str) (snprintf(str, VER_STR_LEN, "%d.%d", n >> 8, n & 0xff))
 
 /* Socket interface to the QAT manager */
 #define QATMGR_SOCKET "/run/qat/qatmgr.sock"
@@ -276,13 +290,5 @@ int handle_message(struct qatmgr_msg_req *req,
                    int *index);
 
 int release_section(int index, pthread_t tid, char *name, size_t name_len);
-
-extern int debug_level;
-
-#define LOG_LEVEL_ERROR 0
-#define LOG_LEVEL_INFO 1
-#define LOG_LEVEL_DEBUG 2
-
-int qat_log(int log_level, const char *fmt, ...);
 
 #endif /* QAT_MGR_H */

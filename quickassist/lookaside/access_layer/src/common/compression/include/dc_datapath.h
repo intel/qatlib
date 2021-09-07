@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -88,8 +88,14 @@
  * the management of skid buffers in the firmware */
 #define DC_DEST_BUFFER_DYN_MIN_SIZE (128)
 #define DC_DEST_BUFFER_STA_MIN_SIZE (64)
-/* C62x and c3xxx pcie rev0 devices require an additional 32bytes */
+#define DC_DEST_BUFFER_DYN_MIN_SIZE_GEN4 (512)
+#define DC_DEST_BUFFER_STA_MIN_SIZE_GEN4 (1024)
+/* C62x and C3xxx pcie rev0 devices require an additional 32bytes */
 #define DC_DEST_BUFFER_STA_ADDITIONAL_SIZE (32)
+
+/* C4xxx device requires minimum 47 bytes for output buffer
+ * size for static compression */
+#define DC_DEST_BUFFER_MIN_SIZE (47)
 
 /* Minimum destination buffer size for decompression */
 #define DC_DEST_BUFFER_DEC_MIN_SIZE (1)
@@ -101,6 +107,30 @@
 /* DC Source & Destination buffer type (FLAT/SGL) */
 #define DC_DEFAULT_QAT_PTR_TYPE QAT_COMN_PTR_TYPE_SGL
 #define DC_DP_QAT_PTR_TYPE QAT_COMN_PTR_TYPE_FLAT
+
+/* Offset to first byte of Input Byte Counter (IBC) in state register */
+#define DC_STATE_IBC_OFFSET (8)
+/* Size in bytes of input byte counter (IBC) in state register */
+#define DC_IBC_SIZE_IN_BYTES (4)
+
+/* Offset to first byte to CRC32 in state register */
+#define DC_STATE_CRC32_OFFSET (40)
+/* Offset to first byte to output CRC32 in state register */
+#define DC_STATE_OUTPUT_CRC32_OFFSET (48)
+/* Offset to first byte to input CRC32 in state register */
+#define DC_STATE_INPUT_CRC32_OFFSET (52)
+
+/* Offset to first byte of ADLER32 in state register */
+#define DC_STATE_ADLER32_OFFSET (48)
+
+/* 8 bit mask value */
+#define DC_8_BIT_MASK (0xff)
+
+/* 8 bit shift position */
+#define DC_8_BIT_SHIFT_POS (8)
+
+/* Size in bytes of checksum */
+#define DC_CHECKSUM_SIZE_IN_BYTES (4)
 
 /* Mask used to set the most significant bit to zero */
 #define DC_STATE_REGISTER_ZERO_MSB_MASK (0x7F)
@@ -123,6 +153,14 @@
 
 /* Mask used to check the CompressAndVerifyAndRecover capability bit */
 #define DC_CNVNR_EXTENDED_CAPABILITY (0x100)
+
+/* Default values for CNV integrity checks,
+ * those are used to inform hardware of specifying CRC parameters to be used
+ * when calculating CRCs */
+#define DC_CRC_POLY_DEFAULT 0x04c11db7
+#define DC_XOR_FLAGS_DEFAULT 0x000e0000
+#define DC_XOR_OUT_DEFAULT 0xffffffff
+#define DC_INVALID_CRC 0x00000000
 
 /**
 *******************************************************************************
@@ -160,6 +198,21 @@ typedef struct dc_compression_cookie_s
     /**< Pointer to the session descriptor */
     CpaDcFlush flushFlag;
     /**< Flush flag */
+    CpaDcOpData *pDcOpData;
+    /**< struct containing flags and CRC related data for this session */
+    CpaBoolean integrityCrcCheck;
+    /**< If set to true, the implementation will verify that data
+     * integrity is preserved through the processing pipeline.
+     * This behaviour supports stateless and stateful behavior for
+     * both static and dynamic Huffman encoding.
+     *
+     * Integrity CRC checking is not supported for decompression operations
+     * over data that contains multiple gzip headers. */
+    CpaBoolean verifyHwIntegrityCrcs;
+    /**< If set to true, software calculated CRCs will be compared
+     * against hardware generated integrity CRCs to ensure that data
+     * integrity is maintained when transferring data to and from the
+     * hardware accelerator. */
     CpaDcRqResults *pResults;
     /**< Pointer to result buffer holding consumed and produced data */
     Cpa32U srcTotalDataLenInBytes;
@@ -173,6 +226,10 @@ typedef struct dc_compression_cookie_s
     CpaDcReqStatus dcErrorToSimulate;
 /**< Dc error inject simulation */
 #endif
+    CpaBufferList *pUserSrcBuff;
+    /**< virtual userspace ptr to source SGL */
+    CpaBufferList *pUserDestBuff;
+    /**< virtual userspace ptr to destination SGL */
 } dc_compression_cookie_t;
 
 /**

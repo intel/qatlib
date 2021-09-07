@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -105,6 +105,8 @@ int adf_io_accel_dev_exist(int dev_id);
  * @retval -EINVAL          The function failed due to an invalid dev_id.
  */
 int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id);
+
+int adf_io_reinit_accel(icp_accel_dev_t **accel_dev, int dev_id);
 
 /**
  * @ingroup adf_io

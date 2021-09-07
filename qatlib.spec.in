@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 
-%global libqat_soversion  0
+%global libqat_soversion  2
 %global libusdm_soversion 0
 Name:             @PACKAGE@
 Version:          @VERSION@
@@ -52,6 +52,8 @@ sed -i -e 's! -shared ! -Wl,--as-needed\0!g' libtool
 
 %install
 %make_install
+rm %{buildroot}/%{_libdir}/libqat.la
+rm %{buildroot}/%{_libdir}/libusdm.la
 
 %pre
 getent group qat >/dev/null || groupadd -r qat
@@ -70,8 +72,6 @@ exit 0
 %license LICENSE*
 %{_libdir}/libqat.so.%{libqat_soversion}*
 %{_libdir}/libusdm.so.%{libusdm_soversion}*
-%{_libdir}/libqat-%{version}.so
-%{_libdir}/libusdm-%{version}.so
 %{_sbindir}/qatmgr
 %{_sbindir}/qat_init.sh
 %{_unitdir}/qat.service
@@ -82,10 +82,11 @@ exit 0
 %{_libdir}/libqat.so
 %{_libdir}/libusdm.so
 %{_includedir}/qat
-%exclude %{_libdir}/libqat.la
-%exclude %{_libdir}/libusdm.la
 
 %changelog
+* Wed Aug 11 2021 Mateusz Polrola <mateuszx.potrola@intel.com> - 21.08-0-1
+- Update to qatlib 21.08
+
 * Wed Apr 14 2021 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 21.05.0-1
 - Update to qatlib 21.05
 

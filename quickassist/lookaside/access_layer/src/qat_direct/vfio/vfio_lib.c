@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -47,13 +47,18 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "adf_pfvf_vf_msg.h"
 #include "vfio_lib.h"
 #include "icp_platform.h"
+#include "qat_log.h"
 
 static int container_fd = -1;
 static int container_fd_ref = 0;
 
 #define VFIO_GET_REGION_ADDR(x) ((uint64_t)x << 40ULL)
+
+/* PMISC BAR number */
+#define ADF_PMISC_BAR 1
 
 static int pci_vfio_set_command(int dev_fd, int command, bool op)
 {
@@ -134,6 +139,7 @@ static void remove_and_close_group(vfio_dev_info_t *dev)
 int open_vfio_dev(const char *vfio_file,
                   const char *bdf,
                   int group_fd,
+                  unsigned int pci_id,
                   vfio_dev_info_t *dev)
 {
     int i;
@@ -288,6 +294,9 @@ int open_vfio_dev(const char *vfio_file,
 
         return -1;
     }
+
+    /* Init VF2PF communication */
+    dev->pfvf = adf_init_pfvf_dev_data(dev->pcs.bar[ADF_PMISC_BAR].ptr, pci_id);
 
     return 0;
 }

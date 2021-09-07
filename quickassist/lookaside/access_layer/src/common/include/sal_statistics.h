@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -99,6 +99,8 @@
 /**< Config value name for enabling/disabling RSA statistics */
 #define SAL_STATS_CFG_SYM "statsSym"
 /**< Config value name for enabling/disabling Symmetric Crypto statistics */
+#define SAL_STATS_CFG_MISC "statsMisc"
+/**< Config value name for enabling/disabling Miscellaneous error statistics */
 
 #define SAL_STATS_SYM 0
 #define SAL_STATS_DSA 1
@@ -111,6 +113,7 @@
 #define SAL_STATS_ECC 8
 #define SAL_STATS_ECDH 9
 #define SAL_STATS_ECDSA 10
+#define SAL_STATS_MISC 11
 /**< Numeric values for crypto statistics */
 
 #define SAL_STATISTICS_STRING_OFF "0"
@@ -147,6 +150,8 @@ typedef struct sal_statistics_collection_s
     /**< If CPA_TRUE then RSA statistics are enabled */
     CpaBoolean bSymStatsEnabled;
     /**< If CPA_TRUE then Symmetric Crypto statistics are enabled */
+    CpaBoolean bMiscStatsEnabled;
+    /**< If CPA_TRUE then Miscellaneous error statistics are enabled */
 } sal_statistics_collection_t;
 
 /**

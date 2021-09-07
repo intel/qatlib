@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1343,6 +1343,17 @@ CpaStatus dcPerformStateful(compression_test_params_t *setup)
          */
         if (MIN_DST_BUFFER_SIZE >= bufferSize)
         {
+            if (setup->useXlt)
+            {
+                /*To get xlt overflow minimum destination buffer size
+                should be 128Byte.So if this feature is enabled,reduce
+                destination buffer size by 0.85% of input buffer size.*/
+                status = createBuffers(((bufferSize * 85UL) / 100UL),
+                                       setup->numberOfBuffers[i],
+                                       dstBuffListArray[i],
+                                       nodeId);
+            }
+            else
             {
                 status = createBuffers(bufferSize * EXTRA_BUFFER,
                                        setup->numberOfBuffers[i],
@@ -1614,6 +1625,12 @@ void dcPerformanceStateful(single_thread_test_data_t *testSetup)
     dcSetup.numLoops = tmpSetup->numLoops;
     /*give our thread a unique memory location to store performance stats*/
     dcSetup.performanceStats = testSetup->performanceStats;
+    dcSetup.useXlt = tmpSetup->useXlt;
+    dcSetup.useE2E = tmpSetup->useE2E;
+    dcSetup.useE2EVerify = tmpSetup->useE2EVerify;
+    /* In case of E2E Verify we need to use CRC32 only */
+    if (dcSetup.useE2EVerify)
+        dcSetup.setupData.checksum = CPA_DC_CRC32;
     testSetup->performanceStats->threadReturnStatus = CPA_STATUS_SUCCESS;
 
     status = calculateRequireBuffers(&dcSetup);
@@ -1695,6 +1712,21 @@ void dcPerformanceStateful(single_thread_test_data_t *testSetup)
         qaeMemFree((void **)&dcSetup.numberOfBuffers);
         sampleCodeThreadExit();
     }
+    if (CPA_TRUE == dcSetup.useE2E)
+    {
+            if (CPA_FALSE == capabilities.integrityCrcs)
+            {
+
+                PRINT("CRC integrity check is unsupported for this instance. "
+                      "%d\n",
+                      testSetup->logicalQaInstance);
+                testSetup->performanceStats->threadReturnStatus =
+                    CPA_STATUS_SUCCESS;
+                qaeMemFree((void **)&instances);
+                qaeMemFree((void **)&dcSetup.numberOfBuffers);
+                sampleCodeThreadExit();
+            }
+    }
 
     /*launch function that does all the work*/
     status = dcPerformStateful(&dcSetup);
@@ -1747,7 +1779,8 @@ CpaStatus setupDcStatefulTest_Depreciated(CpaDcCompType algorithm,
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Unable to load one or more corpus files, have they been "
-                  "extracted to /lib/firmware?\n");
+                  "extracted to %s?\n",
+                  SAMPLE_CODE_CORPUS_PATH);
         return CPA_STATUS_FAIL;
     }
 

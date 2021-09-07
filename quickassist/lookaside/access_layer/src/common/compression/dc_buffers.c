@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -87,6 +87,8 @@
 
 #define CPA_DC_CEIL_DIV(x, y) (((x) + (y)-1) / (y))
 #define DC_DEST_BUFF_EXTRA_DEFLATE_GEN2 (55)
+#define DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_STATIC (1029)
+#define DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_DYN (512)
 
 CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
                                      Cpa32U numBuffers,
@@ -157,14 +159,52 @@ STATIC inline CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
     return CPA_STATUS_SUCCESS;
 }
 
+STATIC inline CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
+                                           Cpa32U inputSize,
+                                           Cpa32U *outputSize)
+{
+    Cpa64U outputSizeLong;
+    Cpa64U inputSizeLong = (Cpa64U)inputSize;
+
+    switch (huffType)
+    {
+        case CPA_DC_HT_STATIC:
+            /* Formula for GEN4 static deflate:
+             * ceil((9*sourceLen)/8) + 5 + 1024. */
+            outputSizeLong = CPA_DC_CEIL_DIV(9 * inputSizeLong, 8) +
+                             DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_STATIC;
+            break;
+        case CPA_DC_HT_FULL_DYNAMIC:
+            /* Formula for GEN4 dynamic deflate:
+             * Ceil ((9*sourceLen)/8) +
+             * ((((8/7) * sourceLen)/ 16KB) * (150+5)) + 512
+             */
+            outputSizeLong = DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_DYN;
+            outputSizeLong += CPA_DC_CEIL_DIV(9 * inputSizeLong, 8);
+            outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (16 * 1024);
+            break;
+        default:
+            return CPA_STATUS_INVALID_PARAM;
+    }
+
+    /* Avoid output size overflow */
+    if (outputSizeLong & 0xffffffff00000000UL)
+        return CPA_STATUS_INVALID_PARAM;
+
+    *outputSize = (Cpa32U)outputSizeLong;
+    return CPA_STATUS_SUCCESS;
+}
+
 CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
                                     CpaDcHuffType huffType,
                                     Cpa32U inputSize,
                                     Cpa32U *outputSize)
 {
-#ifdef ICP_PARAM_CHECK
+    sal_compression_service_t *pService;
     CpaInstanceHandle insHandle = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
 
+#ifdef ICP_PARAM_CHECK
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
         insHandle = dcGetFirstHandle();
@@ -191,5 +231,15 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
     }
 #endif
 
-    return dcDeflateBoundGen2(huffType, inputSize, outputSize);
+    pService = (sal_compression_service_t *)insHandle;
+    if (pService->generic_service_info.isGen4)
+    {
+        status = dcDeflateBoundGen4(huffType, inputSize, outputSize);
+    }
+    else
+    {
+        status = dcDeflateBoundGen2(huffType, inputSize, outputSize);
+    }
+
+    return status;
 }

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -271,6 +271,24 @@ CpaStatus Lac_MemPoolCreate(lac_memory_pool_id_t *poolID,
  *
  ******************************************************************************/
 void Lac_MemPoolDestroy(lac_memory_pool_id_t poolID);
+
+/**
+ *******************************************************************************
+ * @ingroup LacMemPool
+ * This function enables the allocation of a block from a previously created
+ * memory pool.
+ *
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+
+ * @param[in] poolID  Pointer to the memory pool to disable.
+ *
+ ******************************************************************************/
+void Lac_MemPoolEnable(lac_memory_pool_id_t poolID);
 
 /**
  *******************************************************************************

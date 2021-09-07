@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -188,8 +188,8 @@ static void copyMultiFlatBufferToBuffer(CpaBufferList *pBufferListSrc,
     for (; i < pBufferListSrc->numBuffers; i++)
     {
         memcpy(pBufferDst + offset, pBuffers->pData, pBuffers->dataLenInBytes);
-        pBuffers++;
         offset += pBuffers->dataLenInBytes;
+        pBuffers++;
     }
 }
 
@@ -682,7 +682,7 @@ CpaStatus dcChainSample(void)
         dcSessionData.compLevel = CPA_DC_L1;
         dcSessionData.compType = CPA_DC_DEFLATE;
         dcSessionData.huffType = CPA_DC_HT_STATIC;
-        dcSessionData.autoSelectBestHuffmanTree = CPA_FALSE;
+        dcSessionData.autoSelectBestHuffmanTree = CPA_DC_ASB_DISABLED;
         dcSessionData.sessDirection = CPA_DC_DIR_COMPRESS;
         dcSessionData.sessState = CPA_DC_STATELESS;
         dcSessionData.checksum = CPA_DC_CRC32;

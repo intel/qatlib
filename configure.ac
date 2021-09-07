@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [21.05.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [21.08.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,8 +11,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [1:0:1])
-AC_SUBST([LIBUSDM_VERSION], [0:0:0])
+AC_SUBST([LIBQAT_VERSION], [2:0:0])
+AC_SUBST([LIBUSDM_VERSION], [0:1:0])
 
 # Checks for programs.
 AC_PROG_AWK
@@ -56,19 +56,25 @@ AC_FUNC_MMAP
 AC_FUNC_STRNLEN
 AC_CHECK_FUNCS([alarm clock_gettime getpagesize gettimeofday memmove memset munmap select socket strerror strstr strtoul strtoull])
 
-# Check if using gcc and if it supports mcx16
-AS_IF([test "x$CC" = "xgcc"],
-    [saved_cflags="$CFLAGS"
-     CFLAGS=-mcx16
-     AC_MSG_CHECKING([whether $CC supports -mcx16])
-     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
-        [AC_MSG_RESULT([yes])]
-        [MCX16_CFLAGS="-mcx16"],
-        [AC_MSG_RESULT([no])])
-     CFLAGS="$saved_cflags"
-     AC_SUBST(MCX16_CFLAGS)],
-    []
-)
+# Check if compiler supports mcx16
+saved_cflags="$CFLAGS"
+CFLAGS=-mcx16
+AC_MSG_CHECKING([whether $CC supports -mcx16])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [if $GREP "warning" conftest.err >/dev/null; then AC_MSG_RESULT([no]); else MCX16_CFLAGS="-mcx16"; AC_MSG_RESULT([yes]); fi],
+    [AC_MSG_RESULT([no])])
+CFLAGS="$saved_cflags"
+AC_SUBST(MCX16_CFLAGS)
+
+# Check if compiler supports -Wno-unused-command-line-argument
+saved_cflags="$CFLAGS"
+CFLAGS=-Wno-unused-command-line-argument
+AC_MSG_CHECKING([whether $CC supports -Wno-unused-command-line-argument])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [if $GREP "warning" conftest.err >/dev/null; then AC_MSG_RESULT([no]); else NO_UNUSED_CMDLINE_ARG_CFLAGS="-Wno-unused-command-line-argument"; AC_MSG_RESULT([yes]); fi],
+    [AC_MSG_RESULT([no])])
+CFLAGS="$saved_cflags"
+AC_SUBST(NO_UNUSED_CMDLINE_ARG_CFLAGS)
 
 # Check for systemd.
 AS_IF([test "x$PKGCONFIG" = "x"],
@@ -79,6 +85,7 @@ AS_IF([test "x$PKGCONFIG" = "x"],
         [AC_MSG_RESULT(no); AC_MSG_ERROR(systemd not found.)]
     )]
 )
+
 
 # Check location of systemd unit files
 PKG_PROG_PKG_CONFIG
@@ -138,6 +145,13 @@ AC_ARG_ENABLE(icp-trace,
     [icp_trace=true], [icp_trace=false]
 )
 AM_CONDITIONAL([ICP_TRACE_AC], [test x$icp_trace = xtrue])
+
+# ICP_DC_ERROR_SIMULATION
+AC_ARG_ENABLE(dc-error-simulation,
+    AS_HELP_STRING([--enable-dc-error-simulation], [Enables Data Compression Error Simulation.]),
+    [dc_error_simulation=true], [dc_error_simulation=false]
+)
+AM_CONDITIONAL([ICP_DC_ERROR_SIMULATION_AC], [test x$dc_error_simulation = xtrue])
 
 AC_ARG_ENABLE(legacy-lib-names,
     AS_HELP_STRING([--enable-legacy-lib-names], [Enables legacy names for libraries.]),

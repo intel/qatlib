@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -72,6 +72,7 @@
 #include <asm/page.h>
 #include <linux/io.h>
 #include <linux/version.h>
+#include <linux/mm.h>
 
 #if (KERNEL_VERSION(2, 6, 38) >= LINUX_VERSION_CODE)
 #define kstrtoll strict_strtoll
@@ -198,6 +199,7 @@ typedef struct user_page_info_s
     uint64_t virt_addr;
     /* physical address shared b/w user/kernel */
     uint64_t phy_addr;
+    uint64_t size;
 } user_page_info_t;
 
 /* size of allocation unit */
@@ -257,6 +259,8 @@ typedef struct user_proc_mem_list_s
     uint64_t hugepages_nr;
     kdev_mem_info_t *head;
     kdev_mem_info_t *tail;
+    kdev_mem_info_t *hugepage_head;
+    kdev_mem_info_t *hugepage_tail;
     struct user_proc_mem_list_s *pPrev;
     struct user_proc_mem_list_s *pNext;
 } user_proc_mem_list_t;
@@ -393,6 +397,7 @@ typedef struct user_mem_dev_s
 #define DEV_MEM_CMD_UNREGISTER (3)
 #define DEV_MEM_CMD_GET_NUM_HPT (4)
 #define DEV_MEM_CMD_GET_USER_PAGE (5)
+#define DEV_MEM_CMD_HUGEPAGE_IOMMU_UNMAP (6)
 
 /* IOCTL commands for requesting kernel memory */
 #define DEV_MEM_IOC_MEMALLOC                                                   \
@@ -412,6 +417,8 @@ typedef struct user_mem_dev_s
 #define DEV_MEM_IOC_GET_USER_PAGE                                              \
     _IOWR(DEV_MEM_MAGIC, DEV_MEM_CMD_GET_USER_PAGE, user_page_info_t)
 
+#define DEV_MEM_IOC_HUGEPAGE_IOMMU_UNMAP                                       \
+    _IOWR(DEV_MEM_MAGIC, DEV_MEM_CMD_HUGEPAGE_IOMMU_UNMAP, user_page_info_t)
 /*****************************************************************************
  * * @ingroup CommonMemoryDriver
  *       qaeMemInit
@@ -716,11 +723,22 @@ static inline size_t icp_iommu_get_remapping_size(size_t size)
 #elif defined(ICP_QDM_IOMMU)
 int qdm_iommu_map(void **iova, void *vaddr, size_t size);
 int qdm_iommu_unmap(void *iova, size_t size);
+int qdm_hugepage_iommu_map(void **iova, void *va_page, size_t size);
 static inline int icp_iommu_map(void **iova, void *vaddr, size_t size)
 {
     return qdm_iommu_map(iova, vaddr, size);
 }
 static inline int icp_iommu_unmap(void *iova, size_t size)
+{
+    return qdm_iommu_unmap(iova, size);
+}
+static inline int icp_hugepage_iommu_map(void **iova,
+                                         void *va_page,
+                                         size_t size)
+{
+    return qdm_hugepage_iommu_map(iova, va_page, size);
+}
+static inline int icp_hugepage_iommu_unmap(void *iova, size_t size)
 {
     return qdm_iommu_unmap(iova, size);
 }
@@ -737,6 +755,18 @@ static inline int icp_iommu_map(void **iova, void *vaddr, size_t size)
 }
 
 static inline int icp_iommu_unmap(void *iova, size_t size)
+{
+    return 0;
+}
+
+static inline int icp_hugepage_iommu_map(void **iova,
+                                         void *va_page,
+                                         size_t size)
+{
+    *iova = (void *)(uintptr_t)page_to_phys((struct page *)va_page);
+    return 0;
+}
+static inline int icp_hugepage_iommu_unmap(void *iova, size_t size)
 {
     return 0;
 }

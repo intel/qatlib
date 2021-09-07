@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -197,7 +197,9 @@ typedef struct icp_qat_hw_auth_config_s
 
 /* Private defines */
 
+#ifdef __CLANG_FORMAT__
 /* clang-format off */
+#endif
 /* Note: Bit positions have been defined for little endian ordering */
 /*
 *  AUTH CONFIG WORD BITMAP
@@ -210,7 +212,9 @@ typedef struct icp_qat_hw_auth_config_s
 *  |       |(prefix)|        |(postfix)|        |        |       |       |        |        |      |       |       |       |
 *  + ===== + ------ + ------ + ------- + ------ + ------ + ----- + ----- + ------ + ------ + ---- + ----- + ----- + ------+
 */
+#ifdef __CLANG_FORMAT__
 /* clang-format on */
+#endif
 
 /**< Flag mask & bit position */
 
@@ -1514,7 +1518,8 @@ typedef enum
  *
  *****************************************************************************/
 
-typedef enum {
+typedef enum
+{
     ICP_QAT_HW_COMPRESSION_DEPTH_1 = 0,
     /*!< Search depth 1 (Fastest least exhaustive) */
 
@@ -1525,9 +1530,12 @@ typedef enum {
     /*!< Search depth 8 */
 
     ICP_QAT_HW_COMPRESSION_DEPTH_16 = 3,
-    /*!< Search depth 16 (Slowest, most exhaustive) */
+    /*!< Search depth 16 */
 
-    ICP_QAT_HW_COMPRESSION_DEPTH_DELIMITER = 4
+    ICP_QAT_HW_COMPRESSION_DEPTH_128 = 4,
+    /*!< Search depth 128 (Slowest, most exhaustive) */
+
+    ICP_QAT_HW_COMPRESSION_DEPTH_DELIMITER = 5
     /**< Delimiter type */
 
 } icp_qat_hw_compression_depth_t;
@@ -1581,11 +1589,11 @@ typedef enum {
 
 typedef struct icp_qat_hw_compression_config_s
 {
-    uint32_t val;
-    /**< Compression slice configuration */
+    uint32_t lower_val;
+    /**< Compression slice configuration lower LW */
 
-    uint32_t reserved;
-    /**< Reserved */
+    uint32_t upper_val;
+    /**< Compression slice configuration upper LW */
 } icp_qat_hw_compression_config_t;
 
 /* Private defines */

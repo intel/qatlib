@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -142,13 +142,11 @@ int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
 {
     int status;
     uint32_t *targetAddr;
-    uint8_t *csr_base_addr;
     int64_t flight;
     ICP_CHECK_FOR_NULL_PARAM(ring);
     ICP_CHECK_FOR_NULL_PARAM(inBuf);
     ICP_CHECK_FOR_NULL_PARAM(ring->accel_dev);
 
-    csr_base_addr = ((uint8_t *)ring->csr_addr);
     status = ICP_MUTEX_LOCK(ring->user_lock);
     if (status)
     {
@@ -183,7 +181,8 @@ int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
     /* Update shadow copy values */
     ring->tail = modulo((ring->tail + ring->message_size), ring->modulo);
     /* and the config space of the device */
-    WRITE_CSR_RING_TAIL(ring->bank_offset, ring->ring_num, ring->tail);
+    WRITE_CSR_RING_TAIL(
+        ring->csr_addr, ring->bank_offset, ring->ring_num, ring->tail);
 
     ring->csrTailOffset = ring->tail;
 
@@ -204,11 +203,9 @@ int32_t adf_user_notify_msgs(adf_dev_ring_handle_t *ring)
 {
     uint32_t *msg;
     uint32_t msg_counter = 0;
-    uint8_t *csr_base_addr;
 
     ICP_CHECK_FOR_NULL_PARAM(ring);
 
-    csr_base_addr = ((uint8_t *)ring->csr_addr);
     msg = (uint32_t *)(((UARCH_INT)ring->ring_virt_addr) + ring->head);
 
     /* If there are valid messages then process them */
@@ -236,7 +233,8 @@ int32_t adf_user_notify_msgs(adf_dev_ring_handle_t *ring)
         if (msg_counter > ring->coal_write_count)
         {
             ring->coal_write_count = ring->min_resps_per_head_write;
-            WRITE_CSR_RING_HEAD(ring->bank_offset, ring->ring_num, ring->head);
+            WRITE_CSR_RING_HEAD(
+                ring->csr_addr, ring->bank_offset, ring->ring_num, ring->head);
         }
         else
         {
@@ -278,6 +276,32 @@ int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *ring)
 }
 
 /*
+ * Check function used for response rings. It will check the response rings
+ * until the number of in-flight requests to determine whether there is
+ * responses remained on the response ring.
+ */
+CpaBoolean adf_user_check_resp_ring(adf_dev_ring_handle_t *ring)
+{
+    int32_t num_checked_msg = 0;
+    int32_t cur_head = ring->head;
+    volatile uint32_t *msg = NULL;
+
+    while (num_checked_msg < *ring->in_flight)
+    {
+        msg = (uint32_t *)(((UARCH_INT)ring->ring_virt_addr) + cur_head);
+
+        if (EMPTY_RING_SIG_WORD != *msg)
+        {
+            return CPA_FALSE;
+        }
+        cur_head = modulo((cur_head + ring->message_size), ring->modulo);
+        num_checked_msg++;
+    }
+
+    return CPA_TRUE;
+}
+
+/*
  * Notify function used for polling. Messages are read until the ring is
  * empty or the response quota has been fulfilled.
  * If the response quota is zero, messages are read until the ring is drained.
@@ -286,9 +310,7 @@ int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring)
 {
     volatile uint32_t *msg = NULL;
     uint32_t msg_counter = 0, response_quota;
-    uint8_t *csr_base_addr = NULL;
 
-    csr_base_addr = ((uint8_t *)ring->csr_addr);
     response_quota = (ring->ringResponseQuota != 0) ? ring->ringResponseQuota
                                                     : ICP_NO_RESPONSE_QUOTA;
     /* point to where the next message should be */
@@ -324,7 +346,8 @@ int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring)
             ICP_RESP_TYPE_IRQ == ring->resp)
         {
             ring->coal_write_count = ring->min_resps_per_head_write;
-            WRITE_CSR_RING_HEAD(ring->bank_offset, ring->ring_num, ring->head);
+            WRITE_CSR_RING_HEAD(
+                ring->csr_addr, ring->bank_offset, ring->ring_num, ring->head);
         }
         else
         {
@@ -341,14 +364,15 @@ int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring)
     return CPA_STATUS_SUCCESS;
 }
 
-int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
-                      adf_dev_bank_handle_t *bank,
-                      uint32_t ring_num,
-                      uint32_t *csr_base_addr,
-                      uint32_t num_msgs,
-                      uint32_t msg_size,
-                      int nodeid)
+static int32_t adf_init_ring_internal(adf_dev_ring_handle_t *ring,
+                                      adf_dev_bank_handle_t *bank,
+                                      uint32_t ring_num,
+                                      uint32_t *csr_base_addr,
+                                      uint32_t num_msgs,
+                                      uint32_t msg_size,
+                                      int nodeid)
 {
+
     uint32_t modulo = 0;
     uint32_t ring_size_cfg = validateRingSize(num_msgs, msg_size, &modulo);
     uint32_t ring_size_bytes = ICP_ET_SIZE_TO_BYTES(ring_size_cfg);
@@ -380,20 +404,7 @@ int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
     ring->message_size = msg_size;
     ring->modulo = modulo;
     ring->ring_size = ring_size_bytes;
-    ring->ring_virt_addr =
-        qaeMemAllocNUMA(ring_size_bytes, nodeid, ring_size_bytes);
-    ring->ring_phys_base_addr = qaeVirtToPhysNUMA(ring->ring_virt_addr);
-    if ((NULL == ring->ring_virt_addr) || (0 == ring->ring_phys_base_addr))
-    {
-        ADF_ERROR("unable to get ringbuf(v:%p,p:%p) for rings in bank(%u)\n",
-                  ring->ring_virt_addr,
-                  ring->ring_phys_base_addr,
-                  ring->ring_num);
-        adf_unreserve_ring(bank, ring_num);
-        if (ring->ring_phys_base_addr)
-            qaeMemFreeNUMA(&ring->ring_virt_addr);
-        return -ENOMEM;
-    }
+
     ICP_MEMSET(ring->ring_virt_addr, EMPTY_RING_SIG_BYTE, ring_size_bytes);
 
     ring->min_resps_per_head_write =
@@ -434,6 +445,56 @@ int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
     return 0;
 }
 
+int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
+                      adf_dev_bank_handle_t *bank,
+                      uint32_t ring_num,
+                      uint32_t *csr_base_addr,
+                      uint32_t num_msgs,
+                      uint32_t msg_size,
+                      int nodeid)
+{
+    uint32_t modulo = 0;
+    uint32_t ring_size_cfg = validateRingSize(num_msgs, msg_size, &modulo);
+    uint32_t ring_size_bytes = ICP_ET_SIZE_TO_BYTES(ring_size_cfg);
+    int32_t status = 0;
+
+    ring->ring_virt_addr =
+        qaeMemAllocNUMA(ring_size_bytes, nodeid, ring_size_bytes);
+    ring->ring_phys_base_addr = qaeVirtToPhysNUMA(ring->ring_virt_addr);
+
+    if ((NULL == ring->ring_virt_addr) || (0 == ring->ring_phys_base_addr))
+    {
+        ADF_ERROR("unable to get ringbuf(v:%p,p:%p) for rings in bank(%u)\n",
+                  ring->ring_virt_addr,
+                  ring->ring_phys_base_addr,
+                  ring->ring_num);
+        if (ring->ring_phys_base_addr)
+            qaeMemFreeNUMA(&ring->ring_virt_addr);
+        return -ENOMEM;
+    }
+
+    status = adf_init_ring_internal(
+        ring, bank, ring_num, bank->csr_addr, num_msgs, msg_size, nodeid);
+    if (status)
+    {
+        qaeMemFreeNUMA(&ring->ring_virt_addr);
+        return status;
+    }
+
+    return 0;
+}
+
+int32_t adf_reinit_ring(adf_dev_ring_handle_t *ring,
+                        adf_dev_bank_handle_t *bank,
+                        uint32_t ring_num,
+                        uint32_t *csr_base_addr,
+                        uint32_t num_msgs,
+                        uint32_t msg_size,
+                        int nodeid)
+{
+    return adf_init_ring_internal(
+        ring, bank, ring_num, bank->csr_addr, num_msgs, msg_size, nodeid);
+}
 
 int32_t adf_ring_freebuf(adf_dev_ring_handle_t *ring)
 {
@@ -449,7 +510,7 @@ int32_t adf_ring_freebuf(adf_dev_ring_handle_t *ring)
     return 0;
 }
 
-void adf_cleanup_ring(adf_dev_ring_handle_t *ring)
+static void adf_clean_ring(adf_dev_ring_handle_t *ring)
 {
     uint32_t *csr_base_addr = ring->csr_addr;
     ICP_CHECK_FOR_NULL_PARAM_VOID(ring->accel_dev);
@@ -472,12 +533,30 @@ void adf_cleanup_ring(adf_dev_ring_handle_t *ring)
     }
 
     adf_unreserve_ring(ring->bank_data, ring->ring_num);
+}
+
+void adf_cleanup_ring(adf_dev_ring_handle_t *ring)
+{
+    adf_clean_ring(ring);
 
     if (ring->ring_virt_addr)
     {
         osalMemZeroExplicit(ring->ring_virt_addr, ring->ring_size);
         qaeMemFreeNUMA(&ring->ring_virt_addr);
     }
+}
+
+void adf_reset_ring(adf_dev_ring_handle_t *ring)
+{
+    uint32_t *csr_addr_shadow = ring->bank_data->csr_addr_shadow;
+
+    adf_clean_ring(ring);
+
+    if (ring->ring_virt_addr)
+    {
+        ICP_MEMSET(ring->ring_virt_addr, EMPTY_RING_SIG_BYTE, ring->ring_size);
+    }
+    ring->csr_addr = csr_addr_shadow;
 }
 
 int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
@@ -500,3 +579,4 @@ int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
 
     return status;
 }
+

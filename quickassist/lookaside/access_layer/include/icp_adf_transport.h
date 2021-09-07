@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -206,6 +206,34 @@ CpaStatus icp_adf_transCreateHandle(icp_accel_dev_t *accel_dev,
                                     const Cpa32U num_msgs,
                                     const Cpa32U msg_size,
                                     icp_comms_trans_handle *trans_handle);
+/*
+ * icp_adf_transReinitHandle
+ *
+ * Description:
+ * Reinitialize a transport handle
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS   on success
+ *   CPA_STATUS_FAIL      on failure
+ *
+ *   The message size is variable: requests can be 64 or 128 bytes, responses
+ *   can be 16, 32 or 64 bytes.
+ *   Supported num_msgs:
+ *     32, 64, 128, 256, 512, 1024, 2048 number of messages.
+ *
+ */
+CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
+                                    icp_transport_type trans_type,
+                                    const char *section,
+                                    const Cpa32U accel_nr,
+                                    const Cpa32U bank_nr,
+                                    const char *service_name,
+                                    const icp_adf_ringInfoService_t info,
+                                    icp_trans_callback callback,
+                                    icp_resp_deliv_method resp,
+                                    const Cpa32U num_msgs,
+                                    const Cpa32U msg_size,
+                                    icp_comms_trans_handle *trans_handle);
 
 /*
  * icp_adf_transGetHandle
@@ -237,6 +265,18 @@ CpaStatus icp_adf_transGetHandle(icp_accel_dev_t *accel_dev,
  *   CPA_STATUS_FAIL      on failure
  */
 CpaStatus icp_adf_transReleaseHandle(icp_comms_trans_handle trans_handle);
+
+/*
+ * icp_adf_transResetHandle
+ *
+ * Description:
+ * Reset a transport handle
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS   on success
+ *   CPA_STATUS_FAIL      on failure
+ */
+CpaStatus icp_adf_transResetHandle(icp_comms_trans_handle trans_handle);
 
 /*
  * icp_adf_transPutMsg

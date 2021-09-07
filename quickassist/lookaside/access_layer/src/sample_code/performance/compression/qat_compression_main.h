@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -944,7 +944,7 @@ void qatDcChainResponseStatusCheck(compression_test_params_t *setup,
  *                                      populateCorpusInternal
  *
  * @pre[in]                             the files exist on the system in the
- *                                      path /lib/firmware/
+ *                                      path /lib/firmware/ by default
  *
  * @post                                the file is loaded into memory,
  *                                      the compression service is started

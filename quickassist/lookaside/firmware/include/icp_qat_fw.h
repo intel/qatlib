@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -501,6 +501,8 @@ typedef struct icp_qat_fw_comn_resp_hdr_s
      *          on the current request
      * Bit<5> = 'CNVNR' flag indicating that a recovery happened
      *          on the current request following a CNV error
+     * Bit<4> = 'Stored Block' flag indicating that whether
+     *          stored blocks are returned (when ASB is on).
      * All remaining bits are unused and are therefore reserved.
      * They must to be set to 0.
      */
@@ -569,28 +571,17 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ICP_QAT_FW_COMN_VALID_FLAG_BITPOS 7
 #define ICP_QAT_FW_COMN_VALID_FLAG_MASK 0x1
 
-/**< @ingroup icp_qat_fw_comn
- * Macros defining the bit position and mask of the 'generation' flag, within
- * the
- * hdr_flags field of LW0 (service request and response) */
-#define ICP_QAT_FW_COMN_GEN_FLAG_BITPOS 6
-#define ICP_QAT_FW_COMN_GEN_FLAG_MASK 0x1
-/**< @ingroup icp_qat_fw_comn
- *  The request is targeted for QAT2.0 */
-#define ICP_QAT_FW_COMN_CPM_2X 1
-/**< @ingroup icp_qat_fw_comn
- *  The request is targeted for QAT1.x. QAT2.0 FW will return
-    'unsupported request' if GEN1 request type is sent to QAT2.0 FW */
-#define ICP_QAT_FW_COMN_CPM_1X 0
-
 #define ICP_QAT_FW_COMN_HDR_RESRVD_FLD_MASK 0x3F
 
-/*  Common QAT FW response header - structure of LW0
- *  + ===== + --- + --- + ----- + ----- + --------- + ----------- + ----- +
- *  |  Bit  | 31  | 30  |   29  | 28-24 |  21 - 16  |  15 - 8     |  7-0  |
- *  + ===== + --- + ----+ ----- + ----- + --------- + ----------- + ----- +
- *  | Flags |  V  | CNV | CNVNR | Rsvd  | Serv Type | Serv Cmd Id |  Rsvd |
- *  + ===== + --- + --- + ----- + ----- + --------- + ----------- + ----- + */
+/*Common QAT FW response header - structure of LW0
+ *+ ===== + -- + --- + ----- + ----- + ---- + --------- + ----------- +------+
+ *|  Bit  | 31 |  30 |   29  |  28   | 27-24|  21 - 16  |    15 - 8   |  7-0 |
+ *+ ===== + -- + --- + ----- + ----- + ---- + --------- + ----------- + -----+
+ *| Flags |  V | CNV | CNVNR |Stored | Rsvd | Serv Type | Serv Cmd Id | Rsvd |
+ *|       |    |     |       | block |      |           |             |      |
+ *+ ===== + -- + --- + ----- + ----- + ---- + --------- + ----------- +------+
+ */
+
 /**< @ingroup icp_qat_fw_comn
  * Macros defining the bit position and mask of 'CNV' flag
  * within the hdr_flags field of LW0 (service response only) */
@@ -602,6 +593,13 @@ typedef struct icp_qat_fw_comn_resp_s
  * within the hdr_flags field of LW0 (service response only) */
 #define ICP_QAT_FW_COMN_CNVNR_FLAG_BITPOS 5
 #define ICP_QAT_FW_COMN_CNVNR_FLAG_MASK 0x1
+
+/**< @ingroup icp_qat_fw_comn
+ * Macros defining the bit position and mask of Stored Blocks flag
+ * within the hdr_flags field of LW0 (service response only)
+ */
+#define ICP_QAT_FW_COMN_ST_BLK_FLAG_BITPOS 4
+#define ICP_QAT_FW_COMN_ST_BLK_FLAG_MASK 0x1
 
 /**
  ******************************************************************************
@@ -696,6 +694,23 @@ typedef struct icp_qat_fw_comn_resp_s
  * @ingroup icp_qat_fw_comn
  *
  * @description
+ *      Set the CNVNR bit in the response's header flags.
+ *
+ * @param hdr_t  Response 'hdr_t' structure to set the CNVNR bit
+ * @param val    Value of the CNVNR bit flag.
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMN_HDR_CNVNR_FLAG_SET(hdr_t, val)                         \
+    QAT_FIELD_SET((hdr_t.hdr_flags),                                           \
+                  (val),                                                       \
+                  ICP_QAT_FW_COMN_CNVNR_FLAG_BITPOS,                           \
+                  ICP_QAT_FW_COMN_CNVNR_FLAG_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comn
+ *
+ * @description
  *      Extract the CNV flag from the header flags in the response only.
  *
  * @param hdr_t  Response 'hdr_t' structure to extract the CNV bit
@@ -726,6 +741,40 @@ typedef struct icp_qat_fw_comn_resp_s
  * @ingroup icp_qat_fw_comn
  *
  * @description
+ *      Extract the Stored Block flag from the header flags in the
+ *      response only.
+ *
+ * @param hdr_flags  Response 'hdr' structure to extract the
+ *                   Stored Block bit from the 'hdr_flags' field.
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMN_HDR_ST_BLK_FLAG_GET(hdr_flags)                         \
+    QAT_FIELD_GET(hdr_flags,                                                   \
+                  ICP_QAT_FW_COMN_ST_BLK_FLAG_BITPOS,                          \
+                  ICP_QAT_FW_COMN_ST_BLK_FLAG_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comn
+ *
+ * @description
+ *      Set the Stored Block bit in the response's header flags.
+ *
+ * @param hdr_t  Response 'hdr_t' structure to set the ST_BLK bit
+ * @param val    Value of the ST_BLK bit flag.
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMN_HDR_ST_BLK_FLAG_SET(hdr_t, val)                        \
+    QAT_FIELD_SET((hdr_t.hdr_flags),                                           \
+                  (val),                                                       \
+                  ICP_QAT_FW_COMN_ST_BLK_FLAG_BITPOS,                          \
+                  ICP_QAT_FW_COMN_ST_BLK_FLAG_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comn
+ *
+ * @description
  *      Common macro to extract the valid flag from the header flags field
  *      within the header structure (request or response).
  *
@@ -743,56 +792,6 @@ typedef struct icp_qat_fw_comn_resp_s
  * @ingroup icp_qat_fw_comn
  *
  * @description
- *      Set the generation bit in the request's header flags.
- *
- * @param hdr_t  Request or Response 'hdr_t' structure to set the gen bit
- * @param val    Value of the generation bit flag.
- *
- *****************************************************************************/
-#define ICP_QAT_FW_COMN_HDR_GENERATION_FLAG_SET(hdr_t, val)                    \
-    ICP_QAT_FW_COMN_GENERATION_FLAG_SET(hdr_t, val)
-
-/**
-******************************************************************************
-* @ingroup icp_qat_fw_comn
-*
-* @description
-*      Common macro to set the generation bit in the common header
-*
-* @param hdr_t  Structure (request or response) containing the header
-*               flags field, to allow the generation bit to be set.
-* @param val    Value of the generation bit flag.
-*
-*****************************************************************************/
-#define ICP_QAT_FW_COMN_GENERATION_FLAG_SET(hdr_t, val)                        \
-    QAT_FIELD_SET((hdr_t.hdr_flags),                                           \
-                  (val),                                                       \
-                  ICP_QAT_FW_COMN_GEN_FLAG_BITPOS,                             \
-                  ICP_QAT_FW_COMN_GEN_FLAG_MASK)
-
-/**
-******************************************************************************
-* @ingroup icp_qat_fw_comn
-*
-* @description
-*      Common macro to extract the generation flag from the header flags field
-*      within the header structure (request or response).
-*
-* @param hdr_t  Structure (request or response) to extract the
-*               generation bit from the 'hdr_flags' field.
-*
-*****************************************************************************/
-
-#define ICP_QAT_FW_COMN_HDR_GENERATION_FLAG_GET(hdr_flags)                     \
-    QAT_FIELD_GET(hdr_flags,                                                   \
-                  ICP_QAT_FW_COMN_GEN_FLAG_BITPOS,                             \
-                  ICP_QAT_FW_COMN_GEN_FLAG_MASK)
-
-/**
- ******************************************************************************
- * @ingroup icp_qat_fw_comn
- *
- * @description
  *      Common macro to extract the remaining reserved flags from the header
         flags field within the header structure (request or response).
  *
@@ -802,7 +801,24 @@ typedef struct icp_qat_fw_comn_resp_s
  *
  *****************************************************************************/
 #define ICP_QAT_FW_COMN_HDR_RESRVD_FLD_GET(hdr_flags)                          \
-    (hdr_flags & ICP_QAT_FW_COMN_HDR_RESRVD_FLD_MASK)
+    ((hdr_flags)&ICP_QAT_FW_COMN_HDR_RESRVD_FLD_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comn
+ *
+ * @description
+ *      Common macro to set the reserved bits of the header
+ *      flags field within the header structure (request or response).
+ *
+ * @param hdr_flags  Response 'hdr' structure to extract the
+ *                   Stored Block Returned bit from the 'hdr_flags' field.
+ * @param val        Value of the reserved bits
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMN_HDR_RESRVD_FLD_SET(hdr_flags, val)                     \
+    (hdr_flags) =                                                              \
+        (((hdr_flags) & ~(ICP_QAT_FW_COMN_HDR_RESRVD_FLD_MASK)) | (val))
 
 /**
  ******************************************************************************
@@ -1194,8 +1210,8 @@ typedef struct icp_qat_fw_comn_resp_s
       << QAT_COMN_RESP_XLAT_STATUS_BITPOS) |                                   \
      (((eolb)&QAT_COMN_RESP_CMP_END_OF_LAST_BLK_MASK)                          \
       << QAT_COMN_RESP_CMP_END_OF_LAST_BLK_BITPOS) |                           \
-     (((unsupp)&QAT_COMN_RESP_UNSUPPORTED_REQUEST_BITPOS)                      \
-      << QAT_COMN_RESP_UNSUPPORTED_REQUEST_MASK))
+     (((unsupp)&QAT_COMN_RESP_UNSUPPORTED_REQUEST_MASK)                        \
+      << QAT_COMN_RESP_UNSUPPORTED_REQUEST_BITPOS))
 
 /* ========================================================================= */
 /*                                                                   GETTERS */
@@ -1409,6 +1425,10 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ERR_CODE_KPT_DRNG_SEED_NOT_LOAD -23
 /**< Error Code constant for no drng seed is not loaded in kpt ecdsa signrs
 /service */
+
+#define ERR_CODE_MISC_ERROR -50
+/**< Error Code constant for error detected but the source
+ * of error is not recognized */
 
 /**
  *****************************************************************************

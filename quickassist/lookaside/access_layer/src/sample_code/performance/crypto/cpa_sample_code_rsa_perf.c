@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1971,6 +1971,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     {
         PRINT("Rsa Thread %u Failed\n", testSetup->threadID);
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        sampleCodeBarrier();
     }
     else
     {

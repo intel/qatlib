@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -107,6 +107,8 @@
 #define INITIAL_RESPONSE_COUNT (-1)
 #define SCALING_FACTOR_100 (100)
 #define SCALING_FACTOR_1000 (1000)
+#define SCALING_FACTOR_10000 (10000)
+#define SCALING_FACTOR_100000 (100000)
 #define BASE_10 (10)
 #define DYNAMIC_BUFFER_AREA (0x20000)
 #define SINGLE_REQUEST (1)
@@ -248,6 +250,14 @@ typedef enum _dpRequestType
  *
  * ****************************************************************************/
 
+typedef struct qat_dc_e2e_s
+{
+    Cpa32U swInputChecksum;
+    Cpa32U swOutputChecksum;
+    Cpa64U swInputChecksum64b;
+    Cpa64U swOutputChecksum64b;
+    CpaCrcData compCrcData;
+} qat_dc_e2e_t;
 
 /**
  * *****************************************************************************
@@ -283,6 +293,7 @@ typedef struct compression_test_params_s
     Cpa32U compRate;
     Cpa32U sleepTime;
     CpaBoolean specific_sleeptime_flag;
+    CpaBoolean adjustSleepTimeEnabled;
     /* Request type (Batch or Enqueue) */
     dp_request_type_t dpTestType;
     /* Number of requests to submit before processing */
@@ -329,6 +340,10 @@ typedef struct compression_test_params_s
     /*the logicalQaInstance for the cipher to use*/
     Cpa32U logicalQaInstance;
     sample_code_semaphore_t comp;
+    /*flag to enable use of xlt in sample code*/
+    CpaBoolean useXlt;
+    CpaBoolean useE2EVerify;
+    qat_dc_e2e_t *e2e;
     CpaDcSessionHandle *pSessionHandle;
     /* the Destination Buffer size obtained using
      * Compress Bound API, for Compress operation */
@@ -641,9 +656,9 @@ CpaStatus populateCalgaryCorpus(Cpa32U buffSize);
  *  getCorpusFile
  *
  *  @description
- *      this API copies the corpus file in user space to a char buffer
+ *      This API copies the corpus file in user space to a char buffer
  *      in the kernel space using request_firmware API. this API expects all
- *      corpus file in /lib/firmware directory.
+ *      corpus file in /lib/firmware directory by default.
  *  @threadSafe
  *      No
  *

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1125,6 +1125,20 @@ void LacPrime_StatsFree(CpaInstanceHandle instanceHandle)
         LAC_OS_FREE(pCryptoService->pLacPrimeStatsArr);
     }
 }
+
+/**
+ *******************************************************************************
+ * @ingroup Lac_Prime
+ *      Prime Stats reset function
+ ******************************************************************************/
+void LacPrime_StatsReset(CpaInstanceHandle instanceHandle)
+{
+    sal_crypto_service_t *pCryptoService = NULL;
+    pCryptoService = (sal_crypto_service_t *)instanceHandle;
+
+    LAC_PRIME_STATS_INIT(pCryptoService);
+}
+
 /**
  *******************************************************************************
  * @ingroup Lac_Prime

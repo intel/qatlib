@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -75,6 +75,8 @@
 #include <libgen.h>
 #include <getopt.h>
 #include <sys/resource.h>
+#include "icp_platform.h"
+#include "qat_log.h"
 #include "qat_mgr.h"
 
 static char *sock_file = QATMGR_SOCKET;
@@ -98,7 +100,7 @@ struct ucred
 void *handle_client(void *arg)
 {
     int bytes_r;
-    int bytes_w;
+    int bytes_w = 0;
     int index = -1;
     pid_t tid;
     int connect_fd;
@@ -163,6 +165,18 @@ void usage(char *prog)
     printf("    0 (default) - One VF from each PF per process\n");
     printf("    1           - One VF per process\n");
     printf("    >1          - n VFs per process\n");
+    printf(" -v, --version\n");
+}
+
+static void version(char *prog)
+{
+    char qatmgr_ver_str[VER_STR_LEN];
+    VER_STR(THIS_LIB_VERSION, qatmgr_ver_str);
+    printf("%s %d.%02d.%d\n",
+           prog,
+           SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER,
+           SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER,
+           SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER);
 }
 
 static int check_pidfile(const char *filename, char **err_string)
@@ -331,8 +345,9 @@ int main(int argc, char **argv)
     struct qatmgr_dev_data dev_list[256];
     unsigned list_size = ARRAY_SIZE(dev_list);
     int i;
-    const char *mgr_opts = "hd:p:";
+    const char *mgr_opts = "hvd:p:f";
     const struct option mgr_optl[] = {{"help", 0, NULL, 'h'},
+                                      {"version", 0, NULL, 'v'},
                                       {"debug", 1, NULL, 'd'},
                                       {"policy", 1, NULL, 'p'},
                                       {"foreground", 0, NULL, 'f'},
@@ -362,6 +377,9 @@ int main(int argc, char **argv)
                 exit(1);
             case 'h':
                 usage(argv[0]);
+                exit(0);
+            case 'v':
+                version(argv[0]);
                 exit(0);
             case 'd':
                 if ((!optarg) ||

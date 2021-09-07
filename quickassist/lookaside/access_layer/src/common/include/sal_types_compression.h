@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -134,6 +134,9 @@ typedef struct sal_compression_device_data
     /* Device specific minimum output buffer size for static compression */
     Cpa32U minOutputBuffSize;
 
+    /* Device specific minimum output buffer size for dynamic compression */
+    Cpa32U minOutputBuffSizeDynamic;
+
     /* Enable/disable secureRam/acceleratorRam for intermediate buffers*/
     Cpa8U useDevRam;
 
@@ -147,10 +150,16 @@ typedef struct sal_compression_device_data
      */
     CpaBoolean oddByteDecompNobFinal;
 
+    /* Flag to indicate if translator slice overflow is supported */
+    CpaBoolean translatorOverflow;
+
     /* Flag to enable/disable delayed match mode */
-    icp_qat_hw_compression_delayed_match_t enableDmm;
+    CpaBoolean enableDmm;
 
     Cpa32U inflateContextSize;
+
+    /* Maximum compression depths are supported */
+    Cpa8U highestHwCompressionDepth;
 
     /* Mask that reports supported window sizes for comp/decomp */
     Cpa8U windowSizeMask;

@@ -3,7 +3,7 @@
 #
 #   BSD LICENSE
 # 
-#   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+#   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
 #   All rights reserved.
 # 
 #   Redistribution and use in source and binary forms, with or without
@@ -223,7 +223,7 @@ enable_sriov() {
             do
                BSF=`readlink $VF_LINK | awk 'BEGIN {FS="/"} {print $NF}'`
                DEVICE=`cat /sys/bus/pci/devices/$BSF/device`
-               bind_driver $BSF $DEVICE
+               bind_driver $BSF $DEVICE &
             done
         done
     else
@@ -235,7 +235,7 @@ enable_sriov() {
           if echo $VF_DEVICE_IDS | grep -q $DEVICE; then
               VENDOR=`cat /sys/bus/pci/devices/$BSF/vendor`
               if [ $VENDOR = $INTEL_VENDORID ]; then
-                  bind_driver $BSF $DEVICE
+                  bind_driver $BSF $DEVICE &
               fi
           fi
         done
@@ -243,5 +243,6 @@ enable_sriov() {
 }
 
 enable_sriov
+wait
 
 exit 0

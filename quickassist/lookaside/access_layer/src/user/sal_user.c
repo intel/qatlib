@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,7 @@
 
 /* QAT-API includes */
 #include "cpa.h"
+#include "cpa_dc.h"
 
 /* ADF includes */
 #include "icp_adf_init.h"
@@ -98,6 +99,7 @@
 #include "sal_types_compression.h"
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
+#include "dc_session.h"
 
 static OsalMutex sync_lock;
 #define START_REF_COUNT_MAX 64
@@ -327,6 +329,14 @@ CpaStatus icp_sal_reset_device(Cpa32U accelId)
 {
     return icp_adf_resetDevice(accelId);
 }
+
+#ifdef ICP_DC_ERROR_SIMULATION
+CpaStatus icp_sal_cnv_simulate_error(CpaInstanceHandle dcInstance,
+                                     CpaDcSessionHandle pSessionHandle)
+{
+    return dcSetCnvError(dcInstance, pSessionHandle);
+}
+#endif /* ICP_DC_ERROR_SIMULATION */
 
 CpaBoolean icp_sal_userIsQatAvailable(void)
 {

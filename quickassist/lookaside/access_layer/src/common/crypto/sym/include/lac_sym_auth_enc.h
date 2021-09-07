@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -74,6 +74,8 @@
  *  For GCM related code NIST SP 800-38D is followed.
  *
  ***************************************************************************/
+#ifndef LAC_SYM_AUTH_ENC_H_
+#define LAC_SYM_AUTH_ENC_H_
 
 /* This define for CCM describes constant sum of n and q */
 #define LAC_ALG_CHAIN_CCM_NQ_CONST 15
@@ -141,3 +143,5 @@ void LacSymAlgChain_PrepareCCMData(lac_session_desc_t *pSessionDesc,
                                    Cpa8U *pIv,
                                    Cpa32U messageLenToCipherInBytes,
                                    Cpa32U ivLenInBytes);
+
+#endif /* LAC_SYM_AUTH_ENC_H_ */

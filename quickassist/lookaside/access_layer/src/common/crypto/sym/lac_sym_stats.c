@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -117,6 +117,14 @@ void LacSym_StatsFree(CpaInstanceHandle instanceHandle)
     {
         LAC_OS_FREE(pService->pLacSymStatsArr);
     }
+}
+
+void LacSym_StatsReset(CpaInstanceHandle instanceHandle)
+{
+    sal_crypto_service_t *pService = (sal_crypto_service_t *)instanceHandle;
+
+    LAC_OS_BZERO((void *)LAC_CONST_VOLATILE_PTR_CAST(pService->pLacSymStatsArr),
+                 LAC_SYM_NUM_STATS * sizeof(OsalAtomic));
 }
 
 #ifndef DISABLE_STATS

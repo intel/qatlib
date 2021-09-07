@@ -11,7 +11,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -33,7 +33,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -191,7 +191,8 @@ typedef volatile INT32 VINT32;
  * @brief Success status
  */
 #ifndef OSAL_SUCCESS
-#define OSAL_SUCCESS (0) /**< #defined as 0 */
+#define OSAL_SUCCESS (0)        /**< #defined as 0 */
+#define OSAL_STATUS_SUCCESS (0) /**< #defined as 0 */
 #endif
 
 /**
@@ -202,7 +203,8 @@ typedef volatile INT32 VINT32;
  * @brief Failure status
  */
 #ifndef OSAL_FAIL
-#define OSAL_FAIL (-1) /**< #defined as -1 */
+#define OSAL_FAIL (-1)        /**< #defined as -1 */
+#define OSAL_STATUS_FAIL (-1) /**< #defined as -1 */
 #endif
 
 /**
@@ -213,7 +215,8 @@ typedef volatile INT32 VINT32;
  * @brief Retry status
  */
 #ifndef OSAL_RETRY
-#define OSAL_RETRY (-2) /**< #defined as -2 */
+#define OSAL_RETRY (-2)        /**< #defined as -2 */
+#define OSAL_STATUS_RETRY (-2) /**< #defined as -2 */
 #endif
 
 /**
@@ -226,7 +229,8 @@ typedef volatile INT32 VINT32;
  * 	  on what the suggested course of action is.
  */
 #ifndef OSAL_RESOURCE
-#define OSAL_RESOURCE (-3) /**< #defined as -3 */
+#define OSAL_RESOURCE (-3)        /**< #defined as -3 */
+#define OSAL_STATUS_RESOURCE (-3) /**< #defined as -3 */
 #endif
 
 /**
@@ -237,7 +241,8 @@ typedef volatile INT32 VINT32;
  * @brief Invalid parameter has been passed in.
  */
 #ifndef OSAL_INVALID_PARAM
-#define OSAL_INVALID_PARAM (-4) /**< #defined as -4 */
+#define OSAL_INVALID_PARAM (-4)        /**< #defined as -4 */
+#define OSAL_STATUS_INVALID_PARAM (-4) /**< #defined as -4 */
 #endif
 
 /**
@@ -248,7 +253,8 @@ typedef volatile INT32 VINT32;
  * @brief A serious error has occurred.
  */
 #ifndef OSAL_FATAL
-#define OSAL_FATAL (-5) /**< #defined as -5 */
+#define OSAL_FATAL (-5)        /**< #defined as -5 */
+#define OSAL_STATUS_FATAL (-5) /**< #defined as -5 */
 #endif
 
 /**
@@ -259,7 +265,8 @@ typedef volatile INT32 VINT32;
  * @brief Function is not supported/implemented.
  */
 #ifndef OSAL_UNSUPPORTED
-#define OSAL_UNSUPPORTED (-6) /**< #defined as -6 */
+#define OSAL_UNSUPPORTED (-6)        /**< #defined as -6 */
+#define OSAL_STATUS_UNSUPPORTED (-6) /**< #defined as -6 */
 #endif
 
 /**

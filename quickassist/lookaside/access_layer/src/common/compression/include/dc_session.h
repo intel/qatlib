@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -85,11 +85,29 @@
  * with a maximum of 10 max compression slices */
 #define DC_QAT_MAX_NUM_INTER_BUFFERS_10COMP_SLICES (20)
 
-/* Maximum size of the state registers 64 bytes */
-#define DC_QAT_STATE_REGISTERS_MAX_SIZE (64)
+/* Maximum number of intermediate buffers SGLs for devices
+ * with a maximum of 8 compression slices and 24 AEs */
+#define DC_QAT_MAX_NUM_INTER_BUFFERS_8COMP_SLICES (48)
+
+/* Maximum number of intermediate buffers SGLs for devices
+ * with a maximum of 4 max compression slices and 12 AEs */
+#define DC_QAT_MAX_NUM_INTER_BUFFERS_4COMP_SLICES (24)
+
+/* Maximum number of intermediate buffers SGLs for devices
+ * with a maximum of 12 max compression slices and 32 AEs */
+#define DC_QAT_MAX_NUM_INTER_BUFFERS_12COMP_SLICES (64)
+
+/* Maximum size of the state registers decompression 128 bytes */
+#define DC_QAT_DCPR_STATE_REGISTERS_MAX_SIZE (128)
+
+/* Maximum size of the state registers compression 64 bytes
+ * for legacy devices and not for CPM2.0 as it
+ * does not support stateful compression */
+#define DC_QAT_CPR_STATE_REGISTERS_MAX_SIZE (64)
 
 /* Size of the history window.
  * Base 2 logarithm of maximum window size minus 8 */
+#define DC_4K_WINDOW_SIZE (4)
 #define DC_8K_WINDOW_SIZE (5)
 #define DC_16K_WINDOW_SIZE (6)
 #define DC_32K_WINDOW_SIZE (7)
@@ -140,12 +158,58 @@ typedef enum dc_request_type_e
     DC_REQUEST_SUBSEQUENT
 } dc_request_type_t;
 
+typedef enum dc_block_type_e
+{
+    DC_CLEARTEXT_TYPE = 0,
+    DC_STATIC_TYPE,
+    DC_DYNAMIC_TYPE
+} dc_block_type_t;
+
+/* Internal data structure supporting end to end data integrity checks. */
+typedef struct dc_integrity_crc_fw_s
+{
+    Cpa32U crc32;
+    /* CRC32 checksum returned for compressed data */
+    Cpa32U adler32;
+    /* ADLER32 checksum returned for compressed data */
+    Cpa32U oCrc32Cpr;
+    /* CRC32 checksum returned for data output by compression accelerator */
+    Cpa32U iCrc32Cpr;
+    /* CRC32 checksum returned for input data to compression accelerator */
+    Cpa32U oCrc32Xlt;
+    /* CRC32 checksum returned for data output by translator accelerator */
+    Cpa32U iCrc32Xlt;
+    /* CRC32 checksum returned for input data to translator accelerator */
+    Cpa32U xorFlags;
+    /* Initialise transactor pCRC controls in state register */
+    Cpa32U crcPoly;
+    /* CRC32 polynomial used by hardware */
+    Cpa32U xorOut;
+    /* CRC32 from XOR stage (Input CRC is xor'ed with value in the state) */
+    Cpa32U deflateBlockType;
+    /* Bit 1 - Bit 0
+     *   0        0 -> RAW DATA + Deflate header.
+     *                 This will not produced any CRC check because
+     *                 the output will not come from the slices.
+     *                 It will be a simple copy from input to output
+     *                 buffers list.
+     *   0        1 -> Static deflate block type
+     *   1        0 -> Dynamic deflate block type
+     *   1        1 -> Invalid type */
+} dc_integrity_crc_fw_t;
+
+typedef struct dc_sw_checksums_s
+{
+    Cpa32U swCrcI;
+    Cpa32U swCrcO;
+} dc_sw_checksums_t;
+
 /* Session descriptor structure for compression */
 typedef struct dc_session_desc_s
 {
-    Cpa8U stateRegistersComp[DC_QAT_STATE_REGISTERS_MAX_SIZE];
+    Cpa8U stateRegistersComp[DC_QAT_CPR_STATE_REGISTERS_MAX_SIZE];
     /**< State registers for compression */
-    Cpa8U stateRegistersDecomp[DC_QAT_STATE_REGISTERS_MAX_SIZE];
+    Cpa8U stateRegistersDecomp[DC_QAT_DCPR_STATE_REGISTERS_MAX_SIZE];
     /**< State registers for decompression */
     icp_qat_fw_comp_req_t reqCacheComp;
     /**< Cache as much as possible of the compression request in a pre-built
@@ -209,6 +273,17 @@ typedef struct dc_session_desc_s
     lac_lock_t updateLock;
     /**< Lock used to provide exclusive access for updating the session
      * parameters */
+    /**< Data integrity table */
+    dc_integrity_crc_fw_t dataIntegrityCrcs;
+    /**< Physical address of Data integrity buffer */
+    CpaPhysicalAddr physDataIntegrityCrcs;
+    /* Seed checksums structure used to calculate software calculated checksums.
+     */
+    dc_sw_checksums_t seedSwCrc;
+    /* Driver calculated integrity software CRC */
+    dc_sw_checksums_t integritySwCrc;
+    /* Flag to disable or enable CnV Error Injection mechanism */
+    CpaBoolean cnvErrorInjection;
 } dc_session_desc_t;
 
 /**
@@ -272,5 +347,30 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
                            CpaDcSessionSetupData *pSessionData,
                            Cpa32U *pSessionSize,
                            Cpa32U *pContextSize);
+
+#ifdef ICP_DC_ERROR_SIMULATION
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Set the cnvErrorInjection flag in session descriptor
+ *
+ * @description
+ *      This function enables the CnVError injection for the session
+ *      passed in. All Compression requests sent within the session
+ *      are injected with CnV errors. This error injection is for the
+ *      duration of the session. Resetting the session results in
+ *      setting being cleared. CnV error injection does not apply to
+ *      Data Plane API.
+ *
+ * @param[in]       dcInstance       Instance Handle
+ * @param[in]       pSessionHandle   Pointer to a session handle
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
+ *****************************************************************************/
+CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
+                        CpaDcSessionHandle pSessionHandle);
+#endif /* ICP_DC_ERROR_SIMULATION */
 
 #endif /* DC_SESSION_H */

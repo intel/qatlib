@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -98,6 +98,7 @@
 #include "lac_sym_qat_key.h"
 #include "lac_sym_hash_defs.h"
 #include "sal_statistics.h"
+#include "lac_hooks.h"
 
 /* Number of statistics */
 #define LAC_KEY_NUM_STATS (sizeof(CpaCyKeyGenStats64) / sizeof(Cpa64U))
@@ -181,14 +182,18 @@ const static Cpa8U resumption384[] = {0,   48,  16,  't', 'l', 's', '1',
                                       '3', ' ', 'r', 'e', 's', 'u', 'm',
                                       'p', 't', 'i', 'o', 'n', 0};
 /* Sublabel for HKDF TLS FINISHED key Generation, as defined in RFC8446. */
+#ifdef __CLANG_FORMAT__
 /* clang-format off */
+#endif
 const static Cpa8U finished256[] = { 0, 32, 14, 't', 'l', 's', '1',
                                     '3', ' ', 'f', 'i', 'n', 'i', 's',
                                     'h', 'e', 'd', 0};
 const static Cpa8U finished384[] = { 0, 48, 14, 't', 'l', 's', '1',
                                     '3', ' ', 'f', 'i', 'n', 'i', 's',
                                     'h', 'e', 'd', 0};
+#ifdef __CLANG_FORMAT__
 /* clang-format on */
+#endif
 
 /**
  ******************************************************************************
@@ -975,8 +980,7 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
                               ICP_QAT_FW_LA_CMD_MGF1,
                               cmnRequestFlags,
                               laCmdFlags,
-                              0,
-                              pService->generic_service_info.isGen4);
+                              0);
 
         /*
          * MGF uses a flat buffer but we can use zero for source and
@@ -1910,7 +1914,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
                 0, /* hash result size */
                 CPA_FALSE,
                 NULL,
-                CPA_CY_SYM_OP_NONE, /* hash algorithm */
+                CPA_CY_SYM_HASH_NONE, /* hash algorithm */
                 NULL);
 
             /* Set up the labels and their length */
@@ -2056,8 +2060,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
                               lacCmdId,
                               cmnRequestFlags,
                               laCmdFlags,
-                              0,
-                              pService->generic_service_info.isGen4);
+                              0);
 
         SalQatMsg_CmnMidWrite((icp_qat_fw_la_bulk_req_t *)&(keyGenReq),
                               pCookie,
@@ -2119,10 +2122,11 @@ LacSymKey_GetOutputLengthForLabelOp(CpaCyKeyGenHKDFOpData *pHKDFData,
                                     Cpa8U hashAlgCipher,
                                     Cpa32U *pOutputLen)
 {
-    Cpa8U subl_mask = 0, subl_idx = 1, i = 0,
+    Cpa8U subl_mask = 0, subl_idx = 1,
           subLabel =
               (CPA_CY_HKDF_SUBLABEL_KEY | CPA_CY_HKDF_SUBLABEL_IV |
                CPA_CY_HKDF_SUBLABEL_RESUMPTION | CPA_CY_HKDF_SUBLABEL_FINISHED);
+    Cpa16U i = 0;
 
     for (i = 0; i < pHKDFData->numLabels; i++)
     {
@@ -2876,9 +2880,9 @@ CpaStatus cpaCyKeyGenTls3(const CpaInstanceHandle instanceHandle_in,
 }
 
 /*
- * LacSymKey_Init
+ * LacSymKey_StatsInit
  */
-CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle_in)
+CpaStatus LacSymKey_StatsInit(CpaInstanceHandle instanceHandle_in)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = LacKey_GetHandle(instanceHandle_in);
@@ -2897,12 +2901,30 @@ CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle_in)
     {
         LAC_OS_BZERO((void *)pService->pLacKeyStats,
                      LAC_KEY_NUM_STATS * sizeof(OsalAtomic));
-
-        status = LAC_OS_CAMALLOC(&pService->pSslLabel,
-                                 ICP_QAT_FW_LA_SSL_LABEL_LEN_MAX,
-                                 LAC_8BYTE_ALIGNMENT,
-                                 pService->nodeAffinity);
     }
+
+    return status;
+}
+
+/*
+ * LacSymKey_Init
+ */
+CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle_in)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaInstanceHandle instanceHandle = LacKey_GetHandle(instanceHandle_in);
+    sal_crypto_service_t *pService = NULL;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
+#endif
+
+    pService = (sal_crypto_service_t *)instanceHandle;
+
+    status = LAC_OS_CAMALLOC(&pService->pSslLabel,
+                             ICP_QAT_FW_LA_SSL_LABEL_LEN_MAX,
+                             LAC_8BYTE_ALIGNMENT,
+                             pService->nodeAffinity);
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -3079,7 +3101,6 @@ CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle_in)
 
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_OS_FREE(pService->pLacKeyStats);
         LAC_OS_CAFREE(pService->pSslLabel);
         LAC_OS_CAFREE(pService->pTlsLabel);
         LAC_OS_CAFREE(pService->pTlsHKDFSubLabel);
@@ -3088,6 +3109,47 @@ CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle_in)
     return status;
 }
 
+/*
+ * LacSymKey_StatsFree
+ */
+CpaStatus LacSymKey_StatsFree(CpaInstanceHandle instanceHandle_in)
+{
+    CpaInstanceHandle instanceHandle = LacKey_GetHandle(instanceHandle_in);
+    sal_crypto_service_t *pService = NULL;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
+#endif
+
+    pService = (sal_crypto_service_t *)instanceHandle;
+
+    if (NULL != pService->pLacKeyStats)
+    {
+        LAC_OS_FREE(pService->pLacKeyStats);
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+
+/*
+ * LacSymKey_StatsReset
+ */
+CpaStatus LacSymKey_StatsReset(CpaInstanceHandle instanceHandle_in)
+{
+    CpaInstanceHandle instanceHandle = LacKey_GetHandle(instanceHandle_in);
+    sal_crypto_service_t *pService = NULL;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
+#endif
+
+    pService = (sal_crypto_service_t *)instanceHandle;
+
+    LAC_OS_BZERO((void *)pService->pLacKeyStats,
+                 LAC_KEY_NUM_STATS * sizeof(OsalAtomic));
+
+    return CPA_STATUS_SUCCESS;
+}
 /*
  * LacSymKey_Shutdown
  */
@@ -3102,11 +3164,6 @@ CpaStatus LacSymKey_Shutdown(CpaInstanceHandle instanceHandle_in)
 #endif
 
     pService = (sal_crypto_service_t *)instanceHandle;
-
-    if (NULL != pService->pLacKeyStats)
-    {
-        LAC_OS_FREE(pService->pLacKeyStats);
-    }
 
     LAC_OS_CAFREE(pService->pSslLabel);
     LAC_OS_CAFREE(pService->pTlsLabel);

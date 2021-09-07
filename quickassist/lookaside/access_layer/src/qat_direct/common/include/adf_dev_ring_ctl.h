@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -59,8 +59,10 @@ typedef struct adf_dev_bank_handle_s
     uint16_t tx_rings_mask;
     uint16_t ring_mask; /* enabled rings */
     uint32_t *csr_addr;
+    uint32_t *csr_addr_shadow;
     void *bundle;
     struct adf_dev_ring_handle_s **rings; /* ring handle for this banks */
+    uint32_t num_rings_per_bank;          /* maximum number of rings per bank */
     int refs;                             /* reference count */
 } adf_dev_bank_handle_t;
 

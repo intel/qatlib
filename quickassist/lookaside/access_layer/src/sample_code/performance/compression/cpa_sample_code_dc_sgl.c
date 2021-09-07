@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -785,7 +785,8 @@ CpaStatus setupDcSGLTest(CpaDcCompType algorithm,
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Unable to load one or more corpus files, have they been "
-                  "extracted to /lib/firmware?\n");
+                  "extracted to %s?\n",
+                  SAMPLE_CODE_CORPUS_PATH);
         return CPA_STATUS_FAIL;
     }
 

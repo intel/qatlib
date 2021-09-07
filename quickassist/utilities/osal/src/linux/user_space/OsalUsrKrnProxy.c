@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -72,6 +72,10 @@
 #define LOWER_WORD_ALL_ONE 0xFFFFUL
 
 #define MMAP_FLAGS MAP_PRIVATE
+
+#ifndef __off_t
+typedef off_t __off_t;
+#endif
 
 static int fd = -1;
 static int fdp = -1;

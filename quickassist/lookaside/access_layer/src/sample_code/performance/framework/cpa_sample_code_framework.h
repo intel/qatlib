@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -200,6 +200,8 @@ extern volatile CpaBoolean reliability_g;
 extern volatile CpaBoolean cnverr_g;
 extern volatile CpaBoolean cnvnrerr_g;
 extern volatile CpaBoolean error_flag_g;
+extern volatile CpaBoolean dataIntegrity_g;
+extern volatile CpaBoolean dataIntegrityVerify_g;
 CpaStatus setReliability(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
 
@@ -210,6 +212,16 @@ extern volatile Cpa16U iaCycleCount_g;
 CpaStatus setFineTune(CpaBoolean val);
 
 CpaStatus printFineTune(void);
+
+CpaStatus enableSleeptime(void);
+CpaStatus disableSleeptime(void);
+CpaStatus enableAdjustSleepTime(void);
+CpaStatus disableAdjustSleepTime(void);
+
+/* Defines a global value for Trad API CPR rate */
+extern volatile Cpa32U cprRate_g;
+/* Controls cprRate_g via API */
+CpaStatus setCprRate(Cpa32U rate);
 
 /* Defines value iaCycleCount_g - disabled */
 #define CPA_CC_DISABLE 0
@@ -515,6 +527,31 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
 /**
  *****************************************************************************
  * @ingroup perfCodeFramework
+ *      qatModifyCyThreadLogicalQaInstance
+ *
+ * @description
+ *      This function creates threads. The threads are created across cores
+ *      and to use separate qaLogicalInstances
+ *
+ *
+ * @param[in]   threadoffset : The thread number to start with reprocessing.
+ *
+ * @param[in]   cyIaCore     : The Crypto Instances array that includes both sym
+ *                             and asym instances.
+ *
+ * @param[in]   symOrasymIaCore : The Symmetric or Asymetric Crypto array.
+ *                             and asym instances.
+ * @param[in]   numCyInstances  : size of cyIaCore array.
+ *
+ */
+void qatModifyCyThreadLogicalQaInstance(Cpa8U threadOffset,
+                                        CpaInstanceHandle *cyIaCore,
+                                        CpaInstanceHandle *symOrAsymIaCore,
+                                        Cpa8U numCyInstances);
+
+/**
+ *****************************************************************************
+ * @ingroup perfCodeFramework
  *      waitForThreadCompletion
  *
  * @description
@@ -646,8 +683,12 @@ void getLongestCycleCount2(perf_data_t *dest,
 extern int latency_debug;  /* set to 1 for debug PRINT() */
 extern int latency_enable; /* set to 1 for enable latency testing */
 extern CpaInstanceHandle *cyInst_g;
+extern CpaInstanceHandle *symCyInst_g;
+extern CpaInstanceHandle *asymCyInst_g;
 extern CpaInstanceHandle *dcInst_g;
 extern Cpa32U *cyInstMap_g;
+extern Cpa32U *symCyInstMap_g;
+extern Cpa32U *asymCyInstMap_g;
 extern Cpa32U *dcInstMap_g;
 extern Cpa32U instMap_g;
 extern Cpa16U numInst_g;
@@ -659,6 +700,8 @@ CpaBoolean isSampleCodeBarrierLifted(void);
 void freeInstanceMapping(void);
 
 CpaStatus getCryptoInstanceMapping(void);
+CpaStatus getSymInstanceMapping(Cpa16U *numSymInstances);
+CpaStatus getAsymInstanceMapping(Cpa16U *numAsymInstances);
 
 CpaStatus getCompressionInstanceMapping(void);
 

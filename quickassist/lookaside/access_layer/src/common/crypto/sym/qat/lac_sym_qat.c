@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -91,6 +91,7 @@
 #include "lac_sym_qat_constants_table.h"
 #include "lac_sym_qat_cipher.h"
 #include "lac_sym_qat_hash.h"
+#include "sal_misc_error_stats.h"
 
 #define EMBEDDED_CIPHER_KEY_MAX_SIZE 16
 STATIC void LacSymQat_SymLogSliceHangError(icp_qat_fw_la_cmd_id_t symCmdId)
@@ -130,6 +131,7 @@ void LacSymQat_SymRespHandler(void *pRespMsg)
     Cpa8U lacCmdId = 0;
     void *pOpaqueData = NULL;
     icp_qat_fw_la_resp_t *pRespMsgFn = NULL;
+    sal_crypto_service_t *pInst = NULL;
     Cpa8U opStatus = ICP_QAT_FW_COMN_STATUS_FLAG_OK;
     Cpa8U comnErr = ERR_CODE_NO_ERROR;
 
@@ -143,6 +145,8 @@ void LacSymQat_SymRespHandler(void *pRespMsg)
     lacCmdId = pRespMsgFn->comn_resp.cmd_id;
     opStatus = pRespMsgFn->comn_resp.comn_status;
     comnErr = pRespMsgFn->comn_resp.comn_error.s.comn_err_code;
+    pInst = (sal_crypto_service_t *)(((lac_sym_bulk_cookie_t *)pOpaqueData)
+                                         ->instanceHandle);
 
     /* log the slice hang and endpoint push/pull error inside the response */
     if (ERR_CODE_SSM_ERROR == (Cpa8S)comnErr)
@@ -154,6 +158,8 @@ void LacSymQat_SymRespHandler(void *pRespMsg)
         LAC_LOG_ERROR("The PCIe End Point Push/Pull or"
                       " TI/RI Parity error detected.");
     }
+
+    SAL_MISC_ERR_STATS_INC(comnErr, &pInst->generic_service_info);
 
     /* call the response message handler registered for the command ID */
     respHandlerSymTbl[lacCmdId]((icp_qat_fw_la_cmd_id_t)lacCmdId,
@@ -203,10 +209,10 @@ void LacSymQat_LaPacketCommandFlagSet(Cpa32U qatPacketType,
      * must be disabled always.
      * For all other ciphers and auth
      * update state is disabled for full packets and final partials */
-    if (((laCmdId != ICP_QAT_FW_LA_CMD_AUTH) &&
-         LAC_CIPHER_IS_ECB_MODE(cipherAlgorithm)) ||
-        (ICP_QAT_FW_LA_PARTIAL_NONE == qatPacketType) ||
-        (ICP_QAT_FW_LA_PARTIAL_END == qatPacketType))
+    if ((ICP_QAT_FW_LA_PARTIAL_NONE == qatPacketType) ||
+        (ICP_QAT_FW_LA_PARTIAL_END == qatPacketType) ||
+        ((laCmdId != ICP_QAT_FW_LA_CMD_AUTH) &&
+         LAC_CIPHER_IS_ECB_MODE(cipherAlgorithm)))
     {
         ICP_QAT_FW_LA_UPDATE_STATE_SET(*pLaCommandFlags,
                                        ICP_QAT_FW_LA_NO_UPDATE_STATE);
@@ -242,28 +248,29 @@ void LacSymQat_packetTypeGet(CpaCySymPacketType packetType,
                              CpaCySymPacketType packetState,
                              Cpa32U *pQatPacketType)
 {
-    /* partial */
-    if (CPA_CY_SYM_PACKET_TYPE_PARTIAL == packetType)
+    switch (packetType)
     {
-        /* if the previous state was full, then this is the first packet */
-        if (CPA_CY_SYM_PACKET_TYPE_FULL == packetState)
-        {
-            *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_START;
-        }
-        else
-        {
-            *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_MID;
-        }
-    }
-    /* final partial */
-    else if (CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL == packetType)
-    {
-        *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_END;
-    }
-    /* full packet - CPA_CY_SYM_PACKET_TYPE_FULL */
-    else
-    {
-        *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_NONE;
+        /* partial */
+        case CPA_CY_SYM_PACKET_TYPE_PARTIAL:
+            /* if the previous state was full, then this is the first packet */
+            if (CPA_CY_SYM_PACKET_TYPE_FULL == packetState)
+            {
+                *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_START;
+            }
+            else
+            {
+                *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_MID;
+            }
+            break;
+
+        /* final partial */
+        case CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL:
+            *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_END;
+            break;
+
+        /* full packet - CPA_CY_SYM_PACKET_TYPE_FULL */
+        default:
+            *pQatPacketType = ICP_QAT_FW_LA_PARTIAL_NONE;
     }
 }
 

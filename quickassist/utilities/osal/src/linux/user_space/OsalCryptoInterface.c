@@ -6,7 +6,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,7 @@
 #include "openssl/md5.h"
 #include "openssl/sha.h"
 #include "openssl/aes.h"
+#include "openssl/sm3.h"
 #endif
 /* Required for MIN macro */
 #include <sys/param.h>
@@ -246,6 +247,41 @@ osalHashSHA512Full(UINT8 *in, UINT8 *out, UINT32 len)
         ((UINT64 *)(out))[i] = OSAL_HOST_TO_NW_64(((UINT64 *)(out))[i]);
     }
     return OSAL_SUCCESS;
+}
+
+OSAL_STATUS
+osalHashSM3(UINT8 *in, UINT8 *out)
+{
+#ifndef USE_OPENSSL
+    SM3_CTX ctx;
+    if (!INIT(SM3)(&ctx))
+    {
+        return OSAL_STATUS_FAIL;
+    }
+    TRANSFORM(SM3)(&ctx, in);
+    memcpy(out, &ctx, SM3_DIGEST_LENGTH);
+    return OSAL_STATUS_SUCCESS;
+#else
+    return OSAL_STATUS_UNSUPPORTED;
+#endif
+}
+
+OSAL_STATUS
+osalHashSM3Full(UINT8 *in, UINT8 *out, UINT32 len)
+{
+#ifndef USE_OPENSSL
+    SM3_CTX ctx;
+    if (!INIT(SM3)(&ctx))
+    {
+        return OSAL_STATUS_FAIL;
+    }
+    UPDATE(SM3)(&ctx, in, len);
+    FINAL(SM3)(out, &ctx);
+    memcpy(out, &ctx, SM3_DIGEST_LENGTH);
+    return OSAL_STATUS_SUCCESS;
+#else
+    return OSAL_STATUS_UNSUPPORTED;
+#endif
 }
 
 OSAL_STATUS

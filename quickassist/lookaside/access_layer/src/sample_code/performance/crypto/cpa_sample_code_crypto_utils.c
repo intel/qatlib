@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -2131,6 +2131,7 @@ CpaStatus generateHardCodedPrime1P(CpaFlatBuffer *primeCandidate,
     }
     return status;
 }
+EXPORT_SYMBOL(generateHardCodedPrime1P);
 
 CpaStatus generateHardCodedPrime2Q(CpaFlatBuffer *primeCandidate,
                                    asym_test_params_t *setup)
@@ -2877,7 +2878,7 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
  */
 #endif
 #if !defined(USER_SPACE)
-                setCyPollWaitFn(1, 0);
+                setCyPollWaitFn(1, 2);
 #endif
                 pollFnArr[i] = sampleCodePoll;
             }
@@ -3726,6 +3727,26 @@ CpaStatus getCyInstanceCapabilities(CpaCyCapabilitiesInfo *pCap)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(getCyInstanceCapabilities);
+
+CpaStatus getCySpecificInstanceCapabilities(CpaInstanceHandle instanceHandle,
+                                            CpaCyCapabilitiesInfo *pCap)
+{
+    CpaStatus status = CPA_STATUS_FAIL;
+
+    if (instanceHandle == NULL)
+    {
+        return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCyQueryCapabilities(instanceHandle, pCap);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(getCySpecificInstanceCapabilities);
 
 /*
  * The setupSymmetricDpTest() function has the encrypt / decrypt

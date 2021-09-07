@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -203,8 +203,33 @@ CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U accelId);
  * Returns:
  *   CPA_STATUS_SUCCESS on success
  *   CPA_STATUS_FAIL    on failure
+ *   CPA_STATUS_UNSUPPORTED on unsupported
  */
 CpaStatus icp_adf_resetDevice(Cpa32U accelId);
+
+/*
+ * icp_adf_mmap_misc_counter
+ *
+ * Description:
+ *  Function mmap miscellaneous counter.
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS on success
+ *   CPA_STATUS_FAIL    on failure
+ */
+CpaStatus icp_adf_mmap_misc_counter(Cpa64U **miscCounter);
+
+/*
+ * icp_adf_unmap_misc_counter
+ *
+ * Description:
+ *  Function unmap miscellaneous counter.
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS on success
+ *   CPA_STATUS_FAIL    on failure
+ */
+CpaStatus icp_adf_unmap_misc_counter(Cpa64U *miscCounter);
 
 /*
  * icp_adf_isDeviceAvailable

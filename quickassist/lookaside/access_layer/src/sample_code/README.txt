@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -135,7 +135,7 @@ make samples-install
 Note: Refer to the relevant Getting Started Guide for Virtualization instructions
 
 The autoconf automatically performs building sample code.
-It copies the Calgary Corpus files to /lib/firmware as it modifies system files outside of <INSTALL_DIR>
+The Calgary Corpus files are installed at the location defined in <SAMPLE_CODE_CORPUS_PATH>
 
 ===============================================================================
 

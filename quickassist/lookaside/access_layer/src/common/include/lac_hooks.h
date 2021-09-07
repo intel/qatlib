@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -122,6 +122,19 @@ void LacLn_StatsFree(CpaInstanceHandle instanceHandle);
 /**
  *******************************************************************************
  * @ingroup LacHooks
+ *      This function resets statistics array for Large Number module
+ *
+ * @description
+ *      This function resets statistics array for Large Number module
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+void LacLn_StatsReset(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
  *      This function initialises the Prime module
  *
  * @description
@@ -144,6 +157,19 @@ CpaStatus LacPrime_Init(CpaInstanceHandle instanceHandle);
  *
  ******************************************************************************/
 void LacPrime_StatsFree(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
+ *      This function resets the Prime module statistics array
+ *
+ * @description
+ *      This function resets the Prime module statistics array
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+void LacPrime_StatsReset(CpaInstanceHandle instanceHandle);
 
 /**
  *******************************************************************************
@@ -174,6 +200,19 @@ void LacDsa_StatsFree(CpaInstanceHandle instanceHandle);
 /**
  *******************************************************************************
  * @ingroup LacHooks
+ *      This function resets the DSA module statistics array
+ *
+ * @param[in] instanceHandle
+ *
+ * @description
+ *      This function resets the DSA statistics array
+ *
+ ******************************************************************************/
+void LacDsa_StatsReset(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
  *      This function initialises the Diffie Hellmann module
  *
  * @description
@@ -198,11 +237,23 @@ CpaStatus LacDh_Init(CpaInstanceHandle instanceHandle);
 void LacDh_StatsFree(CpaInstanceHandle instanceHandle);
 
 /**
+ *******************************************************************************
+ * @ingroup LacHooks
+ *      This function resets the Diffie Hellmann module statistics
+ *
+ * @description
+ *      This function resets the Diffie Hellmann module statistics
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+void LacDh_StatsReset(CpaInstanceHandle instanceHandle);
+
+/**
  ******************************************************************************
  * @ingroup LacSymKey
  *      This function registers the callback handlers to SSL/TLS and MGF,
- *      allocates resources that are needed for the component and clears
- *      the stats.
+ *      allocates resources that are needed for the component
  *
  * @param[in] instanceHandle
  *
@@ -217,7 +268,6 @@ CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle);
  ******************************************************************************
  * @ingroup LacSymKey
  *      This function frees up resources obtained by the key gen component
- *      and clears the stats
  *
  * @param[in] instanceHandle
  *
@@ -225,6 +275,45 @@ CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle);
  *
  *****************************************************************************/
 CpaStatus LacSymKey_Shutdown(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
+ *      This function initialises the key gen statistics
+ *
+ * @description
+ *      This function initialises the key gen statistics
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+CpaStatus LacSymKey_StatsInit(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
+ *      This function frees the key gen statistics
+ *
+ * @description
+ *      This function frees the key gen statistics
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+CpaStatus LacSymKey_StatsFree(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
+ *      This function resets the key gen statistics
+ *
+ * @description
+ *      This function resets the key gen statistics
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+CpaStatus LacSymKey_StatsReset(CpaInstanceHandle instanceHandle);
 
 /**
  *******************************************************************************
@@ -255,6 +344,19 @@ void LacRsa_StatsFree(CpaInstanceHandle instanceHandle);
 /**
  *******************************************************************************
  * @ingroup LacHooks
+ *      This function resets the RSA module statistics
+ *
+ * @description
+ *      This function resets the RSA module statistics
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+void LacRsa_StatsReset(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
  *      This function initialises the EC module
  *
  * @description
@@ -277,5 +379,18 @@ CpaStatus LacEc_Init(CpaInstanceHandle instanceHandle);
  *
  ******************************************************************************/
 void LacEc_StatsFree(CpaInstanceHandle instanceHandle);
+
+/**
+ *******************************************************************************
+ * @ingroup LacHooks
+ *      This function resets the EC module stats array
+ *
+ * @description
+ *      This function resets the EC module stats array
+ *
+ * @param[in] instanceHandle
+ *
+ ******************************************************************************/
+void LacEc_StatsReset(CpaInstanceHandle instanceHandle);
 
 #endif /* LAC_HOOKS_H */

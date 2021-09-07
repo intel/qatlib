@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -42,13 +42,14 @@
 #include "icp_accel_devices.h"
 #include "icp_platform.h"
 #include "qat_mgr.h"
+#include "qat_log.h"
 
 #define MAX_DEVS_STATIC_CFG 256
 
 CpaStatus adf_io_getNumDevices(unsigned int *num_devices)
 {
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
     int ret;
 
     ICP_CHECK_FOR_NULL_PARAM(num_devices);
@@ -435,7 +436,7 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
                                   const char *pParamName,
                                   char *pParamValue)
 {
-    struct qatmgr_msg_req req;
+    struct qatmgr_msg_req req = {0};
     enum serv_type type;
     unsigned serv_num;
     Cpa16U msg_type;
@@ -443,7 +444,7 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
     static Cpa32U c_accelId = UINT32_MAX;
     static enum serv_type c_serv_type;
     static Cpa16U c_serv_num = UINT16_MAX;
-    static struct qatmgr_msg_rsp rsp;
+    static struct qatmgr_msg_rsp rsp = {0};
 
     if (pSection == NULL || pParamName == NULL || pParamValue == NULL)
     {
@@ -534,8 +535,8 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
 
 Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId)
 {
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
     unsigned node, b, d, f;
 
     req.device_num = packageId;
@@ -555,8 +556,8 @@ Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId)
 
 Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId)
 {
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
     unsigned n, b, d, f;
     unsigned bdf = 0;
 

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -112,7 +112,7 @@
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
 #include "icp_sal_versions.h"
-
+#include "sal_misc_error_stats.h"
 #define SAL_USER_SPACE_START_TIMEOUT_MS 120000
 #define MAX_SUBSYSTEM_RETRY 64
 
@@ -221,6 +221,11 @@ CpaStatus SalCtrl_GetEnabledServices(icp_accel_dev_t *device,
                 if (strncmp(token, "dc", strlen("dc")) == 0)
                 {
                     *pEnabledServices |= SAL_SERVICE_TYPE_COMPRESSION;
+                    break;
+                }
+                if (strncmp(token, "inline", strlen("inline")) == 0)
+                {
+                    *pEnabledServices |= SAL_SERVICE_TYPE_INLINE;
                     break;
                 }
                 LAC_LOG_ERROR("Error parsing enabled services from ADF\n");
@@ -509,12 +514,14 @@ STATIC CpaStatus SalCtrl_GetInstanceCount(icp_accel_dev_t *device,
 STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
                                          sal_list_t **services,
                                          debug_dir_info_t **debug_dir,
-                                         adf_service_type_t svc_type)
+                                         sal_service_type_t svc_type)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_list_t *dyn_service = NULL;
-    sal_service_t *inst = NULL;
-
+    sal_service_t *inst = (sal_service_t *)SalList_getObject(*services);
+#ifndef KERNEL_SPACE
+    Sal_CleanMiscErrStats(inst);
+#endif
     /* Call Shutdown function for each service instance */
     SAL_FOR_EACH(*services, sal_service_t, device, shutdown, status);
 
@@ -524,34 +531,19 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
         *debug_dir = NULL;
     }
 
-    if (!icp_adf_isDevInReset(device))
+    dyn_service = *services;
+    while (dyn_service)
     {
-        dyn_service = *services;
-        while (dyn_service)
+        inst = (sal_service_t *)SalList_getObject(dyn_service);
+        if (CPA_TRUE == inst->is_dyn)
         {
-            inst = (sal_service_t *)SalList_getObject(dyn_service);
-            if (CPA_TRUE == inst->is_dyn)
-            {
-                icp_adf_putDynInstance(device, svc_type, inst->instance);
-            }
-            dyn_service = SalList_next(dyn_service);
+            icp_adf_putDynInstance(
+                device, (adf_service_type_t)svc_type, inst->instance);
         }
-        /* Free Sal services controller memory */
-        SalList_free(services);
+        dyn_service = SalList_next(dyn_service);
     }
-    else
-    {
-        sal_list_t *curr_element = NULL;
-        sal_service_t *service = NULL;
-        curr_element = *services;
-        while (NULL != curr_element)
-        {
-            service = (sal_service_t *)SalList_getObject(curr_element);
-            service->state = SAL_SERVICE_STATE_RESTARTING;
-            curr_element = SalList_next(curr_element);
-        }
-    }
-
+    /* Free Sal services controller memory */
+    SalList_free(services);
     return status;
 }
 
@@ -595,6 +587,10 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
     sal_service_t *pInst = NULL;
     Cpa32U i = 0;
     debug_dir_info_t *debug_dir = NULL;
+#ifndef KERNEL_SPACE
+    sal_statistics_collection_t *pStats =
+        (sal_statistics_collection_t *)device->pQatStats;
+#endif
 
     status = LAC_OS_MALLOC(&debug_dir, sizeof(debug_dir_info_t));
     if (CPA_STATUS_SUCCESS != status)
@@ -605,41 +601,20 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
     debug_dir->name = dbg_dir_name;
     debug_dir->parent = NULL;
 
-    if (!icp_adf_isDevInReset(device))
+    for (i = 0; i < instance_count; i++)
     {
-        for (i = 0; i < instance_count; i++)
+        status = SalCtrl_ServiceCreate(svc_type, i, &pInst);
+        if (CPA_STATUS_SUCCESS != status)
         {
-            status = SalCtrl_ServiceCreate(svc_type, i, &pInst);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                break;
-            }
-            pInst->debug_parent_dir = debug_dir;
-            pInst->capabilitiesMask = device->accelCapabilitiesMask;
-            pInst->isGen4 = IS_QAT_4XXX(device->deviceType);
-
-            status = SalList_add(services, &tail_list, pInst);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                osalMemFree(pInst);
-            }
+            break;
         }
-    }
-    else
-    {
-        sal_list_t *curr_element = *services;
-        sal_service_t *service = NULL;
-        while (NULL != curr_element)
+        pInst->debug_parent_dir = debug_dir;
+        pInst->capabilitiesMask = device->accelCapabilitiesMask;
+        pInst->isGen4 = IS_QAT_4XXX(device->deviceType);
+        status = SalList_add(services, &tail_list, pInst);
+        if (CPA_STATUS_SUCCESS != status)
         {
-            service = (sal_service_t *)SalList_getObject(curr_element);
-            service->debug_parent_dir = debug_dir;
-
-            if (CPA_TRUE == service->isInstanceStarted)
-            {
-                icp_adf_qaDevGet(device);
-            }
-
-            curr_element = SalList_next(curr_element);
+            osalMemFree(pInst);
         }
     }
 
@@ -651,7 +626,16 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         SalList_free(services);
         return status;
     }
-
+#ifndef KERNEL_SPACE
+    status = Sal_InitMiscErrStats(pStats);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to Initialize Misc Error Stats");
+        LAC_OS_FREE(debug_dir);
+        SalList_free(services);
+        return status;
+    }
+#endif
     /* Call init function for each service instance */
     SAL_FOR_EACH(*services, sal_service_t, device, init, status);
     if (CPA_STATUS_SUCCESS != status)
@@ -665,6 +649,10 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
                            SAL_SERVICE_STATE_INITIALIZED);
         LAC_OS_FREE(debug_dir);
         debug_dir = NULL;
+
+#ifndef KERNEL_SPACE
+        Sal_CleanMiscErrStats(pInst);
+#endif
         SalList_free(services);
         return status;
     }
@@ -711,22 +699,6 @@ STATIC CpaStatus SalCtrl_ServiceStart(icp_accel_dev_t *device,
         return status;
     }
 
-    if (icp_adf_isDevInReset(device))
-    {
-        sal_list_t *curr_element = services;
-        sal_service_t *service = NULL;
-        while (NULL != curr_element)
-        {
-            service = (sal_service_t *)SalList_getObject(curr_element);
-            if (service->notification_cb)
-            {
-                service->notification_cb(
-                    service, service->cb_tag, CPA_INSTANCE_EVENT_RESTARTED);
-            }
-            curr_element = SalList_next(curr_element);
-        }
-    }
-
     return status;
 }
 
@@ -756,23 +728,6 @@ STATIC CpaStatus SalCtrl_ServiceStop(icp_accel_dev_t *device,
                                      sal_list_t *services)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-
-    /* Calling restarting functions */
-    if (icp_adf_isDevInReset(device))
-    {
-        sal_list_t *curr_element = services;
-        sal_service_t *service = NULL;
-        while (NULL != curr_element)
-        {
-            service = (sal_service_t *)SalList_getObject(curr_element);
-            if (service->notification_cb)
-            {
-                service->notification_cb(
-                    service, service->cb_tag, CPA_INSTANCE_EVENT_RESTARTING);
-            }
-            curr_element = SalList_next(curr_element);
-        }
-    }
 
     /* Call Stop function for each service instance */
     SAL_FOR_EACH(services, sal_service_t, device, stop, status);
@@ -821,10 +776,147 @@ STATIC CpaStatus SalCtrl_ServiceError(icp_accel_dev_t *device,
                 service->notification_cb(
                     service, service->cb_tag, CPA_INSTANCE_EVENT_FATAL_ERROR);
             }
-            service->state = SAL_SERVICE_STATE_ERROR;
             curr_element = SalList_next(curr_element);
         }
     }
+    return status;
+}
+
+/****************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *      This function calls the restarting event handling function on all
+ *      the service instances.
+ *
+ * @context
+ *      This function is called from the SalCtrl_ServiceEventRestarting
+ *      function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] device     An icp_accel_dev_t* type
+ * @param[in] services   A pointer to the container of services
+ * @param[in] dbg_dir    A pointer to the debug directory
+ *
+ *************************************************************************/
+STATIC CpaStatus SalCtrl_ServiceRestarting(icp_accel_dev_t *device,
+                                           sal_list_t *services,
+                                           debug_dir_info_t **debug_dir)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    sal_list_t *curr_element = services;
+    sal_service_t *service = NULL;
+
+    if (*debug_dir)
+    {
+        LAC_OS_FREE(*debug_dir);
+        *debug_dir = NULL;
+    }
+
+    while (NULL != curr_element)
+    {
+        service = (sal_service_t *)SalList_getObject(curr_element);
+        if (service->notification_cb)
+        {
+            service->notification_cb(
+                service, service->cb_tag, CPA_INSTANCE_EVENT_RESTARTING);
+        }
+        curr_element = SalList_next(curr_element);
+    }
+
+    /* Call restarting function for each service instance */
+    SAL_FOR_EACH(services, sal_service_t, device, restarting, status);
+
+    return status;
+}
+
+/****************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *      This function calls the restarted handling function on all the
+ *      service instances.
+ *
+ * @context
+ *      This function is called from the SalCtrl_ServiceEventRestarted function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] device     An icp_accel_dev_t* type
+ * @param[in] services   A pointer to the container of services
+ * @param[in] dbg_dir    A pointer to the debug directory
+ *
+ *************************************************************************/
+STATIC CpaStatus SalCtrl_ServiceRestarted(icp_accel_dev_t *device,
+                                          sal_list_t **services,
+                                          debug_dir_info_t **dbg_dir,
+                                          char *dbg_dir_name,
+                                          sal_list_t *tail_list,
+                                          Cpa32U instance_count,
+                                          sal_service_type_t svc_type)
+
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    debug_dir_info_t *debug_dir = NULL;
+    sal_list_t *curr_element = *services;
+    sal_service_t *service = NULL;
+
+    status = LAC_OS_MALLOC(&debug_dir, sizeof(debug_dir_info_t));
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to allocate memory for debug dir");
+        return status;
+    }
+    debug_dir->name = dbg_dir_name;
+    debug_dir->parent = NULL;
+
+    while (NULL != curr_element)
+    {
+        service = (sal_service_t *)SalList_getObject(curr_element);
+        service->debug_parent_dir = debug_dir;
+
+        if (CPA_TRUE == service->isInstanceStarted)
+        {
+            icp_adf_qaDevGet(device);
+        }
+
+        curr_element = SalList_next(curr_element);
+    }
+
+    /* Call restarted function for each service instance */
+    SAL_FOR_EACH(*services, sal_service_t, device, restarted, status);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to restart all service instances");
+        return status;
+    }
+
+    curr_element = *services;
+    while (NULL != curr_element)
+    {
+        service = (sal_service_t *)SalList_getObject(curr_element);
+        if (service->notification_cb)
+        {
+            service->notification_cb(
+                service, service->cb_tag, CPA_INSTANCE_EVENT_RESTARTED);
+        }
+        curr_element = SalList_next(curr_element);
+    }
+    /* initialize the debug directory for relevant service */
+    *dbg_dir = debug_dir;
     return status;
 }
 
@@ -978,7 +1070,7 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
         status = SalCtrl_ServiceShutdown(device,
                                          &service_container->crypto_services,
                                          &service_container->cy_dir,
-                                         ADF_SERVICE_CRYPTO);
+                                         SAL_SERVICE_TYPE_CRYPTO);
         if (CPA_STATUS_SUCCESS != status)
         {
             ret_status = status;
@@ -1017,7 +1109,7 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
             SalCtrl_ServiceShutdown(device,
                                     &service_container->compression_services,
                                     &service_container->dc_dir,
-                                    ADF_SERVICE_COMPRESS);
+                                    SAL_SERVICE_TYPE_COMPRESSION);
         if (CPA_STATUS_SUCCESS != status)
         {
             ret_status = status;
@@ -1030,12 +1122,9 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
         service_container->ver_file = NULL;
     }
 
-    if (!icp_adf_isDevInReset(device))
-    {
-        /* Free container also */
-        osalMemFree(service_container);
-        device->pSalHandle = NULL;
-    }
+    /* Free container also */
+    osalMemFree(service_container);
+    device->pSalHandle = NULL;
 
     return ret_status;
 }
@@ -1080,24 +1169,18 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         return status;
     }
 
-    if (!icp_adf_isDevInReset(device))
+    service_container = osalMemAlloc(sizeof(sal_t));
+    if (NULL == service_container)
     {
-        service_container = osalMemAlloc(sizeof(sal_t));
-        if (NULL == service_container)
-        {
-            LAC_LOG_ERROR("Failed to allocate service memory");
-            return CPA_STATUS_RESOURCE;
-        }
-        device->pSalHandle = service_container;
-        service_container->asym_services = NULL;
-        service_container->sym_services = NULL;
-        service_container->crypto_services = NULL;
-        service_container->compression_services = NULL;
+        LAC_LOG_ERROR("Failed to allocate service memory");
+        return CPA_STATUS_RESOURCE;
     }
-    else
-    {
-        service_container = device->pSalHandle;
-    }
+    device->pSalHandle = service_container;
+    service_container->asym_services = NULL;
+    service_container->sym_services = NULL;
+    service_container->crypto_services = NULL;
+    service_container->compression_services = NULL;
+
     service_container->asym_dir = NULL;
     service_container->sym_dir = NULL;
     service_container->cy_dir = NULL;
@@ -1432,6 +1515,17 @@ STATIC CpaStatus SalCtrl_ServiceEventError(icp_accel_dev_t *device,
         }
     }
 
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_COMPRESSION))
+    {
+        status = SalCtrl_ServiceError(device,
+                                      service_container->compression_services);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
     if (0 != LacSwResp_GetNumPoolsBusy())
     {
         status = CPA_STATUS_RETRY;
@@ -1440,6 +1534,248 @@ STATIC CpaStatus SalCtrl_ServiceEventError(icp_accel_dev_t *device,
     return status;
 }
 
+/**************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *       This function calls the restarting function on all the service
+ *       instances. It cleans some service instance resources.
+ *
+ * @context
+ *      This function is called from the SalCtrl_ServiceEventHandler function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] device             An icp_accel_dev_t* type
+ * @param[in] enabled_services   Services enabled by user
+ *
+ ****************************************************************************/
+STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
+                                                Cpa32U enabled_services)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    sal_t *service_container = device->pSalHandle;
+
+    if (service_container == NULL)
+    {
+        LAC_LOG_ERROR("Private data is NULL");
+        return CPA_STATUS_FATAL;
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_CRYPTO_ASYM))
+    {
+        status = SalCtrl_ServiceRestarting(device,
+                                           service_container->asym_services,
+                                           &service_container->asym_dir);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO_SYM))
+    {
+        status = SalCtrl_ServiceRestarting(device,
+                                           service_container->sym_services,
+                                           &service_container->sym_dir);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO))
+    {
+        status = SalCtrl_ServiceRestarting(device,
+                                           service_container->crypto_services,
+                                           &service_container->cy_dir);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_COMPRESSION))
+    {
+        status =
+            SalCtrl_ServiceRestarting(device,
+                                      service_container->compression_services,
+                                      &service_container->dc_dir);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
+    if (service_container->ver_file)
+    {
+        LAC_OS_FREE(service_container->ver_file);
+        service_container->ver_file = NULL;
+    }
+
+    return status;
+}
+
+/**************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *       This function calls the restarted function on all the service
+ *       instances. It reinitializes the instance resources.
+ *
+ * @context
+ *      This function is called from the SalCtrl_ServiceEventHandler function.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] device             An icp_accel_dev_t* type
+ * @param[in] enabled_services   Services enabled by user
+ *
+ ****************************************************************************/
+STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
+                                               Cpa32U enabled_services)
+{
+    sal_t *service_container = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    sal_list_t *tail_list = NULL;
+    Cpa32U instance_count = 0;
+
+    status = SalCtrl_GetSupportedServices(device, enabled_services);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to get supported services");
+        return status;
+    }
+
+    service_container = device->pSalHandle;
+    service_container->asym_dir = NULL;
+    service_container->sym_dir = NULL;
+    service_container->cy_dir = NULL;
+    service_container->dc_dir = NULL;
+    service_container->ver_file = NULL;
+
+    status =
+        LAC_OS_MALLOC(&service_container->ver_file, sizeof(debug_file_info_t));
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        goto err_restarted;
+    }
+
+    osalMemSet(service_container->ver_file, 0, sizeof(debug_file_info_t));
+    service_container->ver_file->name = ver_file_name;
+    service_container->ver_file->seq_read = SalCtrl_VersionDebug;
+    service_container->ver_file->private_data = device;
+    service_container->ver_file->parent = NULL;
+
+#ifndef ICP_DC_ONLY
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_CRYPTO_ASYM))
+    {
+        status = SalCtrl_GetInstanceCount(
+            device, "NumberCyInstances", &instance_count);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            instance_count = 0;
+        }
+        status = SalCtrl_ServiceRestarted(device,
+                                          &service_container->asym_services,
+                                          &service_container->asym_dir,
+                                          asym_dir_name,
+                                          tail_list,
+                                          instance_count,
+                                          SAL_SERVICE_TYPE_CRYPTO_ASYM);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_restarted;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO_SYM))
+    {
+        status = SalCtrl_GetInstanceCount(
+            device, "NumberCyInstances", &instance_count);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            instance_count = 0;
+        }
+        status = SalCtrl_ServiceRestarted(device,
+                                          &service_container->sym_services,
+                                          &service_container->sym_dir,
+                                          sym_dir_name,
+                                          tail_list,
+                                          instance_count,
+                                          SAL_SERVICE_TYPE_CRYPTO_SYM);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_restarted;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO))
+    {
+        status = SalCtrl_GetInstanceCount(
+            device, "NumberCyInstances", &instance_count);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            instance_count = 0;
+        }
+        status = SalCtrl_ServiceRestarted(device,
+                                          &service_container->crypto_services,
+                                          &service_container->cy_dir,
+                                          cy_dir_name,
+                                          tail_list,
+                                          instance_count,
+                                          SAL_SERVICE_TYPE_CRYPTO);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_restarted;
+        }
+    }
+#endif
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_COMPRESSION))
+    {
+        status = SalCtrl_GetInstanceCount(
+            device, "NumberDcInstances", &instance_count);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            instance_count = 0;
+        }
+        status =
+            SalCtrl_ServiceRestarted(device,
+                                     &service_container->compression_services,
+                                     &service_container->dc_dir,
+                                     dc_dir_name,
+                                     tail_list,
+                                     instance_count,
+                                     SAL_SERVICE_TYPE_COMPRESSION);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_restarted;
+        }
+    }
+
+    return status;
+
+err_restarted:
+    SalCtrl_ServiceEventStop(device, enabled_services);
+    SalCtrl_ServiceEventShutdown(device, enabled_services);
+    return status;
+}
 /*************************************************************************
  * @ingroup SalCtrl
  * @description
@@ -1518,6 +1854,16 @@ STATIC CpaStatus SalCtrl_ServiceEventHandler(icp_accel_dev_t *device,
         case ADF_EVENT_ERROR:
         {
             status = SalCtrl_ServiceEventError(device, enabled_services);
+            break;
+        }
+        case ADF_EVENT_RESTARTING:
+        {
+            status = SalCtrl_ServiceEventRestarting(device, enabled_services);
+            break;
+        }
+        case ADF_EVENT_RESTARTED:
+        {
+            status = SalCtrl_ServiceEventRestarted(device, enabled_services);
             break;
         }
         default:

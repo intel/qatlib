@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -395,7 +395,7 @@ static void *mem_alloc(block_ctrl_t *block_ctrl, size_t size, size_t align)
     if (NULL == block_ctrl || 0 == size)
     {
         CMD_ERROR(" %s:%d invalid control block or size provided "
-                  "block_ctrl = %p and size = %d \n",
+                  "block_ctrl = %p and size = %zu \n",
                   __func__,
                   __LINE__,
                   block_ctrl,
@@ -429,7 +429,7 @@ static void *mem_alloc(block_ctrl_t *block_ctrl, size_t size, size_t align)
             if (first_block + blocks_required > BITMAP_LEN * QWORD_WIDTH)
             {
                 CMD_ERROR("%s:%d Allocation error - Required blocks exceeds "
-                          "bitmap window. Block index = %d, Blocks required"
+                          "bitmap window. Block index = %zu, Blocks required"
                           " = %zu and Bitmap window = %d \n",
                           __func__,
                           __LINE__,
@@ -525,7 +525,7 @@ static bool mem_free(block_ctrl_t *block_ctrl, void *block, bool secure_free)
     if (!length)
     {
         CMD_ERROR("%s:%d Invalid block address provided - "
-                  "Block index = %d. "
+                  "Block index = %zu. "
                   "Possibly double free.\n",
                   __func__,
                   __LINE__,
@@ -539,7 +539,7 @@ static bool mem_free(block_ctrl_t *block_ctrl, void *block, bool secure_free)
     if (length + first_block > BITMAP_LEN * QWORD_WIDTH)
     {
         CMD_ERROR("%s:%d Invalid block address provided - "
-                  "block length exceeds bitmap window. block index = %d "
+                  "block length exceeds bitmap window. block index = %zu "
                   "and block length: %d\n",
                   __func__,
                   __LINE__,
@@ -806,7 +806,7 @@ static inline dev_mem_info_t *find_slab(const int fd,
             if (NULL == *addr)
             {
                 CMD_ERROR("%s:%d Memory allocation failed Virtual address: %p "
-                          " Size: %x \n",
+                          " Size: %zu \n",
                           __func__,
                           __LINE__,
                           slab,
@@ -1187,7 +1187,7 @@ static inline void *alloc_addr(size_t size,
         if (NULL == pVirtAddress)
         {
             CMD_ERROR("%s:%d Memory allocation failed Virtual address: %p "
-                      " Size: %x \n",
+                      " Size: %zu \n",
                       __func__,
                       __LINE__,
                       p_ctrl_blk,
@@ -1216,8 +1216,8 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
     if (!phys_alignment_byte || phys_alignment_byte > MAX_PHYS_ALIGN ||
         (phys_alignment_byte & (phys_alignment_byte - 1)))
     {
-        CMD_ERROR("%s:%d Invalid alignment parameter %d. It must be non zero, "
-                  "not more than %d and multiple of 2 \n",
+        CMD_ERROR("%s:%d Invalid alignment parameter %zu. It must be non zero, "
+                  "not more than %zu and multiple of 2 \n",
                   __func__,
                   __LINE__,
                   phys_alignment_byte,
@@ -1473,7 +1473,7 @@ static int filter_dma_ranges(int fd)
     struct vfio_iommu_type1_info_cap_iova_range *iova_range = NULL;
 
 #define INFO_SIZE 0x1000
-    iommu_info = malloc(INFO_SIZE);
+    iommu_info = calloc(1, INFO_SIZE);
     if (!iommu_info)
     {
         CMD_ERROR(
@@ -1543,6 +1543,8 @@ int qaeRegisterDevice(int fd)
         return -1;
 #endif
 
+    qaeOpenFd();
+
     if (pid != vfio_pid)
     {
         vfio_pid = pid;
@@ -1558,6 +1560,9 @@ int qaeRegisterDevice(int fd)
             ret = 1;
         if (dma_map_slabs(pUserLargeMemListHead))
             ret = 1;
+        if (dma_map_slabs(pUserCacheHead))
+            ret = 1;
+
         if (ret)
         {
             vfio_container_fd = -1;
@@ -1598,6 +1603,8 @@ int qaeUnregisterDevice(int fd)
         if (dma_unmap_slabs(pUserMemListHead))
             ret = 1;
         if (dma_unmap_slabs(pUserLargeMemListHead))
+            ret = 1;
+        if (dma_unmap_slabs(pUserCacheHead))
             ret = 1;
         vfio_container_fd = -1;
     }

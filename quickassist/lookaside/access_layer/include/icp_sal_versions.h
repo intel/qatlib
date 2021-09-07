@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -90,7 +90,7 @@ extern "C" {
 
 /* Part name and number of the accelerator device  */
 #define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 21
-#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 5
+#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 8
 #define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 0
 #define SAL_INFO2_DRIVER_SW_VERSION_TYPE "in-tree"
 

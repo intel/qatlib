@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -120,6 +120,11 @@ CpaStatus SalStatistics_GetStatEnabled(icp_accel_dev_t *device,
 
     if (CPA_STATUS_SUCCESS != status)
     {
+        if (!strncmp(statsName, SAL_STATS_CFG_MISC, sizeof(SAL_STATS_CFG_MISC)))
+        {
+            *pIsEnabled = CPA_FALSE;
+            return CPA_STATUS_SUCCESS;
+        }
         LAC_LOG_STRING_ERROR1("Failed to get %s from configuration file",
                               statsName);
         return status;
@@ -173,6 +178,7 @@ CpaStatus SalStatistics_InitStatisticsCollection(icp_accel_dev_t *device)
     pStatsCollection->bPrimeStatsEnabled = CPA_FALSE;
     pStatsCollection->bRsaStatsEnabled = CPA_FALSE;
     pStatsCollection->bSymStatsEnabled = CPA_FALSE;
+    pStatsCollection->bMiscStatsEnabled = CPA_FALSE;
 
     if (CPA_FALSE == pStatsCollection->bStatsEnabled)
         return status;
@@ -209,6 +215,13 @@ CpaStatus SalStatistics_InitStatisticsCollection(icp_accel_dev_t *device)
                                  SAL_SERVICE_TYPE_CRYPTO_SYM) ||
         SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO))
         pStatsCollection->bSymStatsEnabled = CPA_TRUE;
+
+    /*Check if any of the service is enabled*/
+    if (SalCtrl_IsServiceEnabled(
+            enabled_services,
+            SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_CRYPTO |
+                SAL_SERVICE_TYPE_CRYPTO_SYM | SAL_SERVICE_TYPE_CRYPTO_ASYM))
+        pStatsCollection->bMiscStatsEnabled = CPA_TRUE;
 
     return status;
 }

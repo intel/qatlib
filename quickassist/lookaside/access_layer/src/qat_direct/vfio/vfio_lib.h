@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,8 @@
 #ifndef VFIO_LIB_H
 #define VFIO_LIB_H
 
+#include "adf_pfvf_proto.h"
+
 /* Common typedefs */
 
 #define MAX_BAR_NR (0x10)
@@ -56,6 +58,7 @@ typedef struct
     int vfio_dev_fd;
     int vfio_group_fd;
     pcs_t pcs;
+    struct adf_pfvf_dev_data pfvf;
 } vfio_dev_info_t;
 
 /* Function prototypes */
@@ -63,6 +66,7 @@ typedef struct
 int open_vfio_dev(const char *vfio_file,
                   const char *bdf,
                   int group_fd,
+                  unsigned int pci_id,
                   vfio_dev_info_t *dev);
 void close_vfio_dev(vfio_dev_info_t *dev);
 

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -117,7 +117,7 @@ extern"C" {
  *      this interface.
  *
  *****************************************************************************/
-#define CPA_DC_API_VERSION_NUM_MINOR (6)
+#define CPA_DC_API_VERSION_NUM_MINOR (7)
 
 /**
  *****************************************************************************
@@ -440,11 +440,16 @@ typedef enum _CpaDcReqStatus
  *
  * @description
  *      This enumeration lists the supported modes for automatically selecting
- *      the best Huffman encoding which would lead to the best compression
- *      results.
+ *      the best encoding which would lead to the best compression results.
  *
- *      The CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS value is deprecated
- *      and should not be used.
+ *      When CPA_DC_ASB_ENABLED is used the output will be a format compliant
+ *      block, whether the data is compressed or not.
+ *
+ *      The following values are deprecated and should not be used. They
+ *      will be removed in a future version of this file.
+ *        - CPA_DC_ASB_STATIC_DYNAMIC
+ *        - CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_STORED_HDRS
+ *        - CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS
  *
  *****************************************************************************/
 typedef enum _CpaDcAutoSelectBest
@@ -456,9 +461,11 @@ typedef enum _CpaDcAutoSelectBest
     CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_STORED_HDRS = 2,
     /**< Auto select between uncompressed, static and dynamic compression,
      * using stored block deflate headers if uncompressed is selected */
-    CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS = 3
+    CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS = 3,
     /**< Auto select between uncompressed, static and dynamic compression,
      * using no deflate headers if uncompressed is selected */
+    CPA_DC_ASB_ENABLED = 4,
+    /**< Auto select best mode is enabled */
 } CpaDcAutoSelectBest;
 
 /**
@@ -789,6 +796,11 @@ typedef struct _CpaDcRqResults  {
        CpaBoolean endOfLastBlock;
           /**< Decompression operation has stopped at the end of the last
            * block in a deflate stream. */
+        CpaBoolean dataUncompressed;
+          /**< If TRUE the output data for this request is uncompressed and
+           * in the format setup for the request. This value is only valid
+           * for CPA_DC_ASB_ENABLED or if compressAndVerifyAndRecover is set to
+           * TRUE in the CpaDcOpData structure for a request. */
 } CpaDcRqResults;
 
 /**
@@ -1510,7 +1522,7 @@ cpaDcCompressData( CpaInstanceHandle dcInstance,
  * @param[in]       pSrcBuff            Pointer to data buffer for compression.
  * @param[in]       pDestBuff           Pointer to buffer space for data after
  *                                      compression.
- * @param[in]       pOpData             Additional input parameters.
+ * @param[in,out]   pOpData             Additional parameters.
  * @param[in,out]   pResults            Pointer to results structure
  * @param[in]       callbackTag         User supplied value to help correlate
  *                                      the callback with its associated

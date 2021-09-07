@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -91,7 +91,11 @@
  *      Enumeration which is used to indicate the ids of Init/Admin commands
  *
  *****************************************************************************/
-typedef enum {
+#ifdef __CLANG_FORMAT__
+/* clang-format off */
+#endif
+typedef enum
+{
     ICP_QAT_FW_INIT_ME = 0,
     /**< ME Initialisation command type */
 
@@ -124,11 +128,13 @@ typedef enum {
 
     ICP_QAT_FW_CRYPTO_CAPABILITY_GET = 10,
     /**< Admin: Compression Crypto Get command type */
-
-    ICP_QAT_FW_HEARTBEAT_CONFIG_WR = 13
-    /** Admin: Heartbeat Config Update command type */
+    ICP_QAT_FW_HEARTBEAT_CONFIG_WR = 13,
+    /**< Admin: Heartbeat Config Update command type */
 
 } icp_qat_fw_init_admin_cmd_id_t;
+#ifdef __CLANG_FORMAT__
+/* clang-format on */
+#endif
 
 /**
  *****************************************************************************
@@ -139,7 +145,8 @@ typedef enum {
  *      field within an Init/Admin Response message.
  *
  *****************************************************************************/
-typedef enum {
+typedef enum
+{
     ICP_QAT_FW_INIT_RESP_STATUS_SUCCESS = 0,
     /**< ME Initialisation/Admin response indication successful status */
 
@@ -419,7 +426,6 @@ typedef struct icp_qat_fw_init_admin_resp_s
             /**< QAT FW major build number */
 
         } s;
-
     } u;
 
     /**< LWs 2-3 */

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -199,6 +199,8 @@ void dcPerformCallback(void *pCallbackTag, CpaStatus status)
 
     if ((CPA_TRUE == gUseStatefulLite) ||
         (CPA_DC_STATEFUL == test_struct->setupData.sessState) ||
+        (CPA_TRUE == test_struct->useE2E) ||
+        (CPA_TRUE == test_struct->useE2EVerify) ||
         (CPA_TRUE == test_struct->useStatefulLite))
     {
         sampleCodeSemaphorePost(&pPerfData->comp);
@@ -1392,7 +1394,8 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
             PRINT("Throughput(Mbps)       %u\n", throughput);
         }
 
-        dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
+        dcCalculateAndPrintCompressionRatio(
+            bytesConsumed, bytesProduced, dcSetup->numLoops);
         if (iaCycleCount_g)
         {
             do_div(stats.offloadCycles, data->numberOfThreads);
@@ -1540,7 +1543,8 @@ CpaStatus dcChainPrintStats(thread_creation_data_t *data)
             PRINT("Throughput(Mbps)       %u\n", throughput);
         }
 
-        dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
+        dcCalculateAndPrintCompressionRatio(
+            bytesConsumed, bytesProduced, dcSetup->numLoops);
         if (latency_enable)
         {
             perf_cycles_t statsLatency = 0;
@@ -1893,27 +1897,41 @@ void dcSetBytesProducedAndConsumed(CpaDcRqResults ***cmpResult,
 EXPORT_SYMBOL(dcSetBytesProducedAndConsumed);
 
 CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
-                                              Cpa32U bytesProduced)
+                                              Cpa32U bytesProduced,
+                                              Cpa32U noOfLoops)
 {
-    Cpa32U ratio = 0, remainder = 0;
+    Cpa64U ratio = 0;
+    Cpa32U remainder = 0, roundingReminder = 0;
+    Cpa32U consumedPerLoop = bytesConsumed;
+    Cpa32U producedPerLoop = bytesProduced;
 
-    if (0 == bytesConsumed)
+    if ((0 == bytesConsumed) || (0 == noOfLoops))
     {
         PRINT("Divide by zero error on calculating compression ratio\n");
         return CPA_STATUS_FAIL;
     }
-#ifdef USER_SPACE
-    PRINT("Compression Ratio      %.02f\n",
-          ((float)bytesProduced / bytesConsumed));
-    return CPA_STATUS_SUCCESS;
-#endif
 
-    ratio = bytesProduced * SCALING_FACTOR_1000;
-    do_div(ratio, bytesConsumed);
+    do_div(consumedPerLoop, noOfLoops);
+    do_div(producedPerLoop, noOfLoops);
+
+    // Ratio for 4th decimal point
+    ratio = (Cpa64U)producedPerLoop * SCALING_FACTOR_10000;
+
+    do_div(ratio, consumedPerLoop);
     remainder = ratio % BASE_10;
-    ratio = bytesProduced * SCALING_FACTOR_100;
-    do_div(ratio, bytesConsumed);
-    PRINT("Compression Ratio      0.%d%d\n", ratio, remainder);
+    // Get next (5th) digit to see if reminder should be runded up or down
+    ratio = (Cpa64U)producedPerLoop * SCALING_FACTOR_100000;
+    do_div(ratio, consumedPerLoop);
+    roundingReminder = ratio % BASE_10;
+    if (roundingReminder >= 5)
+    {
+        remainder += 1;
+    }
+    // Get first 3 decimal points
+    ratio = (Cpa64U)producedPerLoop * SCALING_FACTOR_1000;
+    do_div(ratio, consumedPerLoop);
+    PRINT("Compression Ratio      0.%lu%d\n", ratio, remainder);
+
     return CPA_STATUS_SUCCESS;
 }
 

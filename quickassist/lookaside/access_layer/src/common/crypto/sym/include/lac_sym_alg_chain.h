@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -179,14 +179,11 @@
 */
 
 /* Macro for checking if zero length buffer are supported
- * only for CHACHA-POLY or both cipher and hash are AES-GCM */
+ * only for cipher is AES-GCM  and hash are AES-GCM/AES-GMAC */
 #define IS_ZERO_LENGTH_BUFFER_SUPPORTED(cipherAlgo, hashAlgo)                  \
-    ((CPA_CY_SYM_CIPHER_CHACHA == cipherAlgo &&                                \
-      CPA_CY_SYM_HASH_POLY == hashAlgo) ||                                     \
-     (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgo &&                               \
-      CPA_CY_SYM_HASH_AES_GCM == hashAlgo) ||                                  \
-     (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgo &&                               \
-      CPA_CY_SYM_HASH_AES_GMAC == hashAlgo))
+    (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgo &&                                \
+     (CPA_CY_SYM_HASH_AES_GMAC == hashAlgo ||                                  \
+      CPA_CY_SYM_HASH_AES_GCM == hashAlgo))
 
 /**
 *******************************************************************************

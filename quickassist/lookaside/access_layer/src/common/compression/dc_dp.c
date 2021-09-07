@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -264,8 +264,9 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
         if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)
         {
             /* Check if Intermediate Buffer Array pointer is NULL */
-            if ((0 == pService->pInterBuffPtrsArrayPhyAddr) ||
-                (NULL == pService->pInterBuffPtrsArray))
+            if ((!pService->generic_service_info.isGen4) &&
+                ((0 == pService->pInterBuffPtrsArrayPhyAddr) ||
+                 (NULL == pService->pInterBuffPtrsArray)))
             {
                 LAC_LOG_ERROR(
                     "No intermediate buffer defined for this instance "
@@ -447,9 +448,12 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
     icp_qat_fw_comp_req_t *pReqCache = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
     Cpa8U bufferFormat;
-    Cpa8U cnvDecompReq = ICP_QAT_FW_COMP_NO_CNV;
-    Cpa8U cnvnrCompReq = ICP_QAT_FW_COMP_NO_CNV_RECOVERY;
+    Cpa8U cnv = ICP_QAT_FW_COMP_NO_CNV;
+    Cpa8U cnvnr = ICP_QAT_FW_COMP_NO_CNV_RECOVERY;
+    CpaBoolean cnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
+    sal_compression_service_t *pService = NULL;
 
+    pService = (sal_compression_service_t *)(pOpData->dcInstance);
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
 
     if (CPA_DC_DIR_COMPRESS == pOpData->sessDirection)
@@ -458,11 +462,16 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
         /* CNV check */
         if (CPA_TRUE == pOpData->compressAndVerify)
         {
-            cnvDecompReq = ICP_QAT_FW_COMP_CNV;
+            cnv = ICP_QAT_FW_COMP_CNV;
+            if (pService->generic_service_info.isGen4)
+            {
+                cnvErrorInjection = pSessionDesc->cnvErrorInjection;
+            }
+
             /* CNVNR check */
             if (CPA_TRUE == pOpData->compressAndVerifyAndRecover)
             {
-                cnvnrCompReq = ICP_QAT_FW_COMP_CNV_RECOVERY;
+                cnvnr = ICP_QAT_FW_COMP_CNV_RECOVERY;
             }
         }
     }
@@ -487,8 +496,13 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
     }
 
     pCurrentQatMsg->comp_pars.req_par_flags |=
-        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(
-            0, 0, 0, cnvDecompReq, cnvnrCompReq);
+        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(ICP_QAT_FW_COMP_NOT_SOP,
+                                              ICP_QAT_FW_COMP_NOT_EOP,
+                                              ICP_QAT_FW_COMP_NOT_BFINAL,
+                                              cnv,
+                                              cnvnr,
+                                              cnvErrorInjection,
+                                              ICP_QAT_FW_COMP_CRC_MODE_LEGACY);
 
     SalQatMsg_CmnMidWrite((icp_qat_fw_la_bulk_req_t *)pCurrentQatMsg,
                           pOpData,
@@ -518,13 +532,11 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
     }
 #endif
 
-#ifdef CNV_STRICT_MODE
     if ((CPA_FALSE == pOpData->compressAndVerify) &&
         (CPA_DC_DIR_COMPRESS == pOpData->sessDirection))
     {
         return CPA_STATUS_UNSUPPORTED;
     }
-#endif
 
 #ifdef ICP_TRACE
     LAC_LOG2("Called with params (0x%lx, %d)\n",
@@ -642,7 +654,6 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
              performOpNow);
 #endif
 
-#ifdef CNV_STRICT_MODE
     for (i = 0; i < numberRequests; i++)
     {
         if ((CPA_FALSE == pOpData[i]->compressAndVerify) &&
@@ -651,7 +662,6 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
             return CPA_STATUS_UNSUPPORTED;
         }
     }
-#endif
 
     /* Check if SAL is initialised otherwise return an error */
     SAL_RUNNING_CHECK(pOpData[0]->dcInstance);

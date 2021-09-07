@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -87,7 +87,11 @@ STATIC inline CpaStatus adf_subsystemAdd(
     subsystem_hdl = pSubsystemTableHead;
     if (0 == subsystemTableLock)
     {
-        ICP_MUTEX_INIT(&subsystemTableLock);
+        if (OSAL_SUCCESS != ICP_MUTEX_INIT(&subsystemTableLock))
+        {
+            ADF_ERROR("Mutex init failed for subsystemTableLock\n");
+            return CPA_STATUS_RESOURCE;
+        }
         set_sleep_time(SLEEP_TIME, SLEEP_TIMES);
     }
 
@@ -552,6 +556,7 @@ CpaStatus adf_subsystemRestarting(icp_accel_dev_t *accel_dev)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
+    Cpa32U retryflag = 0;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
     ICP_CHECK_PARAM_RANGE(accel_dev->accelId, 0, ADF_MAX_DEVICES - 1);
@@ -561,21 +566,58 @@ CpaStatus adf_subsystemRestarting(icp_accel_dev_t *accel_dev)
         enum adf_event event = ADF_EVENT_RESTARTING;
         ADF_DEBUG(
             "Sending event %d to %s\n", event, subsystem_hdl->subsystem_name);
+        if (BIT_IS_SET(subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                           .subsystemStartBit,
+                       0))
+        {
+            status =
+                subsystem_hdl->subserviceEventHandler(accel_dev, event, NULL);
 
-        status = subsystem_hdl->subserviceEventHandler(accel_dev, event, NULL);
-        if (CPA_STATUS_FAIL == status)
-        {
-            ADF_ERROR("Failed to restart subservice %s.\n",
-                      subsystem_hdl->subsystem_name);
-        }
-        else
-        {
-            ADF_DEBUG("Pending received from %s\n",
-                      subsystem_hdl->subsystem_name);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                if (CPA_STATUS_RETRY == status)
+                {
+                    retryflag++;
+
+                    CLEAR_STATUS_BIT(
+                        subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                            .subsystemStartBit,
+                        0);
+                    CLEAR_STATUS_BIT(
+                        subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                            .subsystemInitBit,
+                        0);
+                    ADF_DEBUG("Pending received from %s\n",
+                              subsystem_hdl->subsystem_name);
+                }
+                else
+                {
+                    ADF_ERROR("Failed to restart subservice %s.\n",
+                              subsystem_hdl->subsystem_name);
+                }
+            }
+            else
+            {
+                CLEAR_STATUS_BIT(
+                    subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                        .subsystemStartBit,
+                    0);
+                CLEAR_STATUS_BIT(
+                    subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                        .subsystemInitBit,
+                    0);
+            }
         }
         subsystem_hdl = subsystem_hdl->pNext;
     }
-    return CPA_STATUS_SUCCESS;
+    /*
+     * If a pending was received need to return pending.
+     */
+    if ((CPA_STATUS_SUCCESS == status) && retryflag)
+    {
+        status = CPA_STATUS_RETRY;
+    }
+    return status;
 }
 
 /*
@@ -604,8 +646,15 @@ CpaStatus adf_subsystemRestarted(icp_accel_dev_t *accel_dev)
         }
         else
         {
-            ADF_DEBUG("Pending received from %s\n",
-                      subsystem_hdl->subsystem_name);
+            CLEAR_STATUS_BIT(subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                                 .subsystemFailedBit,
+                             0);
+            SET_STATUS_BIT(subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                               .subsystemInitBit,
+                           0);
+            SET_STATUS_BIT(subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                               .subsystemStartBit,
+                           0);
         }
         subsystem_hdl = subsystem_hdl->pNext;
     }
@@ -631,17 +680,23 @@ CpaStatus adf_subsystemError(icp_accel_dev_t *accel_dev)
         ADF_DEBUG(
             "Sending event %d to %s\n", event, subsystem_hdl->subsystem_name);
 
-        status = subsystem_hdl->subserviceEventHandler(accel_dev, event, NULL);
-        if (CPA_STATUS_FAIL == status)
+        if (BIT_IS_SET(subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                           .subsystemStartBit,
+                       0))
         {
-            ADF_ERROR("Failed to send error event to %s.\n",
-                      subsystem_hdl->subsystem_name);
-        }
-        else if (CPA_STATUS_RETRY == status)
-        {
-            pendingflag++;
-            ADF_DEBUG("Pending received from %s\n",
-                      subsystem_hdl->subsystem_name);
+            status =
+                subsystem_hdl->subserviceEventHandler(accel_dev, event, NULL);
+            if (CPA_STATUS_FAIL == status)
+            {
+                ADF_ERROR("Failed to send error event to %s.\n",
+                          subsystem_hdl->subsystem_name);
+            }
+            else if (CPA_STATUS_RETRY == status)
+            {
+                pendingflag++;
+                ADF_DEBUG("Pending received from %s\n",
+                          subsystem_hdl->subsystem_name);
+            }
         }
         subsystem_hdl = subsystem_hdl->pNext;
     }
@@ -662,7 +717,11 @@ CpaStatus icp_adf_resetSubsystemTable(void)
     pSubsystemTableHead = NULL;
     if (0 == subsystemTableLock)
     {
-        return ICP_MUTEX_INIT(&subsystemTableLock);
+        if (OSAL_SUCCESS != ICP_MUTEX_INIT(&subsystemTableLock))
+        {
+            ADF_ERROR("Mutex init failed for subsystemTabl lock\n");
+            return CPA_STATUS_RESOURCE;
+        }
     }
     return CPA_STATUS_SUCCESS;
 }

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -33,13 +33,18 @@
  * 
  *
  *****************************************************************************/
+#include <assert.h>
 #include <stddef.h>
 #include <string.h>
 #include "cpa.h"
 #include "qat_mgr.h"
+#include "vfio_lib.h"
+#include "adf_pfvf_vf_msg.h"
 #include "adf_io_user_proxy.h"
 #include "icp_platform.h"
 #include "adf_kernel_types.h"
+#include "icp_accel_devices.h"
+#include "icp_adf_accel_mgr.h"
 
 static char currentProcess[QATMGR_MAX_STRLEN];
 
@@ -48,8 +53,8 @@ CpaStatus adf_io_userProcessToStart(char const *const name_in,
                                     char *name,
                                     size_t name_len)
 {
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
     int ret;
 
     ret = qatmgr_open();
@@ -96,10 +101,11 @@ CpaStatus adf_io_userProxyInit(char const *const name)
 
 void adf_io_userProcessStop(void)
 {
-    struct qatmgr_msg_req req;
-    struct qatmgr_msg_rsp rsp;
+    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_rsp rsp = {0};
 
-    ICP_STRLCPY(req.name, currentProcess, sizeof(req.name));
+    assert(sizeof(req.name) == sizeof(currentProcess));
+    ICP_STRNCPY(req.name, currentProcess, sizeof(req.name));
 
     qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_PUT);
 
@@ -123,4 +129,36 @@ CpaStatus adf_io_resetUserProxy(void)
         return CPA_STATUS_FAIL;
 
     return CPA_STATUS_SUCCESS;
+}
+
+CpaBoolean adf_io_pollProxyEvent(Cpa32U *dev_id, enum adf_event *event)
+{
+    Cpa16U i;
+    Cpa16U msg_type;
+    vfio_dev_info_t *vfio_dev;
+    icp_accel_dev_t *accel_tb[ADF_MAX_DEVICES];
+    Cpa16U num_instances;
+
+    icp_adf_getNumInstances(&num_instances);
+    icp_adf_getInstances(num_instances, &accel_tb[0]);
+    for (i = 0; i < num_instances; ++i)
+    {
+        msg_type = 0xFFFF;
+        vfio_dev = accel_tb[i]->ioPriv;
+        msg_type = adf_check_pf2vf_notification(&vfio_dev->pfvf);
+
+        if (msg_type == ADF_PF2VF_MSGTYPE_RESTARTING)
+        {
+            *event = ADF_EVENT_RESTARTING;
+            *dev_id = accel_tb[i]->accelId;
+            return CPA_TRUE;
+        }
+        if (msg_type == ADF_PF2VF_MSGTYPE_FATAL_ERROR)
+        {
+            *event = ADF_EVENT_ERROR;
+            *dev_id = accel_tb[i]->accelId;
+            return CPA_TRUE;
+        }
+    }
+    return CPA_FALSE;
 }

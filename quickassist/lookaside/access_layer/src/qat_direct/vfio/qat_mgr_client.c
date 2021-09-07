@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include "icp_platform.h"
+#include "qat_log.h"
 #include "qat_mgr.h"
 
 #define QAT_ENV_POLICY "QAT_POLICY"
@@ -255,7 +256,7 @@ int qatmgr_query(struct qatmgr_msg_req *req,
     }
 
     req->hdr.type = type;
-    req->hdr.version = 0;
+    req->hdr.version = THIS_LIB_VERSION;
     req->hdr.len = sizeof(req->hdr) + size_tx;
 
     if (qatmgr_sock < 0)
@@ -278,6 +279,20 @@ int qatmgr_query(struct qatmgr_msg_req *req,
 
     osalMutexUnlock(&qatmgr_mutex);
 
+    if (rsp->hdr.version != THIS_LIB_VERSION)
+    {
+        char qatlib_ver_str[VER_STR_LEN];
+        char qatmgr_ver_str[VER_STR_LEN];
+        VER_STR(rsp->hdr.version, qatmgr_ver_str);
+        VER_STR(THIS_LIB_VERSION, qatlib_ver_str);
+
+        qat_log(
+            LOG_LEVEL_ERROR,
+            "This qatlib v%s received response from incompatible qatmgr v%s\n",
+            qatlib_ver_str,
+            qatmgr_ver_str);
+        return -1;
+    }
     if (rsp->hdr.type != type)
     {
         if (rsp->hdr.type == QATMGR_MSGTYPE_BAD)

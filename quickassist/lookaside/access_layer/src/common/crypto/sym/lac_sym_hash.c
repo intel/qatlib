@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -758,10 +758,14 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     lac_sym_qat_hash_alg_info_t *pHashAlgInfo = NULL;
+    CpaBoolean digestIsAppended = pSessionDesc->digestIsAppended;
+    CpaBoolean digestVerify = pSessionDesc->digestVerify;
+    CpaCySymOp symOperation = pSessionDesc->symOperation;
+    CpaCySymHashAlgorithm hashAlgorithm = pSessionDesc->hashAlgorithm;
 
     /* digestVerify and digestIsAppended on Hash-Only operation not supported */
-    if (pSessionDesc->digestIsAppended && pSessionDesc->digestVerify &&
-        (CPA_CY_SYM_OP_HASH == pSessionDesc->symOperation))
+    if (digestIsAppended && digestVerify &&
+        (CPA_CY_SYM_OP_HASH == symOperation))
     {
         LAC_INVALID_PARAM_LOG("digestVerify and digestIsAppended set "
                               "on Hash-Only operation is not supported");
@@ -770,7 +774,7 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
 
     /* check the digest result pointer */
     if ((CPA_CY_SYM_PACKET_TYPE_PARTIAL != pOpData->packetType) &&
-        !pSessionDesc->digestIsAppended && (NULL == pOpData->pDigestResult))
+        !digestIsAppended && (NULL == pOpData->pDigestResult))
     {
         LAC_INVALID_PARAM_LOG("pDigestResult is NULL");
         return CPA_STATUS_INVALID_PARAM;
@@ -783,7 +787,7 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
      * callback pointer is the internal synchronous one rather than a user-
      * supplied one.
      */
-    if ((CPA_TRUE == pSessionDesc->digestVerify) &&
+    if ((CPA_TRUE == digestVerify) &&
         (CPA_CY_SYM_PACKET_TYPE_PARTIAL != pOpData->packetType) &&
         (LacSync_GenBufListVerifyCb == pSessionDesc->pSymCb))
     {
@@ -800,8 +804,8 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
      * written anywhere so we cannot check for this been inside a buffer
      * CCM/GCM specify the auth region using just the cipher params as this
      * region is the same for auth and cipher. It is not checked here */
-    if ((CPA_CY_SYM_HASH_AES_CCM == pSessionDesc->hashAlgorithm) ||
-        (CPA_CY_SYM_HASH_AES_GCM == pSessionDesc->hashAlgorithm))
+    if ((CPA_CY_SYM_HASH_AES_CCM == hashAlgorithm) ||
+        (CPA_CY_SYM_HASH_AES_GCM == hashAlgorithm))
     {
         /* ensure AAD data pointer is non-NULL if AAD len > 0 */
         if ((pSessionDesc->aadLenInBytes > 0) &&
@@ -825,8 +829,8 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
 
     /* For Snow3g & ZUC hash pAdditionalAuthData field
      * of OpData should contain IV */
-    if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm) ||
-        (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm))
+    if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 == hashAlgorithm) ||
+        (CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm))
     {
         if (NULL == pOpData->pAdditionalAuthData)
         {
@@ -838,10 +842,10 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
     /* partial packets need to be multiples of the algorithm block size in hash
      * only mode (except for final partial packet) */
     if ((CPA_CY_SYM_PACKET_TYPE_PARTIAL == pOpData->packetType) &&
-        (CPA_CY_SYM_OP_HASH == pSessionDesc->symOperation))
+        (CPA_CY_SYM_OP_HASH == symOperation))
     {
         LacSymQat_HashAlgLookupGet(
-            instanceHandle, pSessionDesc->hashAlgorithm, &pHashAlgInfo);
+            instanceHandle, hashAlgorithm, &pHashAlgInfo);
 
         /* check if the message is a multiple of the block size. A mask is
          * used for this seeing that the block size is a power of 2 */

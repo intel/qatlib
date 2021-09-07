@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -224,7 +224,8 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Unable to load one or more corpus files, have they been "
-                  "extracted to /lib/firmware?\n");
+                  "extracted to %s?\n",
+                  SAMPLE_CODE_CORPUS_PATH);
         return CPA_STATUS_FAIL;
     }
 
@@ -256,6 +257,11 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     /* If the setup is requesting non-default CnV behaviour for special
      * tests, set it accordingly.
      */
+    if (direction == CPA_DC_DIR_COMPRESS)
+    {
+        dcSetup->useE2E = dataIntegrity_g;
+        dcSetup->useE2EVerify = dataIntegrityVerify_g;
+    }
     if (getSetupCnVRequestFlag() != CNV_FLAG_DEFAULT)
     {
         setCnVFlags(getSetupCnVRequestFlag(), &dcSetup->requestOps);
@@ -271,7 +277,6 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     testSetupData_g[testTypeCount_g].packetSize = testBufferSize;
     if (CPA_TRUE == gUseStatefulLite)
     {
-        dcSetup->useStatefulLite = CPA_TRUE;
     }
     else
     {
@@ -325,9 +330,12 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     dcSetup.dcSessDir = tmpSetup->dcSessDir;
     dcSetup.syncFlag = tmpSetup->syncFlag;
     dcSetup.numLoops = tmpSetup->numLoops;
+    dcSetup.useE2E = tmpSetup->useE2E;
+    dcSetup.useE2EVerify = tmpSetup->useE2EVerify;
 
     /*give our thread a unique memory location to store performance stats*/
     dcSetup.performanceStats = testSetup->performanceStats;
+    dcSetup.performanceStats->averagePacketSizeInBytes = testSetup->packetSize;
     dcSetup.performanceStats->numLoops = tmpSetup->numLoops;
     dcSetup.isDpApi = CPA_FALSE;
     testSetup->performanceStats->threadReturnStatus = CPA_STATUS_SUCCESS;
@@ -431,6 +439,35 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     {
         QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
     }
+    if (CPA_TRUE == dcSetup.useE2E)
+    {
+        PRINT("Do CRC integrity capabilities check for this instance. %d\n",
+              testSetup->logicalQaInstance);
+            if (CPA_FALSE == capabilities.integrityCrcs)
+            {
+
+                PRINT("CRC integrity check is unsupported for this instance. "
+                      "%d\n",
+                      testSetup->logicalQaInstance);
+                testSetup->performanceStats->threadReturnStatus =
+                    CPA_STATUS_SUCCESS;
+                qaeMemFree((void **)&instances);
+                qaeMemFree((void **)&dcSetup.numberOfBuffers);
+                qaeMemFree((void **)&dcSetup.packetSizeInBytesArray);
+                sampleCodeThreadExit();
+            }
+    }
+    if (CPA_TRUE == dcSetup.useXlt &&
+        CPA_SAMPLE_ASYNCHRONOUS == dcSetup.syncFlag)
+    {
+        PRINT("Async mode not supported in Xlt[%d]\n", dcSetup.useXlt);
+        testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&instances);
+        qaeMemFree((void **)&dcSetup.numberOfBuffers);
+        qaeMemFree((void **)&dcSetup.packetSizeInBytesArray);
+        sampleCodeThreadExit();
+    }
+
 
     dcSetup.induceOverflow = CPA_FALSE;
     dcSetup.threadID = testSetup->threadID;
@@ -525,6 +562,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
     int latency_enable_flag = latency_enable;
     const corpus_file_t *const fileArray = getFilesInCorpus(setup->corpus);
 
+    saveClearRestorePerfStats(setup->performanceStats);
     coo_init(setup->performanceStats, setup->numLists * setup->numLoops);
 
     // allocate memory for source & destination bufferLists and results
@@ -579,7 +617,6 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
     }
 
 /*CNV Error Injection*/
-
     /* compress the data */
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -643,6 +680,11 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             {
                 /*restore setup->NumLoops*/
                 setup->numLoops = numLoops;
+                if (setup->e2e)
+                {
+                    setup->e2e->swInputChecksum = 0x0;
+                    setup->e2e->swOutputChecksum = 0x0;
+                }
                 RESET_PERF_STATS(
                     setup->performanceStats, setup->numLists, setup->numLoops);
                 status = qatCompressData(setup,
@@ -1085,6 +1127,23 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                 {
                     COUNT_RESPONSES;
                 } /* End of SYNC Flag Check */
+                else
+                {
+                    if ((CPA_DC_STATELESS == setup->setupData.sessState) &&
+                        (CPA_TRUE == setup->useE2E ||
+                         CPA_TRUE == setup->useE2EVerify))
+                    {
+                        status = waitForSemaphore(setup->performanceStats);
+
+                        if (CPA_STATUS_SUCCESS != status)
+                        {
+                            PRINT_ERR("waitForSemaphore error\n");
+                            setup->performanceStats->threadReturnStatus =
+                                CPA_STATUS_FAIL;
+                            break;
+                        }
+                    }
+                }
                 if ((CPA_TRUE == setup->useStatefulLite) ||
                     (CPA_DC_STATEFUL == setup->setupData.sessState))
                 {
@@ -1481,12 +1540,17 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
         }
 
         qatDcUpdateProducedBufferLength(setup, cmpBufferListArray, resultArray);
-        /* Compare the input buffer to SW decompressed buffer */
-        status = qatCmpBuffers(setup, srcBufferListArray, cmpBufferListArray);
-        if (status != CPA_STATUS_SUCCESS)
+        if (CPA_STATUS_SUCCESS == status)
         {
-            PRINT_ERR("Buffer comparison Failed for Loop count:%d\n", loop + 1);
-            goto err;
+            /* Compare the input buffer to SW decompressed buffer */
+            status =
+                qatCmpBuffers(setup, srcBufferListArray, cmpBufferListArray);
+            if (status != CPA_STATUS_SUCCESS)
+            {
+                PRINT_ERR("Buffer comparison Failed for Loop count:%d\n",
+                          loop + 1);
+                goto err;
+            }
         }
 
         /*reset destination buffer*/
@@ -1509,5 +1573,4 @@ err:
     qaeMemFree((void **)&overflowResArray);
     return status;
 }
-
 

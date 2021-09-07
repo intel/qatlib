@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -440,7 +440,9 @@ static __inline CpaStatus LacMem_OsContigAlignMemAlloc(void **ppMemAddr,
  *  are strictly forbidden and will result in compilation error.
  *  Use typedef to provide one-word type name for MACRO's usage.
  ******************************************************************************/
+#ifdef __CLANG_FORMAT__
 /* clang-format off */
+#endif
 #define LAC_DECLARE_HIGHEST_BIT_OF(TYPE)                                       \
   static const unsigned int highest_bit_of_##TYPE =                            \
     (sizeof(TYPE) & 0x80000000 ? 31 :                                          \
@@ -475,7 +477,9 @@ static __inline CpaStatus LacMem_OsContigAlignMemAlloc(void **ppMemAddr,
     (sizeof(TYPE) & 0x00000004 ?  2 :                                          \
     (sizeof(TYPE) & 0x00000002 ?  1 :                                          \
     (sizeof(TYPE) & 0x00000001 ?  0 : 32) ))))))))))))))))/*16*/))))))))))))))) /* 31 */
+#ifdef __CLANG_FORMAT__
 /* clang-format on */
+#endif
 
 /**
  *******************************************************************************

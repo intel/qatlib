@@ -76,9 +76,9 @@ Check System Prerequisites
         intel_qat
         qat_4xxx
         They should load by default if using any of the following:
-         * Linux kernel v5.11+
-         * Fedora 34+
-         * RHEL 8.4+
+         * Linux kernel v5.11+ (This is for crypto, for compression use v5.16+)
+         * Fedora 34+ (for compression use 36+)
+         * RHEL 8.4+ (for compression use 9.0+)
      * BIOS settings
         Intel VT-d and SR-IOV must be enabled in the platform BIOS.
         Consult your platform guide on how to do this.
@@ -131,22 +131,34 @@ Compilation and installation - quickstart instructions
         sudo su -l $USER
 
         # If you want to run sample code you need to build from sources, these
-        # steps will clone it into ~/qatlib, i.e. into your home directory.
+        # steps will download qatlib source rpm, extract it and build sample code.
         # Install dependencies
         sudo dnf install -y gcc systemd-devel automake autoconf libtool
         sudo dnf install -y openssl-devel zlib-devel
 
-        # Clone qatlib repo
-        git clone https://github.com/intel/qatlib.git
+        # Download source rpm
+        dnf download --source qatlib
 
-        # Build sample code
-        cd qatlib
+        # Extract qatlib sources from rpm
+        mkdir qatlib_src
+        cd qatlib_src
+        rpm2cpio ../qatlib-*.src.rpm | cpio -idmv
+        tar xzvf qatlib-*.tar.gz
+
+        # Build sample code (below qatlib src directory name may differ, depending on version)
+        cd qatlib-21.08.0
         ./autogen.sh
         ./configure
         make cpa_sample_code
+        # Compression sample code expects to find data files at a known location,
+        # so call the samples-install target to put them there.
+        sudo make samples-install
 
-        # Run it! (takes about 5 mins)
-        ./cpa_sample_code
+        # Run it! (takes several minutes to complete)
+        cpa_sample_code
+
+        # no need to leave the samples installed, so cleanup
+        sudo make samples-uninstall
 
     ----------------------------------------------------------------------------
 
@@ -180,8 +192,8 @@ Compilation and installation - quickstart instructions
         # into your home dir
         sudo su -l $USER
 
-        # Run! (takes about 5 mins)
-        ./qatlib/cpa_sample_code
+        # Run! (takes several minutes to complete)
+        ./cpa_sample_code
 
 
 ===============================================================================
@@ -281,8 +293,15 @@ Compilation and installation - detailed instructions
             Asymmetric crypto RSA tests only:
             ./cpa_sample_code runTests=2
 
+            Compression tests only:
+            ./cpa_sample_code runTests=32
+
+        Examples of other samples for a specific functionality:
             Run just one symmetric cipher operation:
             ./cipher_sample
+
+            Run just one compress/decompress operation:
+            ./dc_stateless_sample
 
     ----------------------------------------------------------------------------
 
@@ -357,6 +376,9 @@ Full list of Configuration options
         --enable-icp-trace
                 Enables tracing for the Cryptography API.
 
+        --enable-dc-error-simulation
+                Enables Data Compression Error Simulation.
+
         --enable-legacy-lib-names
                 Enables legacy names for libraries.
 
@@ -412,6 +434,17 @@ Common issues
     Issue: On running ./autogen.sh following warning appears:
         aclocal: warning: couldn't open directory 'm4': No such file or dir...
     Likely cause: This warning can be ignored, as is resolved subsequently
+
+    Issue: After upgrading to new version following error may be received:
+         This qatlib v21.8 received response from incompatible qatmgr v0.0
+    Likely cause: if qat service was already running during upgrade, it won't
+        be restarted automatically.
+        After upgrading ensure that qat service is restarted.
+
+    Issue: "DC Instances are not present" error when trying to run
+        compression operations, e.g. using "cpa_sample_code runTests=32"
+    Likely cause: QAT driver in Linux kernel before v5.16 doesn't support
+        compression service. Upgrade to a later kernel.
 
 ===============================================================================
 

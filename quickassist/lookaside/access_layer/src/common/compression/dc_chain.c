@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -726,8 +726,7 @@ CpaStatus dcChainSession_BuildSymTemplate(
                           pSessionDesc->laCmdId,
                           cmnRequestFlags,
                           laCmdFlags,
-                          0,
-                          pService->generic_service_info.isGen4);
+                          0);
 
     /* Need to duplicate if SHRAM Constants Table used */
     if (pSessionDesc->useSymConstantsTable)
@@ -740,8 +739,7 @@ CpaStatus dcChainSession_BuildSymTemplate(
                               pSessionDesc->laCmdId,
                               cmnRequestFlags,
                               laCmdFlags,
-                              0,
-                              pService->generic_service_info.isGen4);
+                              0);
     }
     return status;
 }
@@ -1191,6 +1189,7 @@ dcChainOp_CreateCompRequest(dc_compression_cookie_t *pCookie,
     Cpa8U bFinal = ICP_QAT_FW_COMP_NOT_BFINAL;
     Cpa8U cnvDecompReq = ICP_QAT_FW_COMP_NO_CNV;
     Cpa8U cnvRecovery = ICP_QAT_FW_COMP_NO_CNV_RECOVERY;
+    Cpa8U cnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_comp_req_t *pReqCache = NULL;
 
@@ -1268,16 +1267,18 @@ dcChainOp_CreateCompRequest(dc_compression_cookie_t *pCookie,
 
     if (DC_REQUEST_FIRST == pSessionDesc->requestType)
     {
-        pMsg->comp_pars.initial_adler = 1;
-        pMsg->comp_pars.initial_crc32 = 0;
+        pMsg->comp_pars.crc.legacy.initial_adler = 1;
+        pMsg->comp_pars.crc.legacy.initial_crc32 = 0;
     }
     else if (CPA_DC_STATELESS == pSessionDesc->sessState)
     {
         pSessionDesc->previousChecksum = pResults->adler32;
-        pMsg->comp_pars.initial_adler = pSessionDesc->previousChecksum;
+        pMsg->comp_pars.crc.legacy.initial_adler =
+            pSessionDesc->previousChecksum;
 
         pSessionDesc->previousChecksum = pResults->crc32;
-        pMsg->comp_pars.initial_crc32 = pSessionDesc->previousChecksum;
+        pMsg->comp_pars.crc.legacy.initial_crc32 =
+            pSessionDesc->previousChecksum;
     }
 
     pCompReqParams = &(pMsg->comp_pars);
@@ -1310,7 +1311,7 @@ dcChainOp_CreateCompRequest(dc_compression_cookie_t *pCookie,
     }
 
     rpCmdFlags = ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(
-        sop, eop, bFinal, cnvDecompReq, cnvRecovery);
+        sop, eop, bFinal, cnvDecompReq, cnvRecovery, cnvErrorInjection, 0);
 
     pMsg->comp_pars.req_par_flags = rpCmdFlags;
 
@@ -1393,14 +1394,12 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
     else
         cnvMode = DC_NO_CNV;
 
-#ifdef CNV_STRICT_MODE
     if (CPA_FALSE == pDcOpData->compressAndVerify)
     {
         LAC_UNSUPPORTED_PARAM_LOG(
             "Data compression without verification not allowed");
         return CPA_STATUS_UNSUPPORTED;
     }
-#endif
     status = dcChainOp_CreateCompRequest(pDcCookie,
                                          pDcService,
                                          pDcSessDesc,
@@ -2171,8 +2170,9 @@ dcChainCallback_ProcessComp(dc_compression_cookie_t *pDcCookie,
 
         pDcSessionDesc->cumulativeConsumedBytes = pResults->consumed;
 
-        pResults->crc32 = pCompRespMsg->comp_resp_pars.curr_crc32;
-        pResults->adler32 = pCompRespMsg->comp_resp_pars.curr_adler_32;
+        pResults->crc32 = pCompRespMsg->comp_resp_pars.crc.legacy.curr_crc32;
+        pResults->adler32 =
+            pCompRespMsg->comp_resp_pars.crc.legacy.curr_adler_32;
 
         if (NULL != pService)
         {

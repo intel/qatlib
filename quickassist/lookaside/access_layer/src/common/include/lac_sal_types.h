@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -138,7 +138,9 @@ typedef enum
  *      Contains all the common information across the different instances.
  *
  *****************************************************************************/
+#ifdef __CLANG_FORMAT__
 /* clang-format off */
+#endif
 typedef struct sal_service_s
 {
     sal_service_type_t type;
@@ -167,6 +169,12 @@ typedef struct sal_service_s
     CpaStatus (*error)(icp_accel_dev_t *device, struct sal_service_s *service);
     /**< Function pointer for instance ERROR function */
 
+    CpaStatus (*restarting)(icp_accel_dev_t *device, struct sal_service_s *service);
+    /**< Function pointer for instance RESTARTING function */
+
+    CpaStatus (*restarted)(icp_accel_dev_t *device, struct sal_service_s *service);
+    /**< Function pointer for instance RESTARTED function */
+
     CpaCyInstanceNotificationCbFunc notification_cb;
     /**< Function pointer for instance restarting handler */
 
@@ -190,10 +198,15 @@ typedef struct sal_service_s
     CpaBoolean isInstanceStarted;
     /**< True if user called StartInstance on this instance */
 
+    CpaBoolean integrityCrcCheck;
+    /** < True if the device supports end to end data integrity checks */
+
     CpaBoolean isGen4;
     /* True if the device is qat_4xxx or qat_4xxxvf */
 } sal_service_t;
+#ifdef __CLANG_FORMAT__
 /* clang-format on */
+#endif
 
 /**
  *****************************************************************************

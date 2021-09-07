@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -206,7 +206,7 @@ STATIC void LacSymCb_ProcessCallbackInternal(lac_sym_bulk_cookie_t *pCookie,
      * supplied in the packet. In case of AES_GCM in SPC mode, destination
      * buffer needs to be cleared if digest verify operation fails */
 
-    if ((pSessionDesc->isSinglePass ||
+    if (((SPC_YES == pSessionDesc->singlePassState) ||
          (CPA_CY_SYM_OP_CIPHER != operationType)) &&
         (CPA_TRUE == pSessionDesc->digestVerify) &&
         ((CPA_CY_SYM_PACKET_TYPE_FULL == pOpData->packetType) ||
@@ -373,7 +373,7 @@ STATIC void LacSymCb_ProcessDpCallback(CpaCySymDpOpData *pResponse,
      * to do so */
 
     if (((CPA_CY_SYM_OP_CIPHER == pSessionDesc->symOperation &&
-          !pSessionDesc->isSinglePass) ||
+          (SPC_NO == pSessionDesc->singlePassState)) ||
          (CPA_FALSE == pSessionDesc->digestVerify)))
     {
         /* If not doing digest compare and qatRespStatusOkFlag != CPA_TRUE

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -132,6 +132,10 @@ CpaStatus SalCtrl_ServiceCreate(sal_service_type_t serviceType,
             pCrypto_service->generic_service_info.shutdown =
                 SalCtrl_CryptoShutdown;
             pCrypto_service->generic_service_info.error = SalCtrl_CryptoError;
+            pCrypto_service->generic_service_info.restarting =
+                SalCtrl_CryptoRestarting;
+            pCrypto_service->generic_service_info.restarted =
+                SalCtrl_CryptoRestarted;
 
             *(ppInst) = &(pCrypto_service->generic_service_info);
 
@@ -167,7 +171,12 @@ CpaStatus SalCtrl_ServiceCreate(sal_service_type_t serviceType,
                 SalCtrl_CompressionStop;
             pCompression_service->generic_service_info.shutdown =
                 SalCtrl_CompressionShutdown;
-            pCompression_service->generic_service_info.error = NULL;
+            pCompression_service->generic_service_info.error =
+                SalCtrl_CompressionError;
+            pCompression_service->generic_service_info.restarting =
+                SalCtrl_CompressionRestarting;
+            pCompression_service->generic_service_info.restarted =
+                SalCtrl_CompressionRestarted;
 
             *(ppInst) = &(pCompression_service->generic_service_info);
             return CPA_STATUS_SUCCESS;

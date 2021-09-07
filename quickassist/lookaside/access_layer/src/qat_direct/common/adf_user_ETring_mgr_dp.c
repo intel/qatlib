@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -152,10 +152,11 @@ void icp_adf_getDpInflightRequests(icp_comms_trans_handle trans_hnd,
 void icp_adf_updateQueueTail(icp_comms_trans_handle trans_hnd)
 {
     adf_dev_ring_handle_t *pRingHandle = (adf_dev_ring_handle_t *)trans_hnd;
-    Cpa32U *csr_base_addr = ((Cpa32U *)pRingHandle->csr_addr);
 
-    WRITE_CSR_RING_TAIL(
-        pRingHandle->bank_offset, pRingHandle->ring_num, pRingHandle->tail);
+    WRITE_CSR_RING_TAIL(pRingHandle->csr_addr,
+                        pRingHandle->bank_offset,
+                        pRingHandle->ring_num,
+                        pRingHandle->tail);
 
     pRingHandle->csrTailOffset = pRingHandle->tail;
 }
@@ -188,7 +189,6 @@ CpaStatus icp_adf_pollQueue(icp_comms_trans_handle trans_hnd,
                             Cpa32U response_quota)
 {
     adf_dev_ring_handle_t *pRingHandle = (adf_dev_ring_handle_t *)trans_hnd;
-    Cpa32U *csr_base_addr = ((Cpa32U *)pRingHandle->csr_addr);
     Cpa32U msg_counter = 0;
     volatile Cpa32U *msg = NULL;
 
@@ -232,7 +232,8 @@ CpaStatus icp_adf_pollQueue(icp_comms_trans_handle trans_hnd,
             pRingHandle->coal_write_count =
                 pRingHandle->min_resps_per_head_write;
 
-            WRITE_CSR_RING_HEAD(pRingHandle->bank_offset,
+            WRITE_CSR_RING_HEAD(pRingHandle->csr_addr,
+                                pRingHandle->bank_offset,
                                 pRingHandle->ring_num,
                                 pRingHandle->head);
         }

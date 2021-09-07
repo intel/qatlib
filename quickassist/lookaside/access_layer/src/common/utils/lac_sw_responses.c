@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -134,12 +134,18 @@ lac_memblk_bucket_t *LacSwResp_MemBlkBucketCreate(lac_mem_pool_hdr_t *pPoolID)
 
     numBlksUsed = pPoolID->numElementsInPool - pPoolID->availBlks;
 
+    if (0 == numBlksUsed)
+    {
+        return NULL;
+    }
+
     pBucket = osalMemAlloc(sizeof(lac_memblk_bucket_t));
     if (!pBucket)
     {
         LAC_LOG_ERROR("Failed to allocate memory for pBucket.");
         return NULL;
     }
+    osalMemSet(pBucket, 0, sizeof(lac_memblk_bucket_t));
 
     pBucket->mem_blk =
         (lac_mem_blk_t **)osalMemAlloc(sizeof(lac_mem_blk_t *) * numBlksUsed);
@@ -222,6 +228,11 @@ CpaStatus LacSwResp_Asym_CallbackWake(lac_memory_pool_id_t lac_mem_pool)
         {
             LAC_LOG_ERROR("Invalid availBlks!");
             return CPA_STATUS_FATAL;
+        }
+
+        if (pPoolID->numElementsInPool == pPoolID->availBlks)
+        {
+            return CPA_STATUS_RETRY;
         }
 
         if (NULL == pPoolID->trackBlks)

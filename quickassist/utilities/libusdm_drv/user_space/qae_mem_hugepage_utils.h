@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -71,7 +71,9 @@
 #define QAE_MEM_HUGEPAGE_UTILS_H
 #include "qae_mem_utils.h"
 
-uint64_t hugepage_virt2phy(const int fd, const void *virtaddr);
+uint64_t hugepage_virt2phy(const int fd,
+                           const void *virtaddr,
+                           const size_t size);
 
 void *hugepage_mmap_phy_addr(const size_t len);
 
@@ -79,6 +81,8 @@ dev_mem_info_t *hugepage_alloc_slab(const int fd,
                                     const size_t size,
                                     const int node,
                                     enum slabType type);
+
+int hugepage_iommu_unmap(const int fd, const dev_mem_info_t *memInfo);
 
 void hugepage_free_slab(const dev_mem_info_t *memInfo);
 

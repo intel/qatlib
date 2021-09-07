@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -209,99 +209,126 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
     if (CPA_CY_SYM_OP_HASH != pSessionDesc->symOperation)
     {
         /* Perform IV check */
-        if ((LAC_CIPHER_IS_CTR_MODE(pSessionDesc->cipherAlgorithm) ||
-             LAC_CIPHER_IS_CBC_MODE(pSessionDesc->cipherAlgorithm) ||
-             LAC_CIPHER_IS_AES_F8(pSessionDesc->cipherAlgorithm)) &&
-            (!(LAC_CIPHER_IS_CCM(pSessionDesc->cipherAlgorithm))))
+        switch (pSessionDesc->cipherAlgorithm)
         {
-            Cpa32U ivLenInBytes =
-                LacSymQat_CipherIvSizeBytesGet(pSessionDesc->cipherAlgorithm);
-            if (pRequest->ivLenInBytes != ivLenInBytes)
+            case CPA_CY_SYM_CIPHER_AES_CTR:
+            case CPA_CY_SYM_CIPHER_3DES_CTR:
+            case CPA_CY_SYM_CIPHER_AES_GCM:
+            case CPA_CY_SYM_CIPHER_CHACHA:
+            case CPA_CY_SYM_CIPHER_AES_CBC:
+            case CPA_CY_SYM_CIPHER_DES_CBC:
+            case CPA_CY_SYM_CIPHER_3DES_CBC:
+            case CPA_CY_SYM_CIPHER_AES_F8:
             {
-                if (!(/* GCM with 12 byte IV is OK */
-                      (LAC_CIPHER_IS_GCM(pSessionDesc->cipherAlgorithm) &&
-                       pRequest->ivLenInBytes == LAC_CIPHER_IV_SIZE_GCM_12)))
+                Cpa32U ivLenInBytes = LacSymQat_CipherIvSizeBytesGet(
+                    pSessionDesc->cipherAlgorithm);
+                if (pRequest->ivLenInBytes != ivLenInBytes)
+                {
+                    if (!(/* GCM with 12 byte IV is OK */
+                          (LAC_CIPHER_IS_GCM(pSessionDesc->cipherAlgorithm) &&
+                           pRequest->ivLenInBytes ==
+                               LAC_CIPHER_IV_SIZE_GCM_12)))
+                    {
+                        LAC_INVALID_PARAM_LOG("invalid cipher IV size");
+                        return CPA_STATUS_INVALID_PARAM;
+                    }
+                }
+                if (0 == pRequest->iv)
+                {
+                    LAC_INVALID_PARAM_LOG("invalid iv of 0");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+                /* pRequest->pIv is only used for CCM so is not checked here */
+            }
+            break;
+            case CPA_CY_SYM_CIPHER_KASUMI_F8:
+            {
+                if (LAC_CIPHER_KASUMI_F8_IV_LENGTH != pRequest->ivLenInBytes)
                 {
                     LAC_INVALID_PARAM_LOG("invalid cipher IV size");
                     return CPA_STATUS_INVALID_PARAM;
                 }
+                if (0 == pRequest->iv)
+                {
+                    LAC_INVALID_PARAM_LOG("invalid iv of 0");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
             }
-            if (0 == pRequest->iv)
+            break;
+            case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
             {
-                LAC_INVALID_PARAM_LOG("invalid iv of 0");
-                return CPA_STATUS_INVALID_PARAM;
+                if (ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ != pRequest->ivLenInBytes)
+                {
+                    LAC_INVALID_PARAM_LOG("invalid cipher IV size");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+                if (0 == pRequest->iv)
+                {
+                    LAC_INVALID_PARAM_LOG("invalid iv of 0");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
             }
-
-            /* pRequest->pIv is only used for CCM so is not checked here */
+            break;
+            case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+            {
+                if (ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ != pRequest->ivLenInBytes)
+                {
+                    LAC_INVALID_PARAM_LOG("invalid cipher IV size");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+                if (0 == pRequest->iv)
+                {
+                    LAC_INVALID_PARAM_LOG("invalid iv of 0");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+            }
+            break;
+            case CPA_CY_SYM_CIPHER_AES_CCM:
+            {
+                if (CPA_STATUS_SUCCESS !=
+                    LacSymAlgChain_CheckCCMData(
+                        pRequest->pAdditionalAuthData,
+                        pRequest->pIv,
+                        pRequest->messageLenToCipherInBytes,
+                        pRequest->ivLenInBytes))
+                {
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+            }
+            break;
+            default:
+                break;
         }
-        else if (LAC_CIPHER_IS_KASUMI(pSessionDesc->cipherAlgorithm))
-        {
-            if (LAC_CIPHER_KASUMI_F8_IV_LENGTH != pRequest->ivLenInBytes)
-            {
-                LAC_INVALID_PARAM_LOG("invalid cipher IV size");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-            if (0 == pRequest->iv)
-            {
-                LAC_INVALID_PARAM_LOG("invalid iv of 0");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-        }
-        else if (LAC_CIPHER_IS_SNOW3G_UEA2(pSessionDesc->cipherAlgorithm))
-        {
-            if (ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ != pRequest->ivLenInBytes)
-            {
-                LAC_INVALID_PARAM_LOG("invalid cipher IV size");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-            if (0 == pRequest->iv)
-            {
-                LAC_INVALID_PARAM_LOG("invalid iv of 0");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-        }
-        else if (LAC_CIPHER_IS_ZUC_EEA3(pSessionDesc->cipherAlgorithm))
-        {
-            if (ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ != pRequest->ivLenInBytes)
-            {
-                LAC_INVALID_PARAM_LOG("invalid cipher IV size");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-            if (0 == pRequest->iv)
-            {
-                LAC_INVALID_PARAM_LOG("invalid iv of 0");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-        }
-        else if (LAC_CIPHER_IS_CCM(pSessionDesc->cipherAlgorithm))
-        {
-            if (CPA_STATUS_SUCCESS !=
-                LacSymAlgChain_CheckCCMData(pRequest->pAdditionalAuthData,
-                                            pRequest->pIv,
-                                            pRequest->messageLenToCipherInBytes,
-                                            pRequest->ivLenInBytes))
-            {
-                return CPA_STATUS_INVALID_PARAM;
-            }
-        }
-
         /* Perform algorithm-specific checks */
-        if (!(LAC_CIPHER_IS_ARC4(pSessionDesc->cipherAlgorithm) ||
-              LAC_CIPHER_IS_CTR_MODE(pSessionDesc->cipherAlgorithm) ||
-              LAC_CIPHER_IS_F8_MODE(pSessionDesc->cipherAlgorithm) ||
-              LAC_CIPHER_IS_SNOW3G_UEA2(pSessionDesc->cipherAlgorithm) ||
-              LAC_CIPHER_IS_ZUC_EEA3(pSessionDesc->cipherAlgorithm)))
+        switch (pSessionDesc->cipherAlgorithm)
         {
-            /* Mask & check below is based on assumption that block size is
-             * a power of 2. If data size is not a multiple of the block size,
-             * the "remainder" bits selected by the mask be non-zero */
-            if (pRequest->messageLenToCipherInBytes &
-                (LacSymQat_CipherBlockSizeBytesGet(
-                     pSessionDesc->cipherAlgorithm) -
-                 1))
+            case CPA_CY_SYM_CIPHER_ARC4:
+            case CPA_CY_SYM_CIPHER_AES_CTR:
+            case CPA_CY_SYM_CIPHER_3DES_CTR:
+            case CPA_CY_SYM_CIPHER_AES_CCM:
+            case CPA_CY_SYM_CIPHER_AES_GCM:
+            case CPA_CY_SYM_CIPHER_CHACHA:
+            case CPA_CY_SYM_CIPHER_KASUMI_F8:
+            case CPA_CY_SYM_CIPHER_AES_F8:
+            case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
+            case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+                /* No action needed */
+                break;
+            default:
             {
-                LAC_INVALID_PARAM_LOG("Data size must be block size multiple");
-                return CPA_STATUS_INVALID_PARAM;
+                /* Mask & check below is based on assumption that block size is
+                 * a power of 2. If data size is not a multiple of the block
+                 * size, the "remainder" bits selected by the mask be non-zero
+                 */
+                if (pRequest->messageLenToCipherInBytes &
+                    (LacSymQat_CipherBlockSizeBytesGet(
+                         pSessionDesc->cipherAlgorithm) -
+                     1))
+                {
+                    LAC_INVALID_PARAM_LOG("Data size must be block size"
+                                          " multiple");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
             }
         }
 
@@ -629,8 +656,6 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
         (sal_crypto_service_t *)pRequest->instanceHandle;
     Cpa32U capabilitiesMask = ((sal_crypto_service_t *)pRequest->instanceHandle)
                                   ->generic_service_info.capabilitiesMask;
-    CpaBoolean isGen4 = ((sal_crypto_service_t *)pRequest->instanceHandle)
-                            ->generic_service_info.isGen4;
 
     CpaBoolean isSpGcm = LAC_CIPHER_IS_SPC_GCM(cipher, hash, capabilitiesMask);
     CpaBoolean isSpCcp = LAC_CIPHER_IS_SPC_CCP(cipher, hash, capabilitiesMask);
@@ -651,12 +676,12 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
      * AES_GCM and AES_CCM single pass.
      * HW supports only 12 bytes IVs for single pass CCP and AES_GCM,
      * there is no such restriction for single pass CCM */
-    if (!pSessionDesc->isSinglePass &&
+    if ((SPC_NO != pSessionDesc->singlePassState) &&
         ((LAC_CIPHER_SPC_IV_SIZE == pRequest->ivLenInBytes &&
           (isSpGcm || isSpCcp)) ||
          isSpCcm))
     {
-        pSessionDesc->isSinglePass = CPA_TRUE;
+        pSessionDesc->singlePassState = SPC_YES;
         pSessionDesc->isCipher = CPA_TRUE;
         pSessionDesc->isAuthEncryptOp = CPA_FALSE;
         pSessionDesc->isAuth = CPA_FALSE;
@@ -711,14 +736,13 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
             pSessionDesc->laCmdId,
             pSessionDesc->cmnRequestFlags,
             pSessionDesc->laCmdFlags,
-            pSessionDesc->laExtCmdFlags,
-            isGen4);
+            pSessionDesc->laExtCmdFlags);
     }
     else if (CPA_CY_SYM_HASH_AES_GMAC == pSessionDesc->hashAlgorithm)
     {
         pSessionDesc->aadLenInBytes = pRequest->messageLenToHashInBytes;
     }
-    if (pSessionDesc->isSinglePass)
+    if (SPC_YES == pSessionDesc->singlePassState)
     {
         pCacheDummyHdr = (Cpa8U *)&(pSessionDesc->reqSpcCacheHdr);
         pCacheDummyFtr = (Cpa8U *)&(pSessionDesc->reqSpcCacheFtr);
@@ -777,7 +801,7 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
             pRequest->cryptoStartSrcOffsetInBytes;
         pRequest->messageLenToHashInBytes = pRequest->messageLenToCipherInBytes;
     }
-    else if (!pSessionDesc->isSinglePass &&
+    else if ((SPC_NO == pSessionDesc->singlePassState) &&
              (CPA_CY_SYM_HASH_AES_GCM == pSessionDesc->hashAlgorithm ||
               CPA_CY_SYM_HASH_AES_GMAC == pSessionDesc->hashAlgorithm))
     {
@@ -826,7 +850,7 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
             pRequest->messageLenToCipherInBytes,
             pRequest->iv,
             pRequest->pIv);
-        if (pSessionDesc->isSinglePass)
+        if (SPC_YES == pSessionDesc->singlePassState)
         {
             icp_qat_fw_la_cipher_20_req_params_t *pCipher20ReqParams =
                 (void *)((Cpa8U *)&(pCurrentQatMsg->serv_specif_rqpars) +
@@ -1087,6 +1111,9 @@ CpaStatus cpaCySymDpEnqueueOp(CpaCySymDpOpData *pRequest,
     }
 #endif
 
+    /* Check if SAL is running in crypto data plane otherwise return an error */
+    SAL_RUNNING_CHECK(pRequest->instanceHandle);
+
     trans_handle =
         ((sal_crypto_service_t *)pRequest->instanceHandle)->trans_handle_sym_tx;
 
@@ -1200,6 +1227,9 @@ CpaStatus cpaCySymDpEnqueueOpBatch(const Cpa32U numberRequests,
         }
     }
 #endif
+
+    /* Check if SAL is running in crypto data plane otherwise return an error */
+    SAL_RUNNING_CHECK(pRequests[0]->instanceHandle);
 
     trans_handle = ((sal_crypto_service_t *)pRequests[0]->instanceHandle)
                        ->trans_handle_sym_tx;

@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2020 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -211,8 +211,9 @@ typedef struct icp_qat_fw_la_bulk_req_s
      * this field is service-specific */
 
 } icp_qat_fw_la_bulk_req_t;
-
+#ifdef __CLANG_FORMAT__
 /* clang-format off */
+#endif
 
 /*
  *  LA BULK (SYMMETRIC CRYPTO) COMMAND FLAGS
@@ -225,9 +226,9 @@ typedef struct icp_qat_fw_la_bulk_req_s
  *  |       |     =0     | Prot  | Len   | In Buf| flgs  | Auth  | Auth  | State | Auth  | Field |  ial  |
  *  + ===== + ---------- + ----- + ----- + ----- + ----- + ----- + ----- + ----- + ----- + ------+ ----- +
  */
-
+#ifdef __CLANG_FORMAT__
 /* clang-format on */
-
+#endif
 /* Private defines */
 /* bits 15:14  */
 #define ICP_QAT_FW_LA_USE_WIRELESS_SLICE_TYPE 2
