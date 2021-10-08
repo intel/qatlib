@@ -76,24 +76,40 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
 CFLAGS="$saved_cflags"
 AC_SUBST(NO_UNUSED_CMDLINE_ARG_CFLAGS)
 
+# Check location of systemd unit files
+PKG_PROG_PKG_CONFIG
+
 # Check for systemd.
 AS_IF([test "x$PKGCONFIG" = "x"],
     [AC_MSG_ERROR(pkg-config not found.)],
     [AC_MSG_CHECKING(for systemd)
      AS_IF([$PKGCONFIG --exists systemd],
-        [AC_MSG_RESULT(yes)],
-        [AC_MSG_RESULT(no); AC_MSG_ERROR(systemd not found.)]
+        [AC_MSG_RESULT(yes); have_systemd="yes"],
+        [AC_MSG_RESULT(no);  have_systemd="no"]
     )]
 )
 
+AC_ARG_ENABLE(systemd,
+        AC_HELP_STRING([--enable-systemd], [Enable systemd support]),
+	[enable_systemd=${enableval}], [enable_systemd="yes"])
+if (test "${have_systemd}" = "no"); then
+    if (test "${enable_systemd}" != "no" ); then
+        AC_MSG_ERROR(systemd not found)
+    fi
+else
+    AC_MSG_CHECKING(whether to use systemd)
+    AC_MSG_RESULT(${enable_systemd})
+fi
+AM_CONDITIONAL(HAVE_SYSTEMD, test "${enable_systemd}" != "no")
 
-# Check location of systemd unit files
-PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemdsystemunitdir],
         AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
         [], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
 AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
-AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir"])
+
+AS_IF([test "${enable_systemd}" != "no"],
+	    [AC_MSG_CHECKING(systemd unit directory); AC_MSG_RESULT(${systemdsystemunitdir})],
+	    [])
 
 
 # MAX_MR
@@ -168,10 +184,14 @@ AC_ARG_ENABLE(service,
     AS_HELP_STRING([--enable-service], [Automatically enables systemd service during installation.]),
     [service=true], [service=false]
 )
-AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue])
+AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue -a x$enable_systemd != xno ])
 
 # Config files.
-AC_CONFIG_FILES([Makefile quickassist/utilities/service/qat.service qatlib.spec])
+AC_CONFIG_FILES([Makefile qatlib.spec])
+if test x$enable_systemd != xno
+then
+	AC_CONFIG_FILES([quickassist/utilities/service/qat.service])
+fi
 
 # Substitutions in spec file
 AC_SUBST([PACKAGE])
