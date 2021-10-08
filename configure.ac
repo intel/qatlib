@@ -111,6 +111,13 @@ AS_IF([test "${enable_systemd}" != "no"],
 	    [AC_MSG_CHECKING(systemd unit directory); AC_MSG_RESULT(${systemdsystemunitdir})],
 	    [])
 
+# SAMPLES
+AC_ARG_ENABLE(samples,
+        AC_HELP_STRING([--enable-samples], [Create sample programs]),
+	[enable_samples=${enableval}], [enable_samples="yes"])
+AC_MSG_CHECKING(whether to build samples)
+AC_MSG_RESULT(${enable_samples})
+AM_CONDITIONAL(SAMPLES, test "${enable_samples}" != "no")
 
 # MAX_MR
 AC_ARG_VAR(MAX_MR, [Number of Miller Rabin rounds for prime operations. Setting this to a smaller value reduces the memory usage required by the driver (default: 50).])

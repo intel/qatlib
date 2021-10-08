@@ -35,6 +35,8 @@
 # QAT Sample Code #
 ###################
 
+if SAMPLES
+
 COMMON_SAMPLE_CFLAGS = -D USER_SPACE \
     -D_GNU_SOURCE \
     -DSC_ENABLE_DYNAMIC_COMPRESSION \
@@ -381,5 +383,7 @@ sample-uninstall:
 	@rm -rf $(datadir)/qat/calgary32
 	@rm -rf $(datadir)/qat/canterbury
 	@rmdir --ignore-fail-on-non-empty $(datadir)/qat
+
+endif
 
 .PHONY: samples samples-install sample-uninstall
