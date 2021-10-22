@@ -20,6 +20,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| November 2021 | 005 | 21.11 | - Added qatlib-tests rpm package<br>- Added option to configure script to skip building sample code |
 | August 2021 | 004 | 21.08 | - Added support for deflate compression - Compress and Verify (CnV) and Compress and Verify and Recover (CnVnR)<br>- Added Physical Function to Virtual Function (PFVF) communication support |
 | May 2021 | 003 | 21.05 | - Added support for AES-CCM 192/265<br>- Added support for SHA3-224/384/512 (no partials support)<br>- Added support for ChaCha20-Poly1305<br>- Added support for PKE 8K (RSA, DH, ModExp, ModInv)<br>- Fixed device enumeration on different nodes<br>- Fixed pci_vfio_set_command for 32 bit builds |
 | November 2020 | 002 | 20.10 | - Fixed service stopping during uninstallation<br>- Fixed "Cannot open /sys/kernel/iommu_groups/vfio/devices/" error<br>- Fixes based on static code analysis<br>- Fixes based on secure code reviews<br>- Refactored logging mechanism<br>- Updated library versioning scheme<br>- Improvements to make install target<br>- Fix so service file installed in /usr/lib64 can be properly detected<br>- Remove execute permissions from non-executable files<br>- Clarified documentation of licensing<br>- Removed libudev dependency from the package<br>- Removed OpenSSL/libcrypto extracts, instead link against system OpenSSL/libcrypto |
@@ -115,7 +116,7 @@ The following assumptions are made concerning the deployment environment:
 ## Examples
 Example applications that showcase usage of the QAT APIs are included in the
 package (quickassist/lookaside/access_layer/src/sample_code).
-Please refer to [Intel® QuickAssist Technology API Programmer's Guide](https:/01.org/sites/default/files/downloads//330684-009-intel-qat-api-programmers-guide.pdf).
+Please refer to [Intel® QuickAssist Technology API Programmer's Guide](https://01.org/sites/default/files/downloads/330684-009-intel-qat-api-programmers-guide.pdf).
 
 ## Open Issues
 Known issues relating to the Intel® QAT software are described
@@ -138,11 +139,11 @@ where: \<Component\> is one of the following:
 
 | Issue ID | Description |
 |-------------|------------|
-| QATE-3241   | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.](#qate-3241) |
-| QATE-41707  | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger. ](#qate-41707) |
-| QATE-74786 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
+| QATE-3241  | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.](#qate-3241) |
+| QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
-| QATE-76698 | [GEN- Multi-process applications running in guest will fail when running with default Policy settings .](#qate-76698) |
+| QATE-76698 | [GEN- Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
+| QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -150,7 +151,7 @@ where: \<Component\> is one of the following:
 | Reference # | QATE-3241 |
 | Description | When Performing a CBC Decryption as a chained request using cpaCySymPerformOp it is necessary to pass a length of the data to MAC (messageLenToHashInBytes). With ICP_PARAM_CHECK enabled, this checks the length of data to MAC is valid and, if not, it aborts the whole operation and outputs an error on stderr. |
 | Implication | The length of the data to MAC is based on the amount of padding. This should remain private and not be revealed. The issue is not observed when the length is checked in constant time before passing the value to the API. This is done by OpenSSL. |
-| Resolution | 1. Build without ICP_PARAM_CHECK, but this opens the risk of buffer overrun. <BR>  2. Validate the length before using the API. |
+| Resolution | 1. Build without ICP_PARAM_CHECK, but this opens the risk of buffer overrun. <BR> 2. Validate the length before using the API. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Crypto |
 
@@ -165,21 +166,11 @@ where: \<Component\> is one of the following:
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Crypto |
 
-## QATE-74786
-| Title      |         DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.     |
-|----------|:-------------
-| Reference # | QATE-74786 |
-| Description | When cpaDcDeflateCompressBound API is called with input size > 477218588 bytes incorrect buffer size is returned.  For any buffer input size, the  API should not produce output buffer size greater than the max limit (4 GB).   |
-| Implication | Incorrect output buffer size is returned instead of error. |
-| Resolution | Ensure input buffer sizes are less than maximum limit size (477218588 bytes). |
-| Affected OS | Linux |
-| Driver/Module | CPM-IA - Data Compression |
-
 ## QATE-76073
 | Title      |         GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.     |
 |----------|:-------------
 | Reference # | QATE-76073 |
-| Description | When qatmgr is initialized, it reads the current configuration of the PF device.  If the PF device configuration is modified without restarting the qatmgr, the updated device configuration is not comprehended by qatmgr. |
+| Description | When qatmgr is initialized, it reads the current configuration of the PF device. If the PF device configuration is modified without restarting the qatmgr, the updated device configuration is not comprehended by qatmgr. |
 | Implication | Undefined behavior may occur. |
 | Resolution | If PF device is reconfigured and reloaded, ensure to stop and start the qatmgr. |
 | Affected OS | Linux |
@@ -189,11 +180,22 @@ where: \<Component\> is one of the following:
 | Title      |         GEN - Multi-process applications running in guest will fail when running with default Policy settings.     |
 |----------|:-------------
 | Reference # | QATE-76698 |
-| Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system.  In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
+| Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system. In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
 | Implication | Multi-process applications running in guest OS will fail with default Policy settings. |
 | Resolution | If more than 1 process is needed in a guest OS, set POLICY=n (where n>0) in /etc/sysconfig/qat and restart qatmgr. The process will then receive n VFs. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
+
+## QATE-12241
+| Title      |         CY - TLS1.2 with secret key lengths greater than 64 are not supported     |
+|----------|:-------------
+| Reference # | QATE-12241 |
+| Description | Algorithms, as with Diffie-Hellman using 8K parameters that can use a secret key length greater than 64 bytes is not supported.|
+| Implication | Key generation would fail for TLS1.2 algorithms that use more than 64 bytes secret length keys. |
+| Resolution | For TLS1.2 algorithms, with secret keys greater than 64 bytes, use software for key generation. This issue will be addressed in a future release, which will allow TLS1.2 algorithms with secret keys greater than 64 bytes for key generation to succeed. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - Crypto |
+
 
 ## Resolved Issues
 Resolved issues relating to the Intel® QAT software are described
@@ -201,7 +203,8 @@ in this section.
 
 | Issue ID | Description |
 |-------------|------------|
-| QATE-76846   | [GEN - Forking and re-initialising use-cases do not work](#qate-76846) |
+| QATE-76846 | [GEN - Forking and re-initialising use-cases do not work](#qate-76846) |
+| QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
 
 ## QATE-76846
 | Title      |         GEN - Forking and re-initialising use-cases do not work     |
@@ -212,6 +215,16 @@ in this section.
 | Resolution | This issue is resolved with the 21.08 release. If using release prior to this release and using these flows, call qaeMemDestroy() immediately after icp_sal_userStop() to prevent this issue. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
+
+## QATE-78459
+| Title      |         DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.     |
+|----------|:-------------
+| Reference # | QATE-74786 |
+| Description | When cpaDcDeflateCompressBound API is called with input size > 477218588 bytes incorrect buffer size is returned. For any buffer input size, the API should not produce output buffer size greater than the max limit (4 GB).   |
+| Implication | Incorrect output buffer size is returned instead of error. |
+| Resolution | The issue is not present in qatlib. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - Data Compression |
 
 ## Licensing
 * This product is released under the BSD-3-Clause.
@@ -229,14 +242,14 @@ Copyright &copy; 2016-2021, Intel Corporation. All rights reserved.
 
 | Term   |      Description      |
 |----------|:-------------:|
-| API |  Application Programming Interface  |
-| BIOS  |    Basic Input/Output System   |
+| API | Application Programming Interface |
+| BIOS | Basic Input/Output System |
 | BSD | Berkeley Standard Distribution |
 | CY | Cryptographic |
 | CnV | Compress and Verify |
 | CnVnR | Compress and Verify and Recover |
 | DC | Compression |
-| DMA | Direct Memory Access  |
+| DMA | Direct Memory Access |
 | EFI | Extensible Firmware Interface |
 | FW | Firmware |
 | GPL | General Public License |

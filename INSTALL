@@ -176,9 +176,15 @@ Compilation and installation - quickstart instructions
         # into your home dir
         sudo su -l $USER
 
-        # Run! (takes several minutes to complete)
-        ./cpa_sample_code
+        # Compression sample code expects to find data files at a known location,
+        # so call the samples-install target to put them there
+        sudo make samples-install
 
+        # Run! (takes several minutes to complete)
+        cpa_sample_code
+
+        # no need to leave the samples installed, so cleanup
+        sudo make sample-uninstall
 
 ===============================================================================
 
@@ -269,6 +275,10 @@ Compilation and installation - detailed instructions
         ./quickassist/lookaside/access_layer/src/sample_code/README.txt
 
         Examples:
+            Compression sample code expects to find data files at a known
+            location, so call the samples-install target to put them there:
+            sudo make samples-install
+
             Run all performance tests:
             ./cpa_sample_code
 
@@ -293,8 +303,8 @@ Compilation and installation - detailed instructions
     6) Remove the libraries and cleanup
 
         Uninstall:
+            sudo make sample-uninstall #if samples installed
             sudo systemctl stop qat
-            sudo systemctl disable qat
             sudo make uninstall
 
         Clean up:
@@ -430,6 +440,20 @@ Common issues
         compression operations, e.g. using "cpa_sample_code runTests=32"
     Likely cause: QAT driver in Linux kernel before v5.16 doesn't support
         compression service. Upgrade to a later kernel.
+
+    Issue: "Could not open corpus file: /usr/local/share/qat/calgary"
+        seen when running compression sample code.
+    Likely cause: sample code data files not installed at the expected location
+        Run: sudo make samples-install
+
+    Issue: Error "memFreeNUMA:1313 Address to be freed cannot be NULL"
+        seen when running cpa_sample_code.
+        Also dmesg | grep MEMLOCK shows messages like this:
+        "hvfio_pin_pages_remote: RLIMIT_MEMLOCK (204800000) exceeded"
+    Likely cause: Not enough locked memory. Increase the amount of locked
+        memory for your user – see instructions above.
+        After updating re-login so the changes take effect:
+        sudo su -l $USER
 
 ===============================================================================
 
