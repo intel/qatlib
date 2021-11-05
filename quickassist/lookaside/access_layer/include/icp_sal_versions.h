@@ -90,7 +90,7 @@ extern "C" {
 
 /* Part name and number of the accelerator device  */
 #define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 21
-#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 8
+#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 11
 #define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 0
 #define SAL_INFO2_DRIVER_SW_VERSION_TYPE "in-tree"
 

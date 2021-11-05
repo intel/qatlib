@@ -1,7 +1,7 @@
 ===============================================================================
 
 
-August 2021
+November 2021
 ===============================================================================
 
 
@@ -137,30 +137,11 @@ Compilation and installation - quickstart instructions
         sudo dnf install -y gcc systemd-devel automake autoconf libtool
         sudo dnf install -y openssl-devel zlib-devel
 
-        # Download source rpm
-        dnf download --source qatlib
-
-        # Extract qatlib sources from rpm
-        mkdir qatlib_src
-        cd qatlib_src
-        rpm2cpio ../qatlib-*.src.rpm | cpio -idmv
-        tar xzvf qatlib-*.tar.gz
-
-        # Build sample code (below qatlib src directory name may differ, depending on version)
-        cd qatlib-21.08.0
-        ./autogen.sh
-        ./configure
-        make cpa_sample_code
-
-        # Compression sample code expects to find data files at a known location,
-        # so call the samples-install target to put them there.
-        sudo make samples-install
+        # Install qatlib-tests rpm
+        sudo dnf install -y qatlib-tests
 
         # Run it! (takes several minutes to complete)
         cpa_sample_code
-
-        # no need to leave the samples installed, so cleanup
-        sudo make samples-uninstall
 
     ----------------------------------------------------------------------------
 

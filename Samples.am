@@ -35,6 +35,8 @@
 # QAT Sample Code #
 ###################
 
+if SAMPLES
+
 COMMON_SAMPLE_CFLAGS = -D USER_SPACE \
     -D_GNU_SOURCE \
     -DSC_ENABLE_DYNAMIC_COMPRESSION \
@@ -331,55 +333,57 @@ samples: $(lib_LTLIBRARIES) cpa_sample_code dc_dp_sample dc_stateless_sample \
 	ec_montedwds_sample eddsa_sample
 
 samples-install: samples
-	@install -D -m 750 -g qat $(srcdir)/.libs/cpa_sample_code $(bindir)/cpa_sample_code
-	@install -D -m 750 -g qat $(srcdir)/.libs/dc_dp_sample $(bindir)/dc_dp_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/dc_stateless_sample $(bindir)/dc_stateless_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/dc_stateless_multi_op_sample $(bindir)/dc_stateless_multi_op_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/algchaining_sample $(bindir)/algchaining_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/ccm_sample $(bindir)/ccm_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/cipher_sample $(bindir)/cipher_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/gcm_sample $(bindir)/gcm_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/hash_file_sample $(bindir)/hash_file_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/hash_sample $(bindir)/hash_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/ipsec_sample $(bindir)/ipsec_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/ssl_sample $(bindir)/ssl_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/sym_dp_sample $(bindir)/sym_dp_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/dh_sample $(bindir)/dh_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/eddsa_sample $(bindir)/eddsa_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/prime_sample $(bindir)/prime_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/hkdf_sample $(bindir)/hkdf_sample
-	@install -D -m 750 -g qat $(srcdir)/.libs/ec_montedwds_sample $(bindir)/ec_montedwds_sample
-	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary $(datadir)/qat/calgary
-	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary32 $(datadir)/qat/calgary32
-	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/canterbury $(datadir)/qat/canterbury
+	@install -D -m 755 $(srcdir)/.libs/cpa_sample_code $(DESTDIR)$(bindir)/cpa_sample_code
+	@install -D -m 755 $(srcdir)/.libs/dc_dp_sample $(DESTDIR)$(bindir)/dc_dp_sample
+	@install -D -m 755 $(srcdir)/.libs/dc_stateless_sample $(DESTDIR)$(bindir)/dc_stateless_sample
+	@install -D -m 755 $(srcdir)/.libs/dc_stateless_multi_op_sample $(DESTDIR)$(bindir)/dc_stateless_multi_op_sample
+	@install -D -m 755 $(srcdir)/.libs/algchaining_sample $(DESTDIR)$(bindir)/algchaining_sample
+	@install -D -m 755 $(srcdir)/.libs/ccm_sample $(DESTDIR)$(bindir)/ccm_sample
+	@install -D -m 755 $(srcdir)/.libs/cipher_sample $(DESTDIR)$(bindir)/cipher_sample
+	@install -D -m 755 $(srcdir)/.libs/gcm_sample $(DESTDIR)$(bindir)/gcm_sample
+	@install -D -m 755 $(srcdir)/.libs/hash_file_sample $(DESTDIR)$(bindir)/hash_file_sample
+	@install -D -m 755 $(srcdir)/.libs/hash_sample $(DESTDIR)$(bindir)/hash_sample
+	@install -D -m 755 $(srcdir)/.libs/ipsec_sample $(DESTDIR)$(bindir)/ipsec_sample
+	@install -D -m 755 $(srcdir)/.libs/ssl_sample $(DESTDIR)$(bindir)/ssl_sample
+	@install -D -m 755 $(srcdir)/.libs/sym_dp_sample $(DESTDIR)$(bindir)/sym_dp_sample
+	@install -D -m 755 $(srcdir)/.libs/dh_sample $(DESTDIR)$(bindir)/dh_sample
+	@install -D -m 755 $(srcdir)/.libs/eddsa_sample $(DESTDIR)$(bindir)/eddsa_sample
+	@install -D -m 755 $(srcdir)/.libs/prime_sample $(DESTDIR)$(bindir)/prime_sample
+	@install -D -m 755 $(srcdir)/.libs/hkdf_sample $(DESTDIR)$(bindir)/hkdf_sample
+	@install -D -m 755 $(srcdir)/.libs/ec_montedwds_sample $(DESTDIR)$(bindir)/ec_montedwds_sample
+	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary $(DESTDIR)$(datadir)/qat/calgary
+	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary32 $(DESTDIR)$(datadir)/qat/calgary32
+	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/canterbury $(DESTDIR)$(datadir)/qat/canterbury
 	@echo ""
 	@echo "*******************************************************"
-	@echo "* cpa_sample_code installed under $(bindir) directory *"
+	@echo "* cpa_sample_code installed under $(DESTDIR)$(bindir) *"
 	@echo "*******************************************************"
 	@echo ""
 
 sample-uninstall:
-	@rm -rf $(bindir)/cpa_sample_code
-	@rm -rf $(bindir)/dc_dp_sample
-	@rm -rf $(bindir)/dc_stateless_sample
-	@rm -rf $(bindir)/dc_stateless_multi_op_sample
-	@rm -rf $(bindir)/algchaining_sample
-	@rm -rf $(bindir)/ccm_sample
-	@rm -rf $(bindir)/cipher_sample
-	@rm -rf $(bindir)/gcm_sample
-	@rm -rf $(bindir)/hash_file_sample
-	@rm -rf $(bindir)/hash_sample
-	@rm -rf $(bindir)/ipsec_sample
-	@rm -rf $(bindir)/ssl_sample
-	@rm -rf $(bindir)/sym_dp_sample
-	@rm -rf $(bindir)/dh_sample
-	@rm -rf $(bindir)/eddsa_sample
-	@rm -rf $(bindir)/prime_sample
-	@rm -rf $(bindir)/hkdf_sample
-	@rm -rf $(bindir)/ec_montedwds_sample
-	@rm -rf $(datadir)/qat/calgary
-	@rm -rf $(datadir)/qat/calgary32
-	@rm -rf $(datadir)/qat/canterbury
-	@rmdir --ignore-fail-on-non-empty $(datadir)/qat
+	@rm -rf $(DESTDIR)$(bindir)/cpa_sample_code
+	@rm -rf $(DESTDIR)$(bindir)/dc_dp_sample
+	@rm -rf $(DESTDIR)$(bindir)/dc_stateless_sample
+	@rm -rf $(DESTDIR)$(bindir)/dc_stateless_multi_op_sample
+	@rm -rf $(DESTDIR)$(bindir)/algchaining_sample
+	@rm -rf $(DESTDIR)$(bindir)/ccm_sample
+	@rm -rf $(DESTDIR)$(bindir)/cipher_sample
+	@rm -rf $(DESTDIR)$(bindir)/gcm_sample
+	@rm -rf $(DESTDIR)$(bindir)/hash_file_sample
+	@rm -rf $(DESTDIR)$(bindir)/hash_sample
+	@rm -rf $(DESTDIR)$(bindir)/ipsec_sample
+	@rm -rf $(DESTDIR)$(bindir)/ssl_sample
+	@rm -rf $(DESTDIR)$(bindir)/sym_dp_sample
+	@rm -rf $(DESTDIR)$(bindir)/dh_sample
+	@rm -rf $(DESTDIR)$(bindir)/eddsa_sample
+	@rm -rf $(DESTDIR)$(bindir)/prime_sample
+	@rm -rf $(DESTDIR)$(bindir)/hkdf_sample
+	@rm -rf $(DESTDIR)$(bindir)/ec_montedwds_sample
+	@rm -rf $(DESTDIR)$(datadir)/qat/calgary
+	@rm -rf $(DESTDIR)$(datadir)/qat/calgary32
+	@rm -rf $(DESTDIR)$(datadir)/qat/canterbury
+	@rmdir --ignore-fail-on-non-empty $(DESTDIR)$(datadir)/qat
+
+endif
 
 .PHONY: samples samples-install sample-uninstall

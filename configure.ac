@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [21.08.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [21.11.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -95,6 +95,14 @@ AC_ARG_WITH([systemdsystemunitdir],
 AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
 AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir"])
 
+
+# SAMPLES
+AC_ARG_ENABLE(samples,
+        AS_HELP_STRING([--enable-samples], [Create sample programs]),
+	[enable_samples=${enableval}], [enable_samples="yes"])
+AC_MSG_CHECKING(whether to build samples)
+AC_MSG_RESULT(${enable_samples})
+AM_CONDITIONAL(SAMPLES, test "${enable_samples}" != "no")
 
 # MAX_MR
 AC_ARG_VAR(MAX_MR, [Number of Miller Rabin rounds for prime operations. Setting this to a smaller value reduces the memory usage required by the driver (default: 50).])
