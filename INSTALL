@@ -455,6 +455,23 @@ Common issues
         After updating re-login so the changes take effect:
         sudo su -l $USER
 
+    Issue: error on make install
+        "Job for qat.service failed because the control process exited with
+        error code"
+        System logs (dmesg) show QAT kernel module failed with error like:
+        "4xxx 0000:6b:00.0: enabling device (0140 -> 0142)
+         QAT: authentication error (FCU_STATUS = 0x3),retry = 0
+         4xxx 0000:6b:00.0: Failed to load MMP
+         4xxx 0000:6b:00.0: Failed to load acceleration FW
+         4xxx 0000:6b:00.0: Resetting device qat_dev0
+         4xxx: probe of 0000:6b:00.0 failed with error -14"
+    Likely cause: firmware files not present in initramfs on module loading
+        early in boot process.
+    Fix: First make sure you have the firmware installed in /lib/firmware,
+        see pre-requisites section above. Then workaround with
+        "sudo rmmod qat_4xxx; sudo modprobe qat_4xxx; sudo systemctl start qat"
+        or fix for future reboots with "dracut --force" followed by a reboot.
+
 ===============================================================================
 
 
