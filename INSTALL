@@ -76,7 +76,7 @@ Check System Prerequisites
         intel_qat
         qat_4xxx
         They should load by default if using any of the following:
-         * Linux kernel v5.11+ (This is for crypto, for compression use v5.16+)
+         * Linux kernel v5.11+ (This is for crypto, for compression use v5.17+)
          * Fedora 34+ (for compression use 36+)
          * RHEL 8.4+ (for compression use 9.0+)
      * BIOS settings
@@ -438,7 +438,7 @@ Common issues
 
     Issue: "DC Instances are not present" error when trying to run
         compression operations, e.g. using "cpa_sample_code runTests=32"
-    Likely cause: QAT driver in Linux kernel before v5.16 doesn't support
+    Likely cause: QAT driver in Linux kernel before v5.17 doesn't support
         compression service. Upgrade to a later kernel.
 
     Issue: "Could not open corpus file: /usr/local/share/qat/calgary"
