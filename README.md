@@ -108,7 +108,7 @@ The following assumptions are made concerning the deployment environment:
   memory regions.
 * A QuickAssist kernel driver for the supported device is installed, which has
   discovered and initialised the device, exposing the VFs. This driver is
-  included in the Linux kernel, see INSTALL for information about which kernel 
+  included in the Linux kernel, see [INSTALL](INSTALL) for information about which kernel 
   to use.
 * The library can be used by unprivileged users if that user is included in
   the 'qat' group.
