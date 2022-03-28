@@ -472,6 +472,16 @@ Common issues
         "sudo rmmod qat_4xxx; sudo modprobe qat_4xxx; sudo systemctl start qat"
         or fix for future reboots with "dracut --force" followed by a reboot.
 
+    Issue: X kernel taint flag seen on SUSE from SLES15-SP4 onwards
+        "intel_qat: externally supported module,setting X kernel taint flag."
+        "qat_4xxx: externally supported module,setting X kernel taint flag."
+    Likely cause: This is normal on load of the kernel driver in a SUSE distro.
+        See explanation for X flag here:
+        https://www.suse.com/support/kb/doc/?id=000016321
+        It indicates that the modules are supported by external parties, in
+        this case Intel.
+    Fix: None necessary, qatlib can be used as normal despite this message.
+
 ===============================================================================
 
 
