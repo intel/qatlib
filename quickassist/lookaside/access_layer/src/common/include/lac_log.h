@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -390,7 +390,6 @@
 #define LAC_LOG_MSG_SYMCYKEY 3
 #define LAC_LOG_MSG_PKE 4
 #define LAC_LOG_MSG_DC 5
-#define LAC_LOG_MSG_KPT_KSP 6
 
 void LacLogMsg_SetConfig(icp_accel_dev_t *device);
 void set_osal_log_debug_level(void);

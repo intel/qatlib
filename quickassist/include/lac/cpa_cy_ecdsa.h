@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -293,7 +293,6 @@ typedef struct _CpaCyEcdsaVerifyOpData {
     /**< field type for the operation */
 } CpaCyEcdsaVerifyOpData;
 
-
 /**
  *****************************************************************************
  * @ingroup cpaCyEcdsa
@@ -365,6 +364,21 @@ typedef struct _CpaCyEcdsaStats64 {
     /**< Total number of ECDSA Verification operation requests that resulted
      * in an invalid output.
      * Note that this does not indicate an error. */
+    Cpa64U numKptEcdsaSignRSCompletedOutputInvalid;
+    /**< Total number of KPT ECDSA Sign R & S operation requests could not be
+     * completed successfully due to an invalid output.
+     * Note that this does not indicate an error. */
+    Cpa64U numKptEcdsaSignRSCompleted;
+    /**< Total number of KPT ECDSA Sign R & S operation requests that completed
+     * successfully. */
+    Cpa64U numKptEcdsaSignRSRequests;
+    /**< Total number of KPT ECDSA Sign R & S operation requests. */
+    Cpa64U numKptEcdsaSignRSRequestErrors;
+    /**< Total number of KPT ECDSA Sign R & S operation requests that had an
+     * error and could not be processed. */
+    Cpa64U numKptEcdsaSignRSCompletedErrors;
+    /**< Total number of KPT ECDSA Sign R & S operation requests that could
+     * not be completed successfully due to errors. */
 } CpaCyEcdsaStats64;
 
 
@@ -800,7 +814,6 @@ cpaCyEcdsaVerify(const CpaInstanceHandle instanceHandle,
         void *pCallbackTag,
         const CpaCyEcdsaVerifyOpData *pOpData,
         CpaBoolean *pVerifyStatus);
-
 
 /**
  *****************************************************************************

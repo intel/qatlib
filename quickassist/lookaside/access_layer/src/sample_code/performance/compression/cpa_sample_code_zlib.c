@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -78,11 +78,9 @@
 #include "zlib.h"
 #else
 #include <linux/zlib.h>
-#endif
-#include "qat_compression_zlib.h"
-#ifdef KERNEL_SPACE
 #include <linux/vmalloc.h>
 #endif
+#include "qat_compression_zlib.h"
 
 #ifdef USER_SPACE
 CpaStatus deflate_init(struct z_stream_s *stream)

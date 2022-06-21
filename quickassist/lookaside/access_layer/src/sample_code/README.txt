@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -283,6 +283,12 @@ by hypervisor policies.
 Both getLatency and getOffloadCost are added to give an idea about the Latency
 and COO, however because of the range of factors which can impact the values,
 those should be taken with considerations.
+
+useStaticPrime is an optional parameter with default of 1(on), which indicates
+whether RSA performance test execution should use prepared primes during
+parameter generation or generate primes at runtime.
+Note this value has no bearing on the eventual
+performance metrics presented upon completion of RSA tests.
 
 ===============================================================================
 

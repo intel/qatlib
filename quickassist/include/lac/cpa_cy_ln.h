@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -102,8 +102,8 @@
  *      MSB is b[0].  Otherwise, all bytes from b[0] up to the MSB MUST be
  *      set to 0x00.
  *
- *      The largest bit-length we support today is 4096 bits.  In other
- *      words, we can deal with numbers up to a value of (2^4096)-1.
+ *      The largest bit-length we support today is 8192 bits. In other
+ *      words, we can deal with numbers up to a value of (2^8192)-1.
  *
  *****************************************************************************/
 
@@ -136,21 +136,21 @@ extern "C" {
  *      result.
 
  *      The values of the base, the exponent and the modulus MUST all be less
- *      than 2^4096, and the modulus must not be equal to zero.
+ *      than 2^8192, and the modulus must not be equal to zero.
  *****************************************************************************/
 typedef struct _CpaCyLnModExpOpData {
     CpaFlatBuffer modulus;
     /**< Flat buffer containing a pointer to the modulus.
-     * This number may be up to 4096 bits in length, and MUST be greater
+     * This number may be up to 8192 bits in length, and MUST be greater
      * than zero.
      */
     CpaFlatBuffer base;
     /**< Flat buffer containing a pointer to the base.
-     * This number may be up to 4096 bits in length.
+     * This number may be up to 8192 bits in length.
      */
     CpaFlatBuffer exponent;
     /**< Flat buffer containing a pointer to the exponent.
-     * This number may be up to 4096 bits in length.
+     * This number may be up to 8192 bits in length.
      */
 } CpaCyLnModExpOpData;
 
@@ -172,19 +172,19 @@ typedef struct _CpaCyLnModExpOpData {
  *      result.
  *
  *      Note that the values of A and B MUST NOT both be even numbers, and
- *      both MUST be less than 2^4096.
+ *      both MUST be less than 2^8192.
  *****************************************************************************/
 typedef struct _CpaCyLnModInvOpData {
     CpaFlatBuffer A;
     /**< Flat buffer containing a pointer to the value that will be
      * inverted.
-     * This number may be up to 4096 bits in length, it MUST NOT be zero,
+     * This number may be up to 8192 bits in length, it MUST NOT be zero,
      * and it MUST be co-prime with B.
      */
     CpaFlatBuffer B;
     /**< Flat buffer containing a pointer to the value that will be used as
      * the modulus.
-     * This number may be up to 4096 bits in length, it MUST NOT be zero,
+     * This number may be up to 8192 bits in length, it MUST NOT be zero,
      * and it MUST be co-prime with A.
      */
 } CpaCyLnModInvOpData;

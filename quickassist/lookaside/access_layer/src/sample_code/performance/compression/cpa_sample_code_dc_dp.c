@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -364,12 +364,6 @@ static inline void printThreadDetails(single_thread_test_data_t *testSetup)
             PRINT("DeflateDP Dynamic");
         }
     }
-#if DC_API_VERSION_LESS_THAN(3, 0)
-    else if (tmpSetup->setupData.compType == CPA_DC_LZS)
-    {
-        PRINT("LzsDP ");
-    }
-#endif
     if (tmpSetup->dcSessDir == CPA_DC_DIR_DECOMPRESS)
     {
         PRINT(" Decompress");
@@ -846,7 +840,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                                 /*
                                  *  do nothing
                                  */
-                                asm volatile("nop");
+                                __asm__ volatile("nop");
                             }
                             /*
                              * increase the backoff interval after the
@@ -875,7 +869,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                                     /*
                                      *  do nothing
                                      */
-                                    asm volatile("nop");
+                                    __asm__ volatile("nop");
                                 }
                             }
                         }
@@ -1515,14 +1509,25 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 
             return CPA_STATUS_FAIL;
         }
-        /* When Decompression, the FW expects the buffer size
-         * to be greater than the source buffer, so allocate double the
-         * size of the source buffer
-         */
-        status = createBuffersDp((bufferSize * EXTRA_BUFFER),
-                                 setup->numberOfBuffers[i],
-                                 cmpFlatBuffArray[i],
-                                 nodeId);
+        if (setup->disableAdditionalCmpbufferSize == CPA_FALSE)
+        {
+
+            /* For reliabilty mode we need to allocate double the space to
+             * extract the SW compressed data into*/
+            status = createBuffersDp((bufferSize * EXTRA_BUFFER),
+                                     setup->numberOfBuffers[i],
+                                     cmpFlatBuffArray[i],
+                                     nodeId);
+        }
+        else
+        {
+            /* For performance use cases additonal buffer size  is not required
+             * to be added to the cmp buffer, as there is no SW checks*/
+            status = createBuffersDp(bufferSize,
+                                     setup->numberOfBuffers[i],
+                                     cmpFlatBuffArray[i],
+                                     nodeId);
+        }
 
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1676,6 +1681,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 
             compressionOpData[i][j]->sessDirection = CPA_DC_DIR_COMPRESS;
             SET_DC_DP_CNV_PARAMS_DEFAULT(compressionOpData[i][j]);
+
             compressionOpData[i][j]->thisPhys =
                 (CpaPhysicalAddr)(SAMPLE_CODE_UINT)virtAddrToDevAddr(
                     compressionOpData[i][j],
@@ -1849,6 +1855,8 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
     dcSetup.numRequests = tmpSetup->numRequests;
     dcSetup.numLoops = tmpSetup->numLoops;
     dcSetup.isDpApi = CPA_TRUE;
+    dcSetup.disableAdditionalCmpbufferSize =
+        tmpSetup->disableAdditionalCmpbufferSize;
     dcSetup.threadID = testSetup->threadID;
     /*give our thread a unique memory location to store performance stats*/
     dcSetup.performanceStats = testSetup->performanceStats;
@@ -1950,8 +1958,7 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
-    if (CPA_TRUE == dcSetup.useXlt &&
-        CPA_SAMPLE_ASYNCHRONOUS == dcSetup.syncFlag)
+    if (CPA_TRUE == dcSetup.useXlt && ASYNC == dcSetup.syncFlag)
     {
         PRINT("Async mode not supported in Xlt[%d]\n", dcSetup.useXlt);
         testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -2104,11 +2111,10 @@ CpaStatus setupDcDpTest(CpaDcCompType algorithm,
                         CpaDcSessionDir direction,
                         CpaDcCompLvl compLevel,
                         CpaDcHuffType huffmanType,
-                        CpaDcFileType fileType,
                         Cpa32U windowSize,
                         Cpa32U testBufferSize,
                         corpus_type_t corpusType,
-                        synchronous_flag_t syncFlag,
+                        sync_mode_t syncFlag,
                         dp_request_type_t dpTestType,
                         Cpa32U numRequests,
                         Cpa32U numLoops)
@@ -2195,7 +2201,6 @@ CpaStatus setupDcDpTest(CpaDcCompType algorithm,
 #endif
     dcSetup->setupData.sessState = CPA_DC_STATELESS;
 #if DC_API_VERSION_LESS_THAN(1, 6)
-    dcSetup->setupData.fileType = fileType;
     dcSetup->setupData.deflateWindowSize = DEFAULT_COMPRESSION_WINDOW_SIZE;
 #endif
     dcSetup->corpus = corpusType;
@@ -2207,6 +2212,7 @@ CpaStatus setupDcDpTest(CpaDcCompType algorithm,
     dcSetup->numLoops = numLoops;
     dcSetup->setupData.autoSelectBestHuffmanTree = CPA_DC_ASB_DISABLED;
     dcSetup->isDpApi = CPA_TRUE;
+    dcSetup->disableAdditionalCmpbufferSize = disableAdditionalCmpbufferSize_g;
 
 
     /* Ensure that the numbers of buffers required for each file is less

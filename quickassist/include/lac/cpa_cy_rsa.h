@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -164,8 +164,9 @@ typedef struct _CpaCyRsaPrivateKeyRep1 {
      * - 1024 bits (128 bytes),
      * - 1536 bits (192 bytes),
      * - 2048 bits (256 bytes),
-     * - 3072 bits (384 bytes), or
-     * - 4096 bits (512 bytes).
+     * - 3072 bits (384 bytes),
+     * - 4096 bits (512 bytes), or
+     * - 8192 bits (1024 bytes).
      */
     CpaFlatBuffer privateExponentD;
     /**< The private exponent (d). For key generation operations the
@@ -492,6 +493,17 @@ typedef struct _CpaCyRsaStats64 {
      * successfully. */
     Cpa64U numRsaDecryptCompletedErrors;
     /**<  Total number of RSA decrypt operations that could not be
+     * completed successfully due to errors. */
+    Cpa64U numKptRsaDecryptRequests;
+    /**<  Total number of successful KPT RSA decrypt operation requests. */
+    Cpa64U numKptRsaDecryptRequestErrors;
+    /**<  Total number of KPT RSA decrypt requests that had an error and could
+     * not be processed. */
+    Cpa64U numKptRsaDecryptCompleted;
+    /**<  Total number of KPT RSA decrypt operations that completed
+     * successfully. */
+    Cpa64U numKptRsaDecryptCompletedErrors;
+    /**<  Total number of KPT RSA decrypt operations that could not be
      * completed successfully due to errors. */
 } CpaCyRsaStats64;
 

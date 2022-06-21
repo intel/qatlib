@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -137,20 +137,6 @@ Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId);
  * @retval -1                Function failed.
  */
 Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId);
-
-/**
- * @ingroup adf_io
- *
- * @description
- *      This function returns the KPT accelerator handle based on the
- *      package id.
- *
- * @param[in] packageId      Id of the package.
- *
- * @retval Cpa32U            KPT AC Handle of the accelerator.
- * @retval 0                 Function failed.
- */
-Cpa32U adf_io_cfgGetKptAcHandle(Cpa16U packageId);
 
 /**
  * @ingroup adf_io

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -60,52 +60,19 @@
  *
  ***************************************************************************/
 
-#include "cpa_sample_utils.h"
-#include "icp_sal_user.h"
+#ifndef CPA_SAMPLE_CODE_ECDSA_KPT2_PERF_H
+#define CPA_SAMPLE_CODE_ECDSA_KPT2_PERF_H
 
-extern CpaStatus dcSampleEventNotif(void);
+#include "cpa_sample_code_kpt2_common.h"
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#define KPT2_ECDSA_P521_WPK_SIZE_IN_BYTES (72)
 
-int gDebugParam = 1;
-
-int main(int argc, const char **argv)
-{
-    CpaStatus stat = CPA_STATUS_SUCCESS;
-
-    if (argc > 1)
-    {
-        gDebugParam = atoi(argv[1]);
-    }
-
-    PRINT_DBG("Starting Event Notifications Sample Code App ...\n");
-
-    stat = qaeMemInit();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to initialize memory driver\n");
-        return (int)stat;
-    }
-
-    stat = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to start user process SSL\n");
-        qaeMemDestroy();
-        return (int)stat;
-    }
-
-    stat = dcSampleEventNotif();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("\nEvent Notifications Sample Code App failed\n");
-    }
-    else
-    {
-        PRINT_DBG("\nEvent Notifications Sample Code App ran successfully\n");
-    }
-
-    icp_sal_userStop();
-
-    qaeMemDestroy();
-
-    return (int)stat;
-}
+CpaStatus setKPT2EcdsaSignRSOpData(CpaInstanceHandle instanceHandle,
+                                   CpaCyKptEcdsaSignRSOpData *pKPTSignRSOpData,
+                                   CpaCyEcdsaSignRSOpData *pSignRSOpData,
+                                   Cpa8U *pSampleSWK,
+                                   Cpa8U *pIv,
+                                   Cpa8U *pAad,
+                                   Cpa32U aadLenInBytes);
+#endif
+#endif

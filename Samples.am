@@ -1,7 +1,7 @@
 ################################################################
 #   BSD LICENSE
 # 
-#   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+#   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
 #   All rights reserved.
 # 
 #   Redistribution and use in source and binary forms, with or without
@@ -38,23 +38,25 @@
 if SAMPLES
 
 COMMON_SAMPLE_CFLAGS = -D USER_SPACE \
-    -D_GNU_SOURCE \
-    -DSC_ENABLE_DYNAMIC_COMPRESSION \
-    -DWITH_CMDRV \
-    -DWITH_UPSTREAM \
-    -DDO_CRYPTO \
-    -DINCLUDE_COMPRESSION
+		       -D_GNU_SOURCE \
+		       -DSC_ENABLE_DYNAMIC_COMPRESSION \
+		       -DWITH_CMDRV \
+		       -DWITH_UPSTREAM \
+		       -DDO_CRYPTO \
+		       -DINCLUDE_COMPRESSION \
+		       -Wno-deprecated-declarations
 
 COMMON_SAMPLE_INCLUDES = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework \
-    -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework/linux/user_space \
-    -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression \
-    -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/common \
-    -I$(srcdir)/quickassist/utilities/libusdm_drv \
-    -I$(srcdir)/quickassist/lookaside/access_layer/include \
-    -I$(srcdir)/quickassist/include \
-    -I$(srcdir)/quickassist/include/lac \
-    -I$(srcdir)/quickassist/include/dc \
-    -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/busy_loop
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework/linux/user_space \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/common \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+			 -I$(srcdir)/quickassist/utilities/libusdm_drv \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/include \
+			 -I$(srcdir)/quickassist/include \
+			 -I$(srcdir)/quickassist/include/lac \
+			 -I$(srcdir)/quickassist/include/dc \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/busy_loop
 
 COMMON_SAMPLE_LDFLAGS = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la
 
@@ -78,6 +80,9 @@ cpa_sample_code_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_dp.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_rsa_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_kpt2_common.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_kpt2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_kpt2_perf.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_dp.c \
@@ -89,7 +94,6 @@ cpa_sample_code_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/busy_loop/busy_loop.c
 cpa_sample_code_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance \
 	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/crypto/ \
-	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/batch_and_pack/ \
 	$(COMMON_SAMPLE_INCLUDES) \
 	$(COMMON_SAMPLE_CFLAGS) \
 	$(COMMON_FLAGS) \
@@ -98,40 +102,42 @@ cpa_sample_code_LDADD = $(COMMON_SAMPLE_LDFLAGS)
 
 noinst_LTLIBRARIES += libcpa_sample_code_s.la
 libcpa_sample_code_s_la_SOURCES = \
-       quickassist/lookaside/access_layer/src/sample_code/performance/framework/linux/user_space/cpa_sample_code_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/framework/cpa_sample_code_framework.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_sleeptime.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/cpa_sample_code_main.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf_dp.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_perf.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_main.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_common.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_dp.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_rsa_perf.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_dp.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_utils.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_e2e.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_zlib.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_main.c \
-       quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_latency.c \
-       quickassist/lookaside/access_layer/src/sample_code/busy_loop/busy_loop.c
+	quickassist/lookaside/access_layer/src/sample_code/performance/framework/linux/user_space/cpa_sample_code_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/framework/cpa_sample_code_framework.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_sleeptime.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/cpa_sample_code_main.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf_dp.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_main.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_common.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_dp.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_rsa_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_kpt2_common.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_kpt2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_kpt2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_dp.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_e2e.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_zlib.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_main.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_latency.c \
+	quickassist/lookaside/access_layer/src/sample_code/busy_loop/busy_loop.c
 libcpa_sample_code_s_la_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance \
-       -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/crypto/ \
-       -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/batch_and_pack/ \
-       $(COMMON_SAMPLE_INCLUDES) \
-       $(COMMON_SAMPLE_CFLAGS) \
-       $(COMMON_FLAGS) \
-       -DSAMPLE_CODE_CORPUS_PATH="\"$(datadir)/qat/\""
+	-I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/crypto/ \
+	$(COMMON_SAMPLE_INCLUDES) \
+	$(COMMON_SAMPLE_CFLAGS) \
+	$(COMMON_FLAGS) \
+	-DSAMPLE_CODE_CORPUS_PATH="\"$(datadir)/qat/\""
 
 noinst_PROGRAMS += dc_dp_sample
 dc_dp_sample_SOURCES = \
@@ -250,7 +256,6 @@ ssl_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_sample_decrypt_user.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample_user.c
 ssl_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
-	-Wno-deprecated-declarations \
 	$(COMMON_SAMPLE_INCLUDES) \
 	$(COMMON_SAMPLE_CFLAGS) \
 	$(COMMON_FLAGS)
@@ -360,7 +365,7 @@ samples-install: samples
 	@echo "*******************************************************"
 	@echo ""
 
-sample-uninstall:
+samples-uninstall:
 	@rm -rf $(DESTDIR)$(bindir)/cpa_sample_code
 	@rm -rf $(DESTDIR)$(bindir)/dc_dp_sample
 	@rm -rf $(DESTDIR)$(bindir)/dc_stateless_sample
@@ -382,8 +387,8 @@ sample-uninstall:
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary32
 	@rm -rf $(DESTDIR)$(datadir)/qat/canterbury
-	@rmdir --ignore-fail-on-non-empty $(DESTDIR)$(datadir)/qat
+	@if test -d $(DESTDIR)$(datadir)/qat; then rmdir --ignore-fail-on-non-empty $(DESTDIR)$(datadir)/qat; fi
 
 endif
 
-.PHONY: samples samples-install sample-uninstall
+.PHONY: samples samples-install samples-uninstall

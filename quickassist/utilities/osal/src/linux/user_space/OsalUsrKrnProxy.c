@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -194,7 +194,7 @@ static void modify_bitmap(UINT64 *map, size_t pos, size_t len, UINT32 set)
  */
 static void *mem_alloc(void *map, size_t size)
 {
-    UINT64 *bitmap = (UINT64 *)((UINT8 *)map + USER_MEM_128BYTE_OFFSET);
+    UINT64 *bitmap = NULL;
     INT32 window_pos = 0;
     UINT32 *retval = NULL;
     INT32 blocks_found = 0;
@@ -207,6 +207,7 @@ static void *mem_alloc(void *map, size_t size)
         return retval;
     }
 
+    bitmap = (UINT64 *)((UINT8 *)map + USER_MEM_128BYTE_OFFSET);
     /* increase size to make room for an integer to hold first block/length
      * info*/
     size += sizeof(UINT32);

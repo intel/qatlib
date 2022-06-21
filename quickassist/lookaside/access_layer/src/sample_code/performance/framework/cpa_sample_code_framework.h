@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -75,6 +75,8 @@
 #include "cpa.h"
 #include "cpa_cy_common.h"
 #include "cpa_sample_code_utils_common.h"
+#include "cpa_dc.h"
+
 /* after terminate the loop, we need adjust loop offset */
 #define OFFSET_LOOP_EXIT 1
 #define EXIT_OFF 0
@@ -127,11 +129,21 @@
 #define DEFAULT_MAP (0x1)
 #define CRYPTO (1)
 #define COMPRESSION (2)
+#define SYM (3)
+#define ASYM (4)
 #define MAX_RETRY (10)
 #define SLEEP_ONE_SEC (1)
 #define SLEEP_ONE_HUNDRED_MILLISEC (100)
 
 
+
+/* Common macro definitions */
+#ifndef DC_API_VERSION_AT_LEAST
+#define DC_API_VERSION_AT_LEAST(major, minor)                                  \
+    (CPA_DC_API_VERSION_NUM_MAJOR > major ||                                   \
+     (CPA_DC_API_VERSION_NUM_MAJOR == major &&                                 \
+      CPA_DC_API_VERSION_NUM_MINOR >= minor))
+#endif
 
 typedef CpaStatus (*compute_test_result_func_t)(void *);
 
@@ -161,6 +173,10 @@ typedef struct thread_creation_data_s
     stats_print_func_t *statsPrintFunc;
     /*pointer to function capable of printing our stat related to specific
      * test varation*/
+    Cpa32U megaRowId;
+    /* mega row id reference */
+    CpaBoolean isUsedByMega;
+    /* indicates if this thread is created by mega api */
 } thread_creation_data_t;
 
 /**
@@ -193,6 +209,10 @@ typedef struct single_thread_test_data_s
      * to determine pass criteria. Users can populate this pointer to add
      * specific pass criteria for the tests on per thread basis.
      */
+    Cpa32U megaRowId;
+    /* mega row id reference */
+    CpaBoolean isUsedByMega;
+    /* indicates if this thread is created by mega api */
 } single_thread_test_data_t;
 
 extern int useStaticPrime;
@@ -210,6 +230,15 @@ CpaStatus printReliability(void);
 extern volatile CpaBoolean fineTune_g;
 extern volatile Cpa16U iaCycleCount_g;
 CpaStatus setFineTune(CpaBoolean val);
+
+CpaStatus set_cy_slv(Cpa32U arg);
+CpaStatus set_dc_slv(Cpa32U arg);
+CpaStatus set_rsa_slv(Cpa32U arg);
+CpaStatus set_buffer_count(Cpa32U arg);
+void setVerboseOutput(int a);
+int getVerboseOutput(void);
+CpaStatus initPerfStats(Cpa32U testTypeIndex, Cpa32U numberOfThreads);
+CpaStatus printPerfStats(Cpa32U testTypeNumber, Cpa32U threadNumber);
 
 CpaStatus printFineTune(void);
 
@@ -632,6 +661,8 @@ CpaStatus startThreads(void);
  *****************************************************************************/
 void killCreatedThreads(Cpa32U numThreadsToKill);
 CpaStatus createStartandWaitForCompletion(Cpa32U instType);
+CpaStatus createStartandWaitForCompletionCrypto(Cpa32U instType);
+
 /**
  *****************************************************************************
  * @ingroup perfCodeFramework

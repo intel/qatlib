@@ -47,3 +47,13 @@ build
 /stateless_sample
 /symdp_sample
 /update_sample
+/algchaining_sample
+/dc_stateless_multi_op_sample
+/dc_stateless_sample
+/dh_sample
+/ec_montedwds_sample
+/eddsa_sample
+/hkdf_sample
+/qatlib.spec
+quickassist/utilities/service/qat_init.sh
+/sym_dp_sample

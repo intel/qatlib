@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -105,7 +105,6 @@
  *  @param[in]  direction       session direction
  *  @param[in]  compLevel       compression Level
  *  @param[in]  HuffmanType     HuffMantype Dynamic/static
- *  @param[in]  fileType        type of the file to be compressed/decompressed
  *  @param[in]  testBuffersize  size of the flat Buffer to use
  *  @parma[in]  corpusType      type of corpus Calgary/Canterbury corpus
  *  @param[in]  syncFlag        synchronous/Asynchronous operation
@@ -123,11 +122,10 @@ CpaStatus setupDcDpTest(CpaDcCompType algorithm,
                         CpaDcSessionDir direction,
                         CpaDcCompLvl compLevel,
                         CpaDcHuffType huffmanType,
-                        CpaDcFileType fileType,
                         Cpa32U windowSize,
                         Cpa32U testBufferSize,
                         corpus_type_t corpusType,
-                        synchronous_flag_t syncFlag,
+                        sync_mode_t syncFlag,
                         dp_request_type_t dpTestType,
                         Cpa32U numRequests,
                         Cpa32U numLoops);

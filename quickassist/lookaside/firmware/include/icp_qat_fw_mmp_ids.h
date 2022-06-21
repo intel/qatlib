@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1548,36 +1548,6 @@
  *     @link icp_qat_fw_maths_point_verify_gf2_571_input_s::b b @endlink
  * @li no output parameters
  */
-#define PKE_KPT_ECDSA_SIGN_RS_GF2_L256 0x515217d9
-/**< Functionality ID for KPT ECDSA Sign RS for curves B/K-163 and B/K-233
- * @li 3 input parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_input_s::in in @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_input_s::d d @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_input_s::c c @endlink
- * @li 2 output parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_output_s::r r @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_output_s::s s @endlink
- */
-#define PKE_KPT_ECDSA_SIGN_RS_GF2_L512 0x4d811987
-/**< Functionality ID for KPT ECDSA Sign RS
- * @li 3 input parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_input_s::in in @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_input_s::d d @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_input_s::c c @endlink
- * @li 2 output parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_output_s::r r @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_output_s::s s @endlink
- */
-#define PKE_KPT_ECDSA_SIGN_RS_GF2_571 0x45731898
-/**< Functionality ID for KPT ECDSA GF2 Sign RS for curves B-571/K-571
- * @li 3 input parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_input_s::in in @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_input_s::d d @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_input_s::c c @endlink
- * @li 2 output parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_output_s::r r @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_output_s::s s @endlink
- */
 #define PKE_ECDSA_SIGN_R_GFP_L256 0x431b2f22
 /**< Functionality ID for ECDSA GFP Sign R
  * @li 7 input parameters :
@@ -1786,36 +1756,6 @@
  *     @link icp_qat_fw_maths_point_verify_gfp_521_input_s::b b @endlink
  * @li no output parameters
  */
-#define PKE_KPT_ECDSA_SIGN_RS_GFP_L256 0x1b6b182c
-/**< Functionality ID for KPT ECDSA GFP Sign RS
- * @li 3 input parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_input_s::in in @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_input_s::d d @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_input_s::c c @endlink
- * @li 2 output parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_output_s::r r @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_output_s::s s @endlink
- */
-#define PKE_KPT_ECDSA_SIGN_RS_GFP_L512 0x7439179f
-/**< Functionality ID for KPT ECDSA GFP Sign RS
- * @li 3 input parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_input_s::in in @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_input_s::d d @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_input_s::c c @endlink
- * @li 2 output parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_output_s::r r @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_output_s::s s @endlink
- */
-#define PKE_KPT_ECDSA_SIGN_RS_GFP_521 0x3b7a190c
-/**< Functionality ID for KPT ECDSA GFP Sign RS
- * @li 3 input parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_input_s::in in @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_input_s::d d @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_input_s::c c @endlink
- * @li 2 output parameters :
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_output_s::r r @endlink
- *     @link icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_output_s::s s @endlink
- */
 #define POINT_MULTIPLICATION_C25519 0x0a0634c6
 /**< Functionality ID for ECC curve25519 Variable Point Multiplication [k]P(x),
  * as specified in RFC7748
@@ -1902,6 +1842,25 @@
  * icp_qat_fw_mmp_ec_p256_point_multiplication_output_s::xr xr @endlink @link
  * icp_qat_fw_mmp_ec_p256_point_multiplication_output_s::yr yr @endlink
  */
+#define PKE_EC_POINT_MULTIPLICATION_P256 0x0a083546
+/**< Functionality ID for ECC P256 Variable Point Multiplication [k]P(x)
+ * @li 3 input parameters : @link
+ * icp_qat_fw_mmp_ec_p256_point_multiplication_input_s::xp xp @endlink @link
+ * icp_qat_fw_mmp_ec_p256_point_multiplication_input_s::yp yp @endlink @link
+ * icp_qat_fw_mmp_ec_p256_point_multiplication_input_s::k k @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_ec_p256_point_multiplication_output_s::xr xr @endlink @link
+ * icp_qat_fw_mmp_ec_p256_point_multiplication_output_s::yr yr @endlink
+ */
+#define PKE_EC_GENERATOR_MULTIPLICATION_P256 0x12073556
+/**< Functionality ID for ECC P256 Generator Point Multiplication [k]G(x)
+ * @li 1 input parameters : @link
+ * icp_qat_fw_mmp_ec_p256_generator_multiplication_input_s::k k @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_ec_p256_generator_multiplication_output_s::xr xr @endlink
+ * @link icp_qat_fw_mmp_ec_p256_generator_multiplication_output_s::yr yr
+ * @endlink
+ */
 #define PKE_ECDSA_SIGN_RS_P256 0x18133566
 /**< Functionality ID for ECC P256 ECDSA Sign RS
  * @li 3 input parameters : @link
@@ -1921,6 +1880,15 @@
  * @li 2 output parameters : @link
  * icp_qat_fw_mmp_ec_p384_point_multiplication_output_s::xr xr @endlink @link
  * icp_qat_fw_mmp_ec_p384_point_multiplication_output_s::yr yr @endlink
+ */
+#define PKE_EC_GENERATOR_MULTIPLICATION_P384 0x0b073596
+/**< Functionality ID for ECC P384 Generator Point Multiplication [k]G(x)
+ * @li 1 input parameters : @link
+ * icp_qat_fw_mmp_ec_p384_generator_multiplication_input_s::k k @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_ec_p384_generator_multiplication_output_s::xr xr @endlink
+ * @link icp_qat_fw_mmp_ec_p384_generator_multiplication_output_s::yr yr
+ * @endlink
  */
 #define PKE_ECDSA_SIGN_RS_P384 0x1a1335a6
 /**< Functionality ID for ECC P384 ECDSA Sign RS

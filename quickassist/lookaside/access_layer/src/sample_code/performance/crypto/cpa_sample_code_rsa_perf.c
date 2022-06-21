@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -113,7 +113,9 @@
 #include "cpa_sample_code_framework.h"
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
 #include "cpa_sample_code_rsa_kpt2_perf.h"
+#endif
 #endif
 #endif
 /*
@@ -196,6 +198,7 @@ void rsaCallback(void *pCallbackTag,
 }
 
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
 /******************************************************************************
  * @ingroup sampleRSACode
  *
@@ -221,6 +224,7 @@ void kpt2RsaCallback(void *pCallbackTag,
     processCallback(pCallbackTag);
 }
 EXPORT_SYMBOL(kpt2RsaCallback);
+#endif
 #endif
 
 #ifdef POLL_INLINE
@@ -1197,13 +1201,17 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
     /* KPT related */
     CpaCyKptKeyManagementStatus kpt2Status = CPA_CY_KPT_SUCCESS;
     CpaCyKptUnwrapContext **pKptUnwrapCtx = NULL;
     Cpa32U node = 0;
+    Cpa32U keyProvisionRetryTimes = 0;
     CpaCyKptRsaDecryptOpData **ppKPTDecryptOpData = NULL;
     CpaCyCapabilitiesInfo pCapInfo = {0};
     CpaStatus delKeyStatus = CPA_STATUS_SUCCESS;
+    Cpa8U rsaAdditionalAuthData[] = {
+        0x06, 0x08, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01};
     /*SWK*/
     Cpa8U sampleSWK[SWK_LEN_IN_BYTES] = {0};
 
@@ -1238,6 +1246,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         }
     }
 /* KPT related */
+#endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 
 /* KPT Stolen Key Test */
@@ -1299,6 +1308,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
     if (ASYNC == setup->syncMode)
     {
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
         if (CPA_TRUE == setup->enableKPT)
         {
             cbFunc = kpt2RsaCallback;
@@ -1306,9 +1316,12 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         else
         {
 #endif
+#endif
             cbFunc = rsaCallback;
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
         }
+#endif
 #endif
     }
 #ifdef POLL_INLINE
@@ -1325,15 +1338,18 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #endif
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
     if (CPA_TRUE == setup->enableKPT)
     {
         status = cpaCyQueryCapabilities(setup->cyInstanceHandle, &pCapInfo);
-        if ((CPA_STATUS_SUCCESS == status) && !pCapInfo.kpt2Supported)
+        if ((CPA_STATUS_SUCCESS == status) && !pCapInfo.kptSupported)
         {
             PRINT_ERR("Inst (BDF:%02x:%02d.%d) does not support KPT2!\n",
                       (Cpa8U)(instanceInfo.physInstId.busAddress >> 8),
                       (Cpa8U)((instanceInfo.physInstId.busAddress & 0xFF) >> 3),
                       (Cpa8U)(instanceInfo.physInstId.busAddress & 7));
+            sampleCodeBarrier();
+            return CPA_STATUS_SUCCESS;
         }
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1365,7 +1381,9 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
                                         pPublicKey[insideLoopCount],
                                         node,
                                         sampleSWK,
-                                        iv);
+                                        iv,
+                                        rsaAdditionalAuthData,
+                                        sizeof(rsaAdditionalAuthData));
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("setKptRsaDecryptOpData failed!\n");
@@ -1379,8 +1397,14 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 
             pKptUnwrapCtx[insideLoopCount]->kptHandle = setup->kptKeyHandle;
             memcpy(pKptUnwrapCtx[insideLoopCount]->iv, iv, IV_LEN_IN_BYTES);
+            memcpy(pKptUnwrapCtx[insideLoopCount]->additionalAuthData,
+                   rsaAdditionalAuthData,
+                   sizeof(rsaAdditionalAuthData));
+            pKptUnwrapCtx[insideLoopCount]->aadLenInBytes =
+                sizeof(rsaAdditionalAuthData);
         }
     }
+#endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 
 #endif
@@ -1415,6 +1439,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
                 coo_req_start(pPerfData);
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
                 if (CPA_TRUE == setup->enableKPT)
                 {
                     status =
@@ -1431,6 +1456,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
                 }
                 else
                 {
+#endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 #endif
                     status = cpaCyRsaDecrypt(setup->cyInstanceHandle,
@@ -1440,7 +1466,9 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
                                              ppOutputData[insideLoopCount]);
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
                 }
+#endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 #endif
                 coo_req_stop(pPerfData, status);
@@ -1617,10 +1645,22 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
     sampleCodeSemaphoreDestroy(&setup->performanceStats->comp);
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
     if (CPA_TRUE == setup->enableKPT)
     {
-        delKeyStatus = cpaCyKptDeleteKey(
-            setup->cyInstanceHandle, setup->kptKeyHandle, &kpt2Status);
+        do
+        {
+            delKeyStatus = cpaCyKptDeleteKey(
+                setup->cyInstanceHandle, setup->kptKeyHandle, &kpt2Status);
+            usleep(KEY_PROVISION_RETRY_DELAY_MS * 1000);
+            keyProvisionRetryTimes++;
+        } while ((CPA_STATUS_RETRY == delKeyStatus) &&
+                 (keyProvisionRetryTimes <= KEY_PROVISION_RETRY_TIMES_LIMIT));
+        if (1 < keyProvisionRetryTimes)
+        {
+            PRINT("KPT RSA Delete SWK Retry Times : %d\n",
+                  keyProvisionRetryTimes - 1);
+        }
         if ((CPA_STATUS_SUCCESS != delKeyStatus) ||
             (CPA_CY_KPT_SUCCESS != kpt2Status))
         {
@@ -1633,6 +1673,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         qaeMemFreeNUMA((void **)&ppKPTDecryptOpData);
         qaeMemFreeNUMA((void **)&pKptUnwrapCtx);
     }
+#endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 #endif
     return status;
@@ -1900,7 +1941,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     {
         PRINT_ERR("Error allocating memory for instance handles\n");
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        goto exit;
+        return;
     }
     if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
     {
@@ -1953,7 +1994,9 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     rsaTestSetup.syncMode = params->syncMode;
     rsaTestSetup.performEncrypt = params->performEncrypt;
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
     rsaTestSetup.enableKPT = params->enableKPT;
+#endif
 #endif
 
 
@@ -1969,7 +2012,22 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     //    status = CPA_STATUS_FAIL;
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT("Rsa Thread %u Failed\n", testSetup->threadID);
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        if (CPA_TRUE == params->enableKPT)
+        {
+            PRINT("KPT2 Rsa Thread %u Failed\n", testSetup->threadID);
+        }
+        else
+        {
+#endif
+#endif
+            PRINT("Rsa Thread %u Failed\n", testSetup->threadID);
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        }
+#endif
+#endif
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeBarrier();
     }
@@ -1978,10 +2036,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_SUCCESS;
     }
 exit:
-    if (cyInstances != NULL)
-    {
-        qaeMemFree((void **)&cyInstances);
-    }
+    qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 EXPORT_SYMBOL(sampleRsaThreadSetup);
@@ -2004,6 +2059,7 @@ CpaStatus printRsaCrtPerfData(thread_creation_data_t *data)
     else
     {
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
         if (CPA_TRUE == params->enableKPT)
         {
             PRINT("KPT RSA CRT DECRYPT\n");
@@ -2012,6 +2068,9 @@ CpaStatus printRsaCrtPerfData(thread_creation_data_t *data)
         {
             PRINT("RSA CRT DECRYPT\n");
         }
+#else
+        PRINT("RSA CRT DECRYPT\n");
+#endif
 #else
         PRINT("RSA CRT DECRYPT\n");
 #endif
@@ -2031,6 +2090,7 @@ CpaStatus printRsaCrtPerfData(thread_creation_data_t *data)
 CpaStatus printRsaPerfData(thread_creation_data_t *data)
 {
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
     asym_test_params_t *params = (asym_test_params_t *)data->setupPtr;
     if (CPA_TRUE == params->enableKPT)
     {
@@ -2040,6 +2100,9 @@ CpaStatus printRsaPerfData(thread_creation_data_t *data)
     {
         PRINT("RSA DECRYPT\n");
     }
+#else
+    PRINT("RSA DECRYPT\n");
+#endif
 #else
     PRINT("RSA DECRYPT\n");
 #endif

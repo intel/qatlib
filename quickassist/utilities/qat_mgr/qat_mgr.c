@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -87,6 +87,14 @@ static int parent_pipe = 0;
 
 #define QUEUE_LENGTH 5
 #define MAX_CLIENTS 3
+
+#define MAX_DEVS 256
+
+#define POLICY_MIN 0
+#define POLICY_MAX MAX_DEVS
+
+#define DEBUG_LEVEL_MIN 0
+#define DEBUG_LEVEL_MAX 2
 
 #define MAX_ERR_STRING_LEN 1024
 
@@ -159,12 +167,13 @@ void usage(char *prog)
 {
     printf("Usage: %s  [options]\n", prog);
     printf(" -h, -help\n");
-    printf(" -d, --debug=LEVEL (0..2)\n");
+    printf(" -d, --debug=LEVEL (%d..%d)\n", DEBUG_LEVEL_MIN, DEBUG_LEVEL_MAX);
     printf(" -f, --foreground\n");
     printf(" -p, --policy=POLICY\n");
     printf("    0 (default) - One VF from each PF per process\n");
     printf("    1           - One VF per process\n");
     printf("    >1          - n VFs per process\n");
+    printf("    max value   - %d\n", MAX_DEVS);
     printf(" -v, --version\n");
 }
 
@@ -332,6 +341,22 @@ static int write_parent(int fd, char *buf)
         return -1;
 }
 
+static int parse_and_validate_arg(char *arg, int *val, int min, int max)
+{
+    if (!arg)
+        return -EINVAL;
+
+    char *end_ptr;
+    long long temp = strtoll(arg, &end_ptr, 10);
+
+    if (errno == ERANGE || *arg == 0 || *end_ptr != 0 || temp < min ||
+        temp > max)
+        return -EINVAL;
+
+    *val = (int)temp;
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     struct sockaddr_un sockaddr;
@@ -342,7 +367,7 @@ int main(int argc, char **argv)
     struct ucred ucred;
     unsigned len;
     unsigned num_devices;
-    struct qatmgr_dev_data dev_list[256];
+    struct qatmgr_dev_data dev_list[MAX_DEVS];
     unsigned list_size = ARRAY_SIZE(dev_list);
     int i;
     const char *mgr_opts = "hvd:p:f";
@@ -355,7 +380,6 @@ int main(int argc, char **argv)
     int opt;
     int policy = 0;
     int foreground = 0;
-    char excess;
     char *env;
     char pid_filename[256];
     char *err_string;
@@ -382,9 +406,8 @@ int main(int argc, char **argv)
                 version(argv[0]);
                 exit(0);
             case 'd':
-                if ((!optarg) ||
-                    (sscanf(optarg, "%d%c", &debug_level, &excess) != 1) ||
-                    (debug_level < 0))
+                if (parse_and_validate_arg(
+                        optarg, &debug_level, DEBUG_LEVEL_MIN, DEBUG_LEVEL_MAX))
                 {
                     printf("Invalid debug level %s\n", optarg);
                     exit(1);
@@ -394,9 +417,8 @@ int main(int argc, char **argv)
                 foreground = 1;
                 break;
             case 'p':
-                if ((!optarg) ||
-                    (sscanf(optarg, "%d%c", &policy, &excess) != 1) ||
-                    (policy < 0))
+                if (parse_and_validate_arg(
+                        optarg, &policy, POLICY_MIN, POLICY_MAX))
                 {
                     printf("Invalid policy %s\n", optarg);
                     exit(1);

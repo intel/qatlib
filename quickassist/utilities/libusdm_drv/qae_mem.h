@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -78,6 +78,46 @@ extern "C" {
 #else
 #include <stdint.h>
 #endif
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *      QAE Major Version Number
+ *
+ * @description
+ *      The QAE API major version number. This number will be incremented
+ *      when significant changes to the API have occurred. The combination of
+ *      the major and minor number definitions represents the complete version
+ *      number for this interface.
+ *
+ *****************************************************************************/
+#define QAE_API_VERSION_NUM_MAJOR (1)
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *       QAE Minor Version Number
+ *
+ * @description
+ *      The QAE API minor version number. This number will be incremented
+ *      when minor changes to the API have occurred. The combination of the
+ *      major and minor number definitions represents the complete version
+ *      number for this interface.
+ *
+ *****************************************************************************/
+#define QAE_API_VERSION_NUM_MINOR (0)
+
+/**< Check for QAE API version (at least) */
+#define QAE_API_VERSION_AT_LEAST(major, minor)                                 \
+    (QAE_API_VERSION_NUM_MAJOR > major ||                                      \
+     (QAE_API_VERSION_NUM_MAJOR == major &&                                    \
+      QAE_API_VERSION_NUM_MINOR >= minor))
+
+/**< Check for QAE API version (less than) */
+#define QAE_API_VERSION_LESS_THAN(major, minor)                                \
+    (QAE_API_VERSION_NUM_MAJOR < major ||                                      \
+     (QAE_API_VERSION_NUM_MAJOR == major &&                                    \
+      QAE_API_VERSION_NUM_MINOR < minor))
 
 /**
  *****************************************************************************

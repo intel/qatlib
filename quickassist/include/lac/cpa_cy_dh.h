@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -115,7 +115,7 @@ typedef struct _CpaCyDhPhase1KeyGenOpData {
     CpaFlatBuffer primeP;
     /**< Flat buffer containing a pointer to the random odd prime number (p).
      * The bit-length of this number may be one of 768, 1024, 1536, 2048,
-     * 3072 or 4096.
+     * 3072, 4096 or 8192.
      */
     CpaFlatBuffer baseG;
     /**< Flat buffer containing a pointer to base (g). This MUST comply with
@@ -157,7 +157,7 @@ typedef struct _CpaCyDhPhase2SecretKeyGenOpData {
     CpaFlatBuffer primeP;
     /**< Flat buffer containing a pointer to the random odd prime number (p).
      * The bit-length of this number may be one of 768, 1024, 1536, 2048,
-     * 3072 or 4096.
+     * 3072, 4096 or 8192.
      * This SHOULD be same prime number as was used in the phase 1 key
      * generation operation. */
     CpaFlatBuffer remoteOctetStringPV;
@@ -256,7 +256,7 @@ typedef struct _CpaCyDhStats64 {
  *      operations as defined in the PKCS #3 standard. It may be used to
  *      generate the the (local) octet string public value (PV) key.
  *      The prime number sizes specified in RFC 2409, 4306, and part of
- *      RFC 3526 are supported (bit sizes 6144 and 8192 from RFC 3536 are not
+ *      RFC 3526 are supported (bit size 6144 from RFC 3536 is not
  *      supported).
  *
  * @context

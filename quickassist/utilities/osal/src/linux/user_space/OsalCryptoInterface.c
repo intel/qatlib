@@ -6,7 +6,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,6 @@
 #include "openssl/md5.h"
 #include "openssl/sha.h"
 #include "openssl/aes.h"
-#include "openssl/sm3.h"
 #endif
 /* Required for MIN macro */
 #include <sys/param.h>
@@ -72,6 +71,8 @@
 #define AES_128_KEY_LEN_BYTES 16
 #define AES_192_KEY_LEN_BYTES 24
 #define AES_256_KEY_LEN_BYTES 32
+#ifdef USE_OPENSSL
+#endif
 
 OSAL_STATUS
 osalHashMD5(UINT8 *in, UINT8 *out)
@@ -250,41 +251,6 @@ osalHashSHA512Full(UINT8 *in, UINT8 *out, UINT32 len)
 }
 
 OSAL_STATUS
-osalHashSM3(UINT8 *in, UINT8 *out)
-{
-#ifndef USE_OPENSSL
-    SM3_CTX ctx;
-    if (!INIT(SM3)(&ctx))
-    {
-        return OSAL_STATUS_FAIL;
-    }
-    TRANSFORM(SM3)(&ctx, in);
-    memcpy(out, &ctx, SM3_DIGEST_LENGTH);
-    return OSAL_STATUS_SUCCESS;
-#else
-    return OSAL_STATUS_UNSUPPORTED;
-#endif
-}
-
-OSAL_STATUS
-osalHashSM3Full(UINT8 *in, UINT8 *out, UINT32 len)
-{
-#ifndef USE_OPENSSL
-    SM3_CTX ctx;
-    if (!INIT(SM3)(&ctx))
-    {
-        return OSAL_STATUS_FAIL;
-    }
-    UPDATE(SM3)(&ctx, in, len);
-    FINAL(SM3)(out, &ctx);
-    memcpy(out, &ctx, SM3_DIGEST_LENGTH);
-    return OSAL_STATUS_SUCCESS;
-#else
-    return OSAL_STATUS_UNSUPPORTED;
-#endif
-}
-
-OSAL_STATUS
 osalAESEncrypt(UINT8 *key, UINT32 keyLenInBytes, UINT8 *in, UINT8 *out)
 {
     AES_KEY enc_key;
@@ -298,6 +264,42 @@ osalAESEncrypt(UINT8 *key, UINT32 keyLenInBytes, UINT8 *in, UINT8 *out)
     return OSAL_SUCCESS;
 }
 
+#ifdef USE_OPENSSL
+#define EXPANDED_KEY_KAT 0xcb5befb4
+static OSAL_STATUS osalAesSetEncryptByteSwap(INT32 *byte_swap)
+{
+    UINT32 key_len_bits = AES_128_KEY_LEN_BYTES << BYTE_TO_BITS_SHIFT;
+    UINT8 key[AES_128_KEY_LEN_BYTES] = {0};
+    static INT32 byte_swap_required = -1;
+    UINT32 lw_per_round = 4;
+    int status;
+    AES_KEY rev_key;
+    UINT32 key_val;
+
+    *byte_swap = byte_swap_required;
+
+    if (byte_swap_required >= 0)
+        return OSAL_SUCCESS;
+
+    status = OSAL_AES_SET_ENCRYPT(key, key_len_bits, &rev_key);
+    if (status < 0)
+        return OSAL_FAIL;
+
+    /* First 4 bytes of the last round of expanded key */
+    key_val = rev_key.rd_key[lw_per_round * rev_key.rounds];
+
+    if (key_val == EXPANDED_KEY_KAT)
+        byte_swap_required = 0;
+    else if (key_val == __builtin_bswap32(EXPANDED_KEY_KAT))
+        byte_swap_required = 1;
+    else
+        return OSAL_FAIL;
+
+    *byte_swap = byte_swap_required;
+    return OSAL_SUCCESS;
+}
+#endif
+
 OSAL_STATUS
 osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
 {
@@ -307,6 +309,9 @@ osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
     INT32 lw_left_to_copy = key_len_in_bytes / lw_per_round;
     UINT32 *key_pointer = NULL;
     INT32 status = 0;
+#ifdef USE_OPENSSL
+    INT32 swap;
+#endif
 
     /* Error check for wrong input key len */
     if (AES_128_KEY_LEN_BYTES != key_len_in_bytes &&
@@ -319,6 +324,12 @@ osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
                 "Incorrect key length\n");
         return OSAL_FAIL;
     }
+
+#ifdef USE_OPENSSL
+    status = osalAesSetEncryptByteSwap(&swap);
+    if (status != OSAL_SUCCESS)
+        return status;
+#endif
 
     status = OSAL_AES_SET_ENCRYPT(
         key, key_len_in_bytes << BYTE_TO_BITS_SHIFT, &rev_key);
@@ -333,7 +344,14 @@ osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
     {
         for (i = 0; i < MIN(lw_left_to_copy, lw_per_round); i++, j++)
         {
+#ifdef USE_OPENSSL
+            if (swap)
+                out[j] = __builtin_bswap32(key_pointer[i]);
+            else
+                out[j] = key_pointer[i];
+#else
             out[j] = __builtin_bswap32(key_pointer[i]);
+#endif
         }
 
         lw_left_to_copy -= lw_per_round;

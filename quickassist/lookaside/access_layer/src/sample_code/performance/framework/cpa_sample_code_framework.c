@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -96,6 +96,7 @@
  *****************************************************************************/
 
 #include "cpa_sample_code_framework.h"
+#include "cpa_sample_code_crypto_utils.h"
 
 /******************************************************************************
  * GLOBAL VARIABLES
@@ -126,23 +127,22 @@ perf_data_t *perfStats_g[MAX_THREAD_VARIATION];
 /*global flag to track if the perfStats_g array is initialized*/
 CpaBoolean perfStatsInit_g = CPA_FALSE;
 
-#ifdef USE_HARD_CODED_PRIMES
 int useStaticPrime = 1;
-#else
-int useStaticPrime = 0;
-#endif
 
+
+volatile CpaBoolean isChangingThreadQaInstanceRequired_g = CPA_FALSE;
+EXPORT_SYMBOL(isChangingThreadQaInstanceRequired_g);
 
 /*this array stores the setup and performance data of all threads created.
  * there is duplication between this and testSetupData_g,
  * however this makes it easier for collation of stats when there are
  * multiple creations of one type of thread.
  * There is no sharing data between threads*/
-single_thread_test_data_t singleThreadData_g[MAX_THREADS];
+single_thread_test_data_t singleThreadData_g[MAX_THREADS] = {{0}};
 
 /*this array stores the setup and performance data of ONE_TYPE_OF_THREAD. This
  * is updated on thread setup and read and clear once all threads are complete*/
-thread_creation_data_t testSetupData_g[MAX_THREAD_VARIATION];
+thread_creation_data_t testSetupData_g[MAX_THREAD_VARIATION] = {{0}};
 
 /*declare space to store setup structures in. This stores all the setup of each
  * thread, there is no sharing between threads, so each section of the array
@@ -728,6 +728,19 @@ CpaStatus waitForThreadCompletion(void)
                     status = CPA_STATUS_FAIL;
                 }
             }
+            if (CPA_TRUE == singleThreadData_g[i].isUsedByMega)
+            {
+                if (CPA_STATUS_FAIL == status)
+                {
+                    PRINT_ERR("Mega Thread using row %d failed\n",
+                              singleThreadData_g[i].megaRowId);
+                }
+                else
+                {
+                    PRINT("Mega Thread using row %d passed\n",
+                          singleThreadData_g[i].megaRowId);
+                }
+            }
         }
 /*print out collated stats for all types of threads*/
 #ifndef NEWDISLAY
@@ -980,6 +993,12 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
             singleThreadData_g[numCreatedThreads_g].threadID =
                 numCreatedThreads_g;
             singleThreadData_g[numCreatedThreads_g].passCriteria = NULL;
+
+            singleThreadData_g[numCreatedThreads_g].megaRowId =
+                testSetupData_g[testTypeCount_g].megaRowId;
+            singleThreadData_g[numCreatedThreads_g].isUsedByMega =
+                testSetupData_g[testTypeCount_g].isUsedByMega;
+
             /*Initialize completion structure for kernel space thread
              * management.*/
             sampleCodeCompletionInit(numCreatedThreads_g);
@@ -1379,6 +1398,219 @@ CpaStatus getCryptoInstanceMapping(void)
 }
 EXPORT_SYMBOL(getCryptoInstanceMapping);
 
+#if CY_API_VERSION_AT_LEAST(3, 0)
+CpaStatus getSymInstanceMapping(Cpa16U *numSymInstances)
+{
+
+    CpaStatus status = CPA_STATUS_FAIL;
+#ifdef DO_CRYPTO /* Called from within this file */
+    Cpa32U i = 0;
+    Cpa32U coreAffinity = 0;
+    CpaInstanceInfo2 info = {0};
+
+    /*get the number of Sym crypto instances*/
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, numSymInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaGetNumInstances failed with status: %d\n", status);
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
+    }
+    if (*numSymInstances > 0)
+    {
+        /*allocate memory to store the instance handles*/
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            *numSymInstances = 1;
+        }
+        symCyInst_g =
+            qaeMemAlloc(sizeof(CpaInstanceHandle) * (*numSymInstances));
+        if (symCyInst_g == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for instances\n");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+        /*get the instances handles and place in allocated memory*/
+        status = cpaGetInstances(
+            CPA_ACC_SVC_TYPE_CRYPTO_SYM, *numSymInstances, symCyInst_g);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaGetInstances failed with status: %d\n", status);
+            freeInstanceMapping();
+            return status;
+        }
+        /*allocate memory for the instance core mapping*/
+        symCyInstMap_g = qaeMemAlloc(sizeof(Cpa32U) * (*numSymInstances));
+        if (symCyInstMap_g == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for instance mapping\n");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+
+        for (i = 0; i < *numSymInstances; i++)
+        {
+            status = cpaCyInstanceGetInfo2(symCyInst_g[i], &info);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("could not get instance info\n");
+                freeInstanceMapping();
+                return status;
+            }
+            if (CPA_STATUS_SUCCESS ==
+                getCoreAffinity(symCyInst_g[i], &coreAffinity, CRYPTO))
+            {
+                if ((packageIdCount_g < info.physInstId.packageId) &&
+                    (info.operState == CPA_OPER_STATE_UP) &&
+                    (CPA_FALSE == devicesCounted_g))
+                {
+                    packageIdCount_g = info.physInstId.packageId;
+                }
+                if (verboseOutput)
+                {
+                    PRINT("Inst %u, Affin: %u, Dev: %u, Accel %u, "
+                          "EE %u, BDF %02X:%02X:%02X\n",
+                          i,
+                          coreAffinity,
+                          info.physInstId.packageId,
+                          info.physInstId.acceleratorId,
+                          info.physInstId.executionEngineId,
+                          (Cpa8U)((info.physInstId.busAddress) >> 8),
+                          (Cpa8U)((info.physInstId.busAddress) & 0xFF) >> 3,
+                          (Cpa8U)((info.physInstId.busAddress) & 7));
+                }
+                if (info.isPolled)
+                    symCyInstMap_g[i] = coreAffinity;
+                else
+                    symCyInstMap_g[i] = coreAffinity + 1;
+            }
+            else
+            {
+                freeInstanceMapping();
+                return CPA_STATUS_FAIL;
+            }
+        }
+        devicesCounted_g = CPA_TRUE;
+    }
+    else
+    {
+        PRINT("There are no Sym crypto instances\n");
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
+    }
+#endif /* DO_CRYPTO*/
+    return status;
+}
+EXPORT_SYMBOL(getSymInstanceMapping);
+
+CpaStatus getAsymInstanceMapping(Cpa16U *numAsymInstances)
+{
+
+    CpaStatus status = CPA_STATUS_FAIL;
+#ifdef DO_CRYPTO /* Called from within this file */
+    Cpa32U i = 0;
+    Cpa32U coreAffinity = 0;
+    CpaInstanceInfo2 info = {0};
+
+    /*get the number of Asym crypto instances*/
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, numAsymInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaGetNumInstances failed with status: %d\n", status);
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
+    }
+    if (*numAsymInstances > 0)
+    {
+        /*allocate memory to store the instance handles*/
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            *numAsymInstances = 1;
+        }
+        asymCyInst_g =
+            qaeMemAlloc(sizeof(CpaInstanceHandle) * (*numAsymInstances));
+        if (asymCyInst_g == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for instances\n");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+        /*get the instances handles and place in allocated memory*/
+        status = cpaGetInstances(
+            CPA_ACC_SVC_TYPE_CRYPTO_ASYM, *numAsymInstances, asymCyInst_g);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaGetInstances failed with status: %d\n", status);
+            freeInstanceMapping();
+            return status;
+        }
+        /*allocate memory for the instance core mapping*/
+        asymCyInstMap_g = qaeMemAlloc(sizeof(Cpa32U) * (*numAsymInstances));
+        if (asymCyInstMap_g == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for instance mapping\n");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+
+        for (i = 0; i < *numAsymInstances; i++)
+        {
+            status = cpaCyInstanceGetInfo2(asymCyInst_g[i], &info);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("could not get instance info\n");
+                freeInstanceMapping();
+                return status;
+            }
+            if (CPA_STATUS_SUCCESS ==
+                getCoreAffinity(asymCyInst_g[i], &coreAffinity, CRYPTO))
+            {
+                if ((packageIdCount_g < info.physInstId.packageId) &&
+                    (info.operState == CPA_OPER_STATE_UP) &&
+                    (CPA_FALSE == devicesCounted_g))
+                {
+                    packageIdCount_g = info.physInstId.packageId;
+                }
+                if (verboseOutput)
+                {
+                    PRINT("Inst %u, Affin: %u, Dev: %u, Accel %u, "
+                          "EE %u, BDF %02X:%02X:%02X\n",
+                          i,
+                          coreAffinity,
+                          info.physInstId.packageId,
+                          info.physInstId.acceleratorId,
+                          info.physInstId.executionEngineId,
+                          (Cpa8U)((info.physInstId.busAddress) >> 8),
+                          (Cpa8U)((info.physInstId.busAddress) & 0xFF) >> 3,
+                          (Cpa8U)((info.physInstId.busAddress) & 7));
+                }
+                if (info.isPolled)
+                    asymCyInstMap_g[i] = coreAffinity;
+                else
+                    asymCyInstMap_g[i] = coreAffinity + 1;
+            }
+            else
+            {
+                freeInstanceMapping();
+                return CPA_STATUS_FAIL;
+            }
+        }
+        devicesCounted_g = CPA_TRUE;
+    }
+    else
+    {
+        PRINT("There are no Asym crypto instances\n");
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
+    }
+#endif /* DO_CRYPTO*/
+    return status;
+}
+EXPORT_SYMBOL(getAsymInstanceMapping);
+#endif
 
 #ifdef INCLUDE_COMPRESSION
 /*get the instance to core affinity mapping of the compression instances and
@@ -1485,6 +1717,21 @@ CpaStatus getCompressionInstanceMapping(void)
 EXPORT_SYMBOL(getCompressionInstanceMapping);
 #endif
 
+CpaStatus createStartandWaitForCompletionCrypto(Cpa32U instType)
+{
+    CpaStatus status = CPA_STATUS_FAIL;
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    status = createStartandWaitForCompletion(instType);
+#endif
+
+#if !CY_API_VERSION_AT_LEAST(3, 0)
+    status = createStartandWaitForCompletion(CRYPTO);
+#endif
+
+    return status;
+}
+
 /*this function can only be called after the last setup function has been
  * called, it creates the threads for the last setup function called, then
  * starts all threads and waits for all threads to complete. */
@@ -1492,10 +1739,78 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
 {
     CpaStatus status = CPA_STATUS_FAIL;
     Cpa32U *instMap = NULL;
+    Cpa16U numInst = 0;
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    CpaBoolean isSymAsymConf = CPA_FALSE;
+    CpaInstanceHandle *sym_asymInst = NULL;
+    Cpa16U nSymInstances = 0;
+    Cpa16U nAsymInstances = 0;
+
+    if (instType != COMPRESSION)
+    {
+        cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &nSymInstances);
+        cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &nAsymInstances);
+
+        if ((nSymInstances > 0) && (nAsymInstances > 0))
+        {
+            isSymAsymConf = CPA_TRUE;
+        }
+    }
+#endif
 
     switch (instType)
     {
 #ifdef DO_CRYPTO
+#if CY_API_VERSION_AT_LEAST(3, 0)
+        case SYM:
+            if (CPA_STATUS_SUCCESS != getCryptoInstanceMapping())
+            {
+                PRINT_ERR("Could not get Crypto Instance mapping\n");
+                return CPA_STATUS_FAIL;
+            }
+
+            instMap = cyInstMap_g;
+            numInst = numInst_g;
+
+            if (isSymAsymConf == CPA_TRUE)
+            {
+                if (CPA_STATUS_SUCCESS != getSymInstanceMapping(&nSymInstances))
+                {
+                    PRINT_ERR("Could not get Crypto Instance mapping\n");
+                    return CPA_STATUS_FAIL;
+                }
+
+                numInst = nSymInstances;
+                instMap = symCyInstMap_g;
+                sym_asymInst = symCyInst_g;
+            }
+            break;
+
+        case ASYM:
+            if (CPA_STATUS_SUCCESS != getCryptoInstanceMapping())
+            {
+                PRINT_ERR("Could not get Crypto Instance mapping\n");
+                return CPA_STATUS_FAIL;
+            }
+
+            instMap = cyInstMap_g;
+            numInst = numInst_g;
+
+            if (isSymAsymConf == CPA_TRUE)
+            {
+                if (CPA_STATUS_SUCCESS !=
+                    getAsymInstanceMapping(&nSymInstances))
+                {
+                    PRINT_ERR("Could not get Crypto Instance mapping\n");
+                    return CPA_STATUS_FAIL;
+                }
+
+                numInst = nAsymInstances;
+                instMap = asymCyInstMap_g;
+                sym_asymInst = asymCyInst_g;
+            }
+            break;
+#endif
         case CRYPTO:
         {
             if (CPA_STATUS_SUCCESS != getCryptoInstanceMapping())
@@ -1504,6 +1819,7 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
                 return CPA_STATUS_FAIL;
             }
             instMap = cyInstMap_g;
+            numInst = numInst_g;
         }
         break;
 #endif /* DO_CRYPTO */
@@ -1517,6 +1833,7 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
                 return CPA_STATUS_FAIL;
             }
             instMap = dcInstMap_g;
+            numInst = numInst_g;
         }
         break;
 #endif
@@ -1528,7 +1845,13 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
         break;
     } /* End Switch */
 
-    status = createPerfomanceThreads(numInst_g,
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    if ((isSymAsymConf == CPA_TRUE) && (instType == SYM || instType == ASYM))
+    {
+        isChangingThreadQaInstanceRequired_g = CPA_TRUE;
+    }
+#endif
+    status = createPerfomanceThreads(numInst,
                                      instMap,
                                      USE_ALL_QA_LOGICAL_INSTANCES,
                                      DEFAULT_LOGICAL_INST_INSTANCE_OFFSET);
@@ -1537,7 +1860,15 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
         PRINT_ERR("Could not create threads, status: %d\n", status);
         return status;
     }
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    if ((isSymAsymConf == CPA_TRUE) && (instType == SYM || instType == ASYM))
+    {
 
+        qatModifyCyThreadLogicalQaInstance(
+            0, cyInst_g, sym_asymInst, numInst_g);
+        isChangingThreadQaInstanceRequired_g = CPA_FALSE;
+    }
+#endif
     status = startThreads();
     if (CPA_STATUS_SUCCESS != status)
     {

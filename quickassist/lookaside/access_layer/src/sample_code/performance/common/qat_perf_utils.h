@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -66,6 +66,7 @@
 #include "cpa_sample_code_utils_common.h"
 #include "icp_sal_user.h"
 #include "icp_sal_versions.h"
+#include "cpa_cy_im.h"
 
 /*set status to fail if the ptr is null*/
 #define QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(ptr, status)             \
@@ -148,7 +149,9 @@
         yield();                                                               \
                                                                                \
     } while (0)
+#ifndef AVOID_SOFTLOCKUP_POLL
 #define AVOID_SOFTLOCKUP_POLL AVOID_SOFTLOCKUP
+#endif
 #else /* defined(KERNEL_SPACE) */
 /* FreeBSD scheduler is not handling "busy loops" as effective as Linux
  * especially in multi-thread environment where few polling threads
@@ -169,6 +172,12 @@
         sched_yield();                                                         \
     } while (0)
 #endif
+
+typedef enum sync_mode_s
+{
+    SYNC = 0,
+    ASYNC
+} sync_mode_t;
 
 /**
  *****************************************************************************

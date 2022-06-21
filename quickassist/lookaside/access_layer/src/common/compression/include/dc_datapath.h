@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -74,9 +74,6 @@
 #ifndef DC_DATAPATH_H_
 #define DC_DATAPATH_H_
 
-/* Include batch and pack definitions */
-#include "cpa_dc_bp.h"
-
 #define LAC_QAT_DC_REQ_SZ_LW 32
 #define LAC_QAT_DC_RESP_SZ_LW 8
 
@@ -121,7 +118,7 @@
 #define DC_STATE_INPUT_CRC32_OFFSET (52)
 
 /* Offset to first byte of ADLER32 in state register */
-#define DC_STATE_ADLER32_OFFSET (48)
+#define DC_STATE_ADLER32_OFFSET (44)
 
 /* 8 bit mask value */
 #define DC_8_BIT_MASK (0xff)
@@ -158,9 +155,13 @@
  * those are used to inform hardware of specifying CRC parameters to be used
  * when calculating CRCs */
 #define DC_CRC_POLY_DEFAULT 0x04c11db7
+#define DC_CRC64_POLY_DEFAULT 0x42f0e1eba9ea3693ULL
 #define DC_XOR_FLAGS_DEFAULT 0x000e0000
 #define DC_XOR_OUT_DEFAULT 0xffffffff
-#define DC_INVALID_CRC 0x00000000
+#define DC_XOR64_OUT_DEFAULT 0x0ULL
+#define DC_XOR64_MASK_DEFAULT 0x0ULL
+#define DC_DEFAULT_CRC 0x0
+#define DC_DEFAULT_ADLER32 0x1
 
 /**
 *******************************************************************************
@@ -230,6 +231,12 @@ typedef struct dc_compression_cookie_s
     /**< virtual userspace ptr to source SGL */
     CpaBufferList *pUserDestBuff;
     /**< virtual userspace ptr to destination SGL */
+    CpaDcCallbackFn pCbFunc;
+    /**< Callback function defined for the traditional sessionless API */
+    CpaDcChecksum checksumType;
+    /**< Type of checksum */
+    dc_integrity_crc_fw_t dataIntegrityCrcs;
+    /**< Data integrity table */
 } dc_compression_cookie_t;
 
 /**

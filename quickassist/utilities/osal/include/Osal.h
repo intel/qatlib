@@ -9,7 +9,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -31,7 +31,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -101,7 +101,7 @@ extern "C" {
  * IRQ-safe logging function, similar to printf. Accepts up to 6 arguments
  * to print (excluding the level, device and the format). This function will
  * actually display the message only if the level is lower than the current
- * verbosity level or if the OSAL_LOG_USER level is used. An output device
+ * verbosity level or if the OSAL_LOG_LVL_USER level is used. An output device
  * must be specified (see OsalTypes.h).
  *
  * @li Reentrant: yes
@@ -221,6 +221,44 @@ OSAL_PUBLIC INT64 osalAtomicGet(OsalAtomic *pAtomicVar);
  * @return none
  */
 OSAL_PUBLIC void osalAtomicSet(INT64 inValue, OsalAtomic *pAtomicVar);
+
+/**
+ * @ingroup Osal
+ *
+ * @brief Atomically set the value of atomic variable
+ *
+ * @param  inValue (in)   -  atomic variable to be set equal to inValue
+ *
+ * @param  pAtomicVar (in & out)   - atomic variable
+ *
+ * Atomically sets the value of pAtomicVar to the inValue given
+ * This function calls an atomic builtin which is not a full barrier,
+ * but rather an acquire barrier to lock the variable.
+ *
+ * @li Reentrant: yes
+ * @li IRQ safe:  yes
+ *
+ * @return previous value of pAtomicVar value
+ */
+OSAL_PUBLIC INT64 osalAtomicTestAndSet(INT64 inValue, OsalAtomic *pAtomicVar);
+
+/**
+ * @ingroup Osal
+ *
+ * @brief Reset the value of atomic variable
+ *
+ * @param  pAtomicVar (in)   - atomic variable
+ *
+ * Writes the constant 0 to *pAtomicVar
+ * This function calls an atomic builtin which releases the lock
+ * acquired by osalAtomicTestAndSet function.
+ *
+ * @li Reentrant: yes
+ * @li IRQ safe:  yes
+ *
+ * @return none
+ */
+OSAL_PUBLIC void osalAtomicRelease(OsalAtomic *pAtomicVar);
 
 /**
  * @ingroup Osal
@@ -806,6 +844,22 @@ OSAL_PUBLIC UINT64 osalTimestampGet(void);
 /**
  * @ingroup Osal
  *
+ * @brief Retrieves the current timestamp in nanoseconds units
+ *
+ * @li Reentrant: yes
+ * @li IRQ safe:  yes
+ *
+ * @return - The current timestamp in nanoseconds units
+ *
+ * @note The implementation of this function is platform-specific. Not
+ * all the platforms provide a nanosecond resolution timestamp but the
+ * lower resolutions ones will be converted to the nanoseconds units.
+ */
+OSAL_PUBLIC UINT64 osalTimestampGetNs(void);
+
+/**
+ * @ingroup Osal
+ *
  * @brief System clock rate, in ticks
  *
  * Retrieves the resolution (number of ticks per second) of the system clock
@@ -1213,7 +1267,7 @@ OSAL_PUBLIC OSAL_STATUS osalMutexUnlock(OsalMutex *pMutex);
  * @li Reentrant: yes
  * @li IRQ safe:  no
  *
- * @return - OSAL_SUCCESS/OSAL_FAIL
+ * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED depending on implementation
  */
 OSAL_PUBLIC OSAL_STATUS osalMutexDestroy(OsalMutex *pMutex);
 
@@ -1417,51 +1471,6 @@ osalHashMD5(UINT8 *in, UINT8 *out);
  */
 OSAL_STATUS
 osalHashMD5Full(UINT8 *in, UINT8 *out, UINT32 len);
-
-/**
- * @ingroup Osal
- *
- * @brief  Calculate SM3 transform operation
- *
- * @param  in - pointer to data to be processed.
- *         The buffer needs to be at least sm3 block size long as defined in
- *         rfc1321 (64 bytes)
- *         out - output pointer for state data after single sm3 transform
- *         operation.
- *         The buffer needs to be at least sm3 state size long as defined in
- *         rfc1321 (32 bytes)
- *
- * @li Reentrant: yes
- * @li IRQ safe:  yes
- *
- * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED
- *
- */
-OSAL_STATUS
-osalHashSM3(UINT8 *in, UINT8 *out);
-
-/**
- * @ingroup Osal
- *
- * @brief  Calculate SM3 transform operation
- *
- * @param  in - pointer to data to be processed.
- *         The buffer needs to be at least sm3 block size long as defined in
- *         rfc1321 (64 bytes)
- *         out - output pointer for state data after single sm3 transform
- *         operation.
- *         The buffer needs to be at least sm3 state size long as defined in
- *         rfc1321 (32 bytes)
- *         len - Length on the input to be processed.
- *
- * @li Reentrant: yes
- * @li IRQ safe:  yes
- *
- * @return - OSAL_SUCCESS/OSAL_FAIL/OSAL_UNSUPPORTED
- *
- */
-OSAL_STATUS
-osalHashSM3Full(UINT8 *in, UINT8 *out, UINT32 len);
 
 /**
  * @ingroup Osal

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -115,7 +115,7 @@
 /* Context size */
 #define DC_DEFLATE_MAX_CONTEXT_SIZE (49152)
 #define DC_INFLATE_CONTEXT_SIZE (36864)
-
+#define DC_LZ4_DECOMP_CONTEXT_SIZE (32768)
 #define DC_DEFLATE_EH_MAX_CONTEXT_SIZE (65536)
 #define DC_DEFLATE_EH_MIN_CONTEXT_SIZE (49152)
 #define DC_INFLATE_EH_CONTEXT_SIZE (34032)
@@ -144,6 +144,10 @@
                                DC_QAT_TRANS_CONTENT_DESC_SIZE,                 \
                            (1 << LAC_64BYTE_ALIGNMENT_SHIFT))
 
+/* Xxhash32 accumulator initialisers */
+#define XXHASH_PRIME32_A 0x9E3779B1U
+#define XXHASH_PRIME32_B 0x85EBCA77U
+
 /* Direction of the request */
 typedef enum dc_request_dir_e
 {
@@ -170,38 +174,87 @@ typedef struct dc_integrity_crc_fw_s
 {
     Cpa32U crc32;
     /* CRC32 checksum returned for compressed data */
-    Cpa32U adler32;
-    /* ADLER32 checksum returned for compressed data */
-    Cpa32U oCrc32Cpr;
-    /* CRC32 checksum returned for data output by compression accelerator */
-    Cpa32U iCrc32Cpr;
-    /* CRC32 checksum returned for input data to compression accelerator */
-    Cpa32U oCrc32Xlt;
-    /* CRC32 checksum returned for data output by translator accelerator */
-    Cpa32U iCrc32Xlt;
-    /* CRC32 checksum returned for input data to translator accelerator */
-    Cpa32U xorFlags;
-    /* Initialise transactor pCRC controls in state register */
-    Cpa32U crcPoly;
-    /* CRC32 polynomial used by hardware */
-    Cpa32U xorOut;
-    /* CRC32 from XOR stage (Input CRC is xor'ed with value in the state) */
-    Cpa32U deflateBlockType;
-    /* Bit 1 - Bit 0
-     *   0        0 -> RAW DATA + Deflate header.
-     *                 This will not produced any CRC check because
-     *                 the output will not come from the slices.
-     *                 It will be a simple copy from input to output
-     *                 buffers list.
-     *   0        1 -> Static deflate block type
-     *   1        0 -> Dynamic deflate block type
-     *   1        1 -> Invalid type */
+    union {
+        Cpa32U adler32;
+        /* ADLER32 checksum returned for compressed data */
+        Cpa32U xxhash32;
+        /* XXHASH32 checksum returned for compressed data */
+    };
+
+    union {
+        struct
+        {
+            Cpa32U oCrc32Cpr;
+            /* CRC32 checksum returned for data output by compression
+             * accelerator */
+            Cpa32U iCrc32Cpr;
+            /* CRC32 checksum returned for input data to compression accelerator
+             */
+            Cpa32U oCrc32Xlt;
+            /* CRC32 checksum returned for data output by translator accelerator
+             */
+            Cpa32U iCrc32Xlt;
+            /* CRC32 checksum returned for input data to translator accelerator
+             */
+            Cpa32U xorFlags;
+            /* Initialise transactor pCRC controls in state register */
+            Cpa32U crcPoly;
+            /* CRC32 polynomial used by hardware */
+            Cpa32U xorOut;
+            /* CRC32 from XOR stage (Input CRC is xor'ed with value in the
+             * state) */
+            Cpa32U deflateBlockType;
+            /* Bit 1 - Bit 0
+             *   0        0 -> RAW DATA + Deflate header.
+             *                 This will not produced any CRC check because
+             *                 the output will not come from the slices.
+             *                 It will be a simple copy from input to output
+             *                 buffers list.
+             *   0        1 -> Static deflate block type
+             *   1        0 -> Dynamic deflate block type
+             *   1        1 -> Invalid type */
+        };
+
+        struct
+        {
+            Cpa64U iCrc64Cpr;
+            /* CRC64 checksum returned for input data to compression accelerator
+             */
+            Cpa64U oCrc64Cpr;
+            /* CRC64 checksum returned for data output by compression
+             * accelerator */
+            Cpa64U iCrc64Xlt;
+            /* CRC64 checksum returned for input data to translator accelerator
+             */
+            Cpa64U oCrc64Xlt;
+            /* CRC64 checksum returned for data output by translator accelerator
+             */
+            Cpa64U crc64Poly;
+            /* CRC64 polynomial used by hardware */
+            Cpa64U xor64Out;
+            /* CRC64 from XOR stage (Input CRC is xor'ed with value in the
+             * state) */
+            Cpa64U xor64Mask;
+            /* XOR mask used by XOR stage */
+        };
+    };
 } dc_integrity_crc_fw_t;
 
 typedef struct dc_sw_checksums_s
 {
-    Cpa32U swCrcI;
-    Cpa32U swCrcO;
+    union {
+        struct
+        {
+            Cpa32U swCrc32I;
+            Cpa32U swCrc32O;
+        };
+
+        struct
+        {
+            Cpa64U swCrc64I;
+            Cpa64U swCrc64O;
+        };
+    };
 } dc_sw_checksums_t;
 
 /* Session descriptor structure for compression */
@@ -239,6 +292,10 @@ typedef struct dc_session_desc_s
     /**< Window size */
     CpaDcCompLvl compLevel;
     /**< Compression level */
+    CpaDcCompLZ4BlockMaxSize lz4BlockMaxSize;
+    /**<Window size from CpaDcCompLZ4BlockMaxSize */
+    CpaDcCompMinMatch minMatch;
+    /**< Min Match size from CpaDcCompMinMatch */
     CpaDcCallbackFn pCompressionCb;
     /**< Callback function defined for the traditional compression session */
     OsalAtomic pendingStatelessCbCount;
@@ -262,9 +319,6 @@ typedef struct dc_session_desc_s
     Cpa64U cumulativeConsumedBytes;
     /**< Cumulative amount of consumed bytes. Used to build the footer in the
      * stateful case */
-    Cpa32U previousChecksum;
-    /**< Save the previous value of the checksum. Used to process zero byte
-     * stateful compression or decompression requests */
     CpaBoolean isSopForCompressionProcessed;
     /**< Indicates whether a Compression Request is received in this session */
     CpaBoolean isSopForDecompressionProcessed;
@@ -273,17 +327,16 @@ typedef struct dc_session_desc_s
     lac_lock_t updateLock;
     /**< Lock used to provide exclusive access for updating the session
      * parameters */
-    /**< Data integrity table */
-    dc_integrity_crc_fw_t dataIntegrityCrcs;
-    /**< Physical address of Data integrity buffer */
-    CpaPhysicalAddr physDataIntegrityCrcs;
-    /* Seed checksums structure used to calculate software calculated checksums.
-     */
-    dc_sw_checksums_t seedSwCrc;
-    /* Driver calculated integrity software CRC */
-    dc_sw_checksums_t integritySwCrc;
     /* Flag to disable or enable CnV Error Injection mechanism */
     CpaBoolean cnvErrorInjection;
+    /**< Flag to disable or enable CnV Error Injection mechanism */
+    CpaBoolean accumulateXXHash;
+    /**< xxHash calculation accumulated across requests */
+    CpaBoolean lz4BlockChecksum;
+    /**< Support block checksum during LZ4 decompression */
+    CpaBoolean lz4BlockIndependence;
+    /**< If set LZ4 blocks will be independent, if reset each block
+     * depends on the previous ones and must be decompressed sequentially */
 } dc_session_desc_t;
 
 /**
@@ -372,5 +425,24 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
 CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
                         CpaDcSessionHandle pSessionHandle);
 #endif /* ICP_DC_ERROR_SIMULATION */
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Set the xxhash state to its init state
+ *
+ * @description
+ *      This function initialises the xxhash state buffer.
+ *      When a new request is created the state will be initialised,
+ *      when a request is sent using the CPA_DC_FLUSH_FINAL flag
+ *      the state will be automatically reset using this function.
+ *
+ * @param[in]       pSessionDesc     Pointer to the session descriptor
+ * @param[in]       seed             Seed value for input to xxhash state
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ *****************************************************************************/
+CpaStatus dcXxhash32SetState(dc_session_desc_t *pSessionDesc, Cpa32U seed);
 
 #endif /* DC_SESSION_H */

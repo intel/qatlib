@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,5 @@ CpaStatus icp_adf_cfgGetParamValue(icp_accel_dev_t *accel_dev,
                                    char *value);
 Cpa16U icp_adf_cfgGetBusAddress(Cpa16U packageId);
 Cpa32S icp_adf_cfgGetDomainAddress(Cpa16U packageId);
-Cpa32U icp_adf_cfgGetKptAcHandle(Cpa16U packageId);
 
 #endif /* end of include guard: UIO_USER_CFG_H */

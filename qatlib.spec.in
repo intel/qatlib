@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 
-%global libqat_soversion  2
+%global libqat_soversion  3
 %global libusdm_soversion 0
 Name:             @PACKAGE@
 Version:          @VERSION@
@@ -11,12 +11,11 @@ Summary:          Intel QuickAssist user space library
 License:          BSD and (BSD or GPLv2)
 URL:              https://github.com/intel/%{name}
 Source0:          https://github.com/intel/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
-BuildRequires:    systemd gcc make autoconf automake libtool systemd-devel openssl-devel zlib-devel
+BuildRequires:    systemd gcc make autoconf automake libtool systemd-devel openssl-devel zlib-devel yasm
 Requires(pre):    shadow-utils
+Recommends:       qatlib-service
 # https://bugzilla.redhat.com/show_bug.cgi?id=1897661
 ExcludeArch:      %{arm} aarch64 %{power64} s390x i686
-
-%{?systemd_requires}
 
 %description
 Intel QuickAssist Technology (Intel QAT) provides hardware acceleration
@@ -46,8 +45,18 @@ Requires:      %{name}%{?_isa} = %{version}-%{release}
 %description   tests
 This package contains sample applications that use the Intel QuickAssists APIs.
 
+%package       service
+Summary:       A daemon for qatlib resources management
+Requires:      %{name}%{?_isa} = %{version}-%{release}
+Provides:      qatlib-service
+%{?systemd_requires}
+
+%description   service
+This package contains a daemon that manages QAT resources for the Intel
+QuickAssist Technology user space library (qatlib).
+
 %prep
-%autosetup
+%autosetup -p1
 
 %build
 autoreconf -vif
@@ -56,24 +65,25 @@ sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 sed -i -e 's! -shared ! -Wl,--as-needed\0!g' libtool
 %make_build
-
 %install
 %make_install
 make DESTDIR=%{buildroot} samples-install
 rm %{buildroot}/%{_libdir}/libqat.la
 rm %{buildroot}/%{_libdir}/libusdm.la
+rm %{buildroot}/%{_libdir}/libqat.a
+rm %{buildroot}/%{_libdir}/libusdm.a
 
 %pre
 getent group qat >/dev/null || groupadd -r qat
 exit 0
 
-%post
+%post          service
 %systemd_post qat.service
 
-%preun
+%preun         service
 %systemd_preun qat.service
 
-%postun
+%postun        service
 %systemd_postun_with_restart qat.service
 
 %files
@@ -81,11 +91,6 @@ exit 0
 %license LICENSE*
 %{_libdir}/libqat.so.%{libqat_soversion}*
 %{_libdir}/libusdm.so.%{libusdm_soversion}*
-%{_sbindir}/qatmgr
-%{_sbindir}/qat_init.sh
-%{_unitdir}/qat.service
-%{_mandir}/man8/qat_init.sh.8*
-%{_mandir}/man8/qatmgr.8*
 
 %files         devel
 %{_libdir}/libqat.so
@@ -93,32 +98,53 @@ exit 0
 %{_includedir}/qat
 
 %files         tests
-%{_bindir}/cpa_sample_code
-%{_bindir}/dc_dp_sample
-%{_bindir}/dc_stateless_sample
-%{_bindir}/dc_stateless_multi_op_sample
-%{_bindir}/algchaining_sample
-%{_bindir}/ccm_sample
-%{_bindir}/cipher_sample
-%{_bindir}/gcm_sample
-%{_bindir}/hash_file_sample
-%{_bindir}/hash_sample
-%{_bindir}/ipsec_sample
-%{_bindir}/ssl_sample
-%{_bindir}/sym_dp_sample
-%{_bindir}/dh_sample
-%{_bindir}/eddsa_sample
-%{_bindir}/prime_sample
-%{_bindir}/hkdf_sample
-%{_bindir}/ec_montedwds_sample
+%doc quickassist/lookaside/access_layer/src/sample_code/README.txt
+%attr(0754,-,qat) %{_bindir}/cpa_sample_code
+%attr(0754,-,qat) %{_bindir}/dc_dp_sample
+%attr(0754,-,qat) %{_bindir}/dc_stateless_sample
+%attr(0754,-,qat) %{_bindir}/dc_stateless_multi_op_sample
+%attr(0754,-,qat) %{_bindir}/algchaining_sample
+%attr(0754,-,qat) %{_bindir}/ccm_sample
+%attr(0754,-,qat) %{_bindir}/cipher_sample
+%attr(0754,-,qat) %{_bindir}/gcm_sample
+%attr(0754,-,qat) %{_bindir}/hash_file_sample
+%attr(0754,-,qat) %{_bindir}/hash_sample
+%attr(0754,-,qat) %{_bindir}/ipsec_sample
+%attr(0754,-,qat) %{_bindir}/ssl_sample
+%attr(0754,-,qat) %{_bindir}/sym_dp_sample
+%attr(0754,-,qat) %{_bindir}/dh_sample
+%attr(0754,-,qat) %{_bindir}/eddsa_sample
+%attr(0754,-,qat) %{_bindir}/prime_sample
+%attr(0754,-,qat) %{_bindir}/hkdf_sample
+%attr(0754,-,qat) %{_bindir}/ec_montedwds_sample
 %{_datadir}/qat/calgary
 %{_datadir}/qat/calgary32
 %{_datadir}/qat/canterbury
 
+%files         service
+%{_sbindir}/qatmgr
+%{_sbindir}/qat_init.sh
+%{_unitdir}/qat.service
+%{_mandir}/man8/qatmgr.8*
+%{_mandir}/man8/qat_init.sh.8*
+
 %changelog
+* Wed Jun 14 2021 Marcin Malinowski <marcinx.malinowski@intel.com> - 22.07-0-1
+- Update to qatlib 22.07
+
+* Fri Jun 10 2022 Szczepan Mejer <szczepanx.mejer@intel.com> - 21.11-0-4
+- Extract qatmgr to separate rpm package
+
+* Tue Mar 22 2022 Vladis Dronov <vdronov@redhat.com> - 21.11.0-3
+- Fix small issues in qatlib-tests package
+- Update documentation from the upstream
+
+* Fri Jan 21 2022 Fedora Release Engineering <releng@fedoraproject.org> - 21.11.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
+
 * Fri Oct 15 2021 Marcin Malinowski <marcinx.malinowski@intel.com> - 21.11-0-1
 - Update to qatlib 21.11
-- Add test package
+- Add qatlib-tests package
 
 * Tue Sep 14 2021 Sahana Prasad <sahana@redhat.com> - 21.08.0-2
 - Rebuilt with OpenSSL 3.0.0

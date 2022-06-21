@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -192,7 +192,8 @@ CpaStatus setupSymmetricDpTest(
     Cpa32U numBuffers,
     Cpa32U numBuffLists,
     Cpa32U numLoops,
-    Cpa32U digestAppend);
+    Cpa32U digestAppend,
+    CpaBoolean isTLS);
 
 /**
 *****************************************************************************
@@ -394,6 +395,32 @@ CpaStatus setupIpSecDpTest(CpaCySymCipherAlgorithm cipherAlg,
                            Cpa32U numSessions,
                            Cpa32U numBuffLists,
                            Cpa32U numLoops);
+
+/******************************************************************************
+ * @ingroup sampleSymmetricPerf
+ *
+ * @description
+ * setup a TLS scenario where packet size passed in represents the size of
+ * the payload data. Seq num, header, MAC and padding will get added to packet
+ * so it will be bigger.
+ *
+ * This function needs to be called from main to setup an alg chain test.
+ * then the framework createThreads function is used to propagate this setup
+ * across IA cores using different crypto logical instances
+ ******************************************************************************/
+CpaStatus setupTLSDpTest(CpaCySymCipherAlgorithm cipherAlg,
+                         Cpa32U cipherKeyLengthInBytes,
+                         Cpa32U cipherOffset,
+                         CpaCySymHashAlgorithm hashAlg,
+                         CpaCySymHashMode hashMode,
+                         Cpa32U authKeyLengthInBytes,
+                         CpaCySymAlgChainOrder chainOrder,
+                         Cpa32U packetSize,
+                         Cpa32U numDpBatchOp,
+                         Cpa32U numRequests,
+                         Cpa32U numSessions,
+                         Cpa32U numBuffLists,
+                         Cpa32U numLoops);
 
 /**
 *****************************************************************************

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -166,6 +166,8 @@ struct completion_struct
 #define COMPLETION_DESTROY(s) sem_destroy(&((s)->semaphore))
 
 #else
+
+/* Kernel space utils */
 /* Kernel space utils */
 #include <linux/init.h>
 #include <linux/module.h>
@@ -240,7 +242,6 @@ typedef struct task_struct *sampleThread;
 #define COMPLETE(c) complete(c)
 
 #define COMPLETION_DESTROY(s)
-
 #endif
 
 #ifndef BYTE_ALIGNMENT_8
@@ -382,12 +383,13 @@ static __inline CpaStatus Mem_Alloc_Contig(void **ppMemAddr,
         return CPA_STATUS_RESOURCE;
     }
 
-    *ppMemAddr = pAlloc + sizeof(void *);
+    *ppMemAddr = (Cpa8U *)pAlloc + sizeof(void *);
 
     align = ((SAMPLE_ADDR_LEN)(*ppMemAddr)) % alignment;
 
-    *ppMemAddr += (alignment - align);
-    *(SAMPLE_ADDR_LEN *)(*ppMemAddr - sizeof(void *)) = (SAMPLE_ADDR_LEN)pAlloc;
+    *ppMemAddr = (Cpa8U *)*ppMemAddr + (alignment - align);
+    *(SAMPLE_ADDR_LEN *)((Cpa8U *)*ppMemAddr - sizeof(void *)) =
+        (SAMPLE_ADDR_LEN)pAlloc;
 
     return CPA_STATUS_SUCCESS;
 #endif
@@ -476,7 +478,8 @@ static __inline void Mem_Free_Contig(void **ppMemAddr)
 
     if (NULL != *ppMemAddr)
     {
-        pAlloc = (void *)(*((SAMPLE_ADDR_LEN *)(*ppMemAddr - sizeof(void *))));
+        pAlloc = (void *)(*(
+            (SAMPLE_ADDR_LEN *)((Cpa8U *)*ppMemAddr - sizeof(void *))));
         kfree(pAlloc);
         *ppMemAddr = NULL;
     }

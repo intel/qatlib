@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -247,7 +247,7 @@ typedef enum _CpaCySymCipherAlgorithm
  *      Defines the number of bits in the bitmap to represent supported
  *      ciphers in the type @ref CpaCySymCapabilitiesInfo.  Should be set to
  *      at least one greater than the largest value in the enumerated type
- *      @ref CpaCySymHashAlgorithm, so that the value of the enum constant
+ *      @ref CpaCySymCipherAlgorithm, so that the value of the enum constant
  *      can also be used as the bit position in the bitmap.
  *
  *      A larger value was chosen to allow for extensibility without the need
@@ -1479,7 +1479,7 @@ cpaCySymUpdateSession(CpaCySymSessionCtx sessionCtx,
 *****************************************************************************/
 CpaStatus
 cpaCySymSessionInUse(CpaCySymSessionCtx sessionCtx,
-	      CpaBoolean* pSessionInUse);
+          CpaBoolean* pSessionInUse);
 
 /**
  *****************************************************************************
@@ -1544,6 +1544,9 @@ cpaCySymSessionInUse(CpaCySymSessionCtx sessionCtx,
  *
  *      - The cipher algorithm is not CPA_CY_SYM_CIPHER_CHACHA and the hash
  *        algorithm is not CPA_CY_SYM_HASH_POLY.
+ *
+ *      - The cipher algorithm is not CPA_CY_SYM_CIPHER_AES_GCM and the hash
+ *        algorithm is not CPA_CY_SYM_HASH_AES_GCM.
  *
  *      - The instance/implementation supports partial packets as one of
  *        its capabilities (see @ref CpaCySymCapabilitiesInfo).

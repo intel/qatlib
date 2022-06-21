@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -119,9 +119,13 @@ extern CpaDcAutoSelectBest gAutoSelectBestMode;
 extern CpaBoolean testOverFlow_g;
 extern volatile CpaBoolean dc_service_started_g;
 extern CpaBoolean gRetainPartials;
+extern CpaBoolean disableAdditionalCmpbufferSize_g;
 extern Cpa32U getThroughput(Cpa64U numPackets,
                             Cpa32U packetSize,
                             perf_cycles_t cycles);
+#if DC_API_VERSION_AT_LEAST(3, 1)
+extern volatile CpaBoolean LZ4BlockIndependence_g;
+#endif
 
 void dcPerformCallback(void *pCallbackTag, CpaStatus status);
 
@@ -487,13 +491,12 @@ void dcSetBytesProducedAndConsumed(CpaDcRqResults ***cmpResult,
  *  @threadSafe
  *      No
  *
- *  @param[in]  bytesProduced  Total number of bytes produced after compression
  *  @param[in]  bytesConsumed  Total number of bytes consumed for compression
+ *  @param[in]  bytesProduced  Total number of bytes produced after compression
  *
  ******************************************************************************/
-CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesProduced,
-                                              Cpa32U bytesConsumed,
-                                              Cpa32U noOfLoops);
+CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
+                                              Cpa32U bytesProduced);
 
 /**
  *****************************************************************************

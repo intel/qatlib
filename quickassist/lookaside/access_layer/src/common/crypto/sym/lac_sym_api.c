@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -542,7 +542,8 @@ LacSymPerform_BufferParamCheck(const CpaBufferList *const pSrcBuffer,
             }
         }
         /* Check that src Buffer and dst Buffer Lengths are equal */
-        if (srcBufferLen != dstBufferLen)
+        /* CCM output needs to be longer than input buffer for appending tag*/
+        if (srcBufferLen != dstBufferLen && pSessionDesc->cipherAlgorithm != CPA_CY_SYM_CIPHER_AES_CCM)
         {
             LAC_INVALID_PARAM_LOG(
                 "Source and Dest buffer lengths need to be equal ");

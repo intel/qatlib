@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -69,6 +69,11 @@ struct adf_pfvf_dev_data adf_init_pfvf_dev_data(void *pmiscbar_addr, int dev_id)
 {
     struct adf_pfvf_dev_data dev = {0};
 
+    if (pmiscbar_addr == NULL)
+    {
+        return dev;
+    }
+
     dev.pmiscbar_addr = pmiscbar_addr;
     dev.dev_id = dev_id;
         dev.local_csr_offset = ADF_PFVF_GEN4_VF2PF_CSR_ADDR_OFFSET;
@@ -87,6 +92,8 @@ static int adf_pfvf_msg_ack_timed_out(struct adf_pfvf_dev_data *dev,
 {
     int count = 0;
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM(last);
     for (; count < ADF_PFVF_MSG_ACK_MAX_RETRIES; ++count)
     {
         usleep(ADF_PFVF_MSG_ACK_DELAY_US);
@@ -105,6 +112,7 @@ static int adf_pfvf_gen4_send(struct adf_pfvf_dev_data *dev,
     int ret = 0;
     uint32_t raw_msg;
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
     raw_msg = (msg.type << dev->type_shift) | (msg.data << dev->data_shift);
     raw_msg |= ADF_PFVF_INT | ADF_PFVF_MSGORIGIN_SYSTEM;
     ICP_ADF_CSR_WR(dev->pmiscbar_addr, dev->local_csr_offset, raw_msg);
@@ -151,6 +159,11 @@ struct pfvf_message adf_pfvf_gen4_recv(struct adf_pfvf_dev_data *dev)
     uint32_t val;
     struct pfvf_message msg = {0};
 
+    if (dev == NULL)
+    {
+        return msg;
+    }
+
     /* Read message from the CSR */
     val = ICP_ADF_CSR_RD(dev->pmiscbar_addr, dev->remote_csr_offset);
 
@@ -182,6 +195,8 @@ int adf_send_vf2pf_req(struct adf_pfvf_dev_data *dev,
     int err;
     int response_received = 0;
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM(resp);
     do
     {
         err = adf_send_vf2pf_msg(dev, req);
@@ -215,6 +230,8 @@ STATIC int adf_vf2pf_blkmsg_data_req(struct adf_pfvf_dev_data *dev,
     uint16_t max_payload_size;
     int err;
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM(data);
     /* Build the block message */
     if (type <= ADF_VF2PF_MAX_SMALL_MESSAGE_TYPE)
     {
@@ -321,6 +338,8 @@ static const unsigned char pfvf_crc8_table[] = {
 static uint8_t adf_pfvf_crc(uint8_t start_crc, uint8_t *buf, uint8_t len)
 {
     uint8_t crc = start_crc;
+    
+    ICP_CHECK_FOR_NULL_PARAM(buf);
 
     while (len-- > 0)
         crc = pfvf_crc8_table[(crc ^ *buf++) & 0xff];
@@ -343,6 +362,10 @@ int adf_send_vf2pf_blkmsg_req(struct adf_pfvf_dev_data *dev,
     uint16_t index;
     uint16_t msg_len;
     int ret;
+
+    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM(buffer);
+    ICP_CHECK_FOR_NULL_PARAM(buffer_len);
 
     if (type > ADF_VF2PF_MAX_LARGE_MESSAGE_TYPE)
     {

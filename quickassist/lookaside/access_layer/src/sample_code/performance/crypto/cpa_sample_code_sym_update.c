@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1111,7 +1111,8 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
     {
         sessionSetupData.symOperation = setup->setupData.symOperation;
         sessionSetupData.sessionPriority = setup->setupData.sessionPriority;
-        sessionSetupData.partialsNotRequired = CPA_FALSE;
+        sessionSetupData.partialsNotRequired =
+            setup->setupData.partialsNotRequired;
 
         if (setup->setupData.symOperation == CPA_CY_SYM_OP_CIPHER ||
             setup->setupData.symOperation == CPA_CY_SYM_OP_ALGORITHM_CHAINING)

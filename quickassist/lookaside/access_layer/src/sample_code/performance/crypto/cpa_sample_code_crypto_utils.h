@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -82,6 +82,7 @@
 #include "qat_perf_utils.h"
 #include "cpa_sample_code_utils.h"
 #include "cpa_sample_code_framework.h"
+
 
 #ifdef USER_SPACE
 #include <sched.h>
@@ -264,12 +265,27 @@ extern CpaBoolean timeStampInLoop;
            (setup->performanceStats->responses));                              \
     PRINT("Offload cycles %llu\n", setup->performanceStats->offloadCycles);
 
-/*enum to define API usage as synchronous or asynchronous*/
-typedef enum sync_mode_s
-{
-    SYNC = 0,
-    ASYNC
-} sync_mode_t;
+/**
+ *******************************************************************************
+ * Update numLoops and numOperations when enableStopTests is enabled
+ * param input  : loops
+ * param output : setup, pPerfStats
+ ******************************************************************************/
+#define StopTestEnabled(loops, setup, pPerfStats)                              \
+    do                                                                         \
+    {                                                                          \
+        if (stopTestsIsEnabled_g)                                              \
+        {                                                                      \
+            /* Check if terminated by global flag. If yes, update              \
+             * numOperations and numLoops */                                   \
+            if (CPA_TRUE == exitLoopFlag_g)                                    \
+            {                                                                  \
+                setup->numLoops = loops + OFFSET_LOOP_EXIT;                    \
+                pPerfStats->numOperations =                                    \
+                    (Cpa64U)numLoops * setup->numBuffers;                      \
+            }                                                                  \
+        }                                                                      \
+    } while (0)
 
 typedef enum tlspfs_sign_mode_s
 {
@@ -291,6 +307,7 @@ typedef enum ecdsa_step_s
     ECDSA_STEP_VERIFY,
     ECDSA_STEP_POINT_MULTIPLY
 } ecdsa_step_t;
+
 
 /*enum to define DSA step*/
 typedef enum dsa_step_s
@@ -401,6 +418,11 @@ typedef enum ec_gen_step_s
 #define BUFFER_SIZE_32768 (32768)
 #define BUFFER_SIZE_65536 (65536)
 #define BUFFER_SIZE_131072 (131072)
+#define BUFFER_SIZE_1048576 (1048576)
+#define BUFFER_SIZE_10485760 (10485760)
+#define BUFFER_SIZE_1073741824 (1073741824)
+#define BUFFER_SIZE_2147483648 (2147483648)
+#define BUFFER_SIZE_4294967295 (4294967295)
 
 /*define IV len for 8 and 16 byte block ciphers*/
 #define IV_LEN_FOR_8_BYTE_BLOCK_CIPHER (8)
@@ -419,6 +441,7 @@ typedef enum ec_gen_step_s
 /******************************************************************************
  * RSA/DSA Test Params
  *****************************************************************************/
+#define MODULUS_256_BIT (256)
 #define MODULUS_512_BIT (512)
 #define MODULUS_768_BIT (768)
 #define MODULUS_1024_BIT (1024)
@@ -470,6 +493,7 @@ typedef enum ec_gen_step_s
 #define GF2_K409_SIZE_IN_BYTES (52)
 #define GF2_K571_SIZE_IN_BITS (571)
 #define GF2_K571_SIZE_IN_BYTES (72)
+
 
 #define GFP_NISTP192_BITMASK 0x1
 #define GFP_NISTP224_BITMASK 0x2
@@ -689,6 +713,8 @@ typedef struct symmetric_test_params_s
     /* If flat buffer size is not divisible by 1KB then enable the packet round
      * off */
     CpaBoolean enableRoundOffPkt;
+    /* Identify if the test is for SSL or TLS*/
+    CpaBoolean isTLS;
 } symmetric_test_params_t;
 
 /**
@@ -818,7 +844,12 @@ typedef struct ecdsa_test_params_s
     ecdsa_step_t step;
     ec_curves_t *pCurve;
     Cpa32U threadID;
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    CpaBoolean enableKPT;
+    CpaCyKptHandle kptKeyHandle;
+#endif
 } ecdsa_test_params_t;
+
 
 /**
  *****************************************************************************
@@ -988,6 +1019,7 @@ typedef struct nrbg_test_params_s
     Cpa32U numLoops;
 } nrbg_test_params_t;
 
+
 /**
  *****************************************************************************
  * @ingroup cryptoThreads
@@ -1093,6 +1125,32 @@ CpaStatus setupEcdsaTest(Cpa32U nLenInBits,
                          ecdsa_step_t step,
                          Cpa32U numBuffers,
                          Cpa32U numLoops);
+#if CY_API_VERSION_AT_LEAST(3, 0)
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setupKpt2EcdsaTest
+ *
+ * @description
+ *      setup a test to run a KPT ECDSA test
+ *      - should be called before createTheads framework function
+ *****************************************************************************/
+CpaStatus setupKpt2EcdsaTest(Cpa32U nLenInBits,
+                             CpaCyEcFieldType fieldType,
+                             sync_mode_t syncMode,
+                             ecdsa_step_t step,
+                             Cpa32U numBuffers,
+                             Cpa32U numLoops);
+
+/******************************************************************************
+ * @ingroup sampleECDSACode
+ *
+ * @description
+ * This function frees all memory related to KPT2 data.
+ * ****************************************************************************/
+void kpt2EcdsaFreeDataMemory(CpaCyKptEcdsaSignRSOpData *pKPTSignRSOpData,
+                             CpaCyKptUnwrapContext *pKptUnwrapCtx);
+#endif
 
 #if CY_API_VERSION_AT_LEAST(2, 3)
 /**
@@ -1977,7 +2035,14 @@ CpaStatus getCyInstanceCapabilities(CpaCyCapabilitiesInfo *pCap);
 
 CpaStatus getCySpecificInstanceCapabilities(CpaInstanceHandle instanceHandle,
                                             CpaCyCapabilitiesInfo *pCap);
+CpaStatus getCryptoInstanceCapabilities(CpaCyCapabilitiesInfo *cap,
+                                        Cpa32U instType);
 
+#if CY_API_VERSION_AT_LEAST(3, 0)
+CpaStatus getSymAsymInstanceCapabilities(CpaCyCapabilitiesInfo *pCap,
+                                         Cpa32U instType);
+#endif
+CpaStatus getCySymQueryCapabilities(CpaCySymCapabilitiesInfo *pCap);
 /**
  *****************************************************************************
  * @ingroup cryptoThreads
@@ -2445,3 +2510,13 @@ CpaStatus sampleCodeSymPollInstance(CpaInstanceHandle instanceHandle,
  ********************************************************************************/
 CpaStatus stopCyServicesFromCallback(thread_creation_data_t *data);
 #endif /*_CRYPTO_UTILS_H_*/
+
+/**
+ *****************************************************************************
+ * @ingroup checkForChachapolySupport
+ *
+ * @description
+ * helper function to check for the instances that support
+ * CPA_CY_SYM_CIPHER_CHACHA
+ ******************************************************************************/
+CpaStatus checkForChachapolySupport(void);

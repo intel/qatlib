@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -99,6 +99,7 @@ static int pci_vfio_set_command(int dev_fd, int command, bool op)
 
 static void init_bar(pcs_t *pcs)
 {
+    ICP_CHECK_FOR_NULL_PARAM_VOID(pcs);
     memset(pcs, 0, sizeof(pcs_t));
 }
 
@@ -123,6 +124,8 @@ static void add_bar(pcs_t *pcs, void *ptr, const size_t size)
 
 static void remove_and_close_group(vfio_dev_info_t *dev)
 {
+    ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
+
     ioctl(
         dev->vfio_group_fd, VFIO_GROUP_UNSET_CONTAINER, dev->vfio_container_fd);
     --container_fd_ref;
@@ -150,8 +153,9 @@ int open_vfio_dev(const char *vfio_file,
     struct vfio_group_status group_status = {.argsz = sizeof(group_status)};
     struct vfio_device_info device_info = {.argsz = sizeof(device_info)};
 
-    if (!dev)
-        return -1;
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -1);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(vfio_file, -1);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(bdf, -1);
 
     init_bar(&dev->pcs);
 

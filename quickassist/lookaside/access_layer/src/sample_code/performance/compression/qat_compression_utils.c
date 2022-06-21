@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -62,10 +62,12 @@
 
 #include "cpa_dc.h"
 #include "../common/qat_perf_buffer_utils.h"
+#include "qat_perf_utils.h"
 #include "qat_compression_main.h"
 #include "qat_perf_sleeptime.h"
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
+#include "qat_compression_zlib.h"
 
 CpaStatus qatGetCompressBoundDestinationBufferSize(
     compression_test_params_t *setup,
@@ -83,6 +85,18 @@ CpaStatus qatGetCompressBoundDestinationBufferSize(
                                            dcInputBufferSize,
                                            dcDestBufferSize);
     }
+#if DC_API_VERSION_AT_LEAST(3, 1)
+    else if (setup->setupData.compType == CPA_DC_LZ4)
+    {
+        status = cpaDcLZ4CompressBound(
+            setup->dcInstanceHandle, dcInputBufferSize, dcDestBufferSize);
+    }
+    else if (setup->setupData.compType == CPA_DC_LZ4S)
+    {
+        status = cpaDcLZ4SCompressBound(
+            setup->dcInstanceHandle, dcInputBufferSize, dcDestBufferSize);
+    }
+#endif
     else
     {
         PRINT_ERR("%s : Unsupported Compression Type %d\n",
@@ -109,23 +123,16 @@ static CpaStatus qatDcGetDestBufferAdditionalSize(
 
     *additionalSize = 0;
 
-    if (setup->setupData.sessDirection == CPA_DC_DIR_COMPRESS)
-    {
-        status = qatGetCompressBoundDestinationBufferSize(
-            setup, setup->bufferSize, &compDestBufferSize);
+    status = qatGetCompressBoundDestinationBufferSize(
+        setup, setup->bufferSize, &compDestBufferSize);
 
-        if (CPA_STATUS_SUCCESS == status)
-        {
-            *additionalSize = compDestBufferSize - setup->bufferSize;
-        }
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        *additionalSize = compDestBufferSize - setup->bufferSize;
     }
-    else
-    {
-        if (MIN_DST_BUFFER_SIZE >= setup->bufferSize)
-        {
-            *additionalSize = setup->bufferSize;
-        }
 
+    if (setup->setupData.sessDirection != CPA_DC_DIR_COMPRESS)
+    {
         /* Save the Destination buffer size in the setup parameters for future
          * use*/
         setup->dcDestBufferSize = *additionalSize + setup->bufferSize;
@@ -433,9 +440,18 @@ CpaStatus qatAllocateCompressionFlatBuffers(
         status = cpaDcBufferListGetMetaSize(
             setup->dcInstanceHandle, numBuffersInCpmList, &metaSize);
     }
-
-    /*allocate double the space to extract the compressed data into*/
-    additionalSize = sizeOfBuffersInCpmList[0];
+    if (setup->disableAdditionalCmpbufferSize == CPA_FALSE)
+    {
+        /* For reliabilty mode we need to allocate double the space to extract
+         * the SW compressed data into*/
+        additionalSize = sizeOfBuffersInCpmList[0];
+    }
+    else
+    {
+        /* For performance use cases additonal buffer size  is not required
+         * to be added to the cmp buffer, as there is no SW checks*/
+        additionalSize = 0;
+    }
     if (CPA_STATUS_SUCCESS == status)
     {
         status = AllocateBuffersInLists(cpmBufferListArray,
@@ -552,7 +568,7 @@ CpaStatus qatDcChainSessionInit(compression_test_params_t *setup,
             status = CPA_STATUS_FAIL;
         }
     }
-    if (setup->syncFlag == CPA_SAMPLE_SYNCHRONOUS)
+    if (setup->syncFlag == SYNC)
     {
         dcCbFn = NULL;
     }
@@ -682,7 +698,7 @@ CpaStatus qatCompressionSessionInit(
             }
         }
     }
-    if (setup->syncFlag == CPA_SAMPLE_SYNCHRONOUS)
+    if (setup->syncFlag == SYNC)
     {
         dcCbFn = NULL;
     }
@@ -1273,7 +1289,11 @@ void qatCompressDumpToFile(compression_test_params_t *setup,
     char *firmwarePath = SAMPLE_CODE_CORPUS_PATH;
 
     filepath = qaeMemAlloc(QAT_COMP_DUMP_MAX_FILE_NAME_LEGNTH);
-    QAT_PERF_CHECK_NULL_POINTER_AND_GOTO_LABEL(filepath, exit);
+    if (NULL == filepath)
+    {
+        PRINT_ERR("Failed to allocate memory for filepath");
+        return;
+    }
 
     buffer = qaeMemAlloc(QAT_COMP_DUMP_BUFFER_SIZE);
     QAT_PERF_CHECK_NULL_POINTER_AND_GOTO_LABEL(buffer, exit);
@@ -1356,10 +1376,7 @@ exit:
     {
         filp_close(otherFile, NULL);
     }
-    if (filepath != NULL)
-    {
-        qaeMemFree((void **)&filepath);
-    }
+    qaeMemFree((void **)&filepath);
     if (buffer != NULL)
     {
         qaeMemFree((void **)&buffer);
@@ -1675,6 +1692,20 @@ CpaStatus qatCompressionSetFlushFlag(compression_test_params_t *setup,
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(setup, status);
     if (CPA_STATUS_SUCCESS == status)
     {
+#if DC_API_VERSION_AT_LEAST(3, 1)
+        /* LZ4 FW requires users to set the BFINAL for every request, *
+         * when Rolling XXHASH is disabled. *
+         * LZ4S FW requires users to set the BFINAL for every request */
+        if (((setup->setupData.compType == CPA_DC_LZ4 &&
+              setup->setupData.accumulateXXHash == CPA_FALSE) ||
+             setup->setupData.compType == CPA_DC_LZ4S) &&
+            setup->setupData.sessState == CPA_DC_STATELESS)
+        {
+            setup->flushFlag = CPA_DC_FLUSH_FINAL;
+            setup->requestOps.flushFlag = CPA_DC_FLUSH_FINAL;
+            return status;
+        }
+#endif
         /* flush flag for last request is always final for all types of
          * compression*/
         if (listNum == (setup->numLists - 1))
@@ -2067,6 +2098,7 @@ void qatDcGetPostTestRecoveryCount(compression_test_params_t *dcSetup,
         }
     }
 }
+
 
 CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
                                        CpaDcRqResults *arrayOfResults,

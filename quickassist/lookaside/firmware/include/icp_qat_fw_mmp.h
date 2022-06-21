@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -95,8 +95,90 @@
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Input parameter list for Initialisation sequence, to be used when
- *    icp_qat_fw_pke_request_s::functionalityId is #PKE_INIT.
+ *    Input parameter list for ECC P384 Variable Point Multiplication [k]P,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_EC_POINT_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_ec_point_multiplication_p384_input_s
+{
+    uint64_t xp; /**< xP = affine coordinate X of point P  (6 qwords)*/
+    uint64_t yp; /**< yP = affine coordinate Y of point P  (6 qwords)*/
+    uint64_t k;  /**< k  = scalar  (6 qwords)*/
+} icp_qat_fw_mmp_ec_point_multiplication_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P384 Generator Point Multiplication [k]G,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_EC_GENERATOR_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_ec_generator_multiplication_p384_input_s
+{
+    uint64_t k; /**< k  = scalar  (6 qwords)*/
+} icp_qat_fw_mmp_ec_generator_multiplication_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P384 ECDSA Sign RS,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECDSA_SIGN_RS_P384.
+ */
+typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p384_input_s
+{
+    uint64_t k; /**< k  = random value, &gt; 0 and &lt; n (order of G for P384)
+                   (6 qwords)*/
+    uint64_t e; /**<  (6 qwords)*/
+    uint64_t d; /**<  (6 qwords)*/
+} icp_qat_fw_mmp_ecdsa_sign_rs_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P256 Variable Point Multiplication [k]P,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_EC_POINT_MULTIPLICATION_P256.
+ */
+typedef struct icp_qat_fw_mmp_ec_point_multiplication_p256_input_s
+{
+    uint64_t xp; /**< xP = affine coordinate X of point P  (4 qwords)*/
+    uint64_t yp; /**< yP = affine coordinate Y of point P  (4 qwords)*/
+    uint64_t k;  /**< k  = scalar  (4 qwords)*/
+} icp_qat_fw_mmp_ec_point_multiplication_p256_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P256 Generator Point Multiplication [k]G,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_EC_GENERATOR_MULTIPLICATION_P256.
+ */
+typedef struct icp_qat_fw_mmp_ec_generator_multiplication_p256_input_s
+{
+    uint64_t k; /**< k  = scalar  (4 qwords)*/
+} icp_qat_fw_mmp_ec_generator_multiplication_p256_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P256 ECDSA Sign RS,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECDSA_SIGN_RS_P256.
+ */
+typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_s
+{
+    uint64_t k; /**< k  = random value, &gt; 0 and &lt; n (order of G for P256)
+                   (4 qwords)*/
+    uint64_t e; /**<  (4 qwords)*/
+    uint64_t d; /**<  (4 qwords)*/
+} icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for Initialisation sequence,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is #PKE_INIT.
  */
 typedef struct icp_qat_fw_mmp_init_input_s
 {
@@ -2056,64 +2138,6 @@ typedef struct icp_qat_fw_mmp_dsa_verify_3072_256_input_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Input parameter list for ECC P384 Variable Point Multiplication [k]P,
- *    to be used when icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_EC_POINT_MULTIPLICATION_P384.
- */
-typedef struct icp_qat_fw_mmp_ec_point_multiplication_p384_input_s
-{
-    uint64_t xp; /**< xP = affine coordinate X of point P  (6 qwords)*/
-    uint64_t yp; /**< yP = affine coordinate Y of point P  (6 qwords)*/
-    uint64_t k;  /**< k  = scalar  (6 qwords)*/
-} icp_qat_fw_mmp_ec_point_multiplication_p384_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for ECC P384 ECDSA Sign RS,
- *    to be used when icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_ECDSA_SIGN_RS_P384.
- */
-typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p384_input_s
-{
-    uint64_t k; /**< k  = random value, &gt; 0 and &lt; n (order of G for P384)
-                   (6 qwords)*/
-    uint64_t e; /**<  (6 qwords)*/
-    uint64_t d; /**<  (6 qwords)*/
-} icp_qat_fw_mmp_ecdsa_sign_rs_p384_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for ECC P256 Variable Point Multiplication [k]P,
- *    to be used when icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_EC_POINT_MULTIPLICATION_P256.
- */
-typedef struct icp_qat_fw_mmp_ec_point_multiplication_p256_input_s
-{
-    uint64_t xp; /**< xP = affine coordinate X of point P  (4 qwords)*/
-    uint64_t yp; /**< yP = affine coordinate Y of point P  (4 qwords)*/
-    uint64_t k;  /**< k  = scalar  (4 qwords)*/
-} icp_qat_fw_mmp_ec_point_multiplication_p256_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for ECC P256 ECDSA Sign RS,
- *    to be used when icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_ECDSA_SIGN_RS_P256.
- */
-typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_s
-{
-    uint64_t k; /**< k  = random value, &gt; 0 and &lt; n (order of G for P256)
-                   (4 qwords)*/
-    uint64_t e; /**<  (4 qwords)*/
-    uint64_t d; /**<  (4 qwords)*/
-} icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
  *    Input parameter list for ECDSA Sign RS for curves B/K-163 and B/K-233,
  *    to be used when icp_qat_fw_pke_request_s::functionalityId is
  *    #PKE_ECDSA_SIGN_RS_GF2_L256.
@@ -2407,51 +2431,6 @@ typedef struct icp_qat_fw_maths_point_verify_gf2_571_input_s
     uint64_t a;  /**< a equation coefficient of B/K-571 (9 qwords)*/
     uint64_t b;  /**< b equation coefficient of B/K-571 (9 qwords)*/
 } icp_qat_fw_maths_point_verify_gf2_571_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for KPT ECDSA Sign RS for curves B/K-163 and B/K-233,
- *    to be used when icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GF2_L256.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_input_s
-{
-    uint64_t in; /**< concatenated input parameters (xG, yG, n, q, a, b, e)
-                    (28 qwords)*/
-    uint64_t d;  /**<  (4 qwords)*/
-    uint64_t c;  /**<  (5 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for KPT ECDSA Sign RS, to be used when
- *    icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GF2_L512.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_input_s
-{
-    uint64_t in; /**< concatenated input parameters (xG,, yG, n, q, a, b, e)
-                    (56 qwords)*/
-    uint64_t d;  /**<  (8 qwords)*/
-    uint64_t c;  /**<  (9 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for KPT ECDSA GF2 Sign RS for curves B-571/K-571,
- *    to be used when icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GF2_571.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_input_s
-{
-    uint64_t in; /**< concatenated input parameters (x(G), y(G), n, q, a, b, e)
-                    (63 qwords)*/
-    uint64_t d;  /**<  (9 qwords)*/
-    uint64_t c;  /**<  (10 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_input_t;
 
 /**
  * @ingroup icp_qat_fw_mmp
@@ -2755,48 +2734,6 @@ typedef struct icp_qat_fw_generator_multiplication_c25519_input_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Input parameter list for KPT ECDSA GFP Sign RS, to be used when
- *    icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GFP_L256.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_input_s
-{
-    uint64_t in; /**< {xG, yG, n, q, a, b, k, e, d} concatenated  (28 qwords)*/
-    uint64_t d;  /**<  (4 qwords)*/
-    uint64_t c;  /**<  (5 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for KPT ECDSA GFP Sign RS, to be used when
- *    icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GFP_L512.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_input_s
-{
-    uint64_t in; /**< {xG, yG, n, q, a, b, e} concatenated  (56 qwords)*/
-    uint64_t d;  /**<  (8 qwords)*/
-    uint64_t c;  /**<  (9 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Input parameter list for KPT ECDSA GFP Sign RS, to be used when
- *    icp_qat_fw_pke_request_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GFP_521.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_input_s
-{
-    uint64_t in; /**< {xG, yG, n, q, a, b, e} concatenated  (63 qwords)*/
-    uint64_t d;  /**<  (9 qwords)*/
-    uint64_t c;  /**<  (10 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_input_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
  *    Input parameter list for ECC edwards25519 Variable Point Multiplication
  *    [k]P, as specified in RFC8032, to be used when
  *    icp_qat_fw_pke_request_s::functionalityId is
@@ -2896,12 +2833,20 @@ typedef union icp_qat_fw_mmp_input_param_u {
     icp_qat_fw_mmp_ec_point_multiplication_p384_input_t
         mmp_ec_point_multiplication_p384;
 
+    /** ECC P384 Generator Point Multiplication [k]G  */
+    icp_qat_fw_mmp_ec_generator_multiplication_p384_input_t
+        mmp_ec_generator_multiplication_p384;
+
     /** ECC P384 ECDSA Sign RS  */
     icp_qat_fw_mmp_ecdsa_sign_rs_p384_input_t mmp_ecdsa_sign_rs_p384;
 
     /** ECC P256 Variable Point Multiplication [k]P  */
     icp_qat_fw_mmp_ec_point_multiplication_p256_input_t
         mmp_ec_point_multiplication_p256;
+
+    /** ECC P256 Generator Point Multiplication [k]G  */
+    icp_qat_fw_mmp_ec_generator_multiplication_p256_input_t
+        mmp_ec_generator_multiplication_p256;
 
     /** ECC P256 ECDSA Sign RS  */
     icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_t mmp_ecdsa_sign_rs_p256;
@@ -3389,18 +3334,6 @@ typedef union icp_qat_fw_mmp_input_param_u {
     /** ECC GF2 Point Verification for degree 571  */
     icp_qat_fw_maths_point_verify_gf2_571_input_t maths_point_verify_gf2_571;
 
-    /** KPT ECDSA Sign RS for curves B/K-163 and B/K-233  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_input_t
-        mmp_kpt_ecdsa_sign_rs_gf2_l256;
-
-    /** KPT ECDSA Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_input_t
-        mmp_kpt_ecdsa_sign_rs_gf2_l512;
-
-    /** KPT ECDSA GF2 Sign RS for curves B-571/K-571  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_input_t
-        mmp_kpt_ecdsa_sign_rs_gf2_571;
-
     /** ECDSA GFP Sign R  */
     icp_qat_fw_mmp_ecdsa_sign_r_gfp_l256_input_t mmp_ecdsa_sign_r_gfp_l256;
 
@@ -3458,18 +3391,6 @@ typedef union icp_qat_fw_mmp_input_param_u {
     /** ECC GFP Partial Point Verification  */
     icp_qat_fw_maths_point_verify_gfp_521_input_t maths_point_verify_gfp_521;
 
-    /** KPT ECDSA GFP Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_input_t
-        mmp_kpt_ecdsa_sign_rs_gfp_l256;
-
-    /** KPT ECDSA GFP Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_input_t
-        mmp_kpt_ecdsa_sign_rs_gfp_l512;
-
-    /** KPT ECDSA GFP Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_input_t
-        mmp_kpt_ecdsa_sign_rs_gfp_521;
-
     /** ECC curve25519 Variable Point Multiplication [k]P(x), as specified in
      * RFC7748  */
     icp_qat_fw_point_multiplication_c25519_input_t point_multiplication_c25519;
@@ -3511,8 +3432,86 @@ typedef union icp_qat_fw_mmp_input_param_u {
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Output parameter list for Initialisation sequence, to be used when
- *    icp_qat_fw_pke_response_s::functionalityId is #PKE_INIT.
+ *    Output parameter list for ECC P384 Variable Point Multiplication [k]P,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_EC_POINT_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_ec_point_multiplication_p384_output_s
+{
+    uint64_t xr; /**< xR = affine coordinate X of point [k]P  (6 qwords)*/
+    uint64_t yr; /**< yR = affine coordinate Y of point [k]P  (6 qwords)*/
+} icp_qat_fw_mmp_ec_point_multiplication_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P384 Generator Point Multiplication [k]G,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_EC_GENERATOR_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_ec_generator_multiplication_p384_output_s
+{
+    uint64_t xr; /**< xR = affine coordinate X of point [k]G  (6 qwords)*/
+    uint64_t yr; /**< yR = affine coordinate Y of point [k]G  (6 qwords)*/
+} icp_qat_fw_mmp_ec_generator_multiplication_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P384 ECDSA Sign RS,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECDSA_SIGN_RS_P384.
+ */
+typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_s
+{
+    uint64_t r; /**< ECDSA signature r  (6 qwords)*/
+    uint64_t s; /**< ECDSA signature s  (6 qwords)*/
+} icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P256 Variable Point Multiplication [k]P,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_EC_POINT_MULTIPLICATION_P256.
+ */
+typedef struct icp_qat_fw_mmp_ec_point_multiplication_p256_output_s
+{
+    uint64_t xr; /**< xR = affine coordinate X of point [k]P  (4 qwords)*/
+    uint64_t yr; /**< yR = affine coordinate Y of point [k]P  (4 qwords)*/
+} icp_qat_fw_mmp_ec_point_multiplication_p256_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P256 Generator Point Multiplication [k]G,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_EC_GENERATOR_MULTIPLICATION_P256.
+ */
+typedef struct icp_qat_fw_mmp_ec_generator_multiplication_p256_output_s
+{
+    uint64_t xr; /**< xR = affine coordinate X of point [k]G  (4 qwords)*/
+    uint64_t yr; /**< yR = affine coordinate Y of point [k]G  (4 qwords)*/
+} icp_qat_fw_mmp_ec_generator_multiplication_p256_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P256 ECDSA Sign RS,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECDSA_SIGN_RS_P256.
+ */
+typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_s
+{
+    uint64_t r; /**< ECDSA signature r  (4 qwords)*/
+    uint64_t s; /**< ECDSA signature s  (4 qwords)*/
+} icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for Initialisation sequence,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is #PKE_INIT.
  */
 typedef struct icp_qat_fw_mmp_init_output_s
 {
@@ -5239,58 +5238,6 @@ typedef struct icp_qat_fw_mmp_dsa_verify_3072_256_output_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Output parameter list for ECC P384 Variable Point Multiplication [k]P,
- *    to be used when icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_EC_POINT_MULTIPLICATION_P384.
- */
-typedef struct icp_qat_fw_mmp_ec_point_multiplication_p384_output_s
-{
-    uint64_t xr; /**< xR = affine coordinate X of point [k]P  (6 qwords)*/
-    uint64_t yr; /**< yR = affine coordinate Y of point [k]P  (6 qwords)*/
-} icp_qat_fw_mmp_ec_point_multiplication_p384_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for ECC P384 ECDSA Sign RS,
- *    to be used when icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_ECDSA_SIGN_RS_P384.
- */
-typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_s
-{
-    uint64_t r; /**< ECDSA signature r  (6 qwords)*/
-    uint64_t s; /**< ECDSA signature s  (6 qwords)*/
-} icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for ECC P256 Variable Point Multiplication [k]P,
- *    to be used when icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_EC_POINT_MULTIPLICATION_P256.
- */
-typedef struct icp_qat_fw_mmp_ec_point_multiplication_p256_output_s
-{
-    uint64_t xr; /**< xR = affine coordinate X of point [k]P  (4 qwords)*/
-    uint64_t yr; /**< yR = affine coordinate Y of point [k]P  (4 qwords)*/
-} icp_qat_fw_mmp_ec_point_multiplication_p256_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for ECC P256 ECDSA Sign RS,
- *    to be used when icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_ECDSA_SIGN_RS_P256.
- */
-typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_s
-{
-    uint64_t r; /**< ECDSA signature r  (4 qwords)*/
-    uint64_t s; /**< ECDSA signature s  (4 qwords)*/
-} icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
  *    Output parameter list for ECDSA Sign RS for curves B/K-163 and B/K-233,
  *    to be used when icp_qat_fw_pke_response_s::functionalityId is
  *    #PKE_ECDSA_SIGN_RS_GF2_L256.
@@ -5515,47 +5462,6 @@ typedef struct icp_qat_fw_maths_point_verify_gf2_571_output_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Output parameter list for KPT ECDSA Sign RS for curves B/K-163 and
- *    B/K-233, to be used when icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GF2_L256.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_output_s
-{
-    uint64_t r; /**< ECDSA signature r &gt; 0 and &lt; n (4 qwords)*/
-    uint64_t s; /**< ECDSA signature s &gt; 0 and &lt; n (4 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for KPT ECDSA Sign RS, to be used when
- *    icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GF2_L512.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_output_s
-{
-    uint64_t r; /**<  (8 qwords)*/
-    uint64_t s; /**< ECDSA signature r &gt; 0 and &lt; n ECDSA signature s &gt;
-                   0 and &lt; n (8 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for KPT ECDSA GF2 Sign RS for curves B-571/K-571,
- *    to be used when icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GF2_571.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_output_s
-{
-    uint64_t r; /**<  (9 qwords)*/
-    uint64_t s; /**< ECDSA signature r &gt; 0 and &lt; n ECDSA signature s &gt;
-                   0 and &lt; n (9 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
  *    Output parameter list for ECDSA GFP Sign R, to be used when
  *    icp_qat_fw_pke_response_s::functionalityId is #PKE_ECDSA_SIGN_R_GFP_L256.
  */
@@ -5766,45 +5672,6 @@ typedef struct icp_qat_fw_maths_point_verify_gfp_521_output_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
- *    Output parameter list for KPT ECDSA GFP Sign RS, to be used when
- *    icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GFP_L256.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_output_s
-{
-    uint64_t r; /**< ECDSA signature r  (4 qwords)*/
-    uint64_t s; /**< ECDSA signature s  (4 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for KPT ECDSA GFP Sign RS, to be used when
- *    icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GFP_L512.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_output_s
-{
-    uint64_t r; /**< ECDSA signature r  (8 qwords)*/
-    uint64_t s; /**< ECDSA signature s  (8 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
- *    Output parameter list for KPT ECDSA GFP Sign RS, to be used when
- *    icp_qat_fw_pke_response_s::functionalityId is
- *    #PKE_KPT_ECDSA_SIGN_RS_GFP_521.
- */
-typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_output_s
-{
-    uint64_t r; /**< ECDSA signature r  (9 qwords)*/
-    uint64_t s; /**< ECDSA signature s  (9 qwords)*/
-} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_output_t;
-
-/**
- * @ingroup icp_qat_fw_mmp
- * @brief
  *    Output parameter list for ECC curve25519 Variable Point Multiplication
  *    [k]P(x), as specified in RFC7748, to be used when
  *    icp_qat_fw_pke_response_s::functionalityId is
@@ -5939,12 +5806,20 @@ typedef union icp_qat_fw_mmp_output_param_u {
     icp_qat_fw_mmp_ec_point_multiplication_p384_output_t
         mmp_ec_point_multiplication_p384;
 
+    /** ECC P384 Generator Point Multiplication [k]G  */
+    icp_qat_fw_mmp_ec_generator_multiplication_p384_output_t
+        mmp_ec_generator_multiplication_p384;
+
     /** ECC P384 ECDSA Sign RS  */
     icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_t mmp_ecdsa_sign_rs_p384;
 
     /** ECC P256 Variable Point Multiplication [k]P  */
     icp_qat_fw_mmp_ec_point_multiplication_p256_output_t
         mmp_ec_point_multiplication_p256;
+
+    /** ECC P256 Generator Point Multiplication [k]G  */
+    icp_qat_fw_mmp_ec_generator_multiplication_p256_output_t
+        mmp_ec_generator_multiplication_p256;
 
     /** ECC P256 ECDSA Sign RS  */
     icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_t mmp_ecdsa_sign_rs_p256;
@@ -6432,18 +6307,6 @@ typedef union icp_qat_fw_mmp_output_param_u {
     /** ECC GF2 Point Verification for degree 571  */
     icp_qat_fw_maths_point_verify_gf2_571_output_t maths_point_verify_gf2_571;
 
-    /** KPT ECDSA Sign RS for curves B/K-163 and B/K-233  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l256_output_t
-        mmp_kpt_ecdsa_sign_rs_gf2_l256;
-
-    /** KPT ECDSA Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_l512_output_t
-        mmp_kpt_ecdsa_sign_rs_gf2_l512;
-
-    /** KPT ECDSA GF2 Sign RS for curves B-571/K-571  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gf2_571_output_t
-        mmp_kpt_ecdsa_sign_rs_gf2_571;
-
     /** ECDSA GFP Sign R  */
     icp_qat_fw_mmp_ecdsa_sign_r_gfp_l256_output_t mmp_ecdsa_sign_r_gfp_l256;
 
@@ -6500,18 +6363,6 @@ typedef union icp_qat_fw_mmp_output_param_u {
 
     /** ECC GFP Partial Point Verification  */
     icp_qat_fw_maths_point_verify_gfp_521_output_t maths_point_verify_gfp_521;
-
-    /** KPT ECDSA GFP Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l256_output_t
-        mmp_kpt_ecdsa_sign_rs_gfp_l256;
-
-    /** KPT ECDSA GFP Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_l512_output_t
-        mmp_kpt_ecdsa_sign_rs_gfp_l512;
-
-    /** KPT ECDSA GFP Sign RS  */
-    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_gfp_521_output_t
-        mmp_kpt_ecdsa_sign_rs_gfp_521;
 
     /** ECC curve25519 Variable Point Multiplication [k]P(x), as specified in
      * RFC7748  */

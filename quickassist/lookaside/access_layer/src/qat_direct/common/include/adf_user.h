@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -97,9 +97,6 @@ struct adf_dev_status_info
     enum adf_device_type type;
     uint32_t accel_id;
     uint32_t instance_id;
-#ifdef QAT_UIO
-    uint32_t kpt_achandle;
-#endif
     uint8_t num_ae;
     uint8_t num_accel;
     uint8_t num_logical_accel;

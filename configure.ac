@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [21.11.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [22.07.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,7 +11,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [2:0:0])
+AC_SUBST([LIBQAT_VERSION], [3:0:0])
 AC_SUBST([LIBUSDM_VERSION], [0:1:0])
 
 # Checks for programs.
@@ -56,6 +56,12 @@ AC_FUNC_MMAP
 AC_FUNC_STRNLEN
 AC_CHECK_FUNCS([alarm clock_gettime getpagesize gettimeofday memmove memset munmap select socket strerror strstr strtoul strtoull])
 
+# Check for openssl header
+AC_CHECK_HEADERS([openssl/md5.h],
+    [],
+    [AC_MSG_ERROR([openssl/md5.h not found])]
+)
+
 # Check if compiler supports mcx16
 saved_cflags="$CFLAGS"
 CFLAGS=-mcx16
@@ -76,24 +82,66 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
 CFLAGS="$saved_cflags"
 AC_SUBST(NO_UNUSED_CMDLINE_ARG_CFLAGS)
 
-# Check for systemd.
-AS_IF([test "x$PKGCONFIG" = "x"],
-    [AC_MSG_ERROR(pkg-config not found.)],
-    [AC_MSG_CHECKING(for systemd)
-     AS_IF([$PKGCONFIG --exists systemd],
-        [AC_MSG_RESULT(yes)],
-        [AC_MSG_RESULT(no); AC_MSG_ERROR(systemd not found.)]
-    )]
+# Check for pkgconfig
+AC_MSG_CHECKING([for pkg-config])
+AS_IF([test "x${PKGCONFIG}" = "x"],
+    [
+     AC_MSG_RESULT(no)
+     have_pkgconfig="no"
+    ],
+    [
+     AC_MSG_RESULT(yes)
+     have_pkgconfig="yes"
+    ]
 )
 
+# Check for systemd.
+AS_IF([test "x${have_pkgconfig}" = "xyes"],
+    [
+     AC_MSG_CHECKING(for systemd pkg-config support)
+     AS_IF([$PKGCONFIG --exists systemd],
+        [
+     AC_MSG_RESULT(yes); have_systemd="yes"
+    ],
+        [
+     AC_MSG_RESULT(no);  have_systemd="no"
+    ])
+    ], []
+)
+
+AC_ARG_ENABLE(systemd,
+        AS_HELP_STRING([--enable-systemd], [Enable systemd support]),
+	[enable_systemd=${enableval}], [enable_systemd="yes"])
+if (test "${have_systemd}" = "no"); then
+    if (test "${enable_systemd}" != "no" ); then
+        AC_MSG_ERROR(systemd not found)
+    fi
+else
+    AC_MSG_CHECKING(whether to use systemd)
+    AC_MSG_RESULT(${enable_systemd})
+fi
+
+# Check for yasm
+AC_CHECK_PROG(YASM, yasm, yes , no)
+if test "$YASM" = "no"; then
+    AC_MSG_ERROR([yasm required])
+fi
 
 # Check location of systemd unit files
-PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemdsystemunitdir],
         AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
-        [], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
-AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
-AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir"])
+        [],
+       [AS_IF([test "${have_pkgconfig}" = "yes"],
+            [with_systemdsystemunitdir=$($PKGCONFIG --variable=systemdsystemunitdir systemd)
+             AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])],
+            [])
+        ])
+
+AM_CONDITIONAL(HAVE_SYSTEMD, test "${enable_systemd}" != "no")
+
+AS_IF([test "${enable_systemd}" != "no"],
+	    [AC_MSG_CHECKING(systemd unit directory); AC_MSG_RESULT(${systemdsystemunitdir})],
+	    [])
 
 
 # SAMPLES
@@ -176,10 +224,14 @@ AC_ARG_ENABLE(service,
     AS_HELP_STRING([--enable-service], [Automatically enables systemd service during installation.]),
     [service=true], [service=false]
 )
-AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue])
+AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue -a x$enable_systemd != xno ])
 
 # Config files.
-AC_CONFIG_FILES([Makefile quickassist/utilities/service/qat.service qatlib.spec])
+AC_CONFIG_FILES([Makefile qatlib.spec])
+if test x$enable_systemd != xno
+then
+    AC_CONFIG_FILES([quickassist/utilities/service/qat.service quickassist/utilities/service/qat_init.sh])
+fi
 
 # Substitutions in spec file
 AC_SUBST([PACKAGE])

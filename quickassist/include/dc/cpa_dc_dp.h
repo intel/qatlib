@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -169,7 +169,11 @@ typedef struct _CpaDcDpOpData
     /**< Instance to which the request is to be enqueued */
 
     CpaDcSessionHandle  pSessionHandle;
-    /**< DC Session associated with the stream of requests */
+    /**< DC Session associated with the stream of requests.
+     * This field is only valid when using the session based API functions.
+     * This field must be set to NULL if the application wishes to use
+     * the No-Session (Ns) API.
+     */
 
     CpaPhysicalAddr     srcBuffer;
     /**< Physical address of the source buffer on which to operate.
@@ -241,8 +245,18 @@ typedef struct _CpaDcDpOpData
      * It may be used to store information that might be useful when
      * processing the response later.
      */
-} CpaDcDpOpData;
 
+    CpaDcNsSetupData    *pSetupData;
+    /**< Pointer to the No-session (Ns) Setup data for configuration of this
+     * request.
+     *
+     * This @ref CpaDcNsSetupData structure must be initialised when using the
+     * Data Plane No-Session (Ns) API. Otherwise it should be set to NULL.
+     * When initialized, the existing Data Plane API functions can be used
+     * as is.
+     */
+
+} CpaDcDpOpData;
 
 /**
  *****************************************************************************
@@ -252,7 +266,7 @@ typedef struct _CpaDcDpOpData
  * @description
  *      This is the callback function prototype. The callback function is
  *      registered by the application using the @ref cpaDcDpRegCbFunc
- *      function call, and called back on completion of asychronous
+ *      function call, and called back on completion of asynchronous
  *      requests made via calls to @ref cpaDcDpEnqueueOp or @ref
  *      cpaDcDpEnqueueOpBatch.
  *
@@ -470,7 +484,7 @@ cpaDcDpInitSession( CpaInstanceHandle       dcInstance,
  * @retval CPA_STATUS_FAIL           Function failed.
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
  * @retval CPA_STATUS_RESOURCE       Error related to system resources.
- * @retval CPA_STATUS_RESTARTING     API implementation is restarting. 
+ * @retval CPA_STATUS_RESTARTING     API implementation is restarting.
  *                                   Resubmit the request
  *
  * @pre
@@ -553,7 +567,7 @@ cpaDcDpRemoveSession(const CpaInstanceHandle dcInstance,
  * @description
  *      This function allows a completion callback function to be registered.
  *      The registered callback function is invoked on completion of
- *      asychronous requests made via calls to @ref cpaDcDpEnqueueOp
+ *      asynchronous requests made via calls to @ref cpaDcDpEnqueueOp
  *      or @ref cpaDcDpEnqueueOpBatch.
  * @context
  *      This is a synchronous function and it cannot sleep. It can be
@@ -654,7 +668,8 @@ CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
  *
  * @pre
  *      The session identified by pOpData->pSessionHandle was setup using
- *      @ref cpaDcDpInitSession.
+ *      @ref cpaDcDpInitSession OR pOpData->pSetupData data structure was
+ *      initialized for No-Session (Ns) usage.
  *      The instance identified by pOpData->dcInstance has had a
  *      callback function registered via @ref cpaDcDpRegCbFunc.
  *
@@ -669,8 +684,6 @@ CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
  * @see
  *      @ref cpaDcDpPerformOpNow
  *****************************************************************************/
-
-
 CpaStatus
 cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
         const CpaBoolean performOpNow);
@@ -750,7 +763,8 @@ cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
  *
  * @pre
  *      The session identified by pOpData[i]->pSessionHandle was setup using
- *      @ref cpaDcDpInitSession.
+ *      @ref cpaDcDpInitSession OR pOpData[i]->pSetupData data structure was
+ *      initialized for No-Session (Ns) usage.
  *      The instance identified by pOpData[i]->dcInstance has had a
  *      callback function registered via @ref cpaDcDpRegCbFunc.
  *

@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@
 
 #define INTEL_VENDOR_ID 0x8086
 #define QAT_4XXXVF_DEVICE_ID 0x4941
+#define QAT_401XXVF_DEVICE_ID 0x4943
 
 
 #define IOMMUGROUP_DEV_DIR "/sys/kernel/iommu_groups/%s/devices/"
@@ -119,25 +120,38 @@ static void cleanup_capabilities_cache()
 
 static int is_qat_device(int device_id)
 {
-    if (device_id == QAT_4XXXVF_DEVICE_ID)
+    switch(device_id) {
+    case QAT_4XXXVF_DEVICE_ID:
+    case QAT_401XXVF_DEVICE_ID:
         return 1;
-
+    default:
+        return 0;
+    }
     return 0;
 }
 
 static int qat_device_type(int device_id)
 {
-    if (device_id == QAT_4XXXVF_DEVICE_ID)
+    switch (device_id) {
+    case QAT_4XXXVF_DEVICE_ID:
+    case QAT_401XXVF_DEVICE_ID:
         return DEVICE_4XXXVF;
-
+    default:
+        return 0;
+    }
     return 0;
 }
 
 static char *qat_device_name(int device_id)
 {
-    if (device_id == QAT_4XXXVF_DEVICE_ID)
+    switch (device_id) {
+    case QAT_4XXXVF_DEVICE_ID:
         return "4xxxvf";
-
+    case QAT_401XXVF_DEVICE_ID:
+        return "401xxvf";
+    default:
+        return "unknown";
+    }
     return "unknown";
 }
 
@@ -1066,6 +1080,9 @@ void dump_message(void *ptr, char *text)
 
 static void err_msg(struct qatmgr_msg_rsp *rsp, char *text)
 {
+    ICP_CHECK_FOR_NULL_PARAM_VOID(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_VOID(text);
+
     rsp->hdr.type = QATMGR_MSGTYPE_BAD;
     rsp->hdr.version = THIS_LIB_VERSION;
     ICP_STRLCPY(rsp->error_text, text, sizeof(rsp->error_text));

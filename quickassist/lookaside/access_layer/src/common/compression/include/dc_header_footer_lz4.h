@@ -1,10 +1,11 @@
-/*
+/****************************************************************************
+ *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -56,103 +57,77 @@
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * 
- */
-
-/**
- * @file icp_qat_fw_kpt_ksp.h
- * @defgroup icp_qat_fw_kpt_ksp ICP QAT FW KPT KSP Processing Definitions
- * @ingroup icp_qat_fw
- * $Revision: 0.1 $
- * @brief
- *      This file documents the external interfaces that the QAT FW running
- *      on the QAT Acceleration Engine provides to clients wanting to
- *      accelerate crypto asymmetric applications
- */
-
-#ifndef __ICP_QAT_FW_KPT_KSP_H__
-#define __ICP_QAT_FW_KPT_KSP_H__
-
-/**
- ***************************************************************************
- * @ingroup icp_qat_fw_kpt_ksp
- *      Request data for QAT messages
  *
- * @description
- *      This structure defines the request data for KPT KSP QAT messages. This
- *      is used to store data which is known when the message is sent and which
- *      we wish to retrieve when the response message is processed.
- **************************************************************************/
-typedef struct icp_qat_fw_kpt_ksp_request_s
-{
-    Cpa8U resrvd0;
-    Cpa8U cmdID;
-    /* Kpt Ksp Command id */
-    Cpa8U serviceType;
-    /* Kpt Ksp service type */
-    Cpa8U valid;
-    Cpa16U keysel_flags;
-    /* loadkey selection flag */
-    Cpa16U resrvd1;
-    /* iteration count */
-    Cpa32U kpthandle_l;
-    Cpa32U kpthandle_h;
-    Cpa64U resrvd2;
-    Cpa64U opaque_data;
-    Cpa64U input_data;
-    /* physical addr of SWK format */
-    Cpa64U output_data;
-    /* Output data physical addr, Loading WPK from QAT mode */
-    Cpa8U resrvd3[16];
-} icp_qat_fw_kpt_ksp_request_t;
+ ***************************************************************************/
 
 /**
  *****************************************************************************
- * @ingroup icp_qat_fw_kpt_ksp
+ * @file dc_header_footer_lz4.h
+ *
+ * @ingroup Dc_DataCompression
  *
  * @description
- *     Define the KPT ksp response format
+ *      Definition of the Data Compression header and footer parameters
+ *      for LZ4.
  *
  *****************************************************************************/
-typedef struct icp_qat_fw_kpt_ksp_resp_data_s
-{
-    Cpa8U resrvd0;
-    Cpa8U cmdID;
-    /* Kpt Ksp request command id */
-    Cpa8U serviceType;
-    /* Kpt Ksp request service type */
-    Cpa8U value;
-    Cpa16U rspStatus;
-    /* Kpt Ksp request operation result */
-    Cpa16U resrvd1;
-    Cpa64U opaque_data;
-    /* opaque data pointer, it's a copy of the callback data
-     * passed when the request was created */
-    Cpa8U resrvd3[16];
-} icp_qat_fw_kpt_ksp_resp_data_t;
+#ifndef DC_HEADER_FOOTER_LZ4_H_
+#define DC_HEADER_FOOTER_LZ4_H_
+
+#include "lac_common.h"
+
+/* Header and footer size LZ4 */
+#define DC_LZ4_HEADER_SIZE 7
+#define DC_LZ4_FOOTER_SIZE 8
+
+/* Values used to build the headers for LZ4 */
+#define DC_LZ4_FH_ID 0x184D2204U
+#define DC_LZ4_FH_FLG_VERSION 0x1
+#define DC_LZ4_FH_MAX_BLK_SIZE_ENUM_MIN 4
+
+/* Values used to build footers for LZ4 */
+#define DC_LZ4_FF_END_MARK 0x0
 
 /**
- ***************************************************************************
- * @ingroup icp_qat_fw_kpt_ksp
- *      wrapping key format
+ *****************************************************************************
+ * @ingroup dc_lz4_generate_header
+ *      Generate the LZ4 Header.
  *
  * @description
- *      This structure defines the wrapping key format which will be used to
- *      decrypt wrapped private key in KPT PKE request
- **************************************************************************/
-typedef struct icp_qat_kpt_ksp_key_format_s
-{
-    Cpa8U alg;
-    /* wrapping algorithm */
-    Cpa8U hmac_type;
-    /* HMAC type */
-    Cpa16U ic;
-    /* iteration count */
-    Cpa8U action;
-    /* key action */
-    Cpa8U resrvd[3];
-    Cpa8U iv[16];
-    /* initialization vector */
-    Cpa8U state[40];
-    /* GCM precompute state2 or HMAC key */
-} icp_qat_kpt_ksp_key_format_t;
-#endif
+ *      This function generates the LZ4 compression header.
+ *
+ * @param[in]       dest_buff        Pointer to the destination buffer the
+ *                                   LZ4 header will be written to.
+ * @param[in]       max_block_size   LZ4 Maximum block size.
+ * @param[in]       block_indep       LZ4 block independence value.
+ * @param[in,out]   count            Pointer to counter that stores
+ *                                   amount of generated bytes.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ *****************************************************************************/
+CpaStatus dc_lz4_generate_header(const CpaFlatBuffer *dest_buff,
+                                 const CpaDcCompLZ4BlockMaxSize max_block_size,
+                                 const CpaBoolean block_indep,
+                                 Cpa32U *count);
+
+/**
+ *****************************************************************************
+ * @ingroup dc_lz4_generate_footer
+ *      Generate the LZ4 footer.
+ *
+ * @description
+ *      This function generates tha LZ4 compression footer.
+ *
+ * @param[in]   dest_buff        Pointer to the destination buffer where
+ *                               the LZ4 footer will be written to.
+ * @param[in]   pRes             Pointer to the CpaDcRqResults structure
+ *                               that holds XXHASH32.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ *****************************************************************************/
+CpaStatus dc_lz4_generate_footer(const CpaFlatBuffer *dest_buff,
+                                 const CpaDcRqResults *pRes);
+
+#endif /* DC_HEADER_FOOTER_LZ4_H_ */

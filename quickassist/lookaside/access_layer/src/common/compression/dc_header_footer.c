@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -86,6 +86,7 @@
  *******************************************************************************
  */
 #include "dc_header_footer.h"
+#include "dc_header_footer_lz4.h"
 #include "dc_session.h"
 #include "dc_datapath.h"
 
@@ -219,6 +220,16 @@ CpaStatus cpaDcGenerateHeader(CpaDcSessionHandle pSessionHandle,
             *count = 0;
         }
     }
+    else if (CPA_DC_LZ4 == pSessionDesc->compType)
+    {
+        CpaStatus ret;
+        ret = dc_lz4_generate_header(pDestBuff,
+                                     pSessionDesc->lz4BlockMaxSize,
+                                     pSessionDesc->lz4BlockIndependence,
+                                     count);
+        if (CPA_STATUS_SUCCESS != ret)
+            return ret;
+    }
     else
     {
         /* There is no header for other compressed data */
@@ -339,6 +350,14 @@ CpaStatus cpaDcGenerateFooter(CpaDcSessionHandle pSessionHandle,
             /* Increment produced by the number of bytes added to the buffer */
             pRes->produced += DC_ZLIB_FOOTER_SIZE;
         }
+    }
+    else if (CPA_DC_LZ4 == pSessionDesc->compType)
+    {
+        CpaStatus ret;
+        ret = dc_lz4_generate_footer(pDestBuff, pRes);
+        if (CPA_STATUS_SUCCESS != ret)
+            return ret;
+        pRes->produced += DC_LZ4_FOOTER_SIZE;
     }
 
     return CPA_STATUS_SUCCESS;

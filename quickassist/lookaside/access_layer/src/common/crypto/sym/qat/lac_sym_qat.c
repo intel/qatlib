@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -183,8 +183,9 @@ CpaStatus LacSymQat_Init(CpaInstanceHandle instanceHandle)
 void LacSymQat_RespHandlerRegister(icp_qat_fw_la_cmd_id_t lacCmdId,
                                    sal_qat_resp_handler_func_t pCbHandler)
 {
-    LAC_ENSURE_RETURN_VOID((lacCmdId < ICP_QAT_FW_LA_CMD_DELIMITER),
-                           "Invalid Command ID");
+    /* clang-format off */
+    LAC_ENSURE_RETURN_VOID((lacCmdId < ICP_QAT_FW_LA_CMD_DELIMITER), "Invalid Command ID");
+    /* clang-format on */
 
     /* set the response handler for the command ID */
     respHandlerSymTbl[lacCmdId] = pCbHandler;

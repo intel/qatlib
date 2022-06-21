@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -507,7 +507,6 @@ typedef struct icp_qat_fw_init_admin_resp_s
 
 /* Compression */
 #define ICP_QAT_FW_CAP_COMP_EXT_CNV_BITPOS 0
-#define ICP_QAT_FW_CAP_COMP_EXT_BNP_BITPOS 1
 
 #define ICP_QAT_FW_CAP_COMP_COMPRESSION_DEFLATE_BITPOS 0
 

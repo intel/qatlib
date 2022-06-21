@@ -1,7 +1,7 @@
 ################################################################
 #   BSD LICENSE
 # 
-#   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+#   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
 #   All rights reserved.
 # 
 #   Redistribution and use in source and binary forms, with or without
@@ -36,21 +36,21 @@ ACLOCAL_AMFLAGS = -Im4
 
 noinst_LTLIBRARIES = libosal.la
 libosal_la_SOURCES = \
-    quickassist/utilities/osal/src/linux/user_space/OsalSemaphore.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalThread.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalMutex.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalSpinLock.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalAtomic.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalServices.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalUsrKrnProxy.c \
-    quickassist/utilities/osal/src/linux/user_space/OsalCryptoInterface.c
+	quickassist/utilities/osal/src/linux/user_space/OsalSemaphore.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalThread.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalMutex.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalSpinLock.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalAtomic.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalServices.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalUsrKrnProxy.c \
+	quickassist/utilities/osal/src/linux/user_space/OsalCryptoInterface.c
 
 libosal_la_CFLAGS = -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space \
-		   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
-		   -I$(srcdir)/quickassist/utilities/osal/include \
-		   -DOSAL_ENSURE_ON -DUSE_OPENSSL \
-		   -Wno-deprecated-declarations \
-		   $(COMMON_FLAGS)
+		    -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
+		    -I$(srcdir)/quickassist/utilities/osal/include \
+		    -DOSAL_ENSURE_ON -DUSE_OPENSSL \
+		    -Wno-deprecated-declarations \
+		    $(COMMON_FLAGS)
 
 noinst_LTLIBRARIES += libadf.la
 libadf_la_SOURCES = \
@@ -73,18 +73,18 @@ libadf_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c
 libadf_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
-		  -I$(srcdir)/quickassist/utilities/osal/include \
-		  -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
-		  -I$(srcdir)/quickassist/include \
-		  -I$(srcdir)/quickassist/include/lac \
-		  -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
-		  -D USER_SPACE \
-		  $(COMMON_FLAGS)
+		   -I$(srcdir)/quickassist/utilities/osal/include \
+		   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
+		   -I$(srcdir)/quickassist/include \
+		   -I$(srcdir)/quickassist/include/lac \
+		   -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/include \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
+		   -D USER_SPACE \
+		   $(COMMON_FLAGS)
 
 sbin_PROGRAMS = qatmgr
 qatmgr_SOURCES = \
@@ -95,15 +95,15 @@ qatmgr_SOURCES = \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c
 qatmgr_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
-	   -I$(srcdir)/quickassist/lookaside/access_layer/include \
-	   -I$(srcdir)/quickassist/include \
-	   -I$(srcdir)/quickassist/utilities/osal/include \
-	   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
-	   -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
-	   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
-	   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
-	   -D USER_SPACE \
-	   $(COMMON_FLAGS)
+	        -I$(srcdir)/quickassist/lookaside/access_layer/include \
+	        -I$(srcdir)/quickassist/include \
+	        -I$(srcdir)/quickassist/utilities/osal/include \
+	        -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
+	        -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
+	        -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
+	        -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
+	        -D USER_SPACE \
+	        $(COMMON_FLAGS)
 
 qatmgr_LDADD = -lpthread
 
@@ -112,14 +112,19 @@ lib@LIBUSDMNAME@_la_SOURCES = \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_utils.c \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.c
 lib@LIBUSDMNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
-			-I$(srcdir)/quickassist/utilities/libusdm_drv/include \
-			-I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
-			-shared \
-			$(COMMON_FLAGS)
+			     -I$(srcdir)/quickassist/utilities/libusdm_drv/include \
+			     -I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
+			     $(COMMON_FLAGS)
 lib@LIBUSDMNAME@_la_LDFLAGS = -version-info $(LIBUSDM_VERSION) \
-	$(COMMON_LDFLAGS) \
-	-export-symbols-regex '^(qae)'
+			      $(COMMON_LDFLAGS) \
+			      -export-symbols-regex '^(qae)'
 
+# Creating CRC libs from asm files using yasm with automake-like output
+libcrc_SOURCES_DIR = quickassist/lookaside/access_layer/src/common/compression/
+%.lo:
+	@echo "  CCAS     $(libcrc_SOURCES_DIR)$@"
+	@$(LIBTOOL) --mode=compile --quiet \
+	yasm -f x64 -f elf64 -D LINUX -X gnu -g dwarf2 $(libcrc_SOURCES_DIR)$(@:.lo=.S) -o $@ -prefer-non-pic
 
 lib_LTLIBRARIES += lib@LIBQATNAME@.la
 lib@LIBQATNAME@_la_SOURCES = \
@@ -128,9 +133,15 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/compression/dc_datapath.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_dp.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_header_footer.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_header_footer_lz4.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_session.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_stats.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_err_sim.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_ns_datapath.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_ns_header_footer.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_crc32.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_crc64.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_xxhash32.c \
 	quickassist/lookaside/access_layer/src/common/compression/icp_sal_dc_err_sim.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/diffie_hellman/lac_dh_control_path.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/diffie_hellman/lac_dh_data_path.c \
@@ -144,6 +155,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ec_nist_curves.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecdh.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecdsa.c \
+	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_kpt_ecdsa.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/large_number/lac_ln.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/large_number/lac_ln_interface_check.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/pke_common/lac_pke_mmp.c \
@@ -158,6 +170,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/rsa/lac_rsa_interface_check.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/rsa/lac_rsa_keygen.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/rsa/lac_rsa_stats.c \
+	quickassist/lookaside/access_layer/src/common/crypto/asym/rsa/lac_kpt_rsa_decrypt.c \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/drbg/lac_sym_drbg_api.c \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/key/lac_sym_key.c \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/lac_sym_alg_chain.c \
@@ -179,12 +192,14 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/qat/lac_sym_qat_hash_defs_lookup.c \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/qat/lac_sym_qat_key.c \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/lac_sym_hash_sw_precomputes.c \
+	quickassist/lookaside/access_layer/src/common/crypto/kpt/provision/lac_kpt_provision.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_compression.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_create_services.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_ctrl_services.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_list.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_crypto.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_dc_chain.c \
+	quickassist/lookaside/access_layer/src/common/ctrl/sal_instances.c \
 	quickassist/lookaside/access_layer/src/common/qat_comms/sal_qat_cmn_msg.c \
 	quickassist/lookaside/access_layer/src/common/utils/lac_buffer_desc.c \
 	quickassist/lookaside/access_layer/src/common/utils/lac_log_message.c \
@@ -202,33 +217,33 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/user/sal_user.c \
 	quickassist/lookaside/access_layer/src/user/sal_user_dyn_instance.c
 lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
-		  -I$(srcdir)/quickassist/utilities/osal/include \
-		  -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
-		  -I$(srcdir)/quickassist/include \
-		  -I$(srcdir)/quickassist/include/lac \
-		  -I$(srcdir)/quickassist/include/dc \
-		  -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/common/compression/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/sym/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/asym/include \
-		  -I$(srcdir)/quickassist/lookaside/firmware/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
-		  -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
-		  -D USER_SPACE \
-		  -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
-		  -shared \
-		  $(COMMON_FLAGS)
-lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la -lcrypto
+			    -I$(srcdir)/quickassist/utilities/osal/include \
+			    -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
+			    -I$(srcdir)/quickassist/include \
+			    -I$(srcdir)/quickassist/include/lac \
+			    -I$(srcdir)/quickassist/include/dc \
+			    -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/compression/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/sym/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/asym/include \
+			    -I$(srcdir)/quickassist/lookaside/firmware/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
+			    -D USER_SPACE \
+			    -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
+			    $(COMMON_FLAGS)
+lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la crc32_gzip_refl_by8.lo crc64_ecma_norm_by8.lo -lcrypto
 lib@LIBQATNAME@_la_LDFLAGS = -version-info $(LIBQAT_VERSION) \
-	$(COMMON_LDFLAGS) \
-	-export-symbols-regex '^(cpa|icp_sal)'
+			     $(COMMON_LDFLAGS) \
+			     -export-symbols-regex '^(cpa|icp_sal)'
 
 pkgincludedir = $(includedir)/qat
 pkginclude_HEADERS = \
 	quickassist/include/cpa.h \
+	quickassist/include/cpa_dev.h \
 	quickassist/include/cpa_types.h \
 	quickassist/include/lac/cpa_cy_common.h \
 	quickassist/include/lac/cpa_cy_dh.h \
@@ -239,6 +254,7 @@ pkginclude_HEADERS = \
 	quickassist/include/lac/cpa_cy_ec.h \
 	quickassist/include/lac/cpa_cy_im.h \
 	quickassist/include/lac/cpa_cy_key.h \
+	quickassist/include/lac/cpa_cy_kpt.h \
 	quickassist/include/lac/cpa_cy_ln.h \
 	quickassist/include/lac/cpa_cy_nrbg.h \
 	quickassist/include/lac/cpa_cy_prime.h \
@@ -248,6 +264,7 @@ pkginclude_HEADERS = \
 	quickassist/include/dc/cpa_dc.h \
 	quickassist/include/dc/cpa_dc_dp.h \
 	quickassist/include/dc/cpa_dc_chain.h \
+	quickassist/lookaside/access_layer/include/icp_sal_congestion_mgmt.h \
 	quickassist/lookaside/access_layer/include/icp_sal_poll.h \
 	quickassist/lookaside/access_layer/include/icp_sal_user.h \
 	quickassist/lookaside/access_layer/include/icp_sal.h \
@@ -263,7 +280,7 @@ dist_systemd_scripts_SCRIPTS = quickassist/utilities/service/qat_init.sh
 
 install-data-hook:
 if SERVICE_AC
-	if [ "$(shell id -u)" == 0 ]; then \
+	@if [ "$(shell id -u)" == 0 ]; then \
 		/usr/sbin/groupadd qat 2> /dev/null || :; \
 		systemctl daemon-reload; \
 		systemctl start qat; \
@@ -273,7 +290,7 @@ endif
 
 uninstall-hook:
 if SERVICE_AC
-	if [ "$(shell id -u)" == 0 ]; then \
+	@if [ "$(shell id -u)" == 0 ]; then \
 		systemctl daemon-reload; \
 		pidof qatmgr > /dev/null && kill `pidof qatmgr`; \
 		rm -rf /run/qat; \
@@ -308,19 +325,19 @@ COMMON_LDFLAGS = -pie -z relro -z now -z noexecstack
 AM_LDFLAGS = $(COMMON_LDFLAGS)
 
 COMMON_FLAGS = -Wformat \
-	-Wformat-security \
-	-Werror=format-security \
-	-D_FORTIFY_SOURCE=2 \
-	-fstack-protector-strong \
-	-fPIE \
-	-fPIC \
-	-fno-strict-overflow \
-	-fno-delete-null-pointer-checks \
-	-fwrapv \
-	-D MAX_MR_ROUND=$(MAX_MR) \
-	-D _FILE_OFFSET_BITS=64 \
-	$(NO_UNUSED_CMDLINE_ARG_CFLAGS) \
-	$(MCX16_CFLAGS)
+	       -Wformat-security \
+	       -Werror=format-security \
+	       -D_FORTIFY_SOURCE=2 \
+	       -fstack-protector-strong \
+	       -fPIE \
+	       -fPIC \
+	       -fno-strict-overflow \
+	       -fno-delete-null-pointer-checks \
+	       -fwrapv \
+	       -D MAX_MR_ROUND=$(MAX_MR) \
+	       -D _FILE_OFFSET_BITS=64 \
+	       $(NO_UNUSED_CMDLINE_ARG_CFLAGS) \
+	       $(MCX16_CFLAGS)
 
 if ICP_DEBUG_AC
 ICP_DEBUG = 1

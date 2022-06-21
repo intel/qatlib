@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -70,6 +70,7 @@
 #include "qat_perf_cycles.h"
 #include "busy_loop.h"
 #include "icp_sal_user.h"
+#include "qat_perf_utils.h"
 
 extern void dcPerformCallback(void *pCallbackTag, CpaStatus status);
 
@@ -107,20 +108,57 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
                                    CpaDcSessionState state,
                                    Cpa32U testBufferSize,
                                    corpus_type_t corpusType,
-                                   synchronous_flag_t syncFlag,
+                                   sync_mode_t syncFlag,
                                    Cpa32U numLoops);
+
+#if DC_API_VERSION_AT_LEAST(3, 1)
+CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
+                         CpaDcSessionDir direction,
+                         CpaDcCompLvl compLevel,
+                         CpaDcSessionState state,
+                         Cpa32U testBufferSize,
+                         corpus_type_t corpusType,
+                         CpaDcCompMinMatch minMatch,
+                         CpaDcCompLZ4BlockMaxSize lz4BlockMaxSize,
+                         sync_mode_t syncFlag,
+                         Cpa32U numLoops)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    /* get memory location from sample code framework to store setup details*/
+    compression_test_params_t *dcSetup = NULL;
+    dcSetup = (compression_test_params_t *)&thread_setup_g[testTypeCount_g][0];
+
+    /*Assign unique values used only by LZ4 */
+    dcSetup->setupData.minMatch = minMatch;
+    dcSetup->setupData.lz4BlockMaxSize = lz4BlockMaxSize;
+    dcSetup->setupData.lz4BlockIndependence = LZ4BlockIndependence_g;
+
+    status = setupDcCommonTest(dcSetup,
+                               algorithm,
+                               direction,
+                               compLevel,
+                               state,
+                               testBufferSize,
+                               corpusType,
+                               syncFlag,
+                               numLoops);
+
+    return status;
+}
+EXPORT_SYMBOL(setupDcLZ4Test);
+#endif
 
 /*register a test with the sample code framework*/
 CpaStatus setupDcTest(CpaDcCompType algorithm,
                       CpaDcSessionDir direction,
                       CpaDcCompLvl compLevel,
                       CpaDcHuffType huffmanType,
-                      CpaDcFileType fileType,
                       CpaDcSessionState state,
                       Cpa32U windowSize,
                       Cpa32U testBufferSize,
                       corpus_type_t corpusType,
-                      synchronous_flag_t syncFlag,
+                      sync_mode_t syncFlag,
                       Cpa32U numLoops)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -136,7 +174,6 @@ CpaStatus setupDcTest(CpaDcCompType algorithm,
     dcSetup->setupData.huffType = CPA_DC_HT_STATIC;
 #endif
 #if DC_API_VERSION_LESS_THAN(1, 6)
-    dcSetup->setupData.fileType = fileType;
     /*windows size is depreciated in new versions of the QA-API*/
     dcSetup->setupData.deflateWindowSize = windowsSize;
 #endif
@@ -161,7 +198,7 @@ CpaStatus setupDcStatefulTest(CpaDcCompType algorithm,
                               CpaDcHuffType huffmanType,
                               Cpa32U testBufferSize,
                               corpus_type_t corpusType,
-                              synchronous_flag_t syncFlag,
+                              sync_mode_t syncFlag,
                               Cpa32U numLoops)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -170,7 +207,6 @@ CpaStatus setupDcStatefulTest(CpaDcCompType algorithm,
                          direction,
                          compLevel,
                          huffmanType,
-                         CPA_DC_FT_ASCII,
                          CPA_DC_STATEFUL,
                          DEFAULT_COMPRESSION_WINDOW_SIZE,
                          testBufferSize,
@@ -189,7 +225,7 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
                                    CpaDcSessionState state,
                                    Cpa32U testBufferSize,
                                    corpus_type_t corpusType,
-                                   synchronous_flag_t syncFlag,
+                                   sync_mode_t syncFlag,
                                    Cpa32U numLoops)
 {
 
@@ -286,7 +322,9 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     dcSetup->setupData.compLevel = compLevel;
     dcSetup->setupData.compType = algorithm;
     dcSetup->setupData.sessDirection = direction;
-    dcSetup->setupData.sessState = state;
+    {
+        dcSetup->setupData.sessState = state;
+    }
 
     dcSetup->corpus = corpusType;
     dcSetup->corpusFileIndex = corpusFileIndex;
@@ -295,7 +333,7 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     dcSetup->syncFlag = syncFlag;
     dcSetup->numLoops = numLoops;
     dcSetup->isDpApi = CPA_FALSE;
-
+    dcSetup->disableAdditionalCmpbufferSize = disableAdditionalCmpbufferSize_g;
     dcSetup->setupData.autoSelectBestHuffmanTree = gAutoSelectBestMode;
     dcSetup->setupData.checksum = gChecksum;
     dcSetup->passCriteria = getPassCriteria();
@@ -330,6 +368,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     dcSetup.dcSessDir = tmpSetup->dcSessDir;
     dcSetup.syncFlag = tmpSetup->syncFlag;
     dcSetup.numLoops = tmpSetup->numLoops;
+    dcSetup.setupData.checksum = tmpSetup->setupData.checksum;
     dcSetup.useE2E = tmpSetup->useE2E;
     dcSetup.useE2EVerify = tmpSetup->useE2EVerify;
 
@@ -338,6 +377,8 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     dcSetup.performanceStats->averagePacketSizeInBytes = testSetup->packetSize;
     dcSetup.performanceStats->numLoops = tmpSetup->numLoops;
     dcSetup.isDpApi = CPA_FALSE;
+    dcSetup.disableAdditionalCmpbufferSize =
+        tmpSetup->disableAdditionalCmpbufferSize;
     testSetup->performanceStats->threadReturnStatus = CPA_STATUS_SUCCESS;
     testSetup->performanceStats->additionalStatus = CPA_STATUS_SUCCESS;
 
@@ -345,6 +386,8 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Error calculating required buffers\n");
+        testSetup->performanceStats->threadReturnStatus = status;
+        return;
     }
     dcSetup.numLists = dcSetup.numberOfBuffers[dcSetup.corpusFileIndex];
     if (CPA_STATUS_SUCCESS == status)
@@ -366,6 +409,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR(" Unable to get number of DC instances\n");
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
         }
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -374,6 +418,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         {
             PRINT_ERR(" DC Instances are not present\n");
             status = CPA_STATUS_FAIL;
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
         }
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -432,6 +477,30 @@ void dcPerformance(single_thread_test_data_t *testSetup)
               (testSetup->logicalQaInstance) % numInstances);
         QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
     }
+#if DC_API_VERSION_AT_LEAST(3, 1)
+    if ((CPA_DC_STATELESS == tmpSetup->setupData.sessState) &&
+        (CPA_DC_LZ4 == tmpSetup->setupData.compType) &&
+        ((CPA_FALSE == capabilities.statelessLZ4Compression) ||
+         (CPA_FALSE == capabilities.statelessLZ4Decompression)))
+    {
+        PRINT("LZ4 is not supported on logical instance %d\n",
+              (testSetup->logicalQaInstance) % numInstances);
+
+        status = CPA_STATUS_UNSUPPORTED;
+        QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
+    }
+    if ((CPA_DC_STATELESS == tmpSetup->setupData.sessState) &&
+        (CPA_DC_LZ4S == tmpSetup->setupData.compType) &&
+        ((CPA_FALSE == capabilities.statelessLZ4Compression) ||
+         (CPA_FALSE == capabilities.statelessLZ4Decompression)))
+    {
+        PRINT("LZ4s is not supported on logical instance %d\n",
+              (testSetup->logicalQaInstance) % numInstances);
+
+        status = CPA_STATUS_UNSUPPORTED;
+        QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
+    }
+#endif
 
     if (CPA_STATUS_SUCCESS !=
         qatDcGetPreTestRecoveryCount(
@@ -443,6 +512,10 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     {
         PRINT("Do CRC integrity capabilities check for this instance. %d\n",
               testSetup->logicalQaInstance);
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+        if (CPA_FALSE == capabilities.integrityCrcs64b)
+        {
+#endif
             if (CPA_FALSE == capabilities.integrityCrcs)
             {
 
@@ -456,9 +529,11 @@ void dcPerformance(single_thread_test_data_t *testSetup)
                 qaeMemFree((void **)&dcSetup.packetSizeInBytesArray);
                 sampleCodeThreadExit();
             }
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+        }
+#endif
     }
-    if (CPA_TRUE == dcSetup.useXlt &&
-        CPA_SAMPLE_ASYNCHRONOUS == dcSetup.syncFlag)
+    if (CPA_TRUE == dcSetup.useXlt && ASYNC == dcSetup.syncFlag)
     {
         PRINT("Async mode not supported in Xlt[%d]\n", dcSetup.useXlt);
         testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -521,7 +596,7 @@ err:
     }
     if (CPA_STATUS_SUCCESS != status)
     {
-        testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        testSetup->performanceStats->threadReturnStatus = status;
     }
     sampleCodeThreadComplete(testSetup->threadID);
 }
@@ -601,21 +676,22 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             fileArray[setup->corpusFileIndex].corpusBinaryDataLen,
             testBufferSize);
     }
-
-    // Initialize the compression session to use
-    if (CPA_STATUS_SUCCESS == status)
     {
-        status = qatCompressionSessionInit(setup,
-                                           &pSessionHandle,
-                                           &pDecompressSessionHandle,
-                                           &contextBuffer,
-                                           dcCbFn);
-        if (CPA_STATUS_SUCCESS != status)
+        // Initialize the compression session to use
+        if (CPA_STATUS_SUCCESS == status)
         {
-            PRINT_ERR("compressionSessionInit returned status %d\n", status);
+            status = qatCompressionSessionInit(setup,
+                                               &pSessionHandle,
+                                               &pDecompressSessionHandle,
+                                               &contextBuffer,
+                                               dcCbFn);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("compressionSessionInit returned status %d\n",
+                          status);
+            }
         }
     }
-
 /*CNV Error Injection*/
     /* compress the data */
     if (CPA_STATUS_SUCCESS == status)
@@ -711,7 +787,6 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             setup->numLoops = 1;
             for (i = 0; i < numLoops; i++)
             {
-
                 status = qatCompressData(setup,
                                          pSessionHandle,
                                          CPA_DC_DIR_COMPRESS,
@@ -864,12 +939,14 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
         coo_average(setup->performanceStats);
         coo_deinit(setup->performanceStats);
         // remove the session free the handle
-        if (CPA_STATUS_SUCCESS !=
-            qatCompressionSessionTeardown(
-                setup, &pSessionHandle, &pDecompressSessionHandle))
         {
-            PRINT_ERR("compressionSessionTeardown error\n");
-            status = CPA_STATUS_FAIL;
+            if (CPA_STATUS_SUCCESS !=
+                qatCompressionSessionTeardown(
+                    setup, &pSessionHandle, &pDecompressSessionHandle))
+            {
+                PRINT_ERR("compressionSessionTeardown error\n");
+                status = CPA_STATUS_FAIL;
+            }
         }
     }
     /*free CpaFlatBuffers and privateMetaData in CpaBufferLists*/
@@ -930,14 +1007,19 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
         if (compressDirection == CPA_DC_DIR_COMPRESS)
         {
             coo_req_start(setup->performanceStats);
-            status = cpaDcCompressData2(setup->dcInstanceHandle,
-                                        pSessionHandle,
-                                        &arrayOfSrcBufferLists[listNum],
-                                        &arrayOfDestBufferLists[listNum],
-                                        &(setup->requestOps),
-                                        &arrayOfResults[listNum],
-                                        (void *)setup);
-            coo_req_stop(setup->performanceStats, status);
+            {
+                {
+                    status =
+                        cpaDcCompressData2(setup->dcInstanceHandle,
+                                           pSessionHandle,
+                                           &arrayOfSrcBufferLists[listNum],
+                                           &arrayOfDestBufferLists[listNum],
+                                           &(setup->requestOps),
+                                           &arrayOfResults[listNum],
+                                           (void *)setup);
+                }
+                coo_req_stop(setup->performanceStats, status);
+            }
         }
         else if (compressDirection == CPA_DC_DIR_DECOMPRESS)
         {
@@ -946,13 +1028,15 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
              *  the setting of this flag should not matter for decompress*/
             setup->requestOps.compressAndVerify = CPA_FALSE;
             coo_req_start(setup->performanceStats);
-            status = cpaDcDecompressData2(setup->dcInstanceHandle,
-                                          pSessionHandle,
-                                          &arrayOfDestBufferLists[listNum],
-                                          &arrayOfCmpBufferLists[listNum],
-                                          &(setup->requestOps),
-                                          &arrayOfResults[listNum],
-                                          (void *)setup);
+            {
+                status = cpaDcDecompressData2(setup->dcInstanceHandle,
+                                              pSessionHandle,
+                                              &arrayOfDestBufferLists[listNum],
+                                              &arrayOfCmpBufferLists[listNum],
+                                              &(setup->requestOps),
+                                              &arrayOfResults[listNum],
+                                              (void *)setup);
+            }
             coo_req_stop(setup->performanceStats, status);
         }
 
@@ -995,7 +1079,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
     CpaDcChecksum checksum = CPA_DC_NONE;
     CpaDcStats dcStats = {0};
     CpaBoolean isCnVerrorRecovered = CPA_FALSE;
-    checksum = gChecksum;
+    checksum = setup->setupData.checksum;
     /* init checksum */
     if (CPA_DC_ADLER32 == checksum)
     {
@@ -1123,24 +1207,29 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                  *  the sample code uses the callback function to count the
                  *  responses and post the semaphore
                  */
-                if (CPA_SAMPLE_SYNCHRONOUS == setup->syncFlag)
+                if (SYNC == setup->syncFlag)
                 {
                     COUNT_RESPONSES;
                 } /* End of SYNC Flag Check */
                 else
                 {
-                    if ((CPA_DC_STATELESS == setup->setupData.sessState) &&
-                        (CPA_TRUE == setup->useE2E ||
-                         CPA_TRUE == setup->useE2EVerify))
+#if DC_API_VERSION_AT_LEAST(3, 2)
+                    if (reliability_g)
+#endif
                     {
-                        status = waitForSemaphore(setup->performanceStats);
-
-                        if (CPA_STATUS_SUCCESS != status)
+                        if ((CPA_DC_STATELESS == setup->setupData.sessState) &&
+                            (CPA_TRUE == setup->useE2E ||
+                             CPA_TRUE == setup->useE2EVerify))
                         {
-                            PRINT_ERR("waitForSemaphore error\n");
-                            setup->performanceStats->threadReturnStatus =
-                                CPA_STATUS_FAIL;
-                            break;
+                            status = waitForSemaphore(setup->performanceStats);
+
+                            if (CPA_STATUS_SUCCESS != status)
+                            {
+                                PRINT_ERR("waitForSemaphore error\n");
+                                setup->performanceStats->threadReturnStatus =
+                                    CPA_STATUS_FAIL;
+                                break;
+                            }
                         }
                     }
                 }
@@ -1192,11 +1281,16 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                 }
                 if (CPA_STATUS_SUCCESS == status)
                 {
-                    status = qatCompressionE2EVerify(
-                        setup,
-                        &arrayOfSrcBufferLists[listNum],
-                        &arrayOfDestBufferLists[listNum],
-                        &arrayOfResults[listNum]);
+#if DC_API_VERSION_AT_LEAST(3, 2)
+                    if (reliability_g)
+#endif
+                    {
+                        status = qatCompressionE2EVerify(
+                            setup,
+                            &arrayOfSrcBufferLists[listNum],
+                            &arrayOfDestBufferLists[listNum],
+                            &arrayOfResults[listNum]);
+                    }
                 }
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1248,7 +1342,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
              * the SAL/Driver. This is specially true for async response
              * processing via callback function.
              */
-            if (!(poll_inline_g || CPA_SAMPLE_SYNCHRONOUS == setup->syncFlag ||
+            if (!(poll_inline_g || SYNC == setup->syncFlag ||
                   CPA_TRUE == setup->useStatefulLite ||
                   CPA_DC_STATEFUL == setup->setupData.sessState))
             {
@@ -1540,7 +1634,6 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
         }
 
         qatDcUpdateProducedBufferLength(setup, cmpBufferListArray, resultArray);
-        if (CPA_STATUS_SUCCESS == status)
         {
             /* Compare the input buffer to SW decompressed buffer */
             status =

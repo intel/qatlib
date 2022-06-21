@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -277,6 +277,34 @@ static CpaPhysicalAddr symDpCalDigestAddress(Cpa32U packetSize,
     }
     return pDigestResult;
 }
+
+/**
+ *****************************************************************************
+ * @ingroup sampleSymmetricDpPerf
+ *
+ * @description
+ *      calculate the pointer of TLS digest result in the buffer list
+ *      digest result should be located in the end of Plaintext and
+ *      digest result should be align with block size of cipher.
+ *****************************************************************************/
+static CpaPhysicalAddr symDpCalTLSDigestAddress(Cpa32U packetSize,
+                                                Cpa32U headerSizeInByte,
+                                                Cpa32U blockSizeInBytes,
+                                                CpaPhysBufferList *pBufferList)
+{
+    CpaPhysicalAddr pDigestResult = 0;
+    Cpa32U numBuffers = pBufferList->numBuffers;
+
+    /* In case of single flat buffer in the list, Digest
+     * Address is Header + Cipher data Length
+     */
+    pDigestResult = (CpaPhysicalAddr)(SAMPLE_CODE_UINT)(
+        pBufferList->flatBuffers[numBuffers - 1].bufferPhysAddr + packetSize +
+        headerSizeInByte);
+
+    return pDigestResult;
+}
+
 /**
  *****************************************************************************
  * @ingroup sampleSymmetricPerf
@@ -602,7 +630,21 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
         /* For AES-CCM, AAD(additional auth data) is optional.*/
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes = 0;
     }
-    setup->setupData.verifyDigest = CPA_FALSE;
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    /* Set verifyDigest for performance cases. */
+    if (!reliability_g &&
+        setup->setupData.cipherSetupData.cipherDirection ==
+            CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT &&
+        setup->setupData.symOperation == CPA_CY_SYM_OP_ALGORITHM_CHAINING)
+    {
+        setup->setupData.verifyDigest = CPA_TRUE;
+    }
+    else
+#endif
+    {
+        setup->setupData.verifyDigest = CPA_FALSE;
+    }
 
     /*this is the original API to get the required context size, we show the
      * function used here, but we only use the size for the older version of the
@@ -722,7 +764,9 @@ static CpaStatus symmetricDpPerformOpDataSetup(
 
         /* Starting point for cipher processing */
         pOpdata[createCount]->cryptoStartSrcOffsetInBytes =
-            setup->cryptoSrcOffset;
+            setup->cryptoSrcOffset; /* This should be passed in as 13 bytes
+                                       in practice for a standard TLS packet
+                                       using 2 flatbuffers in a bufferList. */
 
         /* messageLenToCipherInBytes and messageLenToHashInBytes do not have
          * to be the same. In this code we want to either hash the entire buffer
@@ -733,13 +777,28 @@ static CpaStatus symmetricDpPerformOpDataSetup(
          * the perform the hash on the encrypted buffer, so that the digest is
          * the digest of the encrypted data*/
 
-        pOpdata[createCount]->messageLenToCipherInBytes =
-            pPacketSize[createCount] - setup->cryptoSrcOffset;
+        if (setup->isTLS)
+        {
+            /* messageLenToCipherInBytes and messageLenToHashInBytes do not have
+             * to be the same.*/
 
+            pOpdata[createCount]->messageLenToCipherInBytes =
+                setup->flatBufferSizeInBytes - setup->cryptoSrcOffset;
+
+            pOpdata[createCount]->messageLenToHashInBytes =
+                setup->cryptoSrcOffset + pPacketSize[createCount];
+        }
+        else
+        {
+
+            pOpdata[createCount]->messageLenToCipherInBytes =
+                pPacketSize[createCount] - setup->cryptoSrcOffset;
+
+            pOpdata[createCount]->messageLenToHashInBytes =
+                pPacketSize[createCount];
+        }
         /* Starting point for hash processing */
         pOpdata[createCount]->hashStartSrcOffsetInBytes = HASH_OFFSET_BYTES;
-        pOpdata[createCount]->messageLenToHashInBytes =
-            pPacketSize[createCount];
         pOpdata[createCount]->pAdditionalAuthData = NULL;
 
         /* In GMAC mode, there is no message to Cipher */
@@ -857,11 +916,23 @@ static CpaStatus symmetricDpPerformOpDataSetup(
         if (setup->setupData.symOperation == CPA_CY_SYM_OP_HASH ||
             setup->setupData.symOperation == CPA_CY_SYM_OP_ALGORITHM_CHAINING)
         {
-            pOpdata[createCount]->digestResult =
-                symDpCalDigestAddress(pPacketSize[createCount],
-                                      setup->flatBufferSizeInBytes,
-                                      IV_LEN_FOR_16_BYTE_BLOCK_CIPHER,
-                                      ppSrcBuffListArray[createCount]);
+            if (setup->isTLS)
+            {
+                pOpdata[createCount]->digestResult =
+                    symDpCalTLSDigestAddress(pPacketSize[createCount],
+                                             setup->cryptoSrcOffset,
+                                             IV_LEN_FOR_16_BYTE_BLOCK_CIPHER,
+                                             ppSrcBuffListArray[createCount]);
+            }
+            else
+            {
+
+                pOpdata[createCount]->digestResult =
+                    symDpCalDigestAddress(pPacketSize[createCount],
+                                          setup->flatBufferSizeInBytes,
+                                          IV_LEN_FOR_16_BYTE_BLOCK_CIPHER,
+                                          ppSrcBuffListArray[createCount]);
+            }
         }
 
         if (setup->setupData.cipherSetupData.cipherAlgorithm ==
@@ -1010,8 +1081,7 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     perf_cycles_t *request_respnse_time = NULL;
     const Cpa32U request_mem_sz = sizeof(perf_cycles_t) * MAX_LATENCY_COUNT;
 #endif
-    /* Capture busy loop before memset of performanceStats */
-    Cpa32U busyLoopValue = setup->performanceStats->busyLoopValue;
+    Cpa32U busyLoopValue = 0;
     Cpa32U staticAssign = 0, busyLoopCount = 0, j = 0;
     perf_cycles_t startBusyLoop = 0, endBusyLoop = 0, totalBusyLoopCycles = 0;
     CpaStatus pollStatus = CPA_STATUS_SUCCESS;
@@ -1023,6 +1093,8 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
         status = CPA_STATUS_FAIL;
         return status;
     }
+    /* Capture busy loop before memset of performanceStats */
+    busyLoopValue = setup->performanceStats->busyLoopValue;
     /* Initialize perform data structure with setup->performanceStats*/
     pSymData = setup->performanceStats;
     /* Zero initialize pSymData*/
@@ -1906,13 +1978,25 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
     for (insideLoopCount = 0; insideLoopCount < setup->numBuffLists;
          insideLoopCount++)
     {
-        /* Calculate totalSizeInBytes:
-         * It should no more than packetSizeInBytes + digestResultLenInBytes.
-         * In cipher algorithm, digestResultLenInBytes should be 0.
-         */
-        totalSizeInBytes[insideLoopCount] =
-            setup->packetSizeInBytesArray[insideLoopCount] +
-            setup->setupData.hashSetupData.digestResultLenInBytes;
+        if (setup->isTLS)
+        {
+            /* Calculate totalSizeInBytes:
+             * It should equal packetSizeInBytes + digestResultLenInBytes.
+             * + padding.
+             */
+            totalSizeInBytes[insideLoopCount] = setup->flatBufferSizeInBytes;
+        }
+        else
+        {
+            /* Calculate totalSizeInBytes:
+             * It should no more than packetSizeInBytes +
+             * digestResultLenInBytes. In cipher algorithm,
+             * digestResultLenInBytes should be 0.
+             */
+            totalSizeInBytes[insideLoopCount] =
+                setup->packetSizeInBytesArray[insideLoopCount] +
+                setup->setupData.hashSetupData.digestResultLenInBytes;
+        }
     }
 
     /*init the symmetric session*/
@@ -1935,7 +2019,7 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
 
         if (CPA_STATUS_SUCCESS != status)
         {
-            PRINT_ERR("symmetricSetupSession error, status %d\n", status);
+            PRINT_ERR("symmetricDpSetupSession error, status %d\n", status);
             symDpPerformMemFree(setup,
                                 ppSrcBuffListArray,
                                 ppSrcPhysBuffListArray,
@@ -1987,7 +2071,7 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
                                            ppSrcPhysBuffListArray);
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT_ERR("symmetricPerformOpDataSetup error, status %d\n", status);
+        PRINT_ERR("symmetricDpPerformOpDataSetup error, status %d\n", status);
         symDpPerformMemFree(setup,
                             ppSrcBuffListArray,
                             ppSrcPhysBuffListArray,
@@ -2140,7 +2224,7 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     {
         PRINT_ERR("Error allocating memory for instance handles\n");
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        goto exit;
+        return;
     }
     if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
     {
@@ -2165,7 +2249,6 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
-        qaeMemFree((void **)&cyInstances);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
@@ -2260,6 +2343,7 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     symTestSetup.cryptoSrcOffset = pSetup->cryptoSrcOffset;
     symTestSetup.digestAppend = pSetup->digestAppend;
     symTestSetup.ivLength = pSetup->ivLength;
+    symTestSetup.isTLS = pSetup->isTLS;
     /*launch function that does all the work*/
 
     if (CPA_TRUE != checkCapability(cyInstances[testSetup->logicalQaInstance],
@@ -2307,10 +2391,7 @@ exit:
     {
         qaeMemFree((void **)&pPacketSize);
     }
-    if (cyInstances != NULL)
-    {
-        qaeMemFree((void **)&cyInstances);
-    }
+    qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 EXPORT_SYMBOL(sampleSymmetricDpPerformance);
@@ -2349,10 +2430,12 @@ CpaStatus setupSymmetricDpTest(
     Cpa32U bufferSizeInBytes,
     Cpa32U numBuffLists,
     Cpa32U numLoops,
-    Cpa32U digestAppend)
+    Cpa32U digestAppend,
+    CpaBoolean isTLS)
 {
     symmetric_test_params_t *symmetricSetup = NULL;
     Cpa8S name[] = {'D', 'P', '_', 'S', 'Y', 'M', '\0'};
+    Cpa32U padding = 0;
 
     if (testTypeCount_g >= MAX_THREAD_VARIATION)
     {
@@ -2406,6 +2489,11 @@ CpaStatus setupSymmetricDpTest(
     symmetricSetup->setupData.hashSetupData.hashAlgorithm = hashAlg;
     symmetricSetup->setupData.hashSetupData.hashMode = hashMode;
     symmetricSetup->setupData.digestIsAppended = digestAppend;
+    /* The flag to denote whether the setup done for SymmetricDpTest
+     * is TLS or SSL
+     */
+    symmetricSetup->isTLS = isTLS;
+
     if ((symmetricSetup->setupData.symOperation ==
          CPA_CY_SYM_OP_ALGORITHM_CHAINING) &&
         (symmetricSetup->setupData.cipherSetupData.cipherAlgorithm ==
@@ -2415,6 +2503,8 @@ CpaStatus setupSymmetricDpTest(
     }
     symmetricSetup->isDpApi = CPA_TRUE;
     symmetricSetup->cryptoSrcOffset = cipherOffset;
+    /* Partial not supported in DP case */
+    symmetricSetup->setupData.partialsNotRequired = CPA_TRUE;
     /* in this code we limit the digest result len to be the same as the the
      * authentication key len*/
     symmetricSetup->setupData.hashSetupData.digestResultLenInBytes =
@@ -2504,13 +2594,47 @@ CpaStatus setupSymmetricDpTest(
         symmetricSetup->setupData.hashSetupData.authModeSetupData
             .authKeyLenInBytes = authKeyLengthInBytes;
     }
+    if (isTLS)
+    {
+        if (((CPA_CY_SYM_CIPHER_AES_CBC ==
+              symmetricSetup->setupData.cipherSetupData.cipherAlgorithm) &&
+             (CPA_CY_SYM_HASH_SHA1 == hashAlg)) ||
+            ((CPA_CY_SYM_CIPHER_AES_CBC ==
+              symmetricSetup->setupData.cipherSetupData.cipherAlgorithm) &&
+             (CPA_CY_SYM_HASH_SHA256 == hashAlg)))
+        {
+            symmetricSetup->setupData.hashSetupData.digestResultLenInBytes =
+                setHashDigestLen(hashAlg);
+        }
+        else
+        {
+            PRINT_ERR("Invalid Cipher Hash combination\n");
+            return CPA_STATUS_FAIL;
+        }
+
+        symmetricSetup->setupData.hashSetupData.authModeSetupData
+            .authKeyLenInBytes = authKeyLengthInBytes;
+        /* flat Buffer Size is Header + Cipher data + Hash digest */
+        symmetricSetup->flatBufferSizeInBytes =
+            symmetricSetup->cryptoSrcOffset + packetSize +
+            symmetricSetup->setupData.hashSetupData.digestResultLenInBytes;
+        /* Exclude the header for padding calculation */
+        padding = IV_LEN_FOR_16_BYTE_BLOCK_CIPHER -
+                  ((symmetricSetup->flatBufferSizeInBytes -
+                    symmetricSetup->cryptoSrcOffset) %
+                   IV_LEN_FOR_16_BYTE_BLOCK_CIPHER);
+        symmetricSetup->flatBufferSizeInBytes += padding;
+    }
+    else
+    {
+        symmetricSetup->flatBufferSizeInBytes = bufferSizeInBytes;
+    }
 
     symmetricSetup->setupData.algChainOrder = chainOrder;
     symmetricSetup->syncMode = syncMode;
     symmetricSetup->numOpDpBatch = numDpBatchOp;
     symmetricSetup->numRequests = numRequests;
     symmetricSetup->numSessions = numSessions;
-    symmetricSetup->flatBufferSizeInBytes = bufferSizeInBytes;
     symmetricSetup->numBuffLists = numBuffLists;
     symmetricSetup->numLoops = numLoops;
     if (((bufferSizeInBytes != 0) && (packetSize == PACKET_IMIX)) ||
@@ -2565,7 +2689,8 @@ CpaStatus setupCipherDpTest(CpaCySymCipherAlgorithm cipherAlg,
         flatBufferSize,
         numBuffLists,
         numLoops,
-        digestAppended_g);
+        digestAppended_g,
+        CPA_FALSE);
 }
 
 /*****************************************************************************
@@ -2608,7 +2733,8 @@ CpaStatus setupHashDpTest(CpaCySymHashAlgorithm hashAlg,
         BUFFER_SIZE_0,
         numBuffLists,
         numLoops,
-        digestAppended_g);
+        digestAppended_g,
+        CPA_FALSE);
 }
 
 /*****************************************************************************
@@ -2654,7 +2780,8 @@ CpaStatus setupAlgChainDpTest(CpaCySymCipherAlgorithm cipherAlg,
                                 flatBufferSize,
                                 numBuffLists,
                                 numLoops,
-                                digestAppended_g);
+                                digestAppended_g,
+                                CPA_FALSE);
 }
 
 /******************************************************************************
@@ -2700,9 +2827,57 @@ CpaStatus setupIpSecDpTest(CpaCySymCipherAlgorithm cipherAlg,
                                 BUFFER_SIZE_0,
                                 numBuffLists,
                                 numLoops,
-                                digestAppended_g);
+                                digestAppended_g,
+                                CPA_FALSE);
 }
 EXPORT_SYMBOL(setupIpSecDpTest);
+
+/******************************************************************************
+ * @ingroup sampleSymmetricPerf
+ *
+ * @description
+ * setup a TLS scenario where TBD
+ *
+ * This function needs to be called from main to setup an alg chain test.
+ * then the framework createThreads function is used to propagate this setup
+ * across IA cores using different crypto logical instances
+ ******************************************************************************/
+CpaStatus setupTLSDpTest(CpaCySymCipherAlgorithm cipherAlg,
+                         Cpa32U cipherKeyLengthInBytes,
+                         Cpa32U cipherOffset,
+                         CpaCySymHashAlgorithm hashAlg,
+                         CpaCySymHashMode hashMode,
+                         Cpa32U authKeyLengthInBytes,
+                         CpaCySymAlgChainOrder chainOrder,
+                         Cpa32U payloadSize,
+                         Cpa32U numDpBatchOp,
+                         Cpa32U numRequests,
+                         Cpa32U numSessions,
+                         Cpa32U numBuffLists,
+                         Cpa32U numLoops)
+{
+    return setupSymmetricDpTest(CPA_CY_SYM_OP_ALGORITHM_CHAINING,
+                                cipherAlg,
+                                cipherKeyLengthInBytes,
+                                cipherOffset,
+                                CPA_CY_PRIORITY_HIGH,
+                                hashAlg,
+                                hashMode,
+                                authKeyLengthInBytes,
+                                chainOrder,
+                                ASYNC,
+                                NULL,
+                                payloadSize,
+                                numDpBatchOp,
+                                numRequests,
+                                numSessions,
+                                BUFFER_SIZE_0,
+                                numBuffLists,
+                                numLoops,
+                                digestAppended_g,
+                                CPA_TRUE);
+}
+EXPORT_SYMBOL(setupTLSDpTest);
 
 /*****************************************************************************
  * @ingroup sampleSymmetricDpPerf
@@ -2747,6 +2922,7 @@ CpaStatus setupAlgChainTestDpNestedMode(
                                 BUFFER_SIZE_0,
                                 numBuffLists,
                                 numLoops,
-                                digestAppended_g);
+                                digestAppended_g,
+                                CPA_FALSE);
 }
 

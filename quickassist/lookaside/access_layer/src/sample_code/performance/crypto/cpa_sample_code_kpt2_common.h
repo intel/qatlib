@@ -1,11 +1,11 @@
-/******************************************************************************
+/***************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -58,60 +58,45 @@
  * 
  * 
  *
- *****************************************************************************/
+ ***************************************************************************/
 
-#include <unistd.h>
+#ifndef CPA_SAMPLE_CODE_KPT2_COMMON_H
+#define CPA_SAMPLE_CODE_KPT2_COMMON_H
 
-#include "cpa_sample_utils.h"
-#include "icp_sal_user.h"
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/bn.h>
+#include <openssl/obj_mac.h>
+#include "cpa_cy_kpt.h"
+#include "cpa_sample_code_crypto_utils.h"
 
-extern CpaStatus symDpUpdateSample(void);
+#if CY_API_VERSION_AT_LEAST(3, 0)
 
-int gDebugParam = 1;
+#define AUTH_TAG_LEN_IN_BYTES 16
+#define IV_LEN_IN_BYTES 12
+#define MAX_SWK_PER_PHYSICAL_DEVICE 128
+#define SWK_LEN_IN_BYTES 32
+#define NUM_OF_SWK_ONLY_ONE 1
+#define PER_PART_PKEY_E_SIZE 8
+#define NUM_KEY_PAIRS (2)
+#define KEY_PROVISION_RETRY_TIMES_LIMIT 20
+#define KEY_PROVISION_RETRY_DELAY_MS 300
+/* KPT Stolen Key Test */
 
-int main(int argc, const char **argv)
-{
-#if CY_API_VERSION_AT_LEAST(2, 2)
-    CpaStatus stat = CPA_STATUS_SUCCESS;
+CpaStatus encryptAndLoadSWK(CpaInstanceHandle instanceHandle,
+                            CpaCyKptHandle *kptKeyHandle,
+                            Cpa8U *sampleSWK);
 
-    if (argc > 1)
-    {
-        gDebugParam = atoi(argv[1]);
-    }
+CpaBoolean encryptPrivateKey(Cpa8U *pPrivateKey,
+                             Cpa32U privateKeyLength,
+                             Cpa8U *pSWK,
+                             Cpa8U *pIv,
+                             Cpa32U ivLength,
+                             Cpa8U *pWrappedPrivateKey,
+                             Cpa32U *pWPKLenth,
+                             Cpa8U *pAuthTag,
+                             Cpa8U *pAad,
+                             Cpa32U aadLenInBytes);
 
-    PRINT_DBG("Starting Sym Dp Update Sample Code App ...\n");
-
-    stat = qaeMemInit();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to initialize memory driver\n");
-        return (int)stat;
-    }
-
-    stat = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to start user process SSL\n");
-        qaeMemDestroy();
-        return (int)stat;
-    }
-
-    stat = symDpUpdateSample();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("\nSym Dp Update Sample Code App failed\n");
-    }
-    else
-    {
-        PRINT_DBG("\nSym Dp Update Sample Code App finished\n");
-    }
-
-    icp_sal_userStop();
-    qaeMemDestroy();
-
-    return (int)stat;
-#else
-    printf("The Session Reuse is not supported in this release\n");
-    return CPA_STATUS_UNSUPPORTED;
-#endif /* CY_API_VERSION_AT_LEAST(2, 2) */
-}
+#endif /* CY_API_VERSION_AT_LEAST(3, 0) */
+#endif /* CPA_SAMPLE_CODE_KPT2_COMMON_H */

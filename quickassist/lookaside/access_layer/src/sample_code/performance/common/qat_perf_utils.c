@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -154,16 +154,8 @@ EXPORT_SYMBOL(cpaStatusToString);
 
 CpaStatus printDriverVersion(Cpa32U deviceNum)
 {
-#ifdef WITH_UPSTREAM
     icp_sal_dev_version_info_t qaVersionInfo = {.devId = 0,
                                                 .softwareVersion = {0}};
-#else
-    icp_sal_dev_version_info_t qaVersionInfo = {.devId = 0,
-                                                .firmwareVersion = {0},
-                                                .mmpVersion = {0},
-                                                .softwareVersion = {0},
-                                                .hardwareVersion = {0}};
-#endif
     if (CPA_STATUS_SUCCESS !=
         icp_sal_getDevVersionInfo(deviceNum, &qaVersionInfo))
     {
@@ -171,20 +163,10 @@ CpaStatus printDriverVersion(Cpa32U deviceNum)
     }
     else
     {
-#ifdef WITH_UPSTREAM
         PRINT("*** QA version information ***\n");
         PRINT("device ID\t\t= %d\n", qaVersionInfo.devId);
         PRINT("software \t\t= %s\n", qaVersionInfo.softwareVersion);
         PRINT("*** END QA version information ***\n");
-#else
-        PRINT("*** QA version information ***\n");
-        PRINT("device ID\t\t= %d\n", qaVersionInfo.devId);
-        PRINT("firmware \t\t= %s\n", qaVersionInfo.firmwareVersion);
-        PRINT("mmp      \t\t= %s\n", qaVersionInfo.mmpVersion);
-        PRINT("software \t\t= %s\n", qaVersionInfo.softwareVersion);
-        PRINT("hardware \t\t= %s\n", qaVersionInfo.hardwareVersion);
-        PRINT("*** END QA version information ***\n");
-#endif
     }
     return CPA_STATUS_SUCCESS;
 }

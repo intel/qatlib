@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -144,6 +144,10 @@
 
 #define LAC_SYM_KEY_NO_HASH_BLK_OFFSET_QW 0
 /**< Used to indicate there is no hash block offset in the content descriptor
+ */
+
+#define ICP_QAT_SECRET_LEN_MAX 1024
+/**< Maximum secret length passed to cpaCyKeyGenTls2()
  */
 
 /**

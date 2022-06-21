@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1359,7 +1359,7 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     {
         PRINT_ERR("Error allocating memory for instance handles\n");
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        goto exit;
+        return;
     }
     if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
     {
@@ -1383,7 +1383,6 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
-        qaeMemFree((void **)&cyInstances);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
@@ -1397,7 +1396,6 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     {
         PRINT_ERR("Could not allocate memory for pPacketSize\n");
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        qaeMemFree((void **)&cyInstances);
         goto exit;
     }
 
@@ -1501,10 +1499,7 @@ exit:
     {
         qaeMemFree((void **)&pPacketSize);
     }
-    if (cyInstances != NULL)
-    {
-        qaeMemFree((void **)&cyInstances);
-    }
+    qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);
     return;
 }
@@ -1631,6 +1626,13 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
     // check which kind of hash mode is selected
     if (CPA_CY_SYM_HASH_MODE_NESTED == hashMode)
     { // nested mode
+        if (NULL == nestedModeSetupDataPtr)
+        {
+            PRINT_ERR("Doesn't support nested mode, "
+                      "nestedModeSetupDataPtr is NULL\n");
+            return CPA_STATUS_FAIL;
+        }
+
         // set the struct for nested hash mode
         /* If random numbers need to be generated */
         if (CPA_TRUE == nestedModeSetupDataPtr->generateRandom)

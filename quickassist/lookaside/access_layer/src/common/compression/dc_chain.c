@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -1135,14 +1135,6 @@ CpaStatus cpaDcChainResetSession(const CpaInstanceHandle dcInstance,
     /* Reset chaining session descriptor */
     pDcDescriptor->requestType = DC_REQUEST_FIRST;
     pDcDescriptor->cumulativeConsumedBytes = 0;
-    if (CPA_DC_ADLER32 == pDcDescriptor->checksumType)
-    {
-        pDcDescriptor->previousChecksum = 1;
-    }
-    else
-    {
-        pDcDescriptor->previousChecksum = 0;
-    }
 
     return status;
 }
@@ -1272,13 +1264,8 @@ dcChainOp_CreateCompRequest(dc_compression_cookie_t *pCookie,
     }
     else if (CPA_DC_STATELESS == pSessionDesc->sessState)
     {
-        pSessionDesc->previousChecksum = pResults->adler32;
-        pMsg->comp_pars.crc.legacy.initial_adler =
-            pSessionDesc->previousChecksum;
-
-        pSessionDesc->previousChecksum = pResults->crc32;
-        pMsg->comp_pars.crc.legacy.initial_crc32 =
-            pSessionDesc->previousChecksum;
+        pMsg->comp_pars.crc.legacy.initial_adler = pResults->adler32;
+        pMsg->comp_pars.crc.legacy.initial_crc32 = pResults->crc32;
     }
 
     pCompReqParams = &(pMsg->comp_pars);

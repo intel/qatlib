@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -599,10 +599,10 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
             ? ICP_QAT_HW_CIPHER_ENCRYPT
             : ICP_QAT_HW_CIPHER_DECRYPT;
 
-    LAC_ENSURE(cipherAlgorithm < CPA_CY_SYM_CIPHER_CHACHA,
-               "Invalid cipherAlgorithm value\n");
-    LAC_ENSURE(cipherDirection <= ICP_QAT_HW_CIPHER_DECRYPT,
-               "Invalid cipherDirection value\n");
+    /* clang-format off */
+    LAC_ENSURE_RETURN_VOID(cipherAlgorithm < CPA_CY_SYM_CIPHER_CHACHA, "Invalid cipherAlgorithm value\n");
+    LAC_ENSURE_RETURN_VOID(cipherDirection <= ICP_QAT_HW_CIPHER_DECRYPT, "Invalid cipherDirection value\n");
+    /* clang-format on */
 
     *pAlgorithm = icp_qat_alg_info[cipherAlgorithm].algorithm;
     *pMode = icp_qat_alg_info[cipherAlgorithm].mode;
@@ -614,8 +614,9 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
     {
         *pAlgorithm = icp_qat_alg_info[cipherAlgorithm]
                           .pAlgByKeySize[pSession->cipherKeyLenInBytes];
-        LAC_ENSURE(ICP_QAT_HW_CIPHER_ALGO_NULL != *pAlgorithm,
-                   "Invalid AES key size\n");
+        /* clang-format off */
+        LAC_ENSURE(ICP_QAT_HW_CIPHER_ALGO_NULL != *pAlgorithm, "Invalid AES key size\n");
+        /* clang-format on */
     }
 
     /* CCP and AES_GCM single pass, despite being limited to CTR/AEAD mode,

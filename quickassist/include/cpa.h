@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -444,8 +444,12 @@ typedef enum _CpaAccelerationServiceType
     /**< RAID */
     CPA_ACC_SVC_TYPE_XML = CPA_INSTANCE_TYPE_XML,
     /**< XML */
-    CPA_ACC_SVC_TYPE_VIDEO_ANALYTICS
+    CPA_ACC_SVC_TYPE_VIDEO_ANALYTICS,
     /**< Video Analytics */
+    CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+    /**< Cryptography - Asymmetric service */
+    CPA_ACC_SVC_TYPE_CRYPTO_SYM
+    /**< Cryptography - Symmetric service */
 } CpaAccelerationServiceType;
 
 /**
@@ -612,7 +616,7 @@ typedef struct _CpaInstanceInfo2 {
     CpaPhysicalInstanceId physInstId;
     /**< Identifies the "physical instance" of the accelerator. */
 
-#define CPA_MAX_CORES 256
+#define CPA_MAX_CORES 4096
     /**< Maximum number of cores to support in the coreAffinity bitmap. */
     CPA_BITMAP(coreAffinity, CPA_MAX_CORES);
     /**< A bitmap identifying the core or cores to which the instance
@@ -695,6 +699,248 @@ typedef enum _CpaInstanceEvent
      * host and guests. 
      */
 } CpaInstanceEvent;
+
+/*****************************************************************************/
+/* CPA Instance Management Functions                                         */
+/*****************************************************************************/
+/**
+ *****************************************************************************
+ * @file cpa.h
+ * @ingroup cpa
+ *      Get the number of Acceleration Service instances that are supported by 
+ *      the API implementation.
+ *
+ * @description
+ *     This function will get the number of instances that are supported
+ *     for the required Acceleration Service by an implementation of the CPA 
+ *     API. This number is then used to determine the size of the array that 
+ *     must be passed to @ref cpaGetInstances().
+ *
+ * @context
+ *      This function MUST NOT be called from an interrupt context as it MAY
+ *      sleep.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      This function is synchronous and blocking.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  accelerationServiceType    Acceleration Service required
+ * @param[out] pNumInstances              Pointer to where the number of
+ *                                        instances will be written.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @note
+ *      This function operates in a synchronous manner and no asynchronous
+ *      callback will be generated
+ *
+ * @see
+ *      cpaGetInstances
+ *
+ *****************************************************************************/
+CpaStatus
+cpaGetNumInstances(
+        const CpaAccelerationServiceType accelerationServiceType,
+        Cpa16U *pNumInstances);
+
+/**
+ *****************************************************************************
+ * @file cpa.h
+ * @ingroup cpa
+ *      Get the handles to the required Acceleration Service instances that are 
+ *      supported by the API implementation.
+ *
+ * @description
+ *      This function will return handles to the required Acceleration Service
+ *      instances that are supported by an implementation of the CPA API. These
+ *      instance handles can then be used as input parameters with other
+ *      API functions.
+ *
+ *      This function will populate an array that has been allocated by the
+ *      caller. The size of this array will have been determined by the
+ *      cpaGetNumInstances() function.
+ *
+ * @context
+ *      This function MUST NOT be called from an interrupt context as it MAY
+ *      sleep.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      This function is synchronous and blocking.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  accelerationServiceType   Acceleration Service requested
+ * @param[in]  numInstances              Size of the array. If the value is
+ *                                       greater than the number of instances
+ *                                       supported, then an error (@ref
+ *                                       CPA_STATUS_INVALID_PARAM) is returned.
+ * @param[in,out] cpaInstances           Pointer to where the instance
+ *                                       handles will be written.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @note
+ *      This function operates in a synchronous manner and no asynchronous
+ *      callback will be generated
+ *
+ * @see
+ *      cpaGetNumInstances
+ *
+ *****************************************************************************/
+CpaStatus
+cpaGetInstances(
+        const CpaAccelerationServiceType accelerationServiceType,
+        Cpa16U numInstances,
+        CpaInstanceHandle *cpaInstances);
+
+/**
+ *****************************************************************************
+  * @ingroup cpa
+ *      Instance Allocation Policies
+ * @description
+ *      Enumeration of the possible instance allocation policies that may be
+ *      used for allocating instances using the cpaAllocInstance() API.
+ *
+ *****************************************************************************/
+typedef enum _CpaInstanceAllocPolicy
+{
+    CPA_INST_ALLOC_NONE = 0,
+    /**< No policy specified. The implementation will choose a default
+     * allocation scheme which may be device dependent. */
+    CPA_INST_ALLOC_PREFER_EXISTING,
+    /**< Allocate new instances from the same underlying hardware devices that
+     * are already in use by the same process that is requesting the new
+     * allocation. If no instances are available, a new device, if available,
+     * will be used.
+     * Note, “already in use” means in use for any service, not specifically
+     * for the service type requested. The service type requested is only used
+     * to determine which of the available underlying devices can support the
+     * service, not to group instance allocations based on service type. */
+    CPA_INST_ALLOC_PREFER_NEW,
+    /**< Allocate new instances from a device that is not currently in use. If
+     * no unused devices are available, existing devices used by the process
+     * requesting the allocation may be used. */
+} CpaInstanceAllocPolicy;
+
+/**
+ *****************************************************************************
+ * @ingroup cpa
+ *      Allocate a service instance.
+ *
+ * @description
+ *      This function is used to allocate a service instance.
+ *      If there are multiple devices with free instances, the allocation
+ *      policy is used to influence which device the instance will be
+ *      allocated from.
+ *      If multiple instances are required, this function must be called
+ *      multiple times to allocate each instance.
+ *
+ *      When this function is called in user space, the implementation may only
+ *      be able to allocate from the devices that are visible to the user space
+ *      process context from which the function is called.
+ *
+ * @context
+ *      The function shall not be called in an interrupt context.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      This function is synchronous and blocking.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  serviceType           Type of acceleration service instance
+ *                                   to allocate.
+ * @param[in]  policy                Allocation policy
+ * @param[out] pInstanceHandle       Allocated instance or NULL if the
+ *                                   allocation failed and no instance was
+ *                                   allocated.
+ *
+ * @retval CPA_STATUS_SUCCESS        An instance was successfully allocated.
+ * @retval CPA_STATUS_FAIL           Function failed to allocate an instance.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @see
+ *      None
+ *
+ *****************************************************************************/
+CpaStatus
+cpaAllocInstance(
+        const CpaAccelerationServiceType serviceType,
+        const CpaInstanceAllocPolicy policy,
+        CpaInstanceHandle *pInstanceHandle);
+
+/**
+ *****************************************************************************
+ * @ingroup cpa
+ *      Free a service instance.
+ *
+ * @description
+ *      This function is used to free a service instance.
+ *
+ * @context
+ *      The function shall not be called in an interrupt context.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      This function is synchronous and blocking.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle         Instance to free.
+ *
+ * @retval CPA_STATUS_SUCCESS        An instance was successfully freed.
+ * @retval CPA_STATUS_FAIL           Function failed to free an instance.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @see
+ *      None
+ *
+ *****************************************************************************/
+CpaStatus
+cpaFreeInstance(CpaInstanceHandle instanceHandle);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

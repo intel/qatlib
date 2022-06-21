@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -111,10 +111,6 @@ typedef struct sal_crypto_service_s
     /**< Memory pool ID used for asymmetric operations */
     lac_memory_pool_id_t lac_pke_align_pool;
     /**< Memory pool ID used for asymmetric operations */
-    lac_memory_pool_id_t lac_kpt_pool;
-    /**< Memory pool ID used for asymmetric kpt operations */
-    lac_memory_pool_id_t lac_kpt_array_pool;
-    /**< Memory pool ID used for asymmetric kpt operations */
 
     OsalAtomic *pLacSymStatsArr;
     /**< pointer to an array of atomic stats for symmetric */
@@ -151,11 +147,6 @@ typedef struct sal_crypto_service_s
 
     icp_qat_hw_auth_mode_t qatHmacMode;
     /**< Hmac Mode */
-
-    OsalAtomic kpt_keyhandle_loaded;
-    /**< total number of kpt key handle that has been loaded into CPM */
-    Cpa32U maxNumKptKeyHandle;
-    /**<Maximum number of kpt key handle that can be loaded into CPM*/
 
     Cpa32U pkeFlowId;
     /**< Flow ID for all pke requests from this instance - identifies

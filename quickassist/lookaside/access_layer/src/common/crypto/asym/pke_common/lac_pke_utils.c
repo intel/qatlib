@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -361,4 +361,23 @@ CpaStatus LacPke_GetBitLen(const CpaFlatBuffer *pBuffer, Cpa32U *pBitLen)
     }
     *pBitLen = bitLength;
     return CPA_STATUS_SUCCESS;
+}
+
+Cpa32U LacPke_GetMaxLnOfNBuffers(int n, ...)
+{
+    va_list args;
+    va_start(args, n);
+    Cpa32U max = 0;
+    CpaFlatBuffer* buf;
+    Cpa32U i = 0;
+
+    for (i = 0; i < n; i++)
+    {
+        if ((buf = va_arg(args, CpaFlatBuffer*)) == NULL)
+            continue;
+        max = LAC_MAX(LacPke_GetMinBytes(buf), max);
+    }
+
+    va_end(args);
+    return max;
 }

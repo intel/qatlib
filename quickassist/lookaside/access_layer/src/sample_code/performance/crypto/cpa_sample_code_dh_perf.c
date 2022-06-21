@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -820,11 +820,11 @@ void dhMemFreePh1(asym_test_params_t *setup,
             /* Free opData buffers */
             if (NULL != ppAlicePhase1[i])
             {
-                if (NULL != (void **)&ppAlicePhase1[i]->primeP.pData)
+                if (NULL != ppAlicePhase1[i]->primeP.pData)
                     qaeMemFreeNUMA((void **)&ppAlicePhase1[i]->primeP.pData);
-                if (NULL != (void **)&ppAlicePhase1[i]->baseG.pData)
+                if (NULL != ppAlicePhase1[i]->baseG.pData)
                     qaeMemFreeNUMA((void **)&ppAlicePhase1[i]->baseG.pData);
-                if (NULL != (void **)&ppAlicePhase1[i]->privateValueX.pData)
+                if (NULL != ppAlicePhase1[i]->privateValueX.pData)
                     qaeMemFreeNUMA(
                         (void **)&ppAlicePhase1[i]->privateValueX.pData);
 
@@ -835,7 +835,7 @@ void dhMemFreePh1(asym_test_params_t *setup,
         {
             if (NULL != ppBobPhase1[i])
             {
-                if (NULL != (void **)&ppBobPhase1[i]->privateValueX.pData)
+                if (NULL != ppBobPhase1[i]->privateValueX.pData)
                     qaeMemFreeNUMA(
                         (void **)&ppBobPhase1[i]->privateValueX.pData);
 
@@ -846,7 +846,7 @@ void dhMemFreePh1(asym_test_params_t *setup,
         {
             if (NULL != ppBobPublicValue[i])
             {
-                if (NULL != (void **)&ppBobPublicValue[i]->pData)
+                if (NULL != ppBobPublicValue[i]->pData)
                     qaeMemFreeNUMA((void **)&ppBobPublicValue[i]->pData);
 
                 qaeMemFree((void **)&ppBobPublicValue[i]);
@@ -1192,7 +1192,7 @@ static CpaStatus dhPerform(asym_test_params_t *setup)
  * @description
  * Print the diffie hellman performance stats
  *****************************************************************************/
-void dhPrintStats(thread_creation_data_t *data)
+CpaStatus dhPrintStats(thread_creation_data_t *data)
 {
     if (DH_PHASE_1 == ((asym_test_params_t *)data->setupPtr)->phase)
     {
@@ -1204,6 +1204,7 @@ void dhPrintStats(thread_creation_data_t *data)
     }
     PRINT("Modulus Size %17u\n", data->packetSize * NUM_BITS_IN_BYTE);
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /*****************************************************************************

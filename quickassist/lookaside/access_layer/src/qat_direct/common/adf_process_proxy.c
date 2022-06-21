@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -349,16 +349,6 @@ void icp_adf_userProcessStop(void)
 Cpa16U icp_adf_getBusAddress(Cpa16U packageId)
 {
     return icp_adf_cfgGetBusAddress(packageId);
-}
-
-/*
- * icp_adf_getKptAcHandle
- *
- *  This function gets the kpt achandle of the device.
- */
-Cpa32U icp_adf_getKptAcHandle(Cpa16U packageId)
-{
-    return icp_adf_cfgGetKptAcHandle(packageId);
 }
 
 /*

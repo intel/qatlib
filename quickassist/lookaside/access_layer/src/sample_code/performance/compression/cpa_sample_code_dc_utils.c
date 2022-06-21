@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -116,7 +116,25 @@ CpaBoolean gRetainPartials = CPA_FALSE;
 EXPORT_SYMBOL(gRetainPartials);
 long dcPollingThreadsInterval_g = DEFAULT_POLL_INTERVAL_NSEC;
 EXPORT_SYMBOL(dcPollingThreadsInterval_g);
-
+CpaBoolean disableAdditionalCmpbufferSize_g = CPA_FALSE;
+EXPORT_SYMBOL(disableAdditionalCmpbufferSize_g);
+#if DC_API_VERSION_AT_LEAST(3, 1)
+volatile CpaBoolean LZ4BlockIndependence_g = CPA_TRUE;
+CpaStatus setLZ4BlockIndependence(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        LZ4BlockIndependence_g = CPA_TRUE;
+    }
+    else
+    {
+        LZ4BlockIndependence_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(LZ4BlockIndependence_g);
+EXPORT_SYMBOL(setLZ4BlockIndependence);
+#endif
 CpaStatus setChecksum(CpaDcChecksum checksum)
 {
     gChecksum = checksum;
@@ -130,6 +148,13 @@ CpaStatus setAutoSelectBestMode(CpaDcAutoSelectBest mode)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(setAutoSelectBestMode);
+
+CpaStatus disableAdditionalCmpbufferSize(CpaBoolean value)
+{
+    disableAdditionalCmpbufferSize_g = value;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(disableAdditionalCmpbufferSize);
 
 CpaStatus setTestOverFlow(CpaBoolean value)
 {
@@ -199,8 +224,13 @@ void dcPerformCallback(void *pCallbackTag, CpaStatus status)
 
     if ((CPA_TRUE == gUseStatefulLite) ||
         (CPA_DC_STATEFUL == test_struct->setupData.sessState) ||
+#if (DC_API_VERSION_AT_LEAST(3, 2))
+        (reliability_g && ((CPA_TRUE == test_struct->useE2E) ||
+                           (CPA_TRUE == test_struct->useE2EVerify))) ||
+#else
         (CPA_TRUE == test_struct->useE2E) ||
         (CPA_TRUE == test_struct->useE2EVerify) ||
+#endif
         (CPA_TRUE == test_struct->useStatefulLite))
     {
         sampleCodeSemaphorePost(&pPerfData->comp);
@@ -297,7 +327,7 @@ Cpa32U getThroughput(Cpa64U numPackets, Cpa32U packetSize, perf_cycles_t cycles)
     do_div(rate, KILOBITS_IN_MEGABITS);
     return (Cpa32U)rate;
 }
-#endif
+#endif /* not DO_CRYPTO */
 
 static void freeDcBufferList(CpaBufferList **buffListArray,
                              Cpa32U numberOfBufferList)
@@ -373,6 +403,7 @@ static char *calgaryFileNames[] = {
      */
     "calgary"};
 
+
 static char *signOfLifeFile[] = {/* 1st 32k of calgary corpus file */
                                  "calgary32"};
 
@@ -424,6 +455,7 @@ static corpusInfo corpus[] = {
     [CORPUS_TYPE_EXTENDED] = {CORPUS_TYPE_EXTENDED,
                               CORPUS_STR(CORPUS_TYPE_EXTENDED),
                               CORPUS_DATA_EMPTY},
+
     /*All Corpus type should added above
      * CORPUS_TYPE_INVALID.
      */
@@ -1276,7 +1308,6 @@ void sampleCodeDcPoll(CpaInstanceHandle instanceHandle_in)
 }
 
 
-
 CpaStatus stopDcServicesFromPrintStats(thread_creation_data_t *dummy_ptr)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -1394,8 +1425,7 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
             PRINT("Throughput(Mbps)       %u\n", throughput);
         }
 
-        dcCalculateAndPrintCompressionRatio(
-            bytesConsumed, bytesProduced, dcSetup->numLoops);
+        dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
         if (iaCycleCount_g)
         {
             do_div(stats.offloadCycles, data->numberOfThreads);
@@ -1543,8 +1573,7 @@ CpaStatus dcChainPrintStats(thread_creation_data_t *data)
             PRINT("Throughput(Mbps)       %u\n", throughput);
         }
 
-        dcCalculateAndPrintCompressionRatio(
-            bytesConsumed, bytesProduced, dcSetup->numLoops);
+        dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
         if (latency_enable)
         {
             perf_cycles_t statsLatency = 0;
@@ -1599,14 +1628,17 @@ void dcPrintTestData(compression_test_params_t *dcSetup)
     PRINT("Algorithm              ");
     switch (dcSetup->setupData.compType)
     {
-#if DC_API_VERSION_LESS_THAN(3, 0)
-        case (CPA_DC_LZS):
-            PRINT("LZS\n");
-            break;
-#endif
         case (CPA_DC_DEFLATE):
             PRINT("DEFLATE\n");
             break;
+#if DC_API_VERSION_AT_LEAST(3, 1)
+        case (CPA_DC_LZ4):
+            PRINT("CPA_DC_LZ4\n");
+            break;
+        case (CPA_DC_LZ4S):
+            PRINT("CPA_DC_LZ4S\n");
+            break;
+#endif
         default:
             PRINT("Unsupported        %d\n", dcSetup->setupData.compType);
             break;
@@ -1629,10 +1661,10 @@ void dcPrintTestData(compression_test_params_t *dcSetup)
     PRINT("Mode                   ");
     switch (dcSetup->syncFlag)
     {
-        case (CPA_SAMPLE_SYNCHRONOUS):
+        case (SYNC):
             PRINT("SYNCHRONOUS\n");
             break;
-        case (CPA_SAMPLE_ASYNCHRONOUS):
+        case (ASYNC):
             PRINT("ASYNCHRONOUS\n");
             break;
         default:
@@ -1777,10 +1809,10 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
     PRINT("Mode                   ");
     switch (chainSetup->syncFlag)
     {
-        case (CPA_SAMPLE_SYNCHRONOUS):
+        case (SYNC):
             PRINT("SYNCHRONOUS\n");
             break;
-        case (CPA_SAMPLE_ASYNCHRONOUS):
+        case (ASYNC):
             PRINT("ASYNCHRONOUS\n");
             break;
         default:
@@ -1897,41 +1929,27 @@ void dcSetBytesProducedAndConsumed(CpaDcRqResults ***cmpResult,
 EXPORT_SYMBOL(dcSetBytesProducedAndConsumed);
 
 CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
-                                              Cpa32U bytesProduced,
-                                              Cpa32U noOfLoops)
+                                              Cpa32U bytesProduced)
 {
-    Cpa64U ratio = 0;
-    Cpa32U remainder = 0, roundingReminder = 0;
-    Cpa32U consumedPerLoop = bytesConsumed;
-    Cpa32U producedPerLoop = bytesProduced;
+    Cpa32U ratio = 0, remainder = 0;
 
-    if ((0 == bytesConsumed) || (0 == noOfLoops))
+    if (0 == bytesConsumed)
     {
         PRINT("Divide by zero error on calculating compression ratio\n");
         return CPA_STATUS_FAIL;
     }
+#ifdef USER_SPACE
+    PRINT("Compression Ratio      %.04f\n",
+          ((float)bytesProduced / bytesConsumed));
+    return CPA_STATUS_SUCCESS;
+#endif
 
-    do_div(consumedPerLoop, noOfLoops);
-    do_div(producedPerLoop, noOfLoops);
-
-    // Ratio for 4th decimal point
-    ratio = (Cpa64U)producedPerLoop * SCALING_FACTOR_10000;
-
-    do_div(ratio, consumedPerLoop);
+    ratio = bytesProduced * SCALING_FACTOR_1000;
+    do_div(ratio, bytesConsumed);
     remainder = ratio % BASE_10;
-    // Get next (5th) digit to see if reminder should be runded up or down
-    ratio = (Cpa64U)producedPerLoop * SCALING_FACTOR_100000;
-    do_div(ratio, consumedPerLoop);
-    roundingReminder = ratio % BASE_10;
-    if (roundingReminder >= 5)
-    {
-        remainder += 1;
-    }
-    // Get first 3 decimal points
-    ratio = (Cpa64U)producedPerLoop * SCALING_FACTOR_1000;
-    do_div(ratio, consumedPerLoop);
-    PRINT("Compression Ratio      0.%lu%d\n", ratio, remainder);
-
+    ratio = bytesProduced * SCALING_FACTOR_100;
+    do_div(ratio, bytesConsumed);
+    PRINT("Compression Ratio      0.%d%d\n", ratio, remainder);
     return CPA_STATUS_SUCCESS;
 }
 

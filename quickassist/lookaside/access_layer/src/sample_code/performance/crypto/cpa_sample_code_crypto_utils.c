@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -106,6 +106,8 @@ EXPORT_SYMBOL(cyPollingThreadsInterval_g);
 #define INC_BY_TWO (2)
 #define RESPONSE_NOT_CHECKED (-1)
 #define SINGLE_SOCKET (1)
+#define NUM_TLS_BUFFERS (2)
+#define TLS_HEADER_BUFFERSIZE (13)
 
 CpaBoolean running_dsa_g = CPA_FALSE;
 
@@ -1359,28 +1361,42 @@ CpaStatus dpSampleCreateBuffers(CpaInstanceHandle instanceHandle,
         PRINT_ERR("Failed to get node for instance\n");
         return CPA_STATUS_FAIL;
     }
-    /* Calculate number of flatbuffers in one list */
-    if (0 == setup->flatBufferSizeInBytes)
+    if (setup->isTLS)
     {
+        /*
+         * For TLS, single buffer is used for getting better performance.
+         * The first 13 bytes contains the header and the remaining
+         * buffer contains the payload+mac+padding.
+         */
         numBuffers = NUM_UNCHAINED_BUFFERS;
     }
-    /* if packet size is not align with block size of cipher,
-     * we need to some padding data into the buffers. */
     else
     {
-        numBuffers = (packetSizeInBytesArray[0] -
-                      setup->setupData.hashSetupData.digestResultLenInBytes) /
-                     setup->flatBufferSizeInBytes;
-        lastBufferInListSize =
-            (packetSizeInBytesArray[0] -
-             setup->setupData.hashSetupData.digestResultLenInBytes) %
-            setup->flatBufferSizeInBytes;
-        if (setup->enableRoundOffPkt == CPA_TRUE && lastBufferInListSize != 0)
+
+        /* Calculate number of flatbuffers in one list */
+        if (0 == setup->flatBufferSizeInBytes)
         {
-            numBuffers++;
+            numBuffers = NUM_UNCHAINED_BUFFERS;
+        }
+        /* if packet size is not align with block size of cipher,
+         * we need to some padding data into the buffers. */
+        else
+        {
+            numBuffers =
+                (packetSizeInBytesArray[0] -
+                 setup->setupData.hashSetupData.digestResultLenInBytes) /
+                setup->flatBufferSizeInBytes;
+            lastBufferInListSize =
+                (packetSizeInBytesArray[0] -
+                 setup->setupData.hashSetupData.digestResultLenInBytes) %
+                setup->flatBufferSizeInBytes;
+            if (setup->enableRoundOffPkt == CPA_TRUE &&
+                lastBufferInListSize != 0)
+            {
+                numBuffers++;
+            }
         }
     }
-
     /*
      * calculate memory size which is required for pPrivateMetaData
      * member of CpaBufferList
@@ -1465,29 +1481,49 @@ CpaStatus dpSampleCreateBuffers(CpaInstanceHandle instanceHandle,
             /* Decide flat buffers Size: if setup->flatBufferSizeInBytes is 0,
              * there is only single buffer in List, and bufferSizeInBytes is
              * equal to packetSizeInBytes */
-            if (0 == setup->flatBufferSizeInBytes)
+            if (setup->isTLS)
             {
-                bufferSizeInBytes = packetSizeInBytesArray[createListCount];
-            }
-            else if (createBufferCount != numBuffers - 1)
-            {
-                bufferSizeInBytes = setup->flatBufferSizeInBytes;
-            }
-            /*else allocate flat buffer + space for digest*/
-            else
-            {
-                if ((setup->enableRoundOffPkt == CPA_TRUE) &&
-                    (lastBufferInListSize != 0))
+                /* For TLS, single flat buffer is used and the
+                 * flatBufferSizeInBytes is filled in the setup API.
+                 * The flatBufferSizeInBytes includes Header +
+                 * Packet + Mac.
+                 */
+                if (0 == setup->flatBufferSizeInBytes)
                 {
-                    bufferSizeInBytes =
-                        lastBufferInListSize +
-                        setup->setupData.hashSetupData.digestResultLenInBytes;
+                    bufferSizeInBytes = packetSizeInBytesArray[createListCount];
                 }
                 else
                 {
-                    bufferSizeInBytes =
-                        setup->flatBufferSizeInBytes +
-                        setup->setupData.hashSetupData.digestResultLenInBytes;
+                    bufferSizeInBytes = setup->flatBufferSizeInBytes;
+                }
+            }
+            else
+            {
+
+                if (0 == setup->flatBufferSizeInBytes)
+                {
+                    bufferSizeInBytes = packetSizeInBytesArray[createListCount];
+                }
+                else if (createBufferCount != numBuffers - 1)
+                {
+                    bufferSizeInBytes = setup->flatBufferSizeInBytes;
+                }
+                /*else allocate flat buffer + space for digest*/
+                else
+                {
+                    if ((setup->enableRoundOffPkt == CPA_TRUE) &&
+                        (lastBufferInListSize != 0))
+                    {
+                        bufferSizeInBytes = lastBufferInListSize +
+                                            setup->setupData.hashSetupData
+                                                .digestResultLenInBytes;
+                    }
+                    else
+                    {
+                        bufferSizeInBytes = setup->flatBufferSizeInBytes +
+                                            setup->setupData.hashSetupData
+                                                .digestResultLenInBytes;
+                    }
                 }
             }
             /* Allocate aligned memory for specified packet size on the node
@@ -2878,7 +2914,7 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
  */
 #endif
 #if !defined(USER_SPACE)
-                setCyPollWaitFn(1, 2);
+                setCyPollWaitFn(1, 0);
 #endif
                 pollFnArr[i] = sampleCodePoll;
             }
@@ -3728,6 +3764,128 @@ CpaStatus getCyInstanceCapabilities(CpaCyCapabilitiesInfo *pCap)
 }
 EXPORT_SYMBOL(getCyInstanceCapabilities);
 
+CpaStatus getCryptoInstanceCapabilities(CpaCyCapabilitiesInfo *cap,
+                                        Cpa32U instType)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa16U nSymInstances = 0;
+    Cpa16U nAsymInstances = 0;
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &nSymInstances);
+    cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &nAsymInstances);
+#endif
+
+    /* Sym/Asym Instances will be 0 for 1.x platforms.
+     * Return the first Crypto Instance Capabilities
+     */
+    if (nSymInstances == 0 && nAsymInstances == 0)
+    {
+        status = getCyInstanceCapabilities(cap);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("getCyInstanceCapabilities failed with status: %d\n",
+                      status);
+        }
+        return status;
+    }
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    if (SYM == instType && nSymInstances > 0)
+    {
+        status = getSymAsymInstanceCapabilities(cap, instType);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("getSymAsymInstanceCapabilities failed with status: %d\n",
+                      status);
+            return status;
+        }
+    }
+    if (ASYM == instType && nAsymInstances > 0)
+    {
+        status = getSymAsymInstanceCapabilities(cap, instType);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("getSymAsymInstanceCapabilities failed with status: %d\n",
+                      status);
+            return status;
+        }
+        return CPA_STATUS_SUCCESS;
+    }
+#endif
+    return status;
+}
+EXPORT_SYMBOL(getCryptoInstanceCapabilities);
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+CpaStatus getSymAsymInstanceCapabilities(CpaCyCapabilitiesInfo *pCap,
+                                         Cpa32U instType)
+{
+    CpaStatus status = CPA_STATUS_FAIL;
+    CpaInstanceHandle instanceHandle = CPA_INSTANCE_HANDLE_SINGLE;
+
+    if (SYM == instType)
+    {
+        status =
+            cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, 1, &instanceHandle);
+    }
+    else
+    {
+        status =
+            cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, 1, &instanceHandle);
+    }
+
+    if (instanceHandle == NULL)
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    status = cpaCyQueryCapabilities(instanceHandle, pCap);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(getSymAsymInstanceCapabilities);
+#endif
+
+CpaStatus getCySymQueryCapabilities(CpaCySymCapabilitiesInfo *pCap)
+{
+    CpaStatus status = CPA_STATUS_FAIL;
+    CpaInstanceHandle instanceHandle = CPA_INSTANCE_HANDLE_SINGLE;
+    Cpa16U nSymInstances = 0;
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+    cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &nSymInstances);
+    if (nSymInstances > 0)
+    {
+        cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, 1, &instanceHandle);
+    }
+#endif
+
+    /* Sym Instance will be 0 for 1.x platforms. */
+    if (nSymInstances == 0)
+    {
+        status = cpaCyGetInstances(1, &instanceHandle);
+    }
+
+    if (instanceHandle == NULL)
+    {
+        return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCySymQueryCapabilities(instanceHandle, pCap);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(getCySymQueryCapabilities);
+
 CpaStatus getCySpecificInstanceCapabilities(CpaInstanceHandle instanceHandle,
                                             CpaCyCapabilitiesInfo *pCap)
 {
@@ -3802,4 +3960,60 @@ CpaStatus sampleCodeSymPollInstance(CpaInstanceHandle instanceHandle_in,
     {
         return icp_sal_CyPollInstance(instanceHandle_in, response_quota);
     }
+}
+
+CpaStatus checkForChachapolySupport(void)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaCySymCapabilitiesInfo capInfo = {{0}};
+    Cpa16U numCyInstances = 0;
+    Cpa16U i = 0;
+    CpaInstanceHandle *cyInstances = NULL;
+
+    /*Get number of Crypto Instances*/
+    status = cpaCyGetNumInstances(&numCyInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCyGetNumInstances failed with status: %d\n", status);
+        return status;
+    }
+    if (0 == numCyInstances)
+    {
+        PRINT_ERR("There are no Crypto Instances avaialble!\n");
+        return CPA_STATUS_FAIL;
+    }
+    cyInstances = qaeMemAlloc(sizeof(CpaInstanceHandle) * numCyInstances);
+    if (NULL == cyInstances)
+    {
+        PRINT_ERR("Failed to allocate memory for instances\n");
+        return CPA_STATUS_FAIL;
+    }
+    status = cpaCyGetInstances(numCyInstances, cyInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCyGetInstances failed with status: %d\n", status);
+        qaeMemFree((void **)&cyInstances);
+        return status;
+    }
+    /*Check for required Capability in all instances. Set the Success Status
+     *if required capability is supported in any instance.
+     */
+    status = CPA_STATUS_FAIL;
+    for (i = 0; i < numCyInstances; i++)
+    {
+        if (CPA_STATUS_SUCCESS ==
+            cpaCySymQueryCapabilities(cyInstances[i], &capInfo))
+        {
+            if (CPA_BITMAP_BIT_TEST(capInfo.ciphers, CPA_CY_SYM_CIPHER_CHACHA))
+            {
+                status = CPA_STATUS_SUCCESS;
+                break;
+            }
+        }
+    }
+    if (NULL != cyInstances)
+    {
+        qaeMemFree((void **)&cyInstances);
+    }
+    return status;
 }

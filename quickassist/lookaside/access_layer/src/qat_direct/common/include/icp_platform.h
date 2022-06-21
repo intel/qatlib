@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -311,8 +311,8 @@ extern char *icp_module_name;
 
 #define ICP_STRLCPY(dst, src, dstsize)                                         \
     ({                                                                         \
-        strncpy(dst, src, dstsize - 1);                                        \
-        (dst)[dstsize - 1] = 0;                                                \
+        if (((dst) != NULL) && ((src) != NULL) && ((dstsize) > 0))             \
+            snprintf(dst, dstsize, "%s", src);                                 \
     })
 
 /* time */

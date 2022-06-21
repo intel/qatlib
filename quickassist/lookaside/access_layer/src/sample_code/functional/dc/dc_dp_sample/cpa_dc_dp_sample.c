@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -129,7 +129,7 @@ static Cpa8U sampleData[] = {
  * Forward declaration
  *****************************************************************************
  */
-CpaStatus dcStatelessSample(void);
+CpaStatus dcDpSample(void);
 
 /*
  * Callback function
@@ -648,6 +648,7 @@ CpaStatus dcDpSample(void)
         }
         PHYS_CONTIG_FREE(bufferInterArray);
     }
+
     if (CPA_STATUS_SUCCESS == status)
     {
         PRINT_DBG("Sample code ran successfully\n");

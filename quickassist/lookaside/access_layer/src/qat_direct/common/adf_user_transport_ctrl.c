@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -870,8 +870,6 @@ CpaStatus icp_adf_transReleaseHandle(icp_comms_trans_handle trans_handle)
         ADF_ERROR("icp_adf_transCleanHandle failed \n");
     }
 
-    pbanks = accel_dev->banks;
-
     adf_cleanup_ring(pRingHandle);
     if (NULL != pRingHandle->service_name)
     {
@@ -885,13 +883,17 @@ CpaStatus icp_adf_transReleaseHandle(icp_comms_trans_handle trans_handle)
         ICP_FREE(pRingHandle->user_lock);
     }
 
-    pbanks = pbanks + pRingHandle->bank_num;
-    if (NULL != pbanks->rings)
+    pbanks = accel_dev->banks;
+    if (NULL != pbanks)
     {
-        pbanks->rings[pRingHandle->ring_num] = NULL;
-        adf_dev_bank_handle_put(pbanks);
+        pbanks = pbanks + pRingHandle->bank_num;
+        if (NULL != pbanks->rings)
+        {
+            pbanks->rings[pRingHandle->ring_num] = NULL;
+            adf_dev_bank_handle_put(pbanks);
+        }
+        adf_free_bundle(pbanks);
     }
-    adf_free_bundle(pbanks);
 
     ICP_FREE(pRingHandle);
     return status;
@@ -920,8 +922,6 @@ CpaStatus icp_adf_transResetHandle(icp_comms_trans_handle trans_handle)
         ADF_ERROR("icp_adf_transCleanHandle failed \n");
     }
 
-    pbanks = accel_dev->banks;
-
     adf_reset_ring(pRingHandle);
     if (NULL != pRingHandle->service_name)
     {
@@ -931,13 +931,17 @@ CpaStatus icp_adf_transResetHandle(icp_comms_trans_handle trans_handle)
             pRingHandle->section_name, 0, strlen(pRingHandle->section_name));
     }
 
-    pbanks = pbanks + pRingHandle->bank_num;
-
-    if (NULL != pbanks->rings)
+    pbanks = accel_dev->banks;
+    if (NULL != pbanks)
     {
-        pbanks->rings[pRingHandle->ring_num] = NULL;
-        adf_dev_bank_handle_put(pbanks);
-        adf_clean_bundle(pbanks);
+        pbanks = pbanks + pRingHandle->bank_num;
+
+        if (NULL != pbanks->rings)
+        {
+            pbanks->rings[pRingHandle->ring_num] = NULL;
+            adf_dev_bank_handle_put(pbanks);
+            adf_clean_bundle(pbanks);
+        }
     }
 
     return status;

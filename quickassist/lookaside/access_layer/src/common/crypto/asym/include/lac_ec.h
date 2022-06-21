@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -139,6 +139,32 @@ CpaStatus LacEc_GetRange(Cpa32U size, Cpa32U *pMax);
  *
  *****************************************************************************/
 void LacEc_StatsShow(CpaInstanceHandle instanceHandle);
+
+/**
+ ******************************************************************************
+ * @ingroup Lac_Ec
+ *      Resolves and validates passed instance handle.
+ *
+ * @description
+ *      First resolves passed value to real instance i.e. handles
+ *      CPA_INSTANCE_HANDLE_SINGLE.
+ *      Next it checks if instance is currently running and if it is of
+ *      proper kind: SAL_SERVICE_TYPE_CRYPTO or SAL_SERVICE_TYPE_CRYPTO_ASYM
+ *
+ * @param[in/out]  pInstanceHandle      in:  Should point to instance handle to
+ *                                           be validated or special value of
+ *                                           CPA_INSTANCE_HANDLE_SINGLE.
+ *                                      out: When CPA_STATUS_SUCCESS is returned,
+ *                                           it points to a valid instanceHandle.
+ *
+ * @retval CPA_STATUS_SUCCESS       Instance resolved and confirmed valid.
+ * @retval CPA_STATUS_RESTARTING    Instance is restarting.
+ * @retval CPA_STATUS_INVALID_PARAM Instance is NULL.
+ * @retval CPA_STATUS_FAIL          Wrong type of instance, instance not
+ *                                  running or address translation failed.
+ *
+ *****************************************************************************/
+CpaStatus LacEc_ValidateInstance(CpaInstanceHandle *pInstanceHandle);
 
 /**
  ******************************************************************************

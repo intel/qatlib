@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -867,7 +867,7 @@ typedef struct icp_qat_fw_comn_resp_s
  *  + ===== + ------ + --- + --- + --- + --- + --- + --- + --- + --- +
  *  | Bits  [7:0]    |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
  *  + ===== + ------ + --- + --- + --- + --- + --- + --- + --- + --- +
- *  | Flags [7:0]    | Rsv | Rsv | Rsv | Rsv | Rsv | BnP | Cdt | Ptr |
+ *  | Flags [7:0]    | Rsv | Rsv | Rsv | Rsv | Rsv | Rsv | Cdt | Ptr |
  *  + ===== + ------ + --- + --- + --- + --- + --- + --- + --- + --- +
  */
 
@@ -890,18 +890,6 @@ typedef struct icp_qat_fw_comn_resp_s
 /**< @ingroup icp_qat_fw_comn
  * Common Request Flags - One bit mask used to determine
  * CD Field type */
-
-#define QAT_COMN_BNP_ENABLED_BITPOS 2
-/**< @ingroup icp_qat_fw_comn
- * Common Request Flags - Starting bit position indicating
- * the source buffer contains batch of requests. if this
- * bit is set, source buffer is type of Batch And Pack OpData List
- * and the Ptr Type Bit only applies to Destination buffer. */
-
-#define QAT_COMN_BNP_ENABLED_MASK 0x1
-/**< @ingroup icp_qat_fw_comn
- * Batch And Pack Enabled Flag Mask - One bit mask used to determine
- * the source buffer is in Batch and Pack OpData Link List Mode. */
 
 /* ========================================================================= */
 /*                                       Pointer Type Flag definitions       */
@@ -932,26 +920,12 @@ typedef struct icp_qat_fw_comn_resp_s
 /**< @ingroup icp_qat_fw_comn
  * Constant value indicating CD Field contains 16 bytes of setup data */
 
-/* ========================================================================= */
-/*                       Batch And Pack Enable/Disable Definitions           */
-/* ========================================================================= */
-#define QAT_COMN_BNP_ENABLED 0x1
-/**< @ingroup icp_qat_fw_comn
- * Constant value indicating Source buffer will point to Batch And Pack OpData
- * List */
-
-#define QAT_COMN_BNP_DISABLED 0x0
-/**< @ingroup icp_qat_fw_comn
- * Constant value indicating Source buffer will point to Batch And Pack OpData
- * List */
-
 /**
 ******************************************************************************
 * @ingroup icp_qat_fw_comn
 *
 * @description
-*      Macro that must be used when building the common request flags (for all
-*      requests but comp BnP).
+*      Macro that must be used when building the common request flags.
 *      Note that all bits reserved field bits 2-15 (LW1) need to be forced to 0.
 *
 * @param ptr   Value of the pointer type flag
@@ -960,24 +934,6 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ICP_QAT_FW_COMN_FLAGS_BUILD(cdt, ptr)                                  \
     ((((cdt)&QAT_COMN_CD_FLD_TYPE_MASK) << QAT_COMN_CD_FLD_TYPE_BITPOS) |      \
      (((ptr)&QAT_COMN_PTR_TYPE_MASK) << QAT_COMN_PTR_TYPE_BITPOS))
-
-/**
-******************************************************************************
-* @ingroup icp_qat_fw_comn
-*
-* @description
-*      Macro that must be used when building the common request flags for comp
-*      BnP service.
-*      Note that all bits reserved field bits 3-15 (LW1) need to be forced to 0.
-*
-* @param ptr   Value of the pointer type flag
-* @param cdt   Value of the cd field type flag
-* @param bnp   Value of the bnp enabled flag
-*****************************************************************************/
-#define ICP_QAT_FW_COMN_FLAGS_BUILD_BNP(cdt, ptr, bnp)                         \
-    ((((cdt)&QAT_COMN_CD_FLD_TYPE_MASK) << QAT_COMN_CD_FLD_TYPE_BITPOS) |      \
-     (((ptr)&QAT_COMN_PTR_TYPE_MASK) << QAT_COMN_PTR_TYPE_BITPOS) |            \
-     (((bnp)&QAT_COMN_BNP_ENABLED_MASK) << QAT_COMN_BNP_ENABLED_BITPOS))
 
 /**
  ******************************************************************************
@@ -1010,19 +966,6 @@ typedef struct icp_qat_fw_comn_resp_s
  * @ingroup icp_qat_fw_comn
  *
  * @description
- *      Macro for extraction of the bnp field type bit from the common flags
- *
- * @param flags      Flags to extract the bnp field type type bit from
- *
- *****************************************************************************/
-#define ICP_QAT_FW_COMN_BNP_ENABLED_GET(flags)                                 \
-    QAT_FIELD_GET(flags, QAT_COMN_BNP_ENABLED_BITPOS, QAT_COMN_BNP_ENABLED_MASK)
-
-/**
- ******************************************************************************
- * @ingroup icp_qat_fw_comn
- *
- * @description
  *      Macro for setting the pointer type bit in the common flags
  *
  * @param flags      Flags in which Pointer Type bit will be set
@@ -1046,21 +989,6 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ICP_QAT_FW_COMN_CD_FLD_TYPE_SET(flags, val)                            \
     QAT_FIELD_SET(                                                             \
         flags, val, QAT_COMN_CD_FLD_TYPE_BITPOS, QAT_COMN_CD_FLD_TYPE_MASK)
-
-/**
- ******************************************************************************
- * @ingroup icp_qat_fw_comn
- *
- * @description
- *      Macro for setting the bnp field type bit in the common flags
- *
- * @param flags      Flags in which Bnp Field Type bit will be set
- * @param val        Value of the bit to be set in flags
- *
- *****************************************************************************/
-#define ICP_QAT_FW_COMN_BNP_ENABLE_SET(flags, val)                             \
-    QAT_FIELD_SET(                                                             \
-        flags, val, QAT_COMN_BNP_ENABLED_BITPOS, QAT_COMN_BNP_ENABLED_MASK)
 
 /**
  ******************************************************************************
@@ -1412,19 +1340,6 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ERR_CODE_EMPTY_DYM_BLOCK -19
 /**< Error Code constant value for submission of empty dynamic stored block to
  * slice  */
-
-#define ERR_CODE_KPT_CRYPTO_SERVICE_FAIL_INVALID_HANDLE -20
-/**< Error Code constant for invalid handle in kpt crypto service */
-
-#define ERR_CODE_KPT_CRYPTO_SERVICE_FAIL_HMAC_FAILED -21
-/**< Error Code constant for failed hmac in kpt crypto service */
-
-#define ERR_CODE_KPT_CRYPTO_SERVICE_FAIL_INVALID_WRAPPING_ALGO -22
-/**< Error Code constant for invalid wrapping algo in kpt crypto service */
-
-#define ERR_CODE_KPT_DRNG_SEED_NOT_LOAD -23
-/**< Error Code constant for no drng seed is not loaded in kpt ecdsa signrs
-/service */
 
 #define ERR_CODE_MISC_ERROR -50
 /**< Error Code constant for error detected but the source

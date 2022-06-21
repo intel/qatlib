@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -78,6 +78,36 @@
 
 /* Maximum size of the strings used by SAL */
 #define SAL_CFG_MAX_VAL_LEN_IN_BYTES 64
+
+#define SAL_CFG_DC "Dc"
+#define SAL_CFG_CY "Cy"
+#define SAL_CFG_RING_BANK_NUM "BankNumber"
+#define SAL_CFG_ACCEL_SEC "Accelerator"
+#define SAL_CFG_ETRMGR_BANK "Bank"
+#define SAL_CFG_ETRMGR_CORE_AFFINITY "CoreAffinity"
+#define SAL_CFG_RING_DC_TX "RingTx"
+#define SAL_CFG_RING_DC_RX "RingRx"
+#define SAL_CFG_RING_ASYM_TX "RingAsymTx"
+#define SAL_CFG_RING_SYM_TX "RingSymTx"
+#define SAL_CFG_RING_ASYM_RX "RingAsymRx"
+#define SAL_CFG_RING_SYM_RX "RingSymRx"
+#define SAL_CFG_POLL_MODE "IsPolled"
+#define SAL_CFG_RING_SYM_SIZE "NumConcurrentSymRequests"
+#define SAL_CFG_RING_ASYM_SIZE "NumConcurrentAsymRequests"
+#define SAL_CFG_RING_DC_SIZE "NumConcurrentRequests"
+
+#define SAL_CFG_NAME "Name"
+#define SAL_CFG_COMP "COMP"
+#define SAL_CFG_MEMPOOL "MemPool"
+
+#define SAL_CFG_ASYM_RESIZE_POOL "AsymResizePool"
+#define SAL_CFG_ASYM_REQ_POOL "AsymReqPool"
+#define SAL_CFG_ASYM_PRIME_POOL "AsymPrimePool"
+#define SAL_CFG_ASYM_EC_MEM_POOL "AsymEcMemPool"
+#define SAL_CFG_ASYM_KPT_MEM_POOL "AsymKptMemPool"
+#define SAL_CFG_ASYM_KPT_MEM_ARRAY_POOL "AsymKptMemArrayPool"
+#define SAL_CFG_ASYM_KPT_UNWRAP_CTX_MEM_POOL "AsymKptUnWrapCtxMemPool"
+#define SAL_CFG_SYM_POOL "SymPool"
 
 /**
 *******************************************************************************

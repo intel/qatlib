@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -119,6 +119,8 @@ typedef enum
  *  |       |        |as intmd|     |        |       |       |    |      |     |
  *  |       |        |  buf   |     |        |       |       |    |      |     |
  *  + ===== + ------ + -----  + --- + ------ + ----- + ----- + -- + ---- + --- +
+ * Note: For QAT 2.0 Disable Secure Ram, DisType0 Header and Enhanced ASB bits
+ * are don't care. i.e., these features are removed from QAT 2.0.
  */
 
 /**< Flag usage */
@@ -240,6 +242,28 @@ typedef enum
       << ICP_QAT_FW_COMP_RET_DISABLE_TYPE0_HEADER_DATA_BITPOS) |               \
      ((secure_ram & ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_AS_INTMD_BUF_MASK)      \
       << ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_AS_INTMD_BUF_BITPOS))
+
+/**
+******************************************************************************
+* @ingroup icp_qat_fw_comp
+*
+* @description
+* Macro used for the generation of the command flags for Compression Request.
+* This should always be used for the generation of the flags. No direct sets or
+* masks should be performed on the flags data
+*
+* @param sesstype         Session Type
+* @param autoselect       AutoSelectBest
+*                         Selects between compressed and uncompressed output.
+*                         No distinction made between static and dynamic
+*                         compressed data.
+*
+*********************************************************************************/
+#define ICP_QAT_FW_COMP_20_FLAGS_BUILD(sesstype, autoselect)                   \
+    (((sesstype & ICP_QAT_FW_COMP_SESSION_TYPE_MASK)                           \
+      << ICP_QAT_FW_COMP_SESSION_TYPE_BITPOS) |                                \
+     ((autoselect & ICP_QAT_FW_COMP_AUTO_SELECT_BEST_MASK)                     \
+      << ICP_QAT_FW_COMP_AUTO_SELECT_BEST_BITPOS))
 
 /**
  ******************************************************************************
@@ -432,7 +456,6 @@ typedef struct icp_qat_fw_comp_req_params_s
  *                            * ICP_QAT_FW_COMP_NO_CNV_DFX
  *                            * ICP_QAT_FW_COMP_CNV_DFX
  * @param crc                CRC Mode Flag - 0 legacy, 1 crc data struct
- *
  *****************************************************************************/
 #define ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(                                 \
     sop, eop, bfinal, cnv, cnvnr, cnvdfx, crc)                                 \
@@ -446,6 +469,53 @@ typedef struct icp_qat_fw_comp_req_params_s
       << ICP_QAT_FW_COMP_CNV_DFX_BITPOS) |                                     \
      ((crc & ICP_QAT_FW_COMP_CRC_MODE_MASK)                                    \
       << ICP_QAT_FW_COMP_CRC_MODE_BITPOS))
+
+/*
+ * REQUEST FLAGS IN REQUEST PARAMETERS COMPRESSION
+ *
+ * +=====+-----+----- + --- + --- +-----+ --- + ----- + --- + ---- + -- + -- +
+ * | Bit |31-24| 20   | 19  |  18 | 17  | 16  | 15-7  |  6  | 5-2  | 1  | 0  |
+ * +=====+-----+----- + --- + ----+-----+ --- + ----- + --- + ---- + -- + -- +
+ * |Flags|Resvd|xxHash| CRC | CNV |CNVNR| CNV | Resvd |BFin | Resvd|EOP |SOP |
+ * |     |=0   |acc   | MODE| DFX |     |     | =0    |     | =0   |    |    |
+ * |     |     |      |     |     |     |     |       |     |      |    |    |
+ * +=====+-----+----- + --- + ----+-----+ --- + ----- + --- + ---- + -- + -- +
+ */
+
+/**
+*****************************************************************************
+* @ingroup icp_qat_fw_comp
+*        Definition of the additional QAT2.0 Compression command types
+* @description
+*        Enumeration which is used to indicate the ids of functions
+*              that are exposed by the Compression QAT FW service
+*
+*****************************************************************************/
+typedef enum
+{
+    ICP_QAT_FW_COMP_20_CMD_LZ4_COMPRESS = 3,
+    /*!< LZ4 Compress Request */
+
+    ICP_QAT_FW_COMP_20_CMD_LZ4_DECOMPRESS = 4,
+    /*!< LZ4 Decompress Request */
+
+    ICP_QAT_FW_COMP_20_CMD_LZ4S_COMPRESS = 5,
+    /*!< LZ4S Compress Request */
+
+    ICP_QAT_FW_COMP_20_CMD_LZ4S_DECOMPRESS = 6,
+    /*!< LZ4S Decompress Request */
+
+    ICP_QAT_FW_COMP_20_CMD_XP10_COMPRESS = 7,
+    /*!< XP10 Compress Request -- Placeholder */
+
+    ICP_QAT_FW_COMP_20_CMD_XP10_DECOMPRESS = 8,
+    /*!< XP10 Decompress Request -- Placeholder */
+
+    ICP_QAT_FW_COMP_20_CMD_DELIMITER
+    /**< Delimiter type */
+
+} icp_qat_fw_comp_20_cmd_id_t;
+
 
 /*
  *  REQUEST FLAGS IN REQUEST PARAMETERS COMPRESSION
@@ -515,6 +585,14 @@ typedef struct icp_qat_fw_comp_req_params_s
 /**< @ingroup icp_qat_fw_comp
  * Flag representing to use the external CRC data struct */
 
+#define ICP_QAT_FW_COMP_NO_XXHASH_ACC 0
+/**< @ingroup icp_qat_fw_comp
+ *  * Flag indicating that xxHash will NOT be accumulated across requests */
+
+#define ICP_QAT_FW_COMP_XXHASH_ACC 1
+/**< @ingroup icp_qat_fw_comp
+ *  * Flag indicating that xxHash WILL be accumulated across requests */
+
 #define ICP_QAT_FW_COMP_SOP_BITPOS 0
 /**< @ingroup icp_qat_fw_comp
  * Starting bit position for SOP */
@@ -570,6 +648,14 @@ typedef struct icp_qat_fw_comp_req_params_s
 #define ICP_QAT_FW_COMP_CRC_MODE_MASK 0x1
 /**< @ingroup icp_qat_fw_comp
  * One bit mask used to determine CRC mode */
+
+#define ICP_QAT_FW_COMP_XXHASH_ACC_MODE_BITPOS 20
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for xxHash accumulate mode */
+
+#define ICP_QAT_FW_COMP_XXHASH_ACC_MODE_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask used to determine xxHash accumulate mode */
 
 /**
  ******************************************************************************
@@ -638,6 +724,38 @@ typedef struct icp_qat_fw_comp_req_params_s
 #define ICP_QAT_FW_COMP_CRC_MODE_GET(flags)                                    \
     QAT_FIELD_GET(                                                             \
         flags, ICP_QAT_FW_COMP_CRC_MODE_BITPOS, ICP_QAT_FW_COMP_CRC_MODE_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ *        Macro for extraction of the xxHash accumulate mode bit
+ *
+ * @param flags        Flags to extract the xxHash accumulate mode bit from
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMP_XXHASH_ACC_MODE_GET(flags)                             \
+    QAT_FIELD_GET(flags,                                                       \
+                  ICP_QAT_FW_COMP_XXHASH_ACC_MODE_BITPOS,                      \
+                  ICP_QAT_FW_COMP_XXHASH_ACC_MODE_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ *        Macro for setting of the xxHash accumulate mode bit
+ *
+ * @param flags        Flags to set the xxHash accumulate mode bit to
+ * @param val          xxHash accumulate mode to set
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMP_XXHASH_ACC_MODE_SET(flags, val)                        \
+    QAT_FIELD_SET(flags,                                                       \
+                  val,                                                         \
+                  ICP_QAT_FW_COMP_XXHASH_ACC_MODE_BITPOS,                      \
+                  ICP_QAT_FW_COMP_XXHASH_ACC_MODE_MASK)
 
 /**
  ******************************************************************************
@@ -790,10 +908,8 @@ typedef struct icp_qat_fw_comp_req_s
         uint32_t resrvd2[ICP_QAT_FW_NUM_LONGWORDS_2];
         /**< Reserved - not used if Batch and Pack is disabled.*/
 
-        uint64_t bnp_res_table_addr;
-        /**< A generic pointer to the unbounded list of
-         * icp_qat_fw_resp_comp_pars_t members. This pointer is only
-         * used when the Batch and Pack is enabled. */
+        uint64_t resrvd3;
+        /**< Reserved - not used if Batch and Pack is disabled.*/
     } u3;
 
     /**< LWs 24-29 */
@@ -850,159 +966,6 @@ typedef struct icp_qat_fw_resp_comp_pars_s
     } crc;
 
 } icp_qat_fw_resp_comp_pars_t;
-
-/**
- *****************************************************************************
- * @ingroup icp_qat_fw_comp
- *       Definition of a single result metadata structure inside Batch and Pack
- *       results table array. It describes the output if single job in the
- *       batch and pack jobs.
- *       Total number of entries in BNP Out table shall be equal to total
- *       number of requests in the 'batch'.
- * @description
- *        This structure is specific to the compression output.
- *
- *****************************************************************************/
-typedef struct icp_qat_fw_comp_bnp_out_tbl_entry_s
-{
-    /**< LWs 0-3 */
-    icp_qat_fw_resp_comp_pars_t comp_out_pars;
-    /**< Common output params (checksums and byte counts) */
-
-    /**< LW 4 */
-    icp_qat_fw_comn_error_t comn_error;
-    /**< This field is overloaded to allow for one 8 bit common error field
-     *   or two 8 bit error fields from compression and translator  */
-
-    uint8_t comn_status;
-    /**< Status field which specifies which slice(s) report an error */
-
-    uint8_t reserved0;
-    /**< Reserved, shall be set to zero */
-
-    uint32_t reserved1;
-    /**< Reserved, shall be set to zero,
-    added for aligning entries to quadword boundary */
-} icp_qat_fw_comp_bnp_out_tbl_entry_t;
-
-/**
-*****************************************************************************
-* @ingroup icp_qat_fw_comp
-*      Supported modes for skipping regions of input or output buffers.
-*
-* @description
-*      This enumeration lists the supported modes for skipping regions of
-*      input or output buffers.
-*
-*****************************************************************************/
-typedef enum icp_qat_fw_comp_bnp_skip_mode_s
-{
-    ICP_QAT_FW_SKIP_DISABLED = 0,
-    /**< Skip mode is disabled */
-    ICP_QAT_FW_SKIP_AT_START = 1,
-    /**< Skip region is at the start of the buffer. */
-    ICP_QAT_FW_SKIP_AT_END = 2,
-    /**< Skip region is at the end of the buffer. */
-    ICP_QAT_FW_SKIP_STRIDE = 3
-    /**< Skip region occurs at regular intervals within the buffer.
-     * specifies the number of bytes between each skip region. */
-} icp_qat_fw_comp_bnp_skip_mode_t;
-
-/**
- *****************************************************************************
- * @ingroup icp_qat_fw_comn
- *      Flags describing the skip and compression job bahaviour. refer to flag
- *      definitions on skip mode and reset/flush types.
- *      Note: compression behaviour flags are ignored for destination skip info.
- * @description
- *      Definition of the common request flags.
- *
- *****************************************************************************/
-typedef uint8_t icp_qat_fw_comp_bnp_flags_t;
-
-/**
- *****************************************************************************
- * @ingroup icp_qat_fw_comn
- *      Skip Region Data.
- * @description
- *      This structure contains data relating to configuring skip region
- *      behaviour. A skip region is a region of an input buffer that
- *      should be omitted from processing or a region that should be inserted
- *      into the output buffer.
- *
- *****************************************************************************/
-typedef struct icp_qat_fw_comp_bnp_skip_info_s
-{
-    /**< LW 0 */
-    uint16_t skip_length;
-    /**<Number of bytes to skip when skip mode is enabled */
-
-    /**< LW 1 */
-    uint16_t stride_length;
-    /**<Size of the stride between skip regions when skip mode is enabled */
-
-    /**< LW 2 */
-    uint16_t firstSkipOffset;
-    /**< Number of bytes to skip in a buffer before reading/writing the
-     * input/output data. */
-
-    /**< LWs 3 */
-    icp_qat_fw_comp_bnp_flags_t bnp_flags;
-    /**< Translation request Parameters block */
-
-    uint8_t resrvd1;
-    /**< Reserved if not used for translation */
-
-} icp_qat_fw_comp_bnp_skip_info_t;
-
-/**
- *****************************************************************************
- * @ingroup icp_qat_fw_comn
- *      Batch and Pack operation header.
- * @description
- *      This structure contains address of the next bnp op data, and the
- *      length of the compression operation.
- *****************************************************************************/
-typedef struct icp_qat_fw_comp_bnp_op_header_s
-{
-    /**< LW 0*/
-    uint64_t next_opdata_addr;
-    /**< Physical pointer to the Address of the next bnp op data structure.
-     */
-
-    /**< LW 2*/
-    uint32_t comp_len;
-    /**< Size of input to process in bytes  */
-
-    /**< LW 3*/
-    uint32_t resrvd1;
-    /**< Reserved - Should be set to zero. */
-
-} icp_qat_fw_comp_bnp_op_header_t;
-
-/**
- *****************************************************************************
- * @ingroup icp_qat_fw_comn
- *      Batch and Pack operation op data structure.
- * @description
- *      This structure contains data relating to describing the skipping and
- *      reset behaviour of source and skipping behaviour of destination buffer
- *      associated with the input job where job has a single sgl vector, and
- *      batch and pack might contain multiple jobs.
- *      The structure also contains a pointer to the next 'job' described by
- *      the next op_data structure.
- *      Corresponding SGL Buffer shall physically follow this structure.
- *****************************************************************************/
-typedef struct icp_qat_fw_comp_bnp_op_data_s
-{
-    icp_qat_fw_comp_bnp_op_header_t bnp_op_header;
-    /**< Pointer to next Op data, and general information on the operation */
-    icp_qat_fw_comp_bnp_skip_info_t src_bnp_skip_info;
-    /**< Optional skip regions in the input buffers */
-    icp_qat_fw_comp_bnp_skip_info_t dst_bnp_skip_info;
-    /**< Optional skip regions in the output buffers */
-
-} icp_qat_fw_comp_bnp_op_data_t;
 
 /**
  *****************************************************************************
@@ -1103,5 +1066,33 @@ typedef enum
       << QAT_FW_COMP_BANK_B_BITPOS) |                                          \
      (((bank_a_enable)&QAT_FW_COMP_BANK_FLAG_MASK)                             \
       << QAT_FW_COMP_BANK_A_BITPOS))
+
+/**
+ *****************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *      Definition of the xxhash32 acc state buffer
+ * @description
+ *      This is data structure used in stateful lite for xxhash32
+ *
+ *****************************************************************************/
+typedef struct xxhash_acc_state_buff_s
+{
+    /**< LW 0 */
+    uint32_t in_counter;
+    /**< Accumulated (total) consumed bytes. As oppose to the per request IBC in
+     * the response.*/
+
+    /**< LW 1 */
+    uint32_t out_counter;
+    /**< OBC as in the response.*/
+
+    /**< LW 2-5 */
+    uint32_t xxhash_state[4];
+    /**< Initial value is set by IA to the values stated in HAS.*/
+
+    /**< LW 6-9 */
+    uint32_t clear_txt[4];
+    /**< Set to 0 for the first request.*/
+} xxhash_acc_state_buff_t;
 
 #endif /* _ICP_QAT_FW_COMP_H_ */

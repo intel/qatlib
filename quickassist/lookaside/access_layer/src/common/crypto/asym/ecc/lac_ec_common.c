@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -106,8 +106,10 @@
 #include "lac_ec.h"
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
-
 #include "lac_ec_nist_curves.h"
+
+/* SAL includes */
+#include "sal_service_state.h"
 
 #define LAC_EC_NUM_STATS (sizeof(CpaCyEcStats64) / sizeof(Cpa64U))
 #define LAC_ECDH_NUM_STATS (sizeof(CpaCyEcdhStats64) / sizeof(Cpa64U))
@@ -199,6 +201,34 @@ void LacEc_StatsReset(CpaInstanceHandle instanceHandle)
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
 
     LAC_EC_ALL_STATS_CLEAR(pCryptoService);
+}
+
+/**
+ ***************************************************************************
+ * @ingroup Lac_Ec
+ *      Resolves and validates instanceHandle.
+ ***************************************************************************/
+CpaStatus LacEc_ValidateInstance(CpaInstanceHandle *pInstanceHandle)
+{
+    if (CPA_INSTANCE_HANDLE_SINGLE == *pInstanceHandle)
+    {
+        *pInstanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
+    }
+#ifdef ICP_PARAM_CHECK
+    /* instance checks - if fail, no inc stats just return */
+    /* check for valid acceleration handle */
+    LAC_CHECK_INSTANCE_HANDLE(*pInstanceHandle);
+    SAL_CHECK_ADDR_TRANS_SETUP(*pInstanceHandle);
+#endif
+    /* ensure LAC is running - return error if not */
+    SAL_RUNNING_CHECK(*pInstanceHandle);
+#ifdef ICP_PARAM_CHECK
+    /* ensure this is a crypto or asym instance with pke enabled */
+    const Cpa32U instanceType =
+        SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM;
+    SAL_CHECK_INSTANCE_TYPE(*pInstanceHandle, instanceType);
+#endif
+    return CPA_STATUS_SUCCESS;
 }
 
 /**

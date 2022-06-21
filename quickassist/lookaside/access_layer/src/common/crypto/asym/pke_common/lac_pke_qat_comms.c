@@ -1,7 +1,7 @@
 /*
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -67,9 +67,6 @@
 #include "icp_qat_fw_la.h"
 #include "icp_qat_fw_pke.h"
 #include "icp_qat_fw_mmp.h"
-#ifdef KPT
-#include "icp_qat_fw_kpt_ksp.h"
-#endif
 /* SAL includes */
 #include "lac_common.h"
 #include "lac_mem.h"
@@ -82,9 +79,6 @@
 #include "lac_pke_utils.h"
 #include "lac_pke_mmp.h"
 #include "sal_misc_error_stats.h"
-#ifdef KPT
-#include "lac_kpt_ksp_qat_comms.h"
-#endif
 
 /*
 ****************************************************************************
@@ -134,7 +128,7 @@ void LacPke_HdrWrite(icp_qat_fw_pke_request_t *pMsg,
 
     /* LW1 */
     pHeader->comn_req_flags = cmnFlags;
-    pHeader->kpt_rn_mask = 0;
+    pHeader->resrvd4 = 0;
 }
 
 /**
@@ -380,10 +374,6 @@ CpaStatus LacPke_DestroyRequest(lac_pke_request_handle_t *pRequestHandle)
         {
             status = CPA_STATUS_RESOURCE;
         }
-#ifdef KPT
-        pReqData->u1.request.pke_hdr.kpt_mask = 0;
-        pReqData->u1.request.pke_hdr.kpt_rn_mask = 0;
-#endif
         LAC_MEM_POOL_BLK_SET_OPAQUE(pReqData, ICP_ADF_INVALID_SEND_SEQ);
         Lac_MemPoolEntryFree(pReqData);
         pReqData = pNextReqData;
@@ -408,34 +398,6 @@ void LacPke_MsgCallback(void *pRespMsg)
     lac_pke_qat_req_data_t *pReqData = NULL;
     lac_pke_op_cb_func_t pCbFunc = NULL;
     lac_pke_op_cb_data_t cbData = {0};
-#ifdef KPT
-    icp_qat_fw_comn_resp_hdr_t *pRespMsgFn =
-        (icp_qat_fw_comn_resp_hdr_t *)pRespMsg;
-    if (LAC_KPT_SERVICE_TYPE == pRespMsgFn->response_type)
-    {
-        lac_kpt_ksp_qat_req_data_t *pReqData = NULL;
-        lac_kpt_ksp_op_cb_data_t *pcbData = NULL;
-        lac_kpt_ksp_op_cb_func_t pCbFunc = NULL;
-        lac_kpt_ksp_request_handle_t requestHandle = CPA_INSTANCE_HANDLE_SINGLE;
-        icp_qat_fw_kpt_ksp_resp_data_t *pKptKspRespMsg =
-            (icp_qat_fw_kpt_ksp_resp_data_t *)pRespMsg;
-        Cpa8U cmdID = 0;
-        Cpa16U rspStatus = 0;
-
-        LAC_MEM_SHARED_READ_TO_PTR(pKptKspRespMsg->opaque_data, pReqData);
-
-        requestHandle = (lac_kpt_ksp_request_handle_t)pReqData;
-        pCbFunc = pReqData->cbinfo.cbFunc;
-        pcbData = pReqData->cbinfo.pcbData;
-        instanceHandle = pReqData->cbinfo.instanceHandle;
-        cmdID = pKptKspRespMsg->cmdID;
-        rspStatus = pKptKspRespMsg->rspStatus;
-
-        LacKpt_Ksp_DestroyRequest(&requestHandle);
-        (*pCbFunc)(status, cmdID, rspStatus, instanceHandle, pcbData);
-        return;
-    }
-#endif
 
     /* cast response message to PKE response message type */
     pPkeRespMsg = (icp_qat_fw_pke_resp_t *)pRespMsg;
@@ -461,25 +423,6 @@ void LacPke_MsgCallback(void *pRespMsg)
         LAC_LOG_ERROR(
             "The PCIe End Point Push/Pull or TI/RI Parity error detected.");
     }
-#ifdef KPT
-    else if (ERR_CODE_KPT_CRYPTO_SERVICE_FAIL_INVALID_HANDLE == (Cpa8S)comnErr)
-    {
-        LAC_LOG_ERROR("Invalid handle in Kpt crypto service.");
-    }
-    else if (ERR_CODE_KPT_CRYPTO_SERVICE_FAIL_HMAC_FAILED == (Cpa8S)comnErr)
-    {
-        LAC_LOG_ERROR("HMAC verification failed in Kpt crypto service.");
-    }
-    else if (ERR_CODE_KPT_CRYPTO_SERVICE_FAIL_INVALID_WRAPPING_ALGO ==
-             (Cpa8S)comnErr)
-    {
-        LAC_LOG_ERROR("Invalid wrapping algorithm in Kpt crypto service.");
-    }
-    else if (ERR_CODE_KPT_DRNG_SEED_NOT_LOAD == (Cpa8S)comnErr)
-    {
-        LAC_LOG_ERROR("No DRNG seed is loaded in Kpt ecdsa signrs service.");
-    }
-#endif
 
     /* extract request data pointer from the opaque data */
     LAC_MEM_SHARED_READ_TO_PTR(pPkeRespMsg->opaque_data, pReqData);

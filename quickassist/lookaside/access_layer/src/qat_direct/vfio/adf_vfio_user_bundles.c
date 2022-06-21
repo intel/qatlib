@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -81,8 +81,8 @@ int adf_io_populate_bundle(icp_accel_dev_t *accel_dev,
     vfio_dev_info_t *vfio_dev;
     uintptr_t addr;
 
-    if (!accel_dev || !bundle)
-        return -EINVAL;
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(accel_dev, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(bundle, -EINVAL);
 
     vfio_dev = accel_dev->ioPriv;
     if (!vfio_dev)
@@ -130,9 +130,16 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
                               sizeof(rsp.device_info.device_name));
     if (device_name_len < sizeof(accel_dev->deviceName))
     {
+#if defined(__GNUC__) && (__GNUC__ < 10)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
+#endif
         ICP_STRLCPY(accel_dev->deviceName,
                     rsp.device_info.device_name,
                     sizeof(accel_dev->deviceName));
+#if defined(__GNUC__) && (__GNUC__ < 10)
+#pragma GCC diagnostic pop
+#endif
     }
     else
         return -EINVAL;
@@ -256,8 +263,7 @@ void adf_io_destroy_accel(icp_accel_dev_t *accel_dev)
 {
     vfio_dev_info_t *vfio_dev;
 
-    if (!accel_dev)
-        return;
+    ICP_CHECK_FOR_NULL_PARAM_VOID(accel_dev);
 
     if (!accel_dev->ioPriv)
         goto free_accel;

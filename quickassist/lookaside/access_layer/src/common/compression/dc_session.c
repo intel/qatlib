@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -123,7 +123,7 @@ STATIC CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
     cpaDcQueryCapabilities(dcInstance, &instanceCapabilities);
 
     if ((pSessionData->compLevel < CPA_DC_L1) ||
-        (pSessionData->compLevel > CPA_DC_L9))
+        (pSessionData->compLevel > CPA_DC_L12))
     {
         LAC_INVALID_PARAM_LOG("Invalid compLevel value");
         return CPA_STATUS_INVALID_PARAM;
@@ -134,7 +134,8 @@ STATIC CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
         LAC_INVALID_PARAM_LOG("Invalid autoSelectBestHuffmanTree value");
         return CPA_STATUS_INVALID_PARAM;
     }
-    if (pSessionData->compType != CPA_DC_DEFLATE)
+    if ((pSessionData->compType < CPA_DC_DEFLATE) ||
+        (pSessionData->compType > CPA_DC_LZ4S))
     {
         LAC_INVALID_PARAM_LOG("Invalid compType value");
         return CPA_STATUS_INVALID_PARAM;
@@ -163,15 +164,88 @@ STATIC CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
     }
 
     if ((pSessionData->checksum < CPA_DC_NONE) ||
-        (pSessionData->checksum > CPA_DC_ADLER32))
+        (pSessionData->checksum > CPA_DC_XXHASH32))
     {
         LAC_INVALID_PARAM_LOG("Invalid checksum value");
         return CPA_STATUS_INVALID_PARAM;
     }
 
+    if (CPA_DC_XXHASH32 == pSessionData->checksum &&
+        CPA_DC_DEFLATE == pSessionData->compType)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid checksum type for DEFLATE compression");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if ((CPA_DC_LZ4 == pSessionData->compType) &&
+        (CPA_DC_XXHASH32 != pSessionData->checksum) &&
+        (CPA_DC_NONE != pSessionData->checksum))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid checksum type for LZ4 compression");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if ((CPA_DC_LZ4S == pSessionData->compType) &&
+        (CPA_DC_NONE != pSessionData->checksum) &&
+        (CPA_DC_XXHASH32 != pSessionData->checksum))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid checksum type for LZ4S compression");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if (CPA_DC_LZ4 == pSessionData->compType)
+    {
+        if ((pSessionData->lz4BlockMaxSize < CPA_DC_LZ4_MAX_BLOCK_SIZE_64K) ||
+            (pSessionData->lz4BlockMaxSize > CPA_DC_LZ4_MAX_BLOCK_SIZE_4M))
+        {
+            LAC_INVALID_PARAM_LOG("Invalid LZ4 Block Max Size value.");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+        if (CPA_FALSE != pSessionData->lz4BlockChecksum &&
+            CPA_TRUE != pSessionData->lz4BlockChecksum)
+        {
+            LAC_INVALID_PARAM_LOG("Invalid LZ4 Block checksum setting.");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+        if (CPA_FALSE != pSessionData->lz4BlockIndependence &&
+            CPA_TRUE != pSessionData->lz4BlockIndependence)
+        {
+            LAC_INVALID_PARAM_LOG("Invalid LZ4 Block independence setting.");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+        if (CPA_FALSE != pSessionData->accumulateXXHash &&
+            CPA_TRUE != pSessionData->accumulateXXHash)
+        {
+            LAC_INVALID_PARAM_LOG("Invalid LZ4 accumulateXXHash setting.");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+    }
+
+    if (CPA_DC_LZ4S == pSessionData->compType)
+    {
+        if ((pSessionData->minMatch < CPA_DC_MIN_3_BYTE_MATCH) ||
+            (pSessionData->minMatch > CPA_DC_MIN_4_BYTE_MATCH))
+        {
+            LAC_INVALID_PARAM_LOG("Invalid LZ4S Min match value.");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+    }
+
     return CPA_STATUS_SUCCESS;
 }
 #endif
+
+static void setBlockIndep(icp_qat_hw_comp_20_config_csr_upper_t *conf)
+{
+    conf->scb_mode_reset =
+        ICP_QAT_HW_COMP_20_SCB_MODE_RESET_MASK_RESET_COUNTERS_AND_HISTORY;
+}
+
+static void setBlockDep(icp_qat_hw_comp_20_config_csr_upper_t *conf)
+{
+    conf->scb_mode_reset =
+        ICP_QAT_HW_COMP_20_SCB_MODE_RESET_MASK_RESET_COUNTERS;
+}
 
 /**
  *****************************************************************************
@@ -296,6 +370,9 @@ STATIC void dcCompHwBlockPopulateGen4(
         osalMemSet(&hw_comp_upper_csr, 0, sizeof hw_comp_upper_csr);
         osalMemSet(&hw_comp_lower_csr, 0, sizeof hw_comp_lower_csr);
 
+        /* Disable Literal + Length Limit Block Drop by default */
+        hw_comp_lower_csr.lllbd = ICP_QAT_HW_COMP_20_LLLBD_CTRL_LLLBD_DISABLED;
+
         switch (pSessionDesc->compType)
         {
             case CPA_DC_DEFLATE:
@@ -319,8 +396,31 @@ STATIC void dcCompHwBlockPopulateGen4(
                 if (CPA_DC_STATEFUL == pSessionDesc->sessState)
                 {
                     hw_comp_upper_csr.som_ctrl =
-                        ICP_QAT_HW_COMP_20_SOM_CONTROL_RESERVED0_MODE;
+                        ICP_QAT_HW_COMP_20_SOM_CONTROL_REPLAY_MODE;
                 }
+                break;
+            case CPA_DC_LZ4:
+                /* LZ4 algorithm settings */
+                hw_comp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
+                hw_comp_upper_csr.lbms = pSessionDesc->lz4BlockMaxSize;
+                hw_comp_lower_csr.mmctrl =
+                    ICP_QAT_HW_COMP_20_MIN_MATCH_CONTROL_MATCH_4B;
+
+                if (CPA_TRUE == pSessionDesc->lz4BlockIndependence)
+                {
+                    setBlockIndep(&hw_comp_upper_csr);
+                }
+                else
+                {
+                    setBlockDep(&hw_comp_upper_csr);
+                }
+                break;
+            case CPA_DC_LZ4S:
+                /* LZ4S algorithm settings */
+                hw_comp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
+                hw_comp_lower_csr.mmctrl = pSessionDesc->minMatch;
+                hw_comp_upper_csr.scb_ctrl =
+                    ICP_QAT_HW_COMP_20_SCB_CONTROL_DISABLE;
                 break;
             default:
                 LAC_ENSURE(CPA_FALSE, "Compression algorithm not supported\n");
@@ -350,12 +450,21 @@ STATIC void dcCompHwBlockPopulateGen4(
             default:
                 hw_comp_lower_csr.sd =
                     pService->comp_device_data.highestHwCompressionDepth;
+                if ((CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType) &&
+                    (CPA_DC_DEFLATE == pSessionDesc->compType))
+                {
+                    /* Enable Literal + Length Limit Block Drop
+                     * with dynamic deflate compression when
+                     * highest compression levels are selected.
+                     */
+                    hw_comp_lower_csr.lllbd =
+                        ICP_QAT_HW_COMP_20_LLLBD_CTRL_LLLBD_ENABLED;
+                }
                 break;
         }
 
         /* Same for all algorithms */
-        hw_comp_lower_csr.res1 = ICP_QAT_HW_COMP_20_RESERVED1_DISABLED;
-        hw_comp_lower_csr.res2 = ICP_QAT_HW_COMP_20_RESERVED2_CTRL_DISABLED;
+        hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_20_ABD_ABD_DISABLED;
         hw_comp_lower_csr.hash_update =
             ICP_QAT_HW_COMP_20_SKIP_HASH_UPDATE_DONT_ALLOW;
         hw_comp_lower_csr.edmm =
@@ -386,6 +495,26 @@ STATIC void dcCompHwBlockPopulateGen4(
         {
             hw_decomp_lower_csr.algo =
                 ICP_QAT_HW_DECOMP_20_HW_DECOMP_FORMAT_DEFLATE;
+        }
+        else if (CPA_DC_LZ4 == pSessionDesc->compType)
+        {
+            hw_decomp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
+            hw_decomp_lower_csr.lbms = pSessionDesc->lz4BlockMaxSize;
+            if (CPA_TRUE == pSessionDesc->lz4BlockChecksum)
+            {
+                hw_decomp_lower_csr.lbc =
+                    ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_PRESENT;
+            }
+            else
+            {
+                hw_decomp_lower_csr.lbc =
+                    ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_ABSENT;
+            }
+        }
+        else if (CPA_DC_LZ4S == pSessionDesc->compType)
+        {
+            hw_decomp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
+            hw_decomp_lower_csr.mmctrl = pSessionDesc->minMatch;
         }
         else
         {
@@ -451,6 +580,23 @@ STATIC void dcCompContentDescPopulate(sal_compression_service_t *pService,
             ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank G */
             ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank F */
             ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank E */
+            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank D */
+            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank C */
+            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank B */
+            ICP_QAT_FW_COMP_BANK_ENABLED); /* Bank A */
+        bankEnabled = CPA_TRUE;
+    }
+    else if ((CPA_DC_STATEFUL == pSessionDesc->sessState) &&
+             (CPA_DC_LZ4 == pSessionDesc->compType) &&
+             (DC_DECOMPRESSION_REQUEST == compDecomp))
+    {
+        /* Enable A, B, C, and D (no CAMs for LZ4). */
+        pCompControlBlock->ram_bank_flags = ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
+            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank I */
+            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank H */
+            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank G */
+            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank F */
+            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank E */
             ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank D */
             ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank C */
             ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank B */
@@ -569,10 +715,22 @@ STATIC CpaStatus dcGetContextSize(CpaInstanceHandle dcInstance,
 
     *pContextSize = 0;
     if ((CPA_DC_STATEFUL == pSessionData->sessState) &&
-        (CPA_DC_DEFLATE == pSessionData->compType) &&
         (CPA_DC_DIR_COMPRESS != pSessionData->sessDirection))
     {
-        *pContextSize = pCompService->comp_device_data.inflateContextSize;
+        switch (pSessionData->compType)
+        {
+            case CPA_DC_DEFLATE:
+                *pContextSize =
+                    pCompService->comp_device_data.inflateContextSize;
+                break;
+            case CPA_DC_LZ4:
+                *pContextSize =
+                    pCompService->comp_device_data.lz4DecompContextSize;
+                break;
+            default:
+                LAC_LOG_ERROR("Invalid compression algorithm.");
+                return CPA_STATUS_FAIL;
+        }
     }
     return CPA_STATUS_SUCCESS;
 }
@@ -605,18 +763,45 @@ STATIC CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
     LAC_CHECK_NULL_PARAM(pSessionData);
     LAC_CHECK_NULL_PARAM(pDcCmdId);
 #endif
+    *pDcCmdId = -1;
 
-    switch (pSessionData->compType)
+    if (pService->generic_service_info.isGen4)
     {
-        case CPA_DC_DEFLATE:
-            *pDcCmdId = (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
-                            ? ICP_QAT_FW_COMP_CMD_DYNAMIC
-                            : ICP_QAT_FW_COMP_CMD_STATIC;
-            break;
-        default:
-            LAC_ENSURE(CPA_FALSE, "Algorithm not supported for compression\n");
-            status = CPA_STATUS_UNSUPPORTED;
-            break;
+        switch (pSessionData->compType)
+        {
+            case CPA_DC_DEFLATE:
+                *pDcCmdId = (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
+                                ? ICP_QAT_FW_COMP_CMD_DYNAMIC
+                                : ICP_QAT_FW_COMP_CMD_STATIC;
+                break;
+            case CPA_DC_LZ4:
+                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4_COMPRESS;
+                break;
+            case CPA_DC_LZ4S:
+                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4S_COMPRESS;
+                break;
+            default:
+                LAC_ENSURE(CPA_FALSE,
+                           "Algorithm not supported for compression\n");
+                status = CPA_STATUS_UNSUPPORTED;
+                break;
+        }
+    }
+    else /* !isGen4 path*/
+    {
+        switch (pSessionData->compType)
+        {
+            case CPA_DC_DEFLATE:
+                *pDcCmdId = (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
+                                ? ICP_QAT_FW_COMP_CMD_DYNAMIC
+                                : ICP_QAT_FW_COMP_CMD_STATIC;
+                break;
+            default:
+                LAC_ENSURE(CPA_FALSE,
+                           "Algorithm not supported for compression\n");
+                status = CPA_STATUS_UNSUPPORTED;
+                break;
+        }
     }
 
     return status;
@@ -651,18 +836,63 @@ STATIC CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
     LAC_CHECK_NULL_PARAM(pSessionData);
     LAC_CHECK_NULL_PARAM(pDcCmdId);
 #endif
+    *pDcCmdId = -1;
 
-    switch (pSessionData->compType)
+    if (pService->generic_service_info.isGen4)
     {
-        case CPA_DC_DEFLATE:
-            *pDcCmdId = ICP_QAT_FW_COMP_CMD_DECOMPRESS;
-            break;
-        default:
-            LAC_ENSURE(CPA_FALSE,
-                       "Algorithm not supported for decompression\n");
-            status = CPA_STATUS_UNSUPPORTED;
-            break;
+        switch (pSessionData->compType)
+        {
+            case CPA_DC_DEFLATE:
+                *pDcCmdId = ICP_QAT_FW_COMP_CMD_DECOMPRESS;
+                break;
+            case CPA_DC_LZ4:
+                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4_DECOMPRESS;
+                break;
+            case CPA_DC_LZ4S:
+                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4S_DECOMPRESS;
+                break;
+            default:
+                LAC_ENSURE(CPA_FALSE,
+                           "Algorithm not supported for decompression\n");
+                status = CPA_STATUS_UNSUPPORTED;
+                break;
+        }
     }
+    else
+    {
+        switch (pSessionData->compType)
+        {
+            case CPA_DC_DEFLATE:
+                *pDcCmdId = ICP_QAT_FW_COMP_CMD_DECOMPRESS;
+                break;
+            default:
+                LAC_ENSURE(CPA_FALSE,
+                           "Algorithm not supported for decompression\n");
+                status = CPA_STATUS_UNSUPPORTED;
+                break;
+        }
+    }
+
+    return status;
+}
+
+CpaStatus dcXxhash32SetState(dc_session_desc_t *pSessionDesc, Cpa32U seed)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    xxhash_acc_state_buff_t *xxhashStateBuffer;
+
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+
+    xxhashStateBuffer = (xxhash_acc_state_buff_t *)pSessionDesc;
+
+    /* Zero the compression state register */
+    LAC_OS_BZERO(xxhashStateBuffer, sizeof(xxhash_acc_state_buff_t));
+
+    xxhashStateBuffer->xxhash_state[0] =
+        seed + XXHASH_PRIME32_A + XXHASH_PRIME32_B;
+    xxhashStateBuffer->xxhash_state[1] = seed + XXHASH_PRIME32_B;
+    xxhashStateBuffer->xxhash_state[2] = seed + 0;
+    xxhashStateBuffer->xxhash_state[3] = seed - XXHASH_PRIME32_A;
 
     return status;
 }
@@ -692,14 +922,9 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     Cpa8U dcCmdId = ICP_QAT_FW_COMP_CMD_STATIC;
     icp_qat_fw_comn_flags cmnRequestFlags = 0;
     icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags = 0;
-#ifndef KERNEL_SPACE
-    dc_integrity_crc_fw_t *pDataIntegrityCrcs = NULL;
 
-#endif
-    cmnRequestFlags =
-        ICP_QAT_FW_COMN_FLAGS_BUILD_BNP(DC_DEFAULT_QAT_PTR_TYPE,
-                                        QAT_COMN_CD_FLD_TYPE_16BYTE_DATA,
-                                        QAT_COMN_BNP_ENABLED);
+    cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
+        DC_DEFAULT_QAT_PTR_TYPE, QAT_COMN_CD_FLD_TYPE_16BYTE_DATA);
 
     pService = (sal_compression_service_t *)dcInstance;
 
@@ -754,7 +979,8 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     }
 
     if ((CPA_DC_STATEFUL == pSessionData->sessState) &&
-        (CPA_DC_DEFLATE == pSessionData->compType))
+        (CPA_DC_DEFLATE == pSessionData->compType ||
+         CPA_DC_LZ4 == pSessionData->compType))
     {
         /* Get the size of the context buffer */
         status = dcGetContextSize(dcInstance, pSessionData, &minContextSize);
@@ -851,6 +1077,11 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     pSessionDesc->sessDirection = pSessionData->sessDirection;
     pSessionDesc->sessState = pSessionData->sessState;
     pSessionDesc->compLevel = pSessionData->compLevel;
+    pSessionDesc->lz4BlockMaxSize = pSessionData->lz4BlockMaxSize;
+    pSessionDesc->lz4BlockChecksum = pSessionData->lz4BlockChecksum;
+    pSessionDesc->lz4BlockIndependence = pSessionData->lz4BlockIndependence;
+    pSessionDesc->accumulateXXHash = pSessionData->accumulateXXHash;
+    pSessionDesc->minMatch = pSessionData->minMatch;
     pSessionDesc->isDcDp = CPA_FALSE;
     pSessionDesc->minContextSize = minContextSize;
     pSessionDesc->isSopForCompressionProcessed = CPA_FALSE;
@@ -886,13 +1117,27 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
         }
     }
 
-    if (CPA_DC_ADLER32 == pSessionDesc->checksumType)
+    if (CPA_DC_LZ4 == pSessionDesc->compType &&
+        CPA_TRUE == pSessionDesc->accumulateXXHash &&
+        CPA_DC_ASB_ENABLED == pSessionDesc->autoSelectBestHuffmanTree)
     {
-        pSessionDesc->previousChecksum = 1;
+        LAC_LOG_ERROR("Unsupported combination of accumulateXXHash"
+                              " and autoSelectBestHuffmanTree.");
+        return CPA_STATUS_UNSUPPORTED;
     }
-    else
+
+    if (CPA_DC_STATELESS == pSessionDesc->sessState &&
+        CPA_DC_LZ4 == pSessionDesc->compType &&
+        CPA_TRUE == pSessionDesc->accumulateXXHash)
     {
-        pSessionDesc->previousChecksum = 0;
+        if (CPA_DC_DIR_DECOMPRESS == pSessionDesc->sessDirection ||
+            CPA_DC_DIR_COMBINED == pSessionDesc->sessDirection)
+        {
+            LAC_LOG_ERROR("AccumulateXXHash not supported on decompression"
+                                  " or combined sessions.");
+            return CPA_STATUS_UNSUPPORTED;
+        }
+        dcXxhash32SetState(pSessionDesc, 0);
     }
 
     if (CPA_DC_STATEFUL == pSessionData->sessState)
@@ -988,34 +1233,6 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
                      sizeof(pSessionDesc->stateRegistersDecomp));
     }
 
-#ifndef KERNEL_SPACE
-    /* Get physical address of E2E CRC buffer */
-    pSessionDesc->physDataIntegrityCrcs =
-        (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-            pService->generic_service_info, &pSessionDesc->dataIntegrityCrcs);
-    if (0 == pSessionDesc->physDataIntegrityCrcs)
-    {
-        LAC_LOG_ERROR("Unable to get the physical address of "
-                      "Data Integrity buffer.\n");
-        return CPA_STATUS_FAIL;
-    }
-    /* Initialize default CRC parameters */
-    pDataIntegrityCrcs = &pSessionDesc->dataIntegrityCrcs;
-    pDataIntegrityCrcs->crc32 = 0;
-    pDataIntegrityCrcs->adler32 = 1;
-    pDataIntegrityCrcs->oCrc32Cpr = DC_INVALID_CRC;
-    pDataIntegrityCrcs->iCrc32Cpr = DC_INVALID_CRC;
-    pDataIntegrityCrcs->oCrc32Xlt = DC_INVALID_CRC;
-    pDataIntegrityCrcs->iCrc32Xlt = DC_INVALID_CRC;
-    pDataIntegrityCrcs->xorFlags = DC_XOR_FLAGS_DEFAULT;
-    pDataIntegrityCrcs->crcPoly = DC_CRC_POLY_DEFAULT;
-    pDataIntegrityCrcs->xorOut = DC_XOR_OUT_DEFAULT;
-
-    /* Initialise seed checksums */
-    pSessionDesc->seedSwCrc.swCrcI = 0;
-    pSessionDesc->seedSwCrc.swCrcO = 0;
-
-#endif
     /* Populate the cmdFlags */
     switch (pSessionDesc->autoSelectBestHuffmanTree)
     {
@@ -1307,6 +1524,69 @@ CpaStatus cpaDcUpdateSession(const CpaInstanceHandle dcInstance,
     return status;
 }
 
+CpaStatus cpaDcResetXXHashState(const CpaInstanceHandle dcInstance,
+                                CpaDcSessionHandle pSessionHandle)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaInstanceHandle insHandle = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionHandle);
+#endif
+
+    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+#endif
+
+#ifdef ICP_TRACE
+    LAC_LOG2("Called with params (0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)dcInstance,
+             (LAC_ARCH_UINT)pSessionHandle);
+#endif
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
+    {
+        insHandle = dcGetFirstHandle();
+    }
+    else
+    {
+        insHandle = dcInstance;
+    }
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(insHandle);
+    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+#endif
+
+    /* Check if SAL is running otherwise return an error */
+    SAL_RUNNING_CHECK(insHandle);
+
+    if (CPA_DC_STATELESS == pSessionDesc->sessState &&
+        CPA_DC_LZ4 == pSessionDesc->compType &&
+        CPA_TRUE == pSessionDesc->accumulateXXHash)
+    {
+        /* Check if there are stateless pending requests */
+        if (0 != osalAtomicGet(&(pSessionDesc->pendingStatelessCbCount)))
+        {
+            LAC_LOG_ERROR("There are stateless requests pending");
+            return CPA_STATUS_RETRY;
+        }
+
+        dcXxhash32SetState(pSessionDesc, 0);
+    }
+    else
+    {
+        LAC_LOG_ERROR("Only Stateless LZ4 session with accumulateXXHash can "
+                      "reset state.");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    return status;
+}
+
 CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
                             CpaDcSessionHandle pSessionHandle)
 {
@@ -1357,7 +1637,7 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
     SAL_RUNNING_CHECK(insHandle);
     if (CPA_TRUE == pSessionDesc->isDcDp)
     {
-        trans_handle = ((sal_compression_service_t *)dcInstance)
+        trans_handle = ((sal_compression_service_t *)insHandle)
                            ->trans_handle_compression_tx;
         if (CPA_TRUE == icp_adf_queueDataToSend(trans_handle))
         {
@@ -1412,16 +1692,9 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
         /* Reset pSessionDesc */
         pSessionDesc->requestType = DC_REQUEST_FIRST;
         pSessionDesc->cumulativeConsumedBytes = 0;
-        if (CPA_DC_ADLER32 == pSessionDesc->checksumType)
-        {
-            pSessionDesc->previousChecksum = 1;
-        }
-        else
-        {
-            pSessionDesc->previousChecksum = 0;
-        }
         pSessionDesc->cnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
     }
+
     /* Reset the pending callback counters */
     osalAtomicSet(0, &pSessionDesc->pendingStatelessCbCount);
     osalAtomicSet(0, &pSessionDesc->pendingStatefulCbCount);

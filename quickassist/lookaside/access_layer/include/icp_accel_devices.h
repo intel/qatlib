@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -110,12 +110,8 @@ enum adf_event
 };
 
 
-#ifdef KERNEL_SPACE
-#include "adf_common_drv.h"
-#else
 #define ADF_CFG_NO_INSTANCE 0xFFFFFFFF
 #define ADF_CTL_DEVICE_NAME "/dev/qat_adf_ctl"
-#endif /* KERNEL_SPACE */
 
 #define ADF_DEVICE_TYPE_LENGTH 16
 
@@ -139,7 +135,7 @@ typedef enum
     ICP_ACCEL_CAPABILITIES_RANDOM_NUMBER = 0x80,
     ICP_ACCEL_CAPABILITIES_CRYPTO_ZUC = 0x100,
     ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3 = 0x200,
-    ICP_ACCEL_CAPABILITIES_KPT = 0x400,
+    ICP_ACCEL_CAPABILITIES_RESERVED = 0x400,
     ICP_ACCEL_CAPABILITIES_RL = 0x800,
     ICP_ACCEL_CAPABILITIES_HKDF = 0x1000,
     ICP_ACCEL_CAPABILITIES_ECEDMONT = 0x2000,

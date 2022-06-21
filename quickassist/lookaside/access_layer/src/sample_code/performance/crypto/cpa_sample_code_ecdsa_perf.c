@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -87,6 +87,14 @@
 #include "icp_sal_poll.h"
 #endif
 #include "qat_perf_cycles.h"
+#ifdef USER_SPACE
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+#include "cpa_sample_code_ecdsa_kpt2_perf.h"
+#endif
+#endif
+#endif
+
 extern Cpa32U packageIdCount_g;
 CpaBoolean msgFlagSym2 = CPA_FALSE;
 
@@ -606,6 +614,25 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
     perf_data_t *pPerfData = NULL;
     CpaCyEcdsaSignRSCbFunc signRSCbFunc = NULL;
     CpaInstanceInfo2 instanceInfo2 = {0};
+#ifdef USER_SPACE
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+    CpaCyKptEcdsaSignRSOpData *pKPTSignRSOpData = NULL;
+    CpaCyKptUnwrapContext *pKptUnwrapCtx = NULL;
+    Cpa32U keyProvisionRetryTimes = 0;
+    /*SWK*/
+    Cpa8U sampleSWK[SWK_LEN_IN_BYTES] = {0};
+
+    Cpa8U iv[IV_LEN_IN_BYTES] = {0};
+    CpaStatus delKeyStatus = CPA_STATUS_SUCCESS;
+    CpaCyKptKeyManagementStatus kpt2Status = CPA_CY_KPT_SUCCESS;
+    Cpa8U kpt2Ecdsa_AAD_P256[] = {
+        0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07};
+    Cpa8U kpt2Ecdsa_AAD_P384[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22};
+    Cpa8U kpt2Ecdsa_AAD_P521[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23};
+#endif
+#endif
+#endif
 
 #ifdef POLL_INLINE
     if (poll_inline_g)
@@ -662,13 +689,109 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
     /*perform the sign operation*/
     do
     {
-        status = cpaCyEcdsaSignRS(setup->cyInstanceHandle,
-                                  signRSCbFunc,
-                                  pPerfData,
-                                  pSignRSOpData,
-                                  &signStatus,
-                                  r,
-                                  s);
+#ifdef USER_SPACE
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        if (CPA_TRUE == setup->enableKPT)
+        {
+            generateRandomData(sampleSWK, SWK_LEN_IN_BYTES);
+            generateRandomData(iv, IV_LEN_IN_BYTES);
+
+            pKPTSignRSOpData = qaeMemAllocNUMA(
+                sizeof(CpaCyKptEcdsaSignRSOpData *), node, BYTE_ALIGNMENT_64);
+            if (NULL == pKPTSignRSOpData)
+            {
+                PRINT_ERR("pKPTSignRSOpData qaeMemAlloc error\n");
+                return CPA_STATUS_FAIL;
+            }
+
+            pKptUnwrapCtx = qaeMemAllocNUMA(
+                sizeof(CpaCyKptUnwrapContext), node, BYTE_ALIGNMENT_64);
+            if (NULL == pKptUnwrapCtx)
+            {
+                PRINT_ERR("pKptUnwrapCtx qaeMemAlloc error\n");
+                kpt2EcdsaFreeDataMemory(pKPTSignRSOpData, pKptUnwrapCtx);
+                return CPA_STATUS_FAIL;
+            }
+            status = encryptAndLoadSWK(
+                setup->cyInstanceHandle, &setup->kptKeyHandle, sampleSWK);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("encryptAndLoadSWKs failed!\n");
+                kpt2EcdsaFreeDataMemory(pKPTSignRSOpData, pKptUnwrapCtx);
+                return status;
+            }
+
+            pKptUnwrapCtx->kptHandle = setup->kptKeyHandle;
+            memcpy(pKptUnwrapCtx->iv, iv, IV_LEN_IN_BYTES);
+            switch (setup->nLenInBytes)
+            {
+                case GFP_P256_SIZE_IN_BYTES:
+                    memcpy(pKptUnwrapCtx->additionalAuthData,
+                           kpt2Ecdsa_AAD_P256,
+                           sizeof(kpt2Ecdsa_AAD_P256));
+                    pKptUnwrapCtx->aadLenInBytes = sizeof(kpt2Ecdsa_AAD_P256);
+                    break;
+                case GFP_P384_SIZE_IN_BYTES:
+                    memcpy(pKptUnwrapCtx->additionalAuthData,
+                           kpt2Ecdsa_AAD_P384,
+                           sizeof(kpt2Ecdsa_AAD_P384));
+                    pKptUnwrapCtx->aadLenInBytes = sizeof(kpt2Ecdsa_AAD_P384);
+                    break;
+                case GFP_P521_SIZE_IN_BYTES:
+                    memcpy(pKptUnwrapCtx->additionalAuthData,
+                           kpt2Ecdsa_AAD_P521,
+                           sizeof(kpt2Ecdsa_AAD_P521));
+                    pKptUnwrapCtx->aadLenInBytes = sizeof(kpt2Ecdsa_AAD_P521);
+                    break;
+                default:
+                    PRINT_ERR("Curve size(%d) not supported by kpt!\n",
+                              setup->nLenInBytes);
+                    kpt2EcdsaFreeDataMemory(pKPTSignRSOpData, pKptUnwrapCtx);
+                    return CPA_STATUS_FAIL;
+            }
+            status = setKPT2EcdsaSignRSOpData(setup->cyInstanceHandle,
+                                              pKPTSignRSOpData,
+                                              pSignRSOpData,
+                                              sampleSWK,
+                                              iv,
+                                              pKptUnwrapCtx->additionalAuthData,
+                                              pKptUnwrapCtx->aadLenInBytes);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("setKPTEcdsaSignRSOpData failed!\n");
+                kpt2EcdsaFreeDataMemory(pKPTSignRSOpData, pKptUnwrapCtx);
+                return status;
+            }
+
+            status = cpaCyKptEcdsaSignRS(setup->cyInstanceHandle,
+                                         signRSCbFunc,
+                                         pPerfData,
+                                         pKPTSignRSOpData,
+                                         &signStatus,
+                                         r,
+                                         s,
+                                         pKptUnwrapCtx);
+        }
+        else
+        {
+#endif
+#endif /* CY_API_VERSION_AT_LEAST(3, 0) */
+#endif
+            status = cpaCyEcdsaSignRS(setup->cyInstanceHandle,
+                                      signRSCbFunc,
+                                      pPerfData,
+                                      pSignRSOpData,
+                                      &signStatus,
+                                      r,
+                                      s);
+#ifdef USER_SPACE
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        }
+#endif
+#endif /* CY_API_VERSION_AT_LEAST(3, 0) */
+#endif
         if (CPA_STATUS_RETRY == status)
         {
             retries++;
@@ -700,6 +823,15 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
         ECDSA_SIGN_RS_OPDATA_MEM_FREE;
         qaeMemFree((void **)&pSignRSOpData);
         qaeMemFree((void **)&(pDigest));
+#ifdef USER_SPACE
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        cpaCyKptDeleteKey(
+            setup->cyInstanceHandle, setup->kptKeyHandle, &kpt2Status);
+        kpt2EcdsaFreeDataMemory(pKPTSignRSOpData, pKptUnwrapCtx);
+#endif
+#endif
+#endif
         return status;
     }
     else
@@ -716,6 +848,38 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
     ECDSA_SIGN_RS_OPDATA_MEM_FREE;
     qaeMemFree((void **)&pSignRSOpData);
     qaeMemFree((void **)&(pDigest));
+
+#ifdef USER_SPACE
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+    if (CPA_TRUE == setup->enableKPT)
+    {
+        do
+        {
+            delKeyStatus = cpaCyKptDeleteKey(
+                setup->cyInstanceHandle, setup->kptKeyHandle, &kpt2Status);
+            usleep(KEY_PROVISION_RETRY_DELAY_MS * 1000);
+            keyProvisionRetryTimes++;
+        } while ((CPA_STATUS_RETRY == delKeyStatus) &&
+                 (keyProvisionRetryTimes <= KEY_PROVISION_RETRY_TIMES_LIMIT));
+        if (1 < keyProvisionRetryTimes)
+        {
+            PRINT("KPT ECSDA Delete SWK Retry Times : %d\n",
+                  keyProvisionRetryTimes - 1);
+        }
+        if ((CPA_STATUS_SUCCESS != delKeyStatus) ||
+            (CPA_CY_KPT_SUCCESS != kpt2Status))
+        {
+            PRINT_ERR("Delete SWK failed with status: %d,kpt2Status: %d.\n",
+                      delKeyStatus,
+                      kpt2Status);
+            status = CPA_STATUS_FAIL;
+        }
+        kpt2EcdsaFreeDataMemory(pKPTSignRSOpData, pKptUnwrapCtx);
+    }
+#endif
+#endif
+#endif
 
     return status;
 }
@@ -1009,6 +1173,11 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 #endif
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+    CpaCyCapabilitiesInfo pCapInfo = {0};
+#endif
+#endif
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 #ifdef POLL_INLINE
     if (poll_inline_g)
@@ -1027,6 +1196,29 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
         goto barrier;
     }
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+    if (CPA_TRUE == setup->enableKPT)
+    {
+        status = cpaCyQueryCapabilities(setup->cyInstanceHandle, &pCapInfo);
+        if ((CPA_STATUS_SUCCESS == status) && !pCapInfo.kptSupported)
+        {
+            PRINT_ERR("Inst (BDF:%02x:%02d.%d) does not support KPT2!\n",
+                      (Cpa8U)(instanceInfo.physInstId.busAddress >> 8),
+                      (Cpa8U)((instanceInfo.physInstId.busAddress & 0xFF) >> 3),
+                      (Cpa8U)(instanceInfo.physInstId.busAddress & 7));
+            sampleCodeBarrier();
+            return CPA_STATUS_SUCCESS;
+        }
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaCyQueryCapabilities failed!\n");
+            sampleCodeBarrier();
+            return status;
+        }
+    }
+#endif
+#endif
 
     status = cpaCyEcdsaQueryStats64(setup->cyInstanceHandle, &ecdsaStats);
     if (status != CPA_STATUS_SUCCESS)
@@ -1446,16 +1638,46 @@ EXPORT_SYMBOL(ecdsaPerform);
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
  ***************************************************************************/
-void ecdsaPrintStats(thread_creation_data_t *data)
+CpaStatus ecdsaPrintStats(thread_creation_data_t *data)
 {
     ecdsa_test_params_t *params = (ecdsa_test_params_t *)data->setupPtr;
     if (ECDSA_STEP_SIGNRS == params->step)
     {
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        if (CPA_TRUE == params->enableKPT)
+        {
+            PRINT("KPT2 ECDSA SIGNRS\n");
+        }
+        else
+        {
+            PRINT("ECDSA SIGNRS\n");
+        }
+#else
         PRINT("ECDSA SIGNRS\n");
+#endif
+#else
+        PRINT("ECDSA SIGNRS\n");
+#endif
     }
     else if (ECDSA_STEP_VERIFY == params->step)
     {
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        if (CPA_TRUE == params->enableKPT)
+        {
+            PRINT("KPT2 ECDSA VERIFY\n");
+        }
+        else
+        {
+            PRINT("ECDSA VERIFY\n");
+        }
+#else
         PRINT("ECDSA VERIFY\n");
+#endif
+#else
+        PRINT("ECDSA VERIFY\n");
+#endif
     }
     else if (ECDSA_STEP_POINT_MULTIPLY == params->step)
     {
@@ -1463,6 +1685,7 @@ void ecdsaPrintStats(thread_creation_data_t *data)
     }
     PRINT("EC Size %23u\n", data->packetSize);
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /***************************************************************************
@@ -1573,6 +1796,11 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     ecdsaSetup.numBuffers = params->numBuffers;
     ecdsaSetup.numLoops = params->numLoops;
     ecdsaSetup.syncMode = params->syncMode;
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+    ecdsaSetup.enableKPT = params->enableKPT;
+#endif
+#endif
     /*launch function that does all the work*/
 
     switch (params->step)
@@ -1587,7 +1815,22 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     }
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT("ECDSA Thread %u FAILED\n", testSetup->threadID);
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        if (CPA_TRUE == params->enableKPT)
+        {
+            PRINT("KPT2 ECDSA Thread %u FAILED\n", testSetup->threadID);
+        }
+        else
+        {
+#endif
+#endif
+            PRINT("ECDSA Thread %u FAILED\n", testSetup->threadID);
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+        }
+#endif
+#endif
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
     }
     qaeMemFree((void **)&cyInstances);

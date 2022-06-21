@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -79,6 +79,46 @@
 extern "C" {
 #endif
 
+/**
+ *****************************************************************************
+ * @ingroup SalVersions
+ *      ICP Major Version Number
+ * 
+ * @description
+ *      The ICP API major version number. This number will be incremented
+ *      when significant changes to the API have occurred. The combination of the
+ *      major and minor number definitions represents the complete version number
+ *      for this interface.
+ *
+ *****************************************************************************/
+#define ICP_API_VERSION_NUM_MAJOR (1)
+
+/**
+ *****************************************************************************
+ * @ingroup SalVersions
+ *       ICP Minor Version Number
+ * 
+ * @description
+ *      The ICP API minor version number. This number will be incremented
+ *      when minor changes to the API have occurred. The combination of the major
+ *      and minor number definitions represents the complete version number for
+ *      this interface.
+ *
+ *****************************************************************************/
+#define ICP_API_VERSION_NUM_MINOR (0)
+
+/**< Check for ICP API version (at least) */
+#define ICP_API_VERSION_AT_LEAST(major, minor)                                 \
+    (ICP_API_VERSION_NUM_MAJOR > major ||                                      \
+     (ICP_API_VERSION_NUM_MAJOR == major &&                                    \
+      ICP_API_VERSION_NUM_MINOR >= minor))
+
+/**< Check for ICP API version (less than) */
+#define ICP_API_VERSION_LESS_THAN(major, minor)                                \
+    (ICP_API_VERSION_NUM_MAJOR < major ||                                      \
+     (ICP_API_VERSION_NUM_MAJOR == major &&                                    \
+      ICP_API_VERSION_NUM_MINOR < minor))
+
 #define ICP_SAL_VERSIONS_FW_VERSION_SIZE 16
 /**< Max length of firmware version string */
 #define ICP_SAL_VERSIONS_SW_VERSION_SIZE 16
@@ -89,8 +129,8 @@ extern "C" {
 /**< Max length of hardware version string */
 
 /* Part name and number of the accelerator device  */
-#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 21
-#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 11
+#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 22
+#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 7
 #define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 0
 #define SAL_INFO2_DRIVER_SW_VERSION_TYPE "in-tree"
 

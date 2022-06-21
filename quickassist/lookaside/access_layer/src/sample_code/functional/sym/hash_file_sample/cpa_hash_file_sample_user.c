@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -65,10 +65,11 @@
  * @file  cpa_hash_file_sample_user.c
  *
  *****************************************************************************/
+#include <limits.h>
+#include <unistd.h>
 #include "cpa_sample_utils.h"
 #include "icp_sal_user.h"
 
-#define FILE_NAME_LENGTH 100
 char *gFileName = NULL;
 
 extern CpaStatus hashFileSample(void);
@@ -78,7 +79,10 @@ int gDebugParam = 1;
 int main(int argc, const char **argv)
 {
     CpaStatus stat = CPA_STATUS_SUCCESS;
-    char fileToHash[FILE_NAME_LENGTH] = "hash_file_sample";
+    char fileToHash[PATH_MAX] = {0};
+    size_t fileToHashLen;
+
+    fileToHashLen = readlink("/proc/self/exe", fileToHash, sizeof(fileToHash));
 
     /* Read in debug setting if present */
     if (argc > 1)
@@ -88,11 +92,18 @@ int main(int argc, const char **argv)
 
     PRINT_DBG("Starting Hash File Sample Code App ...\n");
 
+    if (fileToHashLen <= 0)
+    {
+        PRINT_ERR("Failed to get path to binary to hash\n");
+        return (int)CPA_STATUS_FAIL;
+    }
+    gFileName = fileToHash;
+
     stat = qaeMemInit();
     if (CPA_STATUS_SUCCESS != stat)
     {
         PRINT_ERR("Failed to initialize memory driver\n");
-        return 0;
+        return (int)stat;
     }
 
     stat = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
@@ -100,9 +111,8 @@ int main(int argc, const char **argv)
     {
         PRINT_ERR("Failed to start user process SSL\n");
         qaeMemDestroy();
-        return 0;
+        return (int)stat;
     }
-    gFileName = fileToHash;
 
     stat = hashFileSample();
     if (CPA_STATUS_SUCCESS != stat)
@@ -118,5 +128,5 @@ int main(int argc, const char **argv)
     qaeMemDestroy();
     gFileName = NULL;
 
-    return 0;
+    return (int)stat;
 }

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -60,65 +60,22 @@
  *
  ***************************************************************************/
 
-/**
- ******************************************************************************
- * @file cpa_fips_sample.h
- *
- * @defgroup fipsSample FIPS sample code
- *
- * This header file contains the header file references to be used throughout
- * the FIPS sample code.
- *
- *****************************************************************************/
-/**
- ******************************************************************************
- * \mainpage FIPS Sample Code Low Level Description
- *<dl>
- * <dt> Top level header file <dd>
- *   cpa_fips_sample.h
- * <dt> GCM <dd>
- *   cpa_fips_sample_aes_gcm.h
- * <dt> RSA <dd>
- *   cpa_fips_sample_rsa.h
- * <dt> DSA <dd>
- *   cpa_fips_sample_dsa.h
- * <dt> ECDSA <dd>
- *   cpa_fips_sample_ecdsa.h
- * <dt> Utility code <dd>
- *   cpa_fips_sample_utils.h
- * <dt> Kernel Module <dd>
- *   cpa_fips_sample_linux_kernel_module.c
- *</dl>
- *
- *****************************************************************************/
+#ifndef CPA_SAMPLE_CODE_RSA_KPT2_PERF_H
+#define CPA_SAMPLE_CODE_RSA_KPT2_PERF_H
 
-#ifndef _CPA_FIPS_SAMPLE_H_
-#define _CPA_FIPS_SAMPLE_H_
+#include "cpa_sample_code_kpt2_common.h"
 
-#ifdef __cplusplus
-extern "C"
-#endif /*__cplusplus*/
 
-#include <string.h>
-#include <sched.h>
-#include <errno.h>
+#if CY_API_VERSION_AT_LEAST(3, 0)
+CpaStatus setKpt2RsaDecryptOpData(CpaInstanceHandle instanceHandle,
+                                  CpaCyKptRsaDecryptOpData **pKPTDecryptOpData,
+                                  CpaCyRsaDecryptOpData *pDecryptOpData,
+                                  CpaCyRsaPublicKey *pRsaPublicKey,
+                                  Cpa32U node,
+                                  Cpa8U *pSampleSWK,
+                                  Cpa8U *pIv,
+                                  Cpa8U *pAad,
+                                  Cpa32U aadLenInBytes);
 
-#include "cpa.h"
-#include "cpa_types.h"
-#include "cpa_cy_common.h"
-#include "cpa_cy_im.h"
-#include "cpa_cy_key.h"
-#include "cpa_cy_sym.h"
-#include "cpa_cy_prime.h"
-#include "cpa_cy_ln.h"
-#include "cpa_cy_nrbg.h"
-#include "cpa_cy_drbg.h"
-
-#include "qae_mem.h"
-
-#ifndef CPM_LACKS_DRBG
-#include "icp_sal_drbg_ht.h"
-#include "icp_sal_drbg_impl.h"
 #endif
-
-#endif /*_CPA_FIPS_SAMPLE_H_*/
+#endif

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -121,10 +121,6 @@
 #include "lac_pke_utils.h"
 #include "lac_pke_qat_comms.h"
 #include "lac_ec.h"
-#ifdef KPT
-#include "lac_kpt_crypto_qat_comms.h"
-#include "lac_kpt_ksp_qat_comms.h"
-#endif
 #include "lac_sal_types_crypto.h"
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
@@ -516,10 +512,6 @@ STATIC CpaStatus SalCtrl_AsymFreeResources(sal_crypto_service_t *pCryptoService)
     Lac_MemPoolDestroy(pCryptoService->lac_pke_req_pool);
     Lac_MemPoolDestroy(pCryptoService->lac_ec_pool);
     Lac_MemPoolDestroy(pCryptoService->lac_prime_pool);
-#ifdef KPT
-    Lac_MemPoolDestroy(pCryptoService->lac_kpt_pool);
-    Lac_MemPoolDestroy(pCryptoService->lac_kpt_array_pool);
-#endif
 
     /* Free the statistics */
     LacDh_StatsFree(pCryptoService);
@@ -684,9 +676,9 @@ STATIC CpaStatus SalCtrl_AsymCreateTransHandle(icp_accel_dev_t *device,
     }
 
     /* Parse Asym ring details first */
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingAsymTx",
+                               SAL_CFG_RING_ASYM_TX,
                                temp_string);
     /* Need to free resources in case not _SUCCESS from here */
     LAC_CHECK_STATUS_ASYM_INIT(status);
@@ -707,9 +699,9 @@ STATIC CpaStatus SalCtrl_AsymCreateTransHandle(icp_accel_dev_t *device,
         (icp_comms_trans_handle *)&(pCryptoService->trans_handle_asym_tx));
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingAsymRx",
+                               SAL_CFG_RING_ASYM_RX,
                                temp_string);
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
@@ -755,9 +747,9 @@ STATIC CpaStatus SalCtrl_AsymReinitTransHandle(icp_accel_dev_t *device,
     }
 
     /* Parse Asym ring details first */
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingAsymTx",
+                               SAL_CFG_RING_ASYM_TX,
                                temp_string);
     /* Need to free resources in case not _SUCCESS from here */
     LAC_CHECK_STATUS_ASYM_INIT(status);
@@ -778,9 +770,9 @@ STATIC CpaStatus SalCtrl_AsymReinitTransHandle(icp_accel_dev_t *device,
         (icp_comms_trans_handle *)&(pCryptoService->trans_handle_asym_tx));
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingAsymRx",
+                               SAL_CFG_RING_ASYM_RX,
                                temp_string);
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
@@ -828,9 +820,9 @@ STATIC CpaStatus SalCtrl_SymCreateTransHandle(icp_accel_dev_t *device,
     }
 
     /* Parse Sym ring details */
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingSymTx",
+                               SAL_CFG_RING_SYM_TX,
                                temp_string);
 
     /* Need to free resources in case not _SUCCESS from here */
@@ -852,9 +844,9 @@ STATIC CpaStatus SalCtrl_SymCreateTransHandle(icp_accel_dev_t *device,
         (icp_comms_trans_handle *)&(pCryptoService->trans_handle_sym_tx));
     LAC_CHECK_STATUS_SYM_INIT(status);
 
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingSymRx",
+                               SAL_CFG_RING_SYM_RX,
                                temp_string);
     LAC_CHECK_STATUS_SYM_INIT(status);
 
@@ -900,9 +892,9 @@ STATIC CpaStatus SalCtrl_SymReinitTransHandle(icp_accel_dev_t *device,
     }
 
     /* Parse Sym ring details */
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingSymTx",
+                               SAL_CFG_RING_ASYM_TX,
                                temp_string);
 
     /* Need to free resources in case not _SUCCESS from here */
@@ -924,9 +916,9 @@ STATIC CpaStatus SalCtrl_SymReinitTransHandle(icp_accel_dev_t *device,
         (icp_comms_trans_handle *)&(pCryptoService->trans_handle_sym_tx));
     LAC_CHECK_STATUS_SYM_INIT(status);
 
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "RingSymRx",
+                               SAL_CFG_RING_ASYM_RX,
                                temp_string);
     LAC_CHECK_STATUS_SYM_INIT(status);
 
@@ -1684,9 +1676,9 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
 
     /* get num concurrent requests from config file */
     if (CPA_STATUS_SUCCESS !=
-        SalCtrl_GetCyConcurrentReqNum("Cy",
+        SalCtrl_GetCyConcurrentReqNum(SAL_CFG_CY,
                                       section,
-                                      "NumConcurrentAsymRequests",
+                                      SAL_CFG_RING_ASYM_SIZE,
                                       pCryptoService,
                                       &numAsymConcurrentReq,
                                       device))
@@ -1702,9 +1694,9 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
 
     /* Allocates memory pools */
     pCryptoService->lac_pke_align_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "AsymResizePool",
+                               SAL_CFG_ASYM_RESIZE_POOL,
                                temp_string);
     LAC_CHECK_STATUS_ASYM_INIT(status);
     status = Lac_MemPoolCreate(
@@ -1719,9 +1711,9 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
 
     /* Allocate pke request memory pool */
     pCryptoService->lac_pke_req_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "AsymReqPool",
+                               SAL_CFG_ASYM_REQ_POOL,
                                temp_string);
     LAC_CHECK_STATUS_ASYM_INIT(status);
     status = Lac_MemPoolCreate(
@@ -1736,9 +1728,9 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
 
     /* Allocate prime memory pool */
     pCryptoService->lac_prime_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "AsymPrimePool",
+                               SAL_CFG_ASYM_PRIME_POOL,
                                temp_string);
     LAC_CHECK_STATUS_ASYM_INIT(status);
     status = Lac_MemPoolCreate(&pCryptoService->lac_prime_pool,
@@ -1752,9 +1744,9 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
 
     /* Allocate EC memory pool */
     pCryptoService->lac_ec_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "AsymEcMemPool",
+                               SAL_CFG_ASYM_EC_MEM_POOL,
                                temp_string);
     LAC_CHECK_STATUS_ASYM_INIT(status);
     status =
@@ -1767,39 +1759,6 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
                           CPA_FALSE,
                           pCryptoService->nodeAffinity);
     LAC_CHECK_STATUS_ASYM_INIT(status);
-
-#ifdef KPT
-    pCryptoService->lac_kpt_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
-                               pCryptoService->generic_service_info.instance,
-                               "AsymKptMemPool",
-                               temp_string);
-    LAC_CHECK_STATUS_ASYM_INIT(status);
-    status =
-        Lac_MemPoolCreate(&pCryptoService->lac_kpt_pool,
-                          temp_string,
-                          ((numAsymConcurrentReq + 1) * LAC_KPT_POOL_SIZE_MAX),
-                          (LAC_KPT_SIZE_BYTES_MAX + sizeof(CpaFlatBuffer)),
-                          LAC_64BYTE_ALIGNMENT,
-                          CPA_FALSE,
-                          pCryptoService->nodeAffinity);
-    LAC_CHECK_STATUS_ASYM_INIT(status);
-
-    pCryptoService->lac_kpt_array_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
-                               pCryptoService->generic_service_info.instance,
-                               "AsymKptMemArrayPool",
-                               temp_string);
-    LAC_CHECK_STATUS_ASYM_INIT(status);
-    status = Lac_MemPoolCreate(&pCryptoService->lac_kpt_array_pool,
-                               temp_string,
-                               (numAsymConcurrentReq + 1),
-                               (LAC_KPT_POOL_SIZE_MAX * sizeof(LAC_ARCH_UINT)),
-                               LAC_64BYTE_ALIGNMENT,
-                               CPA_FALSE,
-                               pCryptoService->nodeAffinity);
-    LAC_CHECK_STATUS_ASYM_INIT(status);
-#endif
 
     /* Clear Key stats and allocate memory of SSL and TLS labels
         These labels are initialised to standard values */
@@ -1857,9 +1816,9 @@ STATIC CpaStatus SalCtrl_AsymReinit(icp_accel_dev_t *device,
 
     /* get num concurrent requests from config file */
     if (CPA_STATUS_SUCCESS !=
-        SalCtrl_GetCyConcurrentReqNum("Cy",
+        SalCtrl_GetCyConcurrentReqNum(SAL_CFG_CY,
                                       section,
-                                      "NumConcurrentAsymRequests",
+                                      SAL_CFG_RING_ASYM_SIZE,
                                       pCryptoService,
                                       &numAsymConcurrentReq,
                                       device))
@@ -1915,9 +1874,9 @@ STATIC CpaStatus SalCtrl_SymInit(icp_accel_dev_t *device,
 
     /* Get num concurrent requests from config file */
     if (CPA_STATUS_SUCCESS !=
-        SalCtrl_GetCyConcurrentReqNum("Cy",
+        SalCtrl_GetCyConcurrentReqNum(SAL_CFG_CY,
                                       section,
-                                      "NumConcurrentSymRequests",
+                                      SAL_CFG_RING_SYM_SIZE,
                                       pCryptoService,
                                       &numSymConcurrentReq,
                                       device))
@@ -1939,9 +1898,9 @@ STATIC CpaStatus SalCtrl_SymInit(icp_accel_dev_t *device,
 
     /* Create and initialise symmetric cookie memory pool */
     pCryptoService->lac_sym_cookie_pool = LAC_MEM_POOL_INIT_POOL_ID;
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "SymPool",
+                               SAL_CFG_SYM_POOL,
                                temp_string);
     LAC_CHECK_STATUS_SYM_INIT(status);
     /* Note we need twice (i.e. <<1) the number of sym cookies to
@@ -2005,9 +1964,9 @@ STATIC CpaStatus SalCtrl_SymReinit(icp_accel_dev_t *device,
 
     /* Get num concurrent requests from config file */
     if (CPA_STATUS_SUCCESS !=
-        SalCtrl_GetCyConcurrentReqNum("Cy",
+        SalCtrl_GetCyConcurrentReqNum(SAL_CFG_CY,
                                       section,
-                                      "NumConcurrentSymRequests",
+                                      SAL_CFG_RING_SYM_SIZE,
                                       pCryptoService,
                                       &numSymConcurrentReq,
                                       device))
@@ -2092,9 +2051,9 @@ STATIC CpaStatus SalCtrl_DebugInit(icp_accel_dev_t *device,
         LAC_CHECK_STATUS(status);
 
         status =
-            Sal_StringParsing("Cy",
+            Sal_StringParsing(SAL_CFG_CY,
                               pCryptoService->generic_service_info.instance,
-                              "Name",
+                              SAL_CFG_NAME,
                               temp_string);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -2142,7 +2101,7 @@ STATIC CpaStatus SalCtrl_GetBankNum(icp_accel_dev_t *device,
     char adfParamName[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-    status = Sal_StringParsing("Cy", inst, bank_name, adfParamName);
+    status = Sal_StringParsing(SAL_CFG_CY, inst, bank_name, adfParamName);
     LAC_CHECK_STATUS(status);
     status =
         icp_adf_cfgGetParamValue(device, section, adfParamName, adfParamValue);
@@ -2223,9 +2182,9 @@ STATIC CpaStatus SalCtr_InstInit(icp_accel_dev_t *device,
                 return CPA_STATUS_FAIL;
         }
 
-    status = Sal_StringParsing("Cy",
+    status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               "IsPolled",
+                               SAL_CFG_POLL_MODE,
                                temp_string);
     LAC_CHECK_STATUS(status);
     status =
@@ -2289,20 +2248,22 @@ STATIC CpaStatus SalCtr_InstInit(icp_accel_dev_t *device,
     if (SAL_RESP_POLL_CFG_FILE != pCryptoService->isPolled)
     {
         /* Next need to read the [AcceleratorX] section of the config file */
-        status = Sal_StringParsing(
-            "Accelerator", pCryptoService->acceleratorNum, "", temp_string2);
+        status = Sal_StringParsing(SAL_CFG_ACCEL_SEC,
+                                   pCryptoService->acceleratorNum,
+                                   "",
+                                   temp_string2);
         LAC_CHECK_STATUS(status);
         if (service->type == SAL_SERVICE_TYPE_CRYPTO_ASYM)
-            status = Sal_StringParsing("Bank",
+            status = Sal_StringParsing(SAL_CFG_ETRMGR_BANK,
                                        pCryptoService->bankNumAsym,
-                                       "CoreAffinity",
+                                       SAL_CFG_ETRMGR_CORE_AFFINITY,
                                        temp_string);
         else
             /* For cy service, asym bank and sym bank will set the same
                core affinity. So Just read one*/
-            status = Sal_StringParsing("Bank",
+            status = Sal_StringParsing(SAL_CFG_ETRMGR_BANK,
                                        pCryptoService->bankNumSym,
-                                       "CoreAffinity",
+                                       SAL_CFG_ETRMGR_CORE_AFFINITY,
                                        temp_string);
         LAC_CHECK_STATUS(status);
     }
@@ -2312,9 +2273,9 @@ STATIC CpaStatus SalCtr_InstInit(icp_accel_dev_t *device,
         LAC_CHECK_PARAM_RANGE(strSize, 1, sizeof(temp_string2));
 
         status =
-            Sal_StringParsing("Cy",
+            Sal_StringParsing(SAL_CFG_CY,
                               pCryptoService->generic_service_info.instance,
-                              "CoreAffinity",
+                              SAL_CFG_ETRMGR_CORE_AFFINITY,
                               temp_string);
         LAC_CHECK_STATUS(status);
     }
@@ -2410,11 +2371,6 @@ CpaStatus SalCtrl_CryptoInit(icp_accel_dev_t *device, sal_service_t *service)
     }
 
     pCryptoService->generic_service_info.state = SAL_SERVICE_STATE_INITIALIZED;
-#ifdef KPT
-    osalAtomicSet(0, &(pCryptoService->kpt_keyhandle_loaded));
-    pCryptoService->maxNumKptKeyHandle =
-        KPTKSP_REGISTER_KEY_HANDLE_MAXIMUM_NUMBER;
-#endif
 
     return status;
 }
@@ -2668,11 +2624,6 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
     }
 
     pCryptoService->generic_service_info.state = SAL_SERVICE_STATE_RUNNING;
-#ifdef KPT
-    osalAtomicSet(0, &(pCryptoService->kpt_keyhandle_loaded));
-    pCryptoService->maxNumKptKeyHandle =
-        KPTKSP_REGISTER_KEY_HANDLE_MAXIMUM_NUMBER;
-#endif
 
     return status;
 }
@@ -2710,7 +2661,6 @@ void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
         pCapInfo->keySupported = CPA_FALSE;
         pCapInfo->lnSupported = CPA_FALSE;
         pCapInfo->primeSupported = CPA_FALSE;
-        pCapInfo->kptSupported = CPA_FALSE;
         pCapInfo->ecEdMontSupported = CPA_FALSE;
 #else
         pCapInfo->dhSupported = CPA_TRUE;
@@ -2722,10 +2672,6 @@ void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
         pCapInfo->keySupported = CPA_TRUE;
         pCapInfo->lnSupported = CPA_TRUE;
         pCapInfo->primeSupported = CPA_TRUE;
-        if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_KPT)
-        {
-            pCapInfo->kptSupported = CPA_TRUE;
-        }
         if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_ECEDMONT)
         {
             pCapInfo->ecEdMontSupported = CPA_TRUE;
@@ -3272,10 +3218,6 @@ CpaStatus cpaCyInstanceGetInfo2(const CpaInstanceHandle instanceHandle_in,
         pCryptoService->executionEngine;
     pInstanceInfo2->physInstId.busAddress =
         icp_adf_getBusAddress(pInstanceInfo2->physInstId.packageId);
-#ifdef KPT
-    pInstanceInfo2->physInstId.kptAcHandle =
-        icp_adf_getKptAcHandle(pInstanceInfo2->physInstId.packageId);
-#endif
 
     /* set coreAffinity to zero before use */
     LAC_OS_BZERO(pInstanceInfo2->coreAffinity,
@@ -3319,8 +3261,10 @@ CpaStatus cpaCyInstanceGetInfo2(const CpaInstanceHandle instanceHandle_in,
              dev->deviceName);
     pInstanceInfo2->partName[CPA_INST_PART_NAME_SIZE - 1] = '\0';
 
-    status = Sal_StringParsing(
-        "Cy", pCryptoService->generic_service_info.instance, "Name", keyStr);
+    status = Sal_StringParsing(SAL_CFG_CY,
+                               pCryptoService->generic_service_info.instance,
+                               SAL_CFG_NAME,
+                               keyStr);
     LAC_CHECK_STATUS(status);
 
     if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)

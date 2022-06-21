@@ -4,7 +4,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -26,7 +26,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -191,15 +191,11 @@ typedef struct icp_qat_fw_req_pke_hdr_s
      * Common Request flags - PKE slice flags no longer used - slice
      * allocated to a threadstrand.*/
 
-    uint8_t kpt_mask;
-    /** < KPT input parameters array mask, indicate which node in array is
-     * encrypted
-    */
+    uint8_t resrvd3;
+    /**< reserved field */
 
-    uint8_t kpt_rn_mask;
-    /**< KPT random node(RN) mask - indicate which node is RN that QAT should
-     * generate
-     * itself.*/
+    uint8_t resrvd4;
+    /**< reserved field */
 
     /**< LWs 2-5 */
     icp_qat_fw_req_hdr_pke_cd_pars_t cd_pars;

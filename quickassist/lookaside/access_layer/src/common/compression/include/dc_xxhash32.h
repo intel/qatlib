@@ -1,11 +1,11 @@
-/******************************************************************************
+/****************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -58,63 +58,25 @@
  * 
  * 
  *
- *****************************************************************************/
+ ***************************************************************************/
+
+#ifndef DC_XXHASH_H_
+#define DC_XXHASH_H_
+
+#include "cpa.h"
+#include "cpa_dc.h"
+#include "lac_common.h"
 
 /**
- ******************************************************************************
- * @file  cpa_chaining_sample_user.c
+ * @description
+ *     Calculate LZ4 checksum on an input buffer
  *
- *****************************************************************************/
-#include "cpa.h"
-#include "cpa_cy_sym.h"
-#include "cpa_dc.h"
-#include "cpa_dc_chain.h"
-#include "cpa_sample_utils.h"
-#include "icp_sal_user.h"
+ * @param[return] checksum      New LZ4 checksum value.
+ * @param[in] xxH32input        Virtual addr of src input to calculate hash on.
+ * @param[in] dataLength        Length in bytes the input data is.
+ */
+CpaStatus dcXxhash32Lz4HdrChecksum(const void *xxH32input,
+                                   const Cpa32U dataLength,
+                                   Cpa8U *checksum);
 
-int gDebugParam = 1;
-
-extern CpaStatus dcChainSample(void);
-
-int main(int argc, const char **argv)
-{
-    CpaStatus stat = CPA_STATUS_SUCCESS;
-
-    if (argc > 1)
-    {
-        gDebugParam = atoi(argv[1]);
-    }
-
-    PRINT_DBG("Starting Chaining Sample Code App ...\n");
-
-    stat = qaeMemInit();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to initialize memory driver\n");
-        return (int)stat;
-    }
-
-    stat = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to start user process SSL\n");
-        qaeMemDestroy();
-        return (int)stat;
-    }
-
-    stat = dcChainSample();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("\nChaining Sample Code App failed\n");
-    }
-    else
-    {
-        PRINT_DBG("\nChaining Sample Code App finished\n");
-    }
-
-    icp_sal_userStop();
-
-    qaeMemDestroy();
-
-    return (int)stat;
-}
+#endif /* end of DC_XXHASH32_H_ */

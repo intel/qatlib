@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -236,6 +236,7 @@ CpaStatus qatCompressionE2EVerify(compression_test_params_t *setup,
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(srcBufferList, status);
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(dstBufferList, status);
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(results, status);
+
     if ((CPA_STATUS_SUCCESS == status) && (CPA_TRUE == setup->useE2E))
     {
         if (setup->dcSessDir == CPA_DC_DIR_COMPRESS)
@@ -258,6 +259,14 @@ CpaStatus qatCompressionE2EVerify(compression_test_params_t *setup,
         if ((CPA_TRUE == capabilities.integrityCrcs) &&
             (CPA_STATUS_SUCCESS == status))
         {
+#if DC_API_VERSION_AT_LEAST(3, 2)
+            /* For Stateless case do not seed previous E2E checksum*/
+            if (setup->setupData.sessState == CPA_DC_STATELESS)
+            {
+                setup->e2e->swInputChecksum = 0;
+                setup->e2e->swOutputChecksum = 0;
+            }
+#endif
             /* Verify integrity CRCs (iCrc + oCrc) */
             /* Calculate CRC on the input buffer list.*/
             status = computeSglChecksum(tempSrcBufferList,

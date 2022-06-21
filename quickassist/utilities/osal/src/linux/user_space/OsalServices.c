@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -354,6 +354,29 @@ OSAL_PUBLIC UINT64 osalTimestampGet(void)
     OsalTimeval ptime = {0};
     osalTimeGet(&ptime);
     return ((ptime.secs * OSAL_MILLION) + ptime.nsecs / OSAL_THOUSAND);
+}
+
+OSAL_PUBLIC UINT64 osalTimestampGetNs(void)
+{
+    OsalTimeval ptime;
+#if __GLIBC_PREREQ(2, 17)
+    struct timespec tspec;
+
+    if (clock_gettime(CLOCK_REALTIME, &tspec) == 0)
+    {
+        return (UINT64)tspec.tv_sec * OSAL_BILLION + (UINT64)tspec.tv_nsec;
+    }
+
+    osalLog(OSAL_LOG_LVL_ERROR,
+            OSAL_LOG_DEV_STDOUT,
+            "osalTimestampGetNs(): clock_gettime(CLOCK_REALTIME) system call "
+            "failed. Invoking osalTimeGet() as fallback\n");
+#endif
+    ptime.secs = 0;
+    ptime.nsecs = 0;
+    (void)osalTimeGet(&ptime);
+
+    return ptime.secs * OSAL_BILLION + ptime.nsecs;
 }
 
 OSAL_PUBLIC UINT32 osalSysClockRateGet(void)

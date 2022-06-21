@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include "adf_platform_acceldev_common.h"
 #include "adf_dev_ring_ctl.h"
 #include "adf_io_ring.h"
+#include "icp_platform.h"
 
 static inline void update_ring(Cpa32U *csr_base_addr,
                                Cpa32U bank_offset,
@@ -46,6 +47,8 @@ static inline void update_ring(Cpa32U *csr_base_addr,
 {
     Cpa32U arben, arben_tx, arben_rx;
     Cpa32U shift;
+
+    ICP_CHECK_FOR_NULL_PARAM_VOID(csr_base_addr);
 
     shift = __builtin_popcount(arb_mask);
     arben_tx = bank_ring_mask & arb_mask;
@@ -70,7 +73,9 @@ CpaStatus adf_io_enable_ring(adf_dev_ring_handle_t *ring)
 {
     Cpa32U bank_ring_mask;
 
-    if (!ring || !ring->csr_addr)
+    ICP_CHECK_FOR_NULL_PARAM(ring);
+
+    if (!ring->csr_addr || !ring->bank_data || !ring->accel_dev)
         return CPA_STATUS_FAIL;
 
     bank_ring_mask = ring->bank_data->ring_mask;
@@ -87,7 +92,9 @@ CpaStatus adf_io_disable_ring(adf_dev_ring_handle_t *ring)
 {
     Cpa32U bank_ring_mask;
 
-    if (!ring || !ring->csr_addr)
+    ICP_CHECK_FOR_NULL_PARAM(ring);
+
+    if (!ring->csr_addr || !ring->bank_data || !ring->accel_dev)
         return CPA_STATUS_FAIL;
 
     bank_ring_mask = ring->bank_data->ring_mask;

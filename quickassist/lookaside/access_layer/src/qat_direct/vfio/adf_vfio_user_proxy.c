@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -139,6 +139,8 @@ CpaBoolean adf_io_pollProxyEvent(Cpa32U *dev_id, enum adf_event *event)
     icp_accel_dev_t *accel_tb[ADF_MAX_DEVICES];
     Cpa16U num_instances;
 
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev_id, CPA_FALSE);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(event, CPA_FALSE);
     icp_adf_getNumInstances(&num_instances);
     icp_adf_getInstances(num_instances, &accel_tb[0]);
     for (i = 0; i < num_instances; ++i)

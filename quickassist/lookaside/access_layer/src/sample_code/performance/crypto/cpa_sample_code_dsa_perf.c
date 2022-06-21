@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -691,10 +691,11 @@ CpaStatus dsaGenZ(CpaInstanceHandle instanceHandle,
 
     CpaCyCapabilitiesInfo cap = {0};
 
-    status = getCyInstanceCapabilities(&cap);
+    status = getCySpecificInstanceCapabilities(instanceHandle, &cap);
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT_ERR("getCyInstanceCapabilities failed with status: %d\n", status);
+        PRINT_ERR("getCySpecificInstanceCapabilities failed with status: %d\n",
+                  status);
         return status;
     }
 
@@ -1712,11 +1713,12 @@ barrier:
  *     Print out the DSA perfomance
  *
  *****************************************************************************/
-void dsaPrintStats(thread_creation_data_t *data)
+CpaStatus dsaPrintStats(thread_creation_data_t *data)
 {
     PRINT("DSA VERIFY\n");
     PRINT("Modulus Size %19d\n", data->packetSize * NUM_BITS_IN_BYTE);
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /**
@@ -1728,11 +1730,12 @@ void dsaPrintStats(thread_creation_data_t *data)
  *     Print out the DSA sign only performance
  *
  *****************************************************************************/
-void dsaSignPrintStats(thread_creation_data_t *data)
+CpaStatus dsaSignPrintStats(thread_creation_data_t *data)
 {
     PRINT("DSA SIGN\n");
     PRINT("Modulus Size %19d\n", data->packetSize * NUM_BITS_IN_BYTE);
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /**

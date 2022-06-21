@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -108,51 +108,51 @@ static inline uint64_t busyLoopTimeStamp(void)
         preempt_disable();
         local_irq_save(flags);
 #endif
-        asm volatile("CPUID\n\t"
-                     "RDTSC\n\t"
-                     "mov %%edx, %0\n\t"
-                     "mov %%eax, %1\n\t"
-                     : "=r"(cycles_high),
-                       "=r"(cycles_low)::"%rax",
-                       "%rbx",
-                       "%rcx",
-                       "%rdx");
-        asm volatile("RDTSCP\n\t"
-                     "mov %%edx, %0\n\t"
-                     "mov %%eax, %1\n\t"
-                     "CPUID\n\t"
-                     : "=r"(cycles_high1),
-                       "=r"(cycles_low1)::"%rax",
-                       "%rbx",
-                       "%rcx",
-                       "%rdx");
-        asm volatile("CPUID\n\t"
-                     "RDTSC\n\t"
-                     "mov %%edx, %0\n\t"
-                     "mov %%eax, %1\n\t"
-                     : "=r"(cycles_high),
-                       "=r"(cycles_low)::"%rax",
-                       "%rbx",
-                       "%rcx",
-                       "%rdx");
-        asm volatile("RDTSCP\n\t"
-                     "mov %%edx, %0\n\t"
-                     "mov %%eax, %1\n\t"
-                     "CPUID\n\t"
-                     : "=r"(cycles_high1),
-                       "=r"(cycles_low1)::"%rax",
-                       "%rbx",
-                       "%rcx",
-                       "%rdx");
-        asm volatile("CPUID\n\t"
-                     "RDTSC\n\t"
-                     "mov %%edx, %0\n\t"
-                     "mov %%eax, %1\n\t"
-                     : "=r"(cycles_high),
-                       "=r"(cycles_low)::"%rax",
-                       "%rbx",
-                       "%rcx",
-                       "%rdx");
+        __asm__ volatile("CPUID\n\t"
+                         "RDTSC\n\t"
+                         "mov %%edx, %0\n\t"
+                         "mov %%eax, %1\n\t"
+                         : "=r"(cycles_high),
+                           "=r"(cycles_low)::"%rax",
+                           "%rbx",
+                           "%rcx",
+                           "%rdx");
+        __asm__ volatile("RDTSCP\n\t"
+                         "mov %%edx, %0\n\t"
+                         "mov %%eax, %1\n\t"
+                         "CPUID\n\t"
+                         : "=r"(cycles_high1),
+                           "=r"(cycles_low1)::"%rax",
+                           "%rbx",
+                           "%rcx",
+                           "%rdx");
+        __asm__ volatile("CPUID\n\t"
+                         "RDTSC\n\t"
+                         "mov %%edx, %0\n\t"
+                         "mov %%eax, %1\n\t"
+                         : "=r"(cycles_high),
+                           "=r"(cycles_low)::"%rax",
+                           "%rbx",
+                           "%rcx",
+                           "%rdx");
+        __asm__ volatile("RDTSCP\n\t"
+                         "mov %%edx, %0\n\t"
+                         "mov %%eax, %1\n\t"
+                         "CPUID\n\t"
+                         : "=r"(cycles_high1),
+                           "=r"(cycles_low1)::"%rax",
+                           "%rbx",
+                           "%rcx",
+                           "%rdx");
+        __asm__ volatile("CPUID\n\t"
+                         "RDTSC\n\t"
+                         "mov %%edx, %0\n\t"
+                         "mov %%eax, %1\n\t"
+                         : "=r"(cycles_high),
+                           "=r"(cycles_low)::"%rax",
+                           "%rbx",
+                           "%rcx",
+                           "%rdx");
 #ifdef KERNEL_SPACE
         raw_local_irq_restore(flags);
         preempt_enable();
@@ -160,14 +160,14 @@ static inline uint64_t busyLoopTimeStamp(void)
     }
     else
     {
-        asm volatile("RDTSCP\n\t"
-                     "mov %%edx, %0\n\t"
-                     "mov %%eax, %1\n\t"
-                     : "=r"(cycles_high),
-                       "=r"(cycles_low)::"%rax",
-                       "%rbx",
-                       "%rcx",
-                       "%rdx");
+        __asm__ volatile("RDTSCP\n\t"
+                         "mov %%edx, %0\n\t"
+                         "mov %%eax, %1\n\t"
+                         : "=r"(cycles_high),
+                           "=r"(cycles_low)::"%rax",
+                           "%rbx",
+                           "%rcx",
+                           "%rdx");
     }
     return (((uint64_t)cycles_high << 32) | cycles_low);
 }

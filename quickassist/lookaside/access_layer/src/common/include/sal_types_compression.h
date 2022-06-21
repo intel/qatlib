@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -84,6 +84,7 @@
 #include "lac_sym_qat_constants_table.h"
 
 #define DC_NUM_RX_RINGS (1)
+#define DC_NUM_COMPRESSION_LEVELS (CPA_DC_L12)
 
 /**
  *****************************************************************************
@@ -164,6 +165,12 @@ typedef struct sal_compression_device_data
     /* Mask that reports supported window sizes for comp/decomp */
     Cpa8U windowSizeMask;
 
+    /* List representing compression levels that are the first to have
+       a unique search depth. */
+    CpaBoolean uniqueCompressionLevels[DC_NUM_COMPRESSION_LEVELS + 1];
+    Cpa8U numCompressionLevels;
+
+    Cpa32U lz4DecompContextSize;
 } sal_compression_device_data_t;
 
 /**

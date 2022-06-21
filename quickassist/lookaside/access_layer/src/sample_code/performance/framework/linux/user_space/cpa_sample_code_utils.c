@@ -6,7 +6,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -28,7 +28,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -108,6 +108,8 @@ extern CpaBoolean cy_service_started_g;
 extern volatile Cpa32U numThreadsAtBarrier_g;
 
 Cpa32U cpu_freq_g = 0;
+
+extern volatile CpaBoolean isChangingThreadQaInstanceRequired_g;
 
 static char *firmwarePath = SAMPLE_CODE_CORPUS_PATH;
 
@@ -860,7 +862,8 @@ void startBarrier(void)
 
     numThreadsAtBarrier_g++;
 
-    if (numThreadsAtBarrier_g < numCreatedThreads_g)
+    if ((numThreadsAtBarrier_g < numCreatedThreads_g) ||
+        (isChangingThreadQaInstanceRequired_g == CPA_TRUE))
     {
         sample_code_thread_cond_wait(&startThreadConditionControl_g,
                                      &startThreadControlMutex_g);

@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,9 @@
 #define SAMPLE_CODE_CORPUS_PATH "/lib/firmware/"
 #endif
 
+#ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE (64)
+#endif
 #define ALL_BITS_SET64U (0xFFFFFFFFFFFFFFFFL)
 #define __cpa_cache_aligned __attribute__((__aligned__(CACHE_LINE_SIZE)))
 
@@ -100,7 +102,6 @@ typedef enum
     CAT_NESTED,
     CAT_PKE,
     CAT_COMP,
-    CAT_BNP,
     CAT_CNV
 } algo_category_e;
 #define MAX_ALGO_CATEGORY (8)
@@ -255,7 +256,11 @@ typedef struct perf_data_s
 
 /*the limit of the number of different types of threads to be created*/
 #ifdef KERNEL_SPACE
+#ifndef MAX_KERNEL_THREAD_VARIATION
 #define MAX_THREAD_VARIATION (300)
+#else
+#define MAX_THREAD_VARIATION (MAX_KERNEL_THREAD_VARIATION)
+#endif
 #else
 #define MAX_THREAD_VARIATION (600)
 #endif
@@ -293,8 +298,8 @@ typedef struct perf_data_s
 #define SAMPLE_CODE_INT Cpa32S
 #endif
 #else
-#define SAMPLE_CODE_UINT Cpa64U
-#define SAMPLE_CODE_INT Cpa64S
+#define SAMPLE_CODE_UINT Cpa32U
+#define SAMPLE_CODE_INT Cpa32S
 #endif
 
 /*add 2 sampe_code_time_t structs together*/

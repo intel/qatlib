@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,17 @@ OSAL_PUBLIC OSAL_INLINE INT64 osalAtomicGet(OsalAtomic *atomicVar)
 OSAL_PUBLIC OSAL_INLINE void osalAtomicSet(INT64 inValue, OsalAtomic *atomicVar)
 {
     __sync_lock_test_and_set(atomicVar, inValue);
+}
+
+OSAL_PUBLIC OSAL_INLINE INT64 osalAtomicTestAndSet(INT64 inValue,
+                                                   OsalAtomic *pAtomicVar)
+{
+    return __sync_lock_test_and_set(pAtomicVar, inValue);
+}
+
+OSAL_PUBLIC OSAL_INLINE void osalAtomicRelease(OsalAtomic *pAtomicVar)
+{
+    __sync_lock_release(pAtomicVar);
 }
 
 OSAL_PUBLIC OSAL_INLINE INT64 osalAtomicAdd(INT64 inValue,

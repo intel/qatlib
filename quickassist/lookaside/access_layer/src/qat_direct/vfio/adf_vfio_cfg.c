@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -441,15 +441,15 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
     unsigned serv_num;
     Cpa16U msg_type;
     /* Cache previous responses */
-    static Cpa32U c_accelId = UINT32_MAX;
-    static enum serv_type c_serv_type;
-    static Cpa16U c_serv_num = UINT16_MAX;
-    static struct qatmgr_msg_rsp rsp = {0};
+    static __thread Cpa32U c_accelId = UINT32_MAX;
+    static __thread enum serv_type c_serv_type;
+    static __thread Cpa16U c_serv_num = UINT16_MAX;
+    static __thread struct qatmgr_msg_rsp rsp = {0};
 
-    if (pSection == NULL || pParamName == NULL || pParamValue == NULL)
-    {
-        return CPA_STATUS_INVALID_PARAM;
-    }
+    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
+    ICP_CHECK_FOR_NULL_PARAM(pSection);
+    ICP_CHECK_FOR_NULL_PARAM(pParamName);
+    ICP_CHECK_FOR_NULL_PARAM(pParamValue);
 
     if (ICP_STRNCMP_CONST(pSection, "GENERAL") == 0)
     {
@@ -578,11 +578,6 @@ Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId)
     }
 
     return bdf;
-}
-
-Cpa32U adf_io_cfgGetKptAcHandle(Cpa16U packageId)
-{
-    return 0;
 }
 
 CpaStatus adf_io_reset_device(Cpa32U accelId)

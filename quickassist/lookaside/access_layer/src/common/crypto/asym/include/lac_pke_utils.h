@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@
 ********************************************************************************
 */
 
+#include <stdarg.h>
 #include "cpa.h"
 #include "cpa_cy_common.h"
 
@@ -618,5 +619,23 @@ CpaStatus LacPke_GetBitPos(const CpaFlatBuffer *pBuffer,
  *
  *****************************************************************************/
 CpaStatus LacPke_GetBitLen(const CpaFlatBuffer *pBuffer, Cpa32U *pBitLen);
+
+/**
+ ***************************************************************************
+ * @ingroup LacAsymCommonUtils
+ *      Return the size in bytes of biggest number in provided n buffers
+ *
+ * @description
+ *      Return the size of the biggest number in provided buffers where n
+ *      specify buffer count. If NULL pointer was detected is skipped from
+ *      comparision.
+ *
+ * @param[in]  n                number of buffers to compare
+ * @param[in]  ...              list of pointers to a flat buffers
+ *
+ * @retval max  the size of the biggest number
+ *
+ ***************************************************************************/
+Cpa32U LacPke_GetMaxLnOfNBuffers(int n, ...);
 
 #endif /* _LAC_PKE_UTILS_H_ */

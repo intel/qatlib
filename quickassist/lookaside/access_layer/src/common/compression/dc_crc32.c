@@ -1,11 +1,11 @@
-/***************************************************************************
+/****************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -60,88 +60,73 @@
  *
  ***************************************************************************/
 
-/*
- * This is sample code that demonstrates usage of event notifications for
- * DC instance. The test flow as followed:
- * 1) the instance is created and notification callback is registered
- * 2) user issues adf_ctl reset
- * 3) the test code polls the device events until CPA_INSTANCE_EVENT_RESTARTED
- *    notification has arrived.
+/**
+ *****************************************************************************
+ * @file dc_crc32.c
+ *
+ * @defgroup Dc_DataCompression DC Data Compression
+ *
+ * @ingroup Dc_DataCompression
+ *
+ * @description
+ *      Implementation of the CRC-32 operations.
+ *
+ *****************************************************************************/
+
+#include "dc_crc32.h"
+
+/**
+ * @description
+ *     Calculates CRC-32 checksum for given Buffer List
+ *
+ *     Function loop through all of the flat buffers in the buffer list.
+ *     CRC is calculated for each flat buffer, but output CRC from
+ *     buffer[0] is used as input seed for buffer[1] CRC calculation
+ *     (and so on until looped through all flat buffers).
+ *     Resulting CRC is final CRC for all buffers in the buffer list struct
+ *
+ * @param[in]  bufferList      Pointer to data byte array to calculate CRC on
+ * @param[in]  consumedBytes   Total number of bytes to calculate CRC on
+ *                             (for all buffer in buffer list)
+ * @param[in]  seedChecksums   Input checksum from where the calculation will
+ *                             start from.
+ *
+ * @retval Cpa32U              32bit long CRC checksum for given buffer list
  */
-
-#include "cpa.h"
-#include "cpa_sample_utils.h"
-#include "icp_sal_user.h"
-
-extern int gDebugParam;
-CpaStatus restartedEventArrived_g = CPA_FALSE;
-
-/*
- * Callback function, this is an event handler.
- */
-static void dcEventCallback(const CpaInstanceHandle instanceHandle,
-                            void *pCallbackTag,
-                            const CpaInstanceEvent instanceEvent)
+Cpa32U dcCalculateCrc32(CpaBufferList *pBufferList,
+                        Cpa32U consumedBytes,
+                        const Cpa32U seedChecksum)
 {
-    switch (instanceEvent)
-    {
-        case CPA_INSTANCE_EVENT_RESTARTING:
-            PRINT_DBG("Event 'restarting' detected\n");
-            break;
-        case CPA_INSTANCE_EVENT_RESTARTED:
-            PRINT_DBG("Event 'restarted' detected\n");
-            restartedEventArrived_g = CPA_TRUE;
-            break;
-        case CPA_INSTANCE_EVENT_FATAL_ERROR:
-            PRINT_DBG("'Fatal error' event detected\n");
-            break;
-    }
-}
+    Cpa32U i = 0;
+    Cpa64U computeLength = 0;
+    Cpa32U flatBufferLength = 0;
+    Cpa32U currentCrc = seedChecksum;
+    CpaFlatBuffer *pBuffer = NULL;
 
-/*
- * This is the main entry point.
- */
-CpaStatus dcSampleEventNotif(void)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    CpaInstanceHandle dcInstHandle = NULL;
-    CpaInstanceInfo2 dcInstanceInfo;
+    LAC_ENSURE_NOT_NULL(pBufferList);
 
-    /*
-     * In this simplified version of instance discovery, we discover
-     * exactly one instance of a data compression service.
-     */
-    sampleDcGetInstance(&dcInstHandle);
-    if (NULL == dcInstHandle)
+    pBuffer = &pBufferList->pBuffers[0];
+
+    for (i = 0; i < pBufferList->numBuffers; i++)
     {
-        return CPA_STATUS_FAIL;
+        flatBufferLength = pBuffer->dataLenInBytes;
+
+        /* Get number of bytes based on remaining data (consumedBytes) and
+         * max buffer length, then calculate CRC on them */
+        if (consumedBytes > flatBufferLength)
+        {
+            computeLength = flatBufferLength;
+            consumedBytes -= flatBufferLength;
+        }
+        else
+        {
+            computeLength = consumedBytes;
+            consumedBytes = 0;
+        }
+        currentCrc =
+            crc32_gzip_refl_by8(currentCrc, pBuffer->pData, computeLength);
+        pBuffer++;
     }
 
-    PRINT_DBG("Setting Instance notification callback...");
-    status = cpaDcInstanceSetNotificationCb(
-        dcInstHandle, dcEventCallback, &dcInstanceInfo);
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        PRINT("Done\n");
-    }
-    else
-    {
-        PRINT("\nFAILURE.  status= %d\n", status);
-        return status;
-    }
-
-    PRINT("Please reset the device with the adf_ctl reset command\n");
-
-    /*While loop, waiting for the device restarting event */
-    while ((!restartedEventArrived_g) && (CPA_STATUS_SUCCESS == status))
-    {
-        status = icp_sal_poll_device_events();
-    }
-
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        PRINT_DBG("Failure. icp_sal_poll_device_events() returned %d", status);
-    }
-    return status;
+    return currentCrc;
 }

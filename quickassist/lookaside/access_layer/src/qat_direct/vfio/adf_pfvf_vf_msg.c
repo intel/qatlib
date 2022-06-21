@@ -2,7 +2,7 @@
  *
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -86,6 +86,8 @@ int adf_vf2pf_notify_init(struct adf_pfvf_dev_data *dev)
 {
     struct pfvf_message msg = {.type = ADF_VF2PF_MSGTYPE_INIT};
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
+
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -101,6 +103,7 @@ int adf_vf2pf_notify_init(struct adf_pfvf_dev_data *dev)
 
 void adf_vf2pf_notify_shutdown(struct adf_pfvf_dev_data *dev)
 {
+    ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
     struct pfvf_message msg = {.type = ADF_VF2PF_MSGTYPE_SHUTDOWN};
 
     if (!adf_vf2pf_available())
@@ -128,6 +131,7 @@ int adf_vf2pf_check_compat_version(struct adf_pfvf_dev_data *dev)
     };
     struct pfvf_message req;
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -172,6 +176,7 @@ int adf_vf2pf_get_ring_to_svc(struct adf_pfvf_dev_data *dev)
 
     uint16_t len = sizeof(rts_map_msg);
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -210,6 +215,7 @@ int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev)
     uint16_t len = sizeof(cap_msg);
     int ret = 0;
 
+    ICP_CHECK_FOR_NULL_PARAM(dev);
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -271,6 +277,7 @@ int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev)
 int adf_check_pf2vf_notification(struct adf_pfvf_dev_data *dev)
 {
     struct pfvf_message msg;
+    ICP_CHECK_FOR_NULL_PARAM(dev);
     msg = adf_recv_pf2vf_msg(dev);
 
     return msg.type;

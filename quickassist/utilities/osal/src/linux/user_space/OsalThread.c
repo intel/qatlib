@@ -7,7 +7,7 @@
  * @par
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,10 @@
  * 
  */
 
+#ifndef ICP_WITHOUT_THREAD
+#define _GNU_SOURCE
+#include <pthread.h>
+#endif
 #include "Osal.h"
 
 OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
@@ -207,7 +211,12 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
                     OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
                     "\nosalThreadCreate: insufficient permissions!\n"
-                    "When running inside container(docker) environmet, the "
+                    "Running below options can resolve EPERM issue"
+                    "1. Check the value from"
+                    "/sys/fs/cgroup/cpu,cpuacct/cpu.rt_runtime_us, and add "
+                    "the same in "
+                    "/sys/fs/cgroup/cpu,cpuacct/user.slice/cpu.rt_runtime_us"
+                    "2. When running inside container(docker) environment, the "
                     "sched_setscheduler() system call "
                     "might return non-zero value (indicating error), so please "
                     "make sure that:\n"
@@ -234,6 +243,44 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
 #endif
     return OSAL_SUCCESS;
 } /* osalThreadCreate */
+
+OSAL_PUBLIC void osalThreadBind(OsalThread *pTid, UINT32 cpu)
+{
+#ifndef ICP_WITHOUT_THREAD
+    cpu_set_t cpuSet;
+
+    /* Initialize the cpuSet to zero */
+    CPU_ZERO(&cpuSet);
+    /* Set given cpu in cpuSet */
+    CPU_SET(cpu, &cpuSet);
+    /* Bind given thread to requested CPU core */
+    if (pthread_setaffinity_np(*pTid, sizeof(cpuSet), &cpuSet) != 0)
+    {
+        osalLog(OSAL_LOG_LVL_ERROR,
+                OSAL_LOG_DEV_STDOUT,
+                "\nosalThreadBind: Failed to bind the thread to requested "
+                "core!\n");
+        return;
+    }
+    /* Obtain actual thread CPU affinity */
+    if (pthread_getaffinity_np(*pTid, sizeof(cpuSet), &cpuSet) != 0)
+    {
+        osalLog(OSAL_LOG_LVL_ERROR,
+                OSAL_LOG_DEV_STDOUT,
+                "\nosalThreadBind: Failed to obtain bounded thread "
+                "affinity!\n");
+        return;
+    }
+    /* Check if thread is bound as requested */
+    if (!CPU_ISSET(cpu, &cpuSet))
+    {
+        osalLog(OSAL_LOG_LVL_WARNING,
+                OSAL_LOG_DEV_STDOUT,
+                "\nosalThreadBind: thread is not bound with requested core!\n");
+        return;
+    }
+#endif
+}
 
 OSAL_PUBLIC OSAL_STATUS osalThreadStart(OsalThread *thread)
 {

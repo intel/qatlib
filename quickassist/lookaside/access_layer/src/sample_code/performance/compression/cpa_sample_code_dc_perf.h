@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,7 @@
 #endif
 #include "cpa_cy_sym.h"
 #include "cpa_sample_code_framework.h"
-
+#include "../common/qat_perf_utils.h"
 /*
  *******************************************************************************
  * General performance code settings
@@ -94,6 +94,14 @@
 #define MIN_DC_LOOPS (1)
 #define DEFAULT_DC_LOOPS (100)
 
+/* Common macro definitions */
+#ifndef DC_API_VERSION_AT_LEAST
+#define DC_API_VERSION_AT_LEAST(major, minor)                                  \
+    (CPA_DC_API_VERSION_NUM_MAJOR > major ||                                   \
+     (CPA_DC_API_VERSION_NUM_MAJOR == major &&                                 \
+      CPA_DC_API_VERSION_NUM_MINOR >= minor))
+#endif
+
 /* Dynamic number of buffers to be created while initializing the Compression
  * session
  */
@@ -102,13 +110,15 @@
 /* Extra buffer */
 #define EXTRA_BUFFER (2)
 #define MIN_DST_BUFFER_SIZE (8192)
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+#define MIN_DST_BUFFER_SIZE_GEN4 (1024)
+#endif
+#define DEFAULT_INCLUDE_LZ4 (0)
 #define DEFAULT_COMPRESSION_LOOPS (100)
 #define DEFAULT_COMPRESSION_WINDOW_SIZE (7)
 #define INITIAL_RESPONSE_COUNT (-1)
 #define SCALING_FACTOR_100 (100)
 #define SCALING_FACTOR_1000 (1000)
-#define SCALING_FACTOR_10000 (10000)
-#define SCALING_FACTOR_100000 (100000)
 #define BASE_10 (10)
 #define DYNAMIC_BUFFER_AREA (0x20000)
 #define SINGLE_REQUEST (1)
@@ -118,18 +128,7 @@
  * buffer sizes */
 #define ZEROS_CORPUS_LENGTH (64 * 1024 * 16)
 
-/* ReMapping Compression Level based on API version */
-#if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
-#define SAMPLE_CODE_CPA_DC_L1 (CPA_DC_L1)
-#define SAMPLE_CODE_CPA_DC_L2 (CPA_DC_L3)
-#define SAMPLE_CODE_CPA_DC_L3 (CPA_DC_L5)
-#define SAMPLE_CODE_CPA_DC_L4 (CPA_DC_L7)
-#define SAMPLE_CODE_CPA_DC_L5 (CPA_DC_L7)
-#define SAMPLE_CODE_CPA_DC_L6 (CPA_DC_L7)
-#define SAMPLE_CODE_CPA_DC_L7 (CPA_DC_L7)
-#define SAMPLE_CODE_CPA_DC_L8 (CPA_DC_L7)
-#define SAMPLE_CODE_CPA_DC_L9 (CPA_DC_L7)
-#else
+/* Defining the available compression levels */
 #define SAMPLE_CODE_CPA_DC_L1 (CPA_DC_L1)
 #define SAMPLE_CODE_CPA_DC_L2 (CPA_DC_L2)
 #define SAMPLE_CODE_CPA_DC_L3 (CPA_DC_L3)
@@ -139,6 +138,7 @@
 #define SAMPLE_CODE_CPA_DC_L7 (CPA_DC_L7)
 #define SAMPLE_CODE_CPA_DC_L8 (CPA_DC_L8)
 #define SAMPLE_CODE_CPA_DC_L9 (CPA_DC_L9)
+#if DC_API_VERSION_AT_LEAST(3, 0)
 #define SAMPLE_CODE_CPA_DC_L10 (CPA_DC_L10)
 #define SAMPLE_CODE_CPA_DC_L11 (CPA_DC_L11)
 #define SAMPLE_CODE_CPA_DC_L12 (CPA_DC_L12)
@@ -184,24 +184,6 @@ typedef enum _corpusType
 } corpus_type_t;
 
 #define MAX_NUM_CORPUS_TYPE CORPUS_TYPE_INVALID
-
-/**
- * *****************************************************************************
- *  @ingroup compressionThreads
- *  enum for synchronous Corpus Setup Data.
- *   @description
- *       This ENUM will be used to specify if the compression operation
- *       is synchronous or Asynchronous
- *       The client needs pass provide this information in the setup
- *
- * ****************************************************************************/
-
-typedef enum _syncFlag
-{
-    /*Synchronous flag*/
-    CPA_SAMPLE_SYNCHRONOUS = 0,
-    CPA_SAMPLE_ASYNCHRONOUS
-} synchronous_flag_t;
 
 /**
  * *****************************************************************************
@@ -286,7 +268,7 @@ typedef struct compression_test_params_s
     /*Buffer Size */
     Cpa32U bufferSize;
     /* Synchronous Flag */
-    synchronous_flag_t syncFlag;
+    sync_mode_t syncFlag;
     /* Number of Loops */
     Cpa32U numLoops;
     /*rate limit variable*/
@@ -344,6 +326,11 @@ typedef struct compression_test_params_s
     CpaBoolean useXlt;
     CpaBoolean useE2EVerify;
     qat_dc_e2e_t *e2e;
+    CpaBoolean disableAdditionalCmpbufferSize;
+#if DC_API_VERSION_AT_LEAST(3, 2)
+    /*flag to set (NS)Sessionless compression/decompression Request*/
+    CpaBoolean setNsRequest;
+#endif
     CpaDcSessionHandle *pSessionHandle;
     /* the Destination Buffer size obtained using
      * Compress Bound API, for Compress operation */
@@ -463,6 +450,44 @@ CpaStatus createBuffers(Cpa32U buffSize,
 
 CpaStatus dcPerform(compression_test_params_t *setup);
 
+#if DC_API_VERSION_AT_LEAST(3, 1)
+/**
+ * *****************************************************************************
+ *  @ingroup compressionThreads
+ *  setupDcLZ4Test
+ *
+ *  @description
+ *      this API is the main API called by the framework, this is configures
+ *      data structure before starting the performance threads
+ *  @threadSafe
+ *      No
+ *
+ *  @param[out]   None
+ *
+ *  @param[in]  algorithm Algorithm used for compression/decompression
+ *  @param[in]  direction session direction
+ *  @param[in]  compLevel compression Level
+ *  @param[in]  state stateful operation or stateless operation
+ *  @param[in]  testBuffersize size of the flat Buffer to use
+ *  @parma[in]  corpusType type of corpus calgary/cantrbury corpus
+ *  @param[in]  syncFlag synchronous/Asynchronous operation
+ *  @param[in]  minMatch size that will be used for the search algorithm.
+ *  It is only configurable for LZ4S
+ *  @param[in]  lz4BlockMaxSize Maximum LZ4 output block size
+ *  @param[in]  numloops Number of loops to compress or decompress
+ ******************************************************************************/
+CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
+                         CpaDcSessionDir direction,
+                         CpaDcCompLvl compLevel,
+                         CpaDcSessionState state,
+                         Cpa32U testBufferSize,
+                         corpus_type_t corpusType,
+                         CpaDcCompMinMatch minMatch,
+                         CpaDcCompLZ4BlockMaxSize lz4BlockMaxSize,
+                         sync_mode_t syncFlag,
+                         Cpa32U numLoops);
+#endif
+
 /**
  * *****************************************************************************
  *  @ingroup compressionThreads
@@ -480,7 +505,6 @@ CpaStatus dcPerform(compression_test_params_t *setup);
  *  @param[in]  direction session direction
  *  @param[in]  compLevel compression Level
  *  @param[in]  HuffmanType HuffMantype Dynamic/static
- *  @param[in]  fileType type of the file to be compressed/decompressed
  *  @param[in]  state stateful operation or stateless operation
  *  @param[in]  windowSize window size to be used for compression/decompression
  *  @param[in]  testBuffersize size of the flat Buffer to use
@@ -492,12 +516,11 @@ CpaStatus setupDcTest(CpaDcCompType algorithm,
                       CpaDcSessionDir direction,
                       CpaDcCompLvl compLevel,
                       CpaDcHuffType huffmanType,
-                      CpaDcFileType fileType,
                       CpaDcSessionState state,
                       Cpa32U windowSize,
                       Cpa32U testBufferSize,
                       corpus_type_t corpusType,
-                      synchronous_flag_t syncFlag,
+                      sync_mode_t syncFlag,
                       Cpa32U numLoops);
 
 
@@ -541,7 +564,6 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup);
  *  @param[in]  direction          compression/decompression session direction
  *  @param[in]  compLevel          compression Level
  *  @param[in]  huffmanType        HuffMantype Dynamic/static
- *  @param[in]  fileType           type of the file to be
  *compressed/decompressed
  *  @param[in]  state              stateful operation or stateless operation
  *  @param[in]  windowSize         window size to be used for
@@ -565,12 +587,11 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
                            CpaDcSessionDir direction,
                            CpaDcCompLvl compLevel,
                            CpaDcHuffType huffmanType,
-                           CpaDcFileType fileType,
                            CpaDcSessionState state,
                            Cpa32U windowSize,
                            Cpa32U testBufferSize,
                            corpus_type_t corpusType,
-                           synchronous_flag_t syncFlag,
+                           sync_mode_t syncFlag,
                            CpaCySymOp opType,
                            CpaCySymCipherAlgorithm cipherAlg,
                            Cpa32U cipherKeyLengthInBytes,
@@ -599,7 +620,6 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
  *  @param[in]  direction session direction
  *  @param[in]  compLevel compression Level
  *  @param[in]  HuffmanType HuffMantype Dynamic/static
- *  @param[in]  fileType type of the file to be compressed/decompressed
  *  @param[in]  state stateful operation or stateless operation
  *  @param[in]  windowSize window size to be used for compression/decompression
  *  @param[in]  testBuffersize size of the flat Buffer to use
@@ -613,7 +633,7 @@ CpaStatus setupDcStatefulTest(CpaDcCompType algorithm,
                               CpaDcHuffType huffmanType,
                               Cpa32U testBufferSize,
                               corpus_type_t corpusType,
-                              synchronous_flag_t syncFlag,
+                              sync_mode_t syncFlag,
                               Cpa32U numLoops);
 
 /**
@@ -919,6 +939,7 @@ CpaStatus dcSampleCreateContextBuffer(Cpa32U buffSize,
  *
  ******************************************************************************/
 void dcSampleFreeContextBuffer(CpaBufferList *pBuffListArray);
+CpaStatus setChecksum(CpaDcChecksum checksum);
 /**
  * *****************************************************************************
  *  @ingroup compressionThreads

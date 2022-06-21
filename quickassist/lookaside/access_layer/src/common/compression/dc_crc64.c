@@ -1,11 +1,11 @@
-/******************************************************************************
+/****************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -58,102 +58,71 @@
  * 
  * 
  *
- *****************************************************************************/
+ ***************************************************************************/
 
 /**
- ******************************************************************************
- * @file  cpa_dc_sample_user.c
+ *****************************************************************************
+ * @file dc_crc64.c
+ *
+ * @defgroup Dc_DataCompression DC Data Compression
+ *
+ * @ingroup Dc_DataCompression
+ *
+ * @description
+ *      Implementation of the CRC-64 operations.
  *
  *****************************************************************************/
-#include <unistd.h>
 
-#include "cpa_sample_utils.h"
-#include "icp_sal_user.h"
+#include "dc_crc64.h"
 
-#define FILE_NAME_LENGTH 100
-char *gFileNameIn = NULL;
-char *gFileNameComp = NULL;
-char *gFileNameOut = NULL;
-
-extern CpaStatus dcStatefulSample(void);
-
-extern CpaStatus dcResetSessionSample(void);
-
-int gDebugParam = 1;
-
-int main(int argc, const char **argv)
+/**
+ * @description
+ *     Calculates CRC-64 checksum for given Buffer List
+ *
+ *     Function loop through all of the flat buffers in the buffer list.
+ *     CRC is calculated for each flat buffer, but output CRC from
+ *     buffer[0] is used as input seed for buffer[1] CRC calculation
+ *     (and so on until looped through all flat buffers).
+ *     Resulting CRC is final CRC for all buffers in the buffer list struct
+ *
+ * @param[in]  bufferList      Pointer to data byte array to calculate CRC on
+ * @param[in]  consumedBytes   Total number of bytes to calculate CRC on
+ *                             (for all buffer in buffer list)
+ * @param[in]  seedChecksums   Input checksum from where the calculation will
+ *                             start from.
+ *
+ * @retval Cpa64U              64bit long CRC checksum for given buffer list
+ */
+Cpa64U dcCalculateCrc64(const CpaBufferList *pBufferList,
+                        Cpa32U consumedBytes,
+                        Cpa64U seedChecksum)
 {
-    CpaStatus stat = CPA_STATUS_SUCCESS;
-    char fileToComp[FILE_NAME_LENGTH] = "paper4";
-    char fileComp[FILE_NAME_LENGTH] = "paper4.gz";
-    char fileRes[FILE_NAME_LENGTH] = "paper4_2";
+    Cpa32U i = 0;
+    Cpa64U computeLength = 0;
+    Cpa32U flatBufferLength = 0;
+    Cpa64U currentCrc = seedChecksum;
+    CpaFlatBuffer *pBuffer = &pBufferList->pBuffers[0];
 
-    if (argc > 1)
+    for (i = 0; i < pBufferList->numBuffers; i++)
     {
-        gDebugParam = atoi(argv[1]);
+        flatBufferLength = pBuffer->dataLenInBytes;
+
+        /* Get number of bytes based on remaining data (consumedBytes) and
+         * max buffer length, then calculate CRC on them */
+        if (consumedBytes > flatBufferLength)
+        {
+            computeLength = flatBufferLength;
+            consumedBytes -= flatBufferLength;
+        }
+        else
+        {
+            computeLength = consumedBytes;
+            consumedBytes = 0;
+        }
+        currentCrc =
+            crc64_ecma_norm_by8(currentCrc, pBuffer->pData, computeLength);
+        pBuffer++;
     }
 
-    PRINT_DBG("Starting Stateful Compression Sample Code App ...\n");
-
-    stat = qaeMemInit();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to initialize memory driver\n");
-        return 0;
-    }
-
-    stat = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("Failed to start user process SSL\n");
-        qaeMemDestroy();
-        return 0;
-    }
-    gFileNameIn = fileToComp;
-    gFileNameComp = fileComp;
-    gFileNameOut = fileRes;
-
-    stat = dcStatefulSample();
-
-    if (CPA_STATUS_SUCCESS == stat)
-    {
-        PRINT_DBG("\nStateful Compression Sample Code App finished\n");
-    }
-    else if (CPA_STATUS_UNSUPPORTED == stat)
-    {
-        PRINT_DBG("\nStateful Compression Sample Code App execution skipped - "
-                  "unsupported\n");
-    }
-    else
-    {
-        PRINT_ERR("\nStateful Compression Sample Code App failed\n");
-    }
-
-#ifdef RESET_SESSION_API
-    PRINT_DBG("Starting Stateful Compression Reset Session App ...\n");
-    stat = dcResetSessionSample();
-    if (CPA_STATUS_SUCCESS == stat)
-    {
-        PRINT_DBG(
-            "\nStateful Reset Session Compression Sample Code App finished\n");
-    }
-    else if (CPA_STATUS_UNSUPPORTED == stat)
-    {
-        PRINT_DBG("\nStateful Compression Sample Code App execution skipped - "
-                  "unsupported\n");
-    }
-    else
-    {
-        PRINT_ERR(
-            "\nStateful Reset Session Compression Sample Code App failed\n");
-    }
-#endif
-    icp_sal_userStop();
-
-    qaeMemDestroy();
-    gFileNameIn = NULL;
-    gFileNameComp = NULL;
-    gFileNameOut = NULL;
-
-    return 0;
+    return currentCrc;
 }

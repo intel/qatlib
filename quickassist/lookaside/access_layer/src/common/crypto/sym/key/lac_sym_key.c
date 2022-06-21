@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -2400,13 +2400,8 @@ LacSymKey_CheckParamSslTls(const void *pKeyGenOpData,
         }
         else
         {
-            /* Api max value */
-            /* ICP_QAT_FW_LA_TLS_V1_2_SECRET_LEN_MAX needs to be multiplied
-             * by 8 in order to verifiy the 512 conditions. We did not change
-             * ICP_QAT_FW_LA_TLS_V1_2_SECRET_LEN_MAX as it represents
-             * the max value tha firmware can handle.
-             */
-            maxSecretLen = ICP_QAT_FW_LA_TLS_V1_2_SECRET_LEN_MAX * 8;
+            /* To support DH8k we use 1024 secret key length */
+            maxSecretLen = ICP_QAT_SECRET_LEN_MAX;
 
             /* Check Hash algorithm */
             if (0 == getDigestSizeFromHashAlgo(hashAlgCipher))

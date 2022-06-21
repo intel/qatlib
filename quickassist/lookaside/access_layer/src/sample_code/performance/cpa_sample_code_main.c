@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,6 @@
 #include "cpa_sample_code_dc_dp.h"
 #include "qat_compression_main.h"
 #endif
-#include "qat_perf_utils.h"
 #include "cpa_sample_code_sym_perf_dp.h"
 
 #ifndef INCLUDE_COMPRESSION
@@ -98,6 +97,17 @@
 #define SINGLE_REQUEST (1)
 #else
 corpus_type_t sampleCorpus;
+#endif
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+#define ASYMETRIC_CODE                                                         \
+    (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE | KPT_RSA_CODE | KPT_ECDSA_CODE)
+#else
+#define ASYMETRIC_CODE (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE)
+#endif
+#else
+#define ASYMETRIC_CODE (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE)
 #endif
 
 #ifdef USER_SPACE
@@ -116,6 +126,7 @@ int dcLoops;
 int includeWirelessAlgs;
 int configFileVersion;
 int runStateful;
+int includeLZ4;
 
 option_t optArray[MAX_NUMOPT] = {
     {"signOfLife", DEFAULT_SIGN_OF_LIFE},
@@ -127,9 +138,10 @@ option_t optArray[MAX_NUMOPT] = {
     {"includeWirelessAlgs", DEFAULT_INCLUDE_WIRELESS_ALGS},
     {"configFileVer", USE_V2_CONFIG_FILE},
     {"runStateful", 0},
-    {"useStaticPrime", 0},
+    {"useStaticPrime", 1},
     {"getLatency", 0},
     {"getOffloadCost", 0},
+    {"includeLZ4", DEFAULT_INCLUDE_LZ4},
     {"compOnly", 0},
     {"verboseOutput", 1}};
 
@@ -145,6 +157,7 @@ option_t optArray[MAX_NUMOPT] = {
 #define USE_STATIC_PRIME (9)
 #define GET_LATENCY_POS (10)
 #define GET_OFFLOAD_COST_POS (11)
+#define RUN_LZ4_TEST_POS (12)
 
 #else /* #ifdef USER_SPACE */
 
@@ -260,7 +273,10 @@ CpaStatus checkSingleInstance()
 #define COMPRESSION_CODE (32)
 #define CHAINING_CODE (128)
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
 #define KPT_RSA_CODE (256)
+#define KPT_ECDSA_CODE (512)
+#endif
 #endif
 #define FIRST_INSTANCE (1)
 
@@ -298,9 +314,11 @@ int main(int argc, char *argv[])
 #endif
     CpaInstanceInfo2 info = {0};
 #ifdef DO_CRYPTO
-    CpaCyCapabilitiesInfo cap = {0};
+    CpaStatus status_asym = CPA_STATUS_FAIL;
     CpaCySymCapabilitiesInfo symCapInfo = {{0}};
     Cpa32U computeLatency = 0;
+    CpaCyCapabilitiesInfo symCap = {0};
+    CpaCyCapabilitiesInfo asymCap = {0};
 #else
 #ifdef USER_SPACE
     Cpa32U computeLatency = 0;
@@ -325,6 +343,7 @@ int main(int argc, char *argv[])
     runStateful = optArray[RUN_STATEFUL_ARRAY_POS].optValue;
     computeLatency = optArray[GET_LATENCY_POS].optValue;
     computeOffloadCost = optArray[GET_OFFLOAD_COST_POS].optValue;
+    includeLZ4 = optArray[RUN_LZ4_TEST_POS].optValue;
 
 #ifndef LATENCY_CODE
     /* If Latency support is not compiled in and the user asks
@@ -396,19 +415,12 @@ int main(int argc, char *argv[])
         disableCycleCount();
     }
 
-#ifndef USE_HARD_CODED_PRIMES
     useStaticPrime = optArray[USE_STATIC_PRIME].optValue;
-#endif
 
     if (CPA_STATUS_SUCCESS != qaeMemInit())
     {
-#ifdef WITH_UPSTREAM
         PRINT_ERR("Could not start usdm_drv for user space\n");
         PRINT("Has the usdm_drv module been loaded?\n");
-#else
-        PRINT_ERR("Could not start qae mem for user space\n");
-        PRINT("Has the qae module been loaded?\n");
-#endif
         return CPA_STATUS_FAIL;
     }
     else
@@ -518,43 +530,53 @@ int main(int argc, char *argv[])
             printDriverVersion(prevDevId);
         }
 
-        status = getCyInstanceCapabilities(&cap);
-        if (CPA_STATUS_SUCCESS != status)
+        if (runTests & SYMMETRIC_CODE)
         {
-            PRINT_ERR("getCyInstanceCapabilities failed with status: %d\n",
-                      status);
-            return status;
+            status = getCryptoInstanceCapabilities(&symCap, SYM);
         }
 
-        if (cap.symSupported == CPA_FALSE && runTests & SYMMETRIC_CODE)
+        if (runTests & ASYMETRIC_CODE)
+        {
+            status_asym = getCryptoInstanceCapabilities(&asymCap, ASYM);
+        }
+        if ((CPA_STATUS_SUCCESS != status) &&
+            (CPA_STATUS_SUCCESS != status_asym))
+        {
+            PRINT_ERR("getCryptoInstanceCapabilities failed to fetch CRYPTO "
+                      "Instance Capabilities.\n");
+            return CPA_STATUS_FAIL;
+        }
+
+        if (symCap.symSupported == CPA_FALSE && runTests & SYMMETRIC_CODE)
         {
             PRINT("Warning! Skipping SYMMETRIC tests as they are not supported "
                   "on Instance\n");
             runTests ^= 1 << 0;
             PRINT("runTests=%d\n", runTests);
         }
-        if (cap.rsaSupported == CPA_FALSE && runTests & RSA_CODE)
+
+        if (asymCap.rsaSupported == CPA_FALSE && runTests & RSA_CODE)
         {
             PRINT("Warning! Skipping RSA tests as they are not supported on "
                   "Instance\n");
             runTests ^= 1 << 1;
             PRINT("runTests=%d\n", runTests);
         }
-        if (cap.dsaSupported == CPA_FALSE && runTests & DSA_CODE)
+        if (asymCap.dsaSupported == CPA_FALSE && runTests & DSA_CODE)
         {
             PRINT("Warning! Skipping DSA tests as they are not supported on "
                   "Instance\n");
             runTests ^= 1 << 2;
             PRINT("runTests=%d\n", runTests);
         }
-        if (cap.ecdsaSupported == CPA_FALSE && runTests & ECDSA_CODE)
+        if (asymCap.ecdsaSupported == CPA_FALSE && runTests & ECDSA_CODE)
         {
             PRINT("Warning! Skipping ECDSA tests as they are not supported on "
                   "Instance\n");
             runTests ^= 1 << 3;
             PRINT("runTests=%d\n", runTests);
         }
-        if (cap.dhSupported == CPA_FALSE && runTests & DH_CODE)
+        if (asymCap.dhSupported == CPA_FALSE && runTests & DH_CODE)
         {
             PRINT("Warning! Skipping DH tests as they are not supported on "
                   "Instance\n");
@@ -562,7 +584,8 @@ int main(int argc, char *argv[])
             PRINT("runTests=%d\n", runTests);
         }
 #if CY_API_VERSION_AT_LEAST(3, 0)
-        if (cap.kpt2Supported == CPA_FALSE && runTests & KPT_RSA_CODE)
+#ifdef SC_KPT2_ENABLED
+        if (asymCap.kptSupported == CPA_FALSE && (runTests & KPT_RSA_CODE))
         {
             PRINT(
                 "Warning! Skipping KPT RSA tests as they are not supported on "
@@ -570,11 +593,19 @@ int main(int argc, char *argv[])
             runTests ^= 1 << 8;
             PRINT("runTests=%d\n", runTests);
         }
+        if (asymCap.kptSupported == CPA_FALSE && (runTests & KPT_ECDSA_CODE))
+        {
+            PRINT("Warning! Skipping KPT ECDSA tests as they are not supported "
+                  "on Instance\n");
+            runTests ^= 1 << 9;
+            PRINT("runTests=%d\n", runTests);
+        }
+#endif
 #endif
         /* Check capabilities before running kasumi wireless alg tests*/
-        if (cap.symSupported == CPA_TRUE && (runTests & SYMMETRIC_CODE))
+        if (symCap.symSupported == CPA_TRUE && (runTests & SYMMETRIC_CODE))
         {
-            status = cpaCySymQueryCapabilities(cyInst_g[0], &symCapInfo);
+            status = getCySymQueryCapabilities(&symCapInfo);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("cpaCySymQueryCapabilities failed with status: %d\n",
@@ -597,6 +628,13 @@ int main(int argc, char *argv[])
     else
     {
         PRINT("There are no crypto instances\n");
+        /* Check if compression service need to be tested
+         * and update the runTests accordingly.
+         * */
+        if (COMPRESSION_CODE & runTests)
+        {
+            runTests = COMPRESSION_CODE;
+        }
     }
 #endif /* DO_CRYPTO */
 
@@ -704,7 +742,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupCipherTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -727,7 +765,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupCipherTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -755,7 +793,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -784,7 +822,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -812,7 +850,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -843,7 +881,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainDpTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -875,7 +913,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainDpTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -907,7 +945,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainDpTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -934,7 +972,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupCipherDpTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -961,7 +999,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupCipherDpTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -986,7 +1024,7 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupCipherDpTest\n");
                     return CPA_STATUS_FAIL;
                 }
-                status = createStartandWaitForCompletion(CRYPTO);
+                status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
                 {
                     retStatus = CPA_STATUS_FAIL;
@@ -1013,7 +1051,7 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupCipherDpTest\n");
                     return CPA_STATUS_FAIL;
                 }
-                status = createStartandWaitForCompletion(CRYPTO);
+                status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
                 {
                     retStatus = CPA_STATUS_FAIL;
@@ -1045,7 +1083,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupRsaTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -1053,6 +1091,8 @@ int main(int argc, char *argv[])
         }
     }
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef USER_SPACE
+#ifdef SC_KPT2_ENABLED
     /**************************************************************************
      * KPT RSA PERFORMANCE
      **************************************************************************/
@@ -1074,13 +1114,39 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupKpt2RsaTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
             }
         }
     }
+
+    /***************************************************************************
+     * KPT ECDSA PERFORMANCE
+     **************************************************************************/
+    if (((KPT_ECDSA_CODE & runTests) == KPT_ECDSA_CODE) &&
+        (computeLatency == 0))
+    {
+        status = setupKpt2EcdsaTest(GFP_P384_SIZE_IN_BITS,
+                                    CPA_CY_EC_FIELD_TYPE_PRIME,
+                                    ASYNC,
+                                    ECDSA_STEP_VERIFY,
+                                    cyNumBuffers,
+                                    cyAsymLoops);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Error calling setupKpt2EcdsaTest\n");
+            return CPA_STATUS_FAIL;
+        }
+        status = createStartandWaitForCompletionCrypto(ASYM);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            retStatus = CPA_STATUS_FAIL;
+        }
+    }
+#endif
+#endif /*USER_SPACE*/
 #endif
 #endif /*DO_CRYPTO*/
 
@@ -1111,7 +1177,7 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDhTest\n");
                 return CPA_STATUS_FAIL;
             }
-            status = createStartandWaitForCompletion(CRYPTO);
+            status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
             {
                 retStatus = CPA_STATUS_FAIL;
@@ -1137,7 +1203,7 @@ int main(int argc, char *argv[])
             PRINT_ERR("Error calling setupDsaTest\n");
             return CPA_STATUS_FAIL;
         }
-        status = createStartandWaitForCompletion(CRYPTO);
+        status = createStartandWaitForCompletionCrypto(ASYM);
         if (CPA_STATUS_SUCCESS != status)
         {
             retStatus = CPA_STATUS_FAIL;
@@ -1162,7 +1228,7 @@ int main(int argc, char *argv[])
             PRINT_ERR("Error calling setupEcdsaTest\n");
             return CPA_STATUS_FAIL;
         }
-        status = createStartandWaitForCompletion(CRYPTO);
+        status = createStartandWaitForCompletionCrypto(ASYM);
         if (CPA_STATUS_SUCCESS != status)
         {
             retStatus = CPA_STATUS_FAIL;
@@ -1204,20 +1270,20 @@ int main(int argc, char *argv[])
 
         if (numDcInst > 0)
         {
-
+            disableAdditionalCmpbufferSize_g = 1;
             dynamicHuffmanEnabled(NULL, &dynamicEnabled);
 
+#if defined(USER_SPACE) || (!defined(USER_SPACE) && !defined(__FreeBSD__))
             /*STATIC L1 & L3 COMPRESSION*/
             status = setupDcTest(CPA_DC_DEFLATE,
                                  CPA_DC_DIR_COMPRESS,
                                  SAMPLE_CODE_CPA_DC_L1,
                                  CPA_DC_HT_STATIC,
-                                 CPA_DC_FT_ASCII,
                                  CPA_DC_STATELESS,
                                  DEFAULT_COMPRESSION_WINDOW_SIZE,
                                  BUFFER_SIZE_8192,
                                  sampleCorpus,
-                                 CPA_SAMPLE_ASYNCHRONOUS,
+                                 ASYNC,
                                  dcLoops);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1234,12 +1300,11 @@ int main(int argc, char *argv[])
                                  CPA_DC_DIR_DECOMPRESS,
                                  SAMPLE_CODE_CPA_DC_L1,
                                  CPA_DC_HT_STATIC,
-                                 CPA_DC_FT_ASCII,
                                  CPA_DC_STATELESS,
                                  DEFAULT_COMPRESSION_WINDOW_SIZE,
                                  BUFFER_SIZE_8192,
                                  sampleCorpus,
-                                 CPA_SAMPLE_ASYNCHRONOUS,
+                                 ASYNC,
                                  dcLoops);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1256,12 +1321,11 @@ int main(int argc, char *argv[])
                                  CPA_DC_DIR_COMPRESS,
                                  SAMPLE_CODE_CPA_DC_L2,
                                  CPA_DC_HT_STATIC,
-                                 CPA_DC_FT_ASCII,
                                  CPA_DC_STATELESS,
                                  DEFAULT_COMPRESSION_WINDOW_SIZE,
                                  BUFFER_SIZE_8192,
                                  sampleCorpus,
-                                 CPA_SAMPLE_ASYNCHRONOUS,
+                                 ASYNC,
                                  dcLoops);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1277,12 +1341,11 @@ int main(int argc, char *argv[])
                                  CPA_DC_DIR_DECOMPRESS,
                                  SAMPLE_CODE_CPA_DC_L2,
                                  CPA_DC_HT_STATIC,
-                                 CPA_DC_FT_ASCII,
                                  CPA_DC_STATELESS,
                                  DEFAULT_COMPRESSION_WINDOW_SIZE,
                                  BUFFER_SIZE_8192,
                                  sampleCorpus,
-                                 CPA_SAMPLE_ASYNCHRONOUS,
+                                 ASYNC,
                                  dcLoops);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1302,12 +1365,11 @@ int main(int argc, char *argv[])
                                      CPA_DC_DIR_COMPRESS,
                                      SAMPLE_CODE_CPA_DC_L1,
                                      CPA_DC_HT_FULL_DYNAMIC,
-                                     CPA_DC_FT_ASCII,
                                      CPA_DC_STATELESS,
                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
                                      BUFFER_SIZE_8192,
                                      sampleCorpus,
-                                     CPA_SAMPLE_ASYNCHRONOUS,
+                                     ASYNC,
                                      dcLoops);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1324,12 +1386,11 @@ int main(int argc, char *argv[])
                                      CPA_DC_DIR_DECOMPRESS,
                                      SAMPLE_CODE_CPA_DC_L1,
                                      CPA_DC_HT_FULL_DYNAMIC,
-                                     CPA_DC_FT_ASCII,
                                      CPA_DC_STATELESS,
                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
                                      BUFFER_SIZE_8192,
                                      sampleCorpus,
-                                     CPA_SAMPLE_ASYNCHRONOUS,
+                                     ASYNC,
                                      dcLoops);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1346,12 +1407,11 @@ int main(int argc, char *argv[])
                                      CPA_DC_DIR_COMPRESS,
                                      SAMPLE_CODE_CPA_DC_L2,
                                      CPA_DC_HT_FULL_DYNAMIC,
-                                     CPA_DC_FT_ASCII,
                                      CPA_DC_STATELESS,
                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
                                      BUFFER_SIZE_8192,
                                      sampleCorpus,
-                                     CPA_SAMPLE_ASYNCHRONOUS,
+                                     ASYNC,
                                      dcLoops);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1367,12 +1427,11 @@ int main(int argc, char *argv[])
                                      CPA_DC_DIR_DECOMPRESS,
                                      SAMPLE_CODE_CPA_DC_L2,
                                      CPA_DC_HT_FULL_DYNAMIC,
-                                     CPA_DC_FT_ASCII,
                                      CPA_DC_STATELESS,
                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
                                      BUFFER_SIZE_8192,
                                      sampleCorpus,
-                                     CPA_SAMPLE_ASYNCHRONOUS,
+                                     ASYNC,
                                      dcLoops);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1393,12 +1452,11 @@ int main(int argc, char *argv[])
                             CPA_DC_DIR_DECOMPRESS,
                             SAMPLE_CODE_CPA_DC_L1, /*not used in this test*/
                             CPA_DC_HT_STATIC,      /*not used in this test*/
-                            CPA_DC_FT_ASCII,
                             CPA_DC_STATELESS,
                             DEFAULT_COMPRESSION_WINDOW_SIZE,
                             dcBufferSize,
                             sampleCorpus,
-                            CPA_SAMPLE_ASYNCHRONOUS,
+                            ASYNC,
                             dcLoops);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1421,7 +1479,7 @@ int main(int argc, char *argv[])
                                              CPA_DC_HT_FULL_DYNAMIC,
                                              BUFFER_SIZE_8192,
                                              sampleCorpus,
-                                             CPA_SAMPLE_SYNCHRONOUS,
+                                             SYNC,
                                              dcLoops);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1461,6 +1519,7 @@ int main(int argc, char *argv[])
                     return status;
                 }
             }
+#endif /* USER_SPACE */
 
             /* Data Plane API Sample Code Test */
             /*STATIC DP_API L1 & L3 COMPRESS & DECOMPRESS*/
@@ -1468,11 +1527,10 @@ int main(int argc, char *argv[])
                                    CPA_DC_DIR_COMPRESS,
                                    SAMPLE_CODE_CPA_DC_L1,
                                    CPA_DC_HT_STATIC,
-                                   CPA_DC_FT_ASCII,
                                    DEFAULT_COMPRESSION_WINDOW_SIZE,
                                    BUFFER_SIZE_8192,
                                    sampleCorpus,
-                                   CPA_SAMPLE_ASYNCHRONOUS,
+                                   ASYNC,
                                    DC_DP_ENQUEUEING,
                                    SINGLE_REQUEST,
                                    dcLoops);
@@ -1491,11 +1549,10 @@ int main(int argc, char *argv[])
                                    CPA_DC_DIR_DECOMPRESS,
                                    SAMPLE_CODE_CPA_DC_L1,
                                    CPA_DC_HT_STATIC,
-                                   CPA_DC_FT_ASCII,
                                    DEFAULT_COMPRESSION_WINDOW_SIZE,
                                    BUFFER_SIZE_8192,
                                    sampleCorpus,
-                                   CPA_SAMPLE_ASYNCHRONOUS,
+                                   ASYNC,
                                    DC_DP_ENQUEUEING,
                                    SINGLE_REQUEST,
                                    dcLoops);
@@ -1514,11 +1571,10 @@ int main(int argc, char *argv[])
                                    CPA_DC_DIR_COMPRESS,
                                    SAMPLE_CODE_CPA_DC_L2,
                                    CPA_DC_HT_STATIC,
-                                   CPA_DC_FT_ASCII,
                                    DEFAULT_COMPRESSION_WINDOW_SIZE,
                                    BUFFER_SIZE_8192,
                                    sampleCorpus,
-                                   CPA_SAMPLE_ASYNCHRONOUS,
+                                   ASYNC,
                                    DC_DP_ENQUEUEING,
                                    SINGLE_REQUEST,
                                    dcLoops);
@@ -1537,11 +1593,10 @@ int main(int argc, char *argv[])
                                    CPA_DC_DIR_DECOMPRESS,
                                    SAMPLE_CODE_CPA_DC_L2,
                                    CPA_DC_HT_STATIC,
-                                   CPA_DC_FT_ASCII,
                                    DEFAULT_COMPRESSION_WINDOW_SIZE,
                                    BUFFER_SIZE_8192,
                                    sampleCorpus,
-                                   CPA_SAMPLE_ASYNCHRONOUS,
+                                   ASYNC,
                                    DC_DP_ENQUEUEING,
                                    SINGLE_REQUEST,
                                    dcLoops);
@@ -1562,11 +1617,10 @@ int main(int argc, char *argv[])
                                        CPA_DC_DIR_COMPRESS,
                                        SAMPLE_CODE_CPA_DC_L1,
                                        CPA_DC_HT_FULL_DYNAMIC,
-                                       CPA_DC_FT_ASCII,
                                        DEFAULT_COMPRESSION_WINDOW_SIZE,
                                        BUFFER_SIZE_8192,
                                        sampleCorpus,
-                                       CPA_SAMPLE_ASYNCHRONOUS,
+                                       ASYNC,
                                        DC_DP_ENQUEUEING,
                                        SINGLE_REQUEST,
                                        dcLoops);
@@ -1585,11 +1639,10 @@ int main(int argc, char *argv[])
                                        CPA_DC_DIR_DECOMPRESS,
                                        SAMPLE_CODE_CPA_DC_L1,
                                        CPA_DC_HT_FULL_DYNAMIC,
-                                       CPA_DC_FT_ASCII,
                                        DEFAULT_COMPRESSION_WINDOW_SIZE,
                                        BUFFER_SIZE_8192,
                                        sampleCorpus,
-                                       CPA_SAMPLE_ASYNCHRONOUS,
+                                       ASYNC,
                                        DC_DP_ENQUEUEING,
                                        SINGLE_REQUEST,
                                        dcLoops);
@@ -1608,11 +1661,10 @@ int main(int argc, char *argv[])
                                        CPA_DC_DIR_COMPRESS,
                                        SAMPLE_CODE_CPA_DC_L2,
                                        CPA_DC_HT_FULL_DYNAMIC,
-                                       CPA_DC_FT_ASCII,
                                        DEFAULT_COMPRESSION_WINDOW_SIZE,
                                        BUFFER_SIZE_8192,
                                        sampleCorpus,
-                                       CPA_SAMPLE_ASYNCHRONOUS,
+                                       ASYNC,
                                        DC_DP_ENQUEUEING,
                                        SINGLE_REQUEST,
                                        dcLoops);
@@ -1631,11 +1683,10 @@ int main(int argc, char *argv[])
                                        CPA_DC_DIR_DECOMPRESS,
                                        SAMPLE_CODE_CPA_DC_L2,
                                        CPA_DC_HT_FULL_DYNAMIC,
-                                       CPA_DC_FT_ASCII,
                                        DEFAULT_COMPRESSION_WINDOW_SIZE,
                                        BUFFER_SIZE_8192,
                                        sampleCorpus,
-                                       CPA_SAMPLE_ASYNCHRONOUS,
+                                       ASYNC,
                                        DC_DP_ENQUEUEING,
                                        SINGLE_REQUEST,
                                        dcLoops);
@@ -1650,9 +1701,191 @@ int main(int argc, char *argv[])
                     retStatus = CPA_STATUS_FAIL;
                 }
             }
+#ifdef USER_SPACE
+#if DC_API_VERSION_AT_LEAST(3, 1)
+            if (includeLZ4 == 1)
+            {
+                /*LZ4 Tests Compression & Decompression */
+                /*XXhash global flag need to be set for LZ4 tests*/
+                setChecksum(CPA_DC_XXHASH32);
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_COMPRESS,
+                               SAMPLE_CODE_CPA_DC_L1,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_8192,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
 
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_COMPRESS,
+                               SAMPLE_CODE_CPA_DC_L1,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_65536,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_COMPRESS,
+                               SAMPLE_CODE_CPA_DC_L9,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_8192,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_COMPRESS,
+                               SAMPLE_CODE_CPA_DC_L9,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_65536,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_DECOMPRESS,
+                               SAMPLE_CODE_CPA_DC_L1,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_8192,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_DECOMPRESS,
+                               SAMPLE_CODE_CPA_DC_L1,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_65536,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_DECOMPRESS,
+                               SAMPLE_CODE_CPA_DC_L9,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_8192,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+
+                setupDcLZ4Test(CPA_DC_LZ4,
+                               CPA_DC_DIR_DECOMPRESS,
+                               SAMPLE_CODE_CPA_DC_L9,
+                               CPA_DC_STATELESS,
+                               BUFFER_SIZE_65536,
+                               sampleCorpus,
+                               CPA_DC_MIN_4_BYTE_MATCH,
+                               CPA_DC_LZ4_MAX_BLOCK_SIZE_64K,
+                               ASYNC,
+                               dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcLZ4Test\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+#else
+            if (includeLZ4 == 1)
+            {
+                PRINT("LZ4 not supported with this API version\n");
+            }
+#endif
+#endif
         } // End of if(numDcInst>0)
     }     // End of if((COMPRESSION_CODE & runTests)== COMPRESSION_CODE
+
 #ifdef USER_SPACE
 #ifdef SC_CHAINING_ENABLED
     /*
@@ -1674,12 +1907,11 @@ int main(int argc, char *argv[])
                                       CPA_DC_DIR_COMPRESS,
                                       SAMPLE_CODE_CPA_DC_L1,
                                       CPA_DC_HT_STATIC,
-                                      CPA_DC_FT_ASCII,
                                       CPA_DC_STATELESS,
                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
                                       dcBufferSize,
                                       sampleCorpus,
-                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      ASYNC,
                                       CPA_CY_SYM_OP_HASH,
                                       CPA_CY_SYM_CIPHER_NULL,
                                       0,
@@ -1707,12 +1939,11 @@ int main(int argc, char *argv[])
                                       CPA_DC_DIR_COMPRESS,
                                       SAMPLE_CODE_CPA_DC_L1,
                                       CPA_DC_HT_STATIC,
-                                      CPA_DC_FT_ASCII,
                                       CPA_DC_STATELESS,
                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
                                       dcBufferSize,
                                       sampleCorpus,
-                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      ASYNC,
                                       CPA_CY_SYM_OP_HASH,
                                       CPA_CY_SYM_CIPHER_NULL,
                                       0,
@@ -1740,12 +1971,11 @@ int main(int argc, char *argv[])
                                       CPA_DC_DIR_COMPRESS,
                                       SAMPLE_CODE_CPA_DC_L1,
                                       CPA_DC_HT_FULL_DYNAMIC,
-                                      CPA_DC_FT_ASCII,
                                       CPA_DC_STATELESS,
                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
                                       dcBufferSize,
                                       sampleCorpus,
-                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      ASYNC,
                                       CPA_CY_SYM_OP_HASH,
                                       CPA_CY_SYM_CIPHER_NULL,
                                       0,
@@ -1773,12 +2003,11 @@ int main(int argc, char *argv[])
                                       CPA_DC_DIR_COMPRESS,
                                       SAMPLE_CODE_CPA_DC_L1,
                                       CPA_DC_HT_FULL_DYNAMIC,
-                                      CPA_DC_FT_ASCII,
                                       CPA_DC_STATELESS,
                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
                                       dcBufferSize,
                                       sampleCorpus,
-                                      CPA_SAMPLE_ASYNCHRONOUS,
+                                      ASYNC,
                                       CPA_CY_SYM_OP_HASH,
                                       CPA_CY_SYM_CIPHER_NULL,
                                       0,

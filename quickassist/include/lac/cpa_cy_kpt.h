@@ -5,7 +5,7 @@
  * 
  *   GPL LICENSE SUMMARY
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  * 
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of version 2 of the GNU General Public License as
@@ -27,7 +27,7 @@
  * 
  *   BSD LICENSE
  * 
- *   Copyright(c) 2007-2021 Intel Corporation. All rights reserved.
+ *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
  *   All rights reserved.
  * 
  *   Redistribution and use in source and binary forms, with or without
@@ -78,12 +78,9 @@
  *     Cryptographic services.
  *
  * @note
- *     These functions implement the KPT Cryptographic API, In order to
- *     realize full KPT function, you need Intel(R) PTT (Platform Trust
- *     Technology) and Intel C62X PCH support, which provide
- *     1. QuickAssist Technology
- *     2. Trusted Platform Module (TPM2.0)
- *     3. Secure communication channel between QAT and PTT
+ *     These functions implement the KPT Cryptographic API.
+ *     This API is experimental and subject to change.
+ *
  *****************************************************************************/
 
 #ifndef __CPA_CY_KPT_H__
@@ -94,7 +91,6 @@ extern "C" {
 #endif
 #include "cpa_cy_common.h"
 #include "cpa_cy_rsa.h"
-#include "cpa_cy_dsa.h"
 #include "cpa_cy_ecdsa.h"
 #include "cpa_cy_ec.h"
 
@@ -106,13 +102,65 @@ extern "C" {
  * @description
  *      Handle to a unique wrapping key in wrapping key table. Application
  *      creates it in KPT key transfer phase and maintains it for KPT Crypto
- *      service. For each KPT Crypto service API invocation,this handle will
- *      be used to get a SWK(Symmetric Wrapping Key ) to unwrap
+ *      service. For each KPT Crypto service API invocation, this handle will
+ *      be used to get a SWK(Symmetric Wrapping Key) to unwrap
  *      WPK(Wrapped Private Key) before performing the requested crypto
  *      service.
  *
  *****************************************************************************/
 typedef Cpa64U CpaCyKptHandle;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaCyKpt
+ *      Return Status
+ * @description
+ *      This enumeration lists all the possible return status after completing
+ *      KPT APIs.
+ *
+ *****************************************************************************/
+typedef enum CpaCyKptKeyManagementStatus_t
+{
+    CPA_CY_KPT_SUCCESS = 0,
+    /**< Generic success status for all KPT wrapping key handling functions*/
+    CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_VFID,
+    /**< SWK count exceeds the configured maxmium value per VFID*/
+    CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_PASID,
+    /**< SWK count exceeds the configured maxmium value per PASID*/
+    CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED,
+    /**< SWK count exceeds the configured maxmium value when not scoped to
+    * VFID or PASID*/
+    CPA_CY_KPT_SWK_FAIL_NOT_FOUND,
+    /**< Unable to find SWK entry by handle */
+    CPA_CY_KPT_FAILED,
+} CpaCyKptKeyManagementStatus;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaCyKpt
+ *      PKCS#1 v2.2 RSA-3K signature output length in bytes.
+ * @see  CpaCyKptValidationKey
+ *
+ *****************************************************************************/
+#define CPA_CY_RSA3K_SIG_SIZE_INBYTES 384
+
+/**
+ *****************************************************************************
+ * @ingroup cpaCyKpt
+ *      KPT device credentials key certificate
+ * @description
+ *      This structure defines the key format for use with KPT.
+ * @see
+ *      cpaCyKptQueryDeviceCredentials
+ *
+ *****************************************************************************/
+typedef struct CpaCyKptValidationKey_t
+{
+    CpaCyRsaPublicKey publicKey;
+        /**< Key */
+    Cpa8U signature[CPA_CY_RSA3K_SIG_SIZE_INBYTES];
+        /**< Signature of key */
+} CpaCyKptValidationKey;
 
 /**
  *****************************************************************************
@@ -124,119 +172,28 @@ typedef Cpa64U CpaCyKptHandle;
  *      This enumeration lists supported cipher algorithms and modes.
  *
  *****************************************************************************/
-typedef enum CpaCyKptWrappingKeyType_t {
-    CPA_CY_KPT_WRAPPING_KEY_TYPE_AES128_GCM = 0,
-    CPA_CY_KPT_WRAPPING_KEY_TYPE_AES256_GCM,
-    CPA_CY_KPT_WRAPPING_KEY_TYPE_AES128_CBC,
-    CPA_CY_KPT_WRAPPING_KEY_TYPE_AES256_CBC
-}CpaCyKptWrappingKeyType;
+typedef enum CpaCyKptWrappingKeyType_t
+{
+    CPA_CY_KPT_WRAPPING_KEY_TYPE_AES256_GCM = 0
+} CpaCyKptWrappingKeyType;
 
 /**
  *****************************************************************************
  * @ingroup cpaCyKpt
- *      Hash algorithms used to generate WPK hash tag or used to do HMAC
- *      authentication in KPT crypto service.
+ *      KPT Loading key format specification.
  * @description
- *      This enumeration lists supported hash algorithms.
+ *      This structure defines the format of the symmetric wrapping key to be
+ *      loaded into KPT. Application sets these parameters through the
+ *      cpaCyKptLoadKey calls.
  *
  *****************************************************************************/
-typedef enum CpaCyKptHMACType_t {
-    CPA_CY_KPT_HMAC_TYPE_NULL = 0,
-    /**< No HMAC required */
-    CPA_CY_KPT_HMAC_TYPE_SHA1,
-    CPA_CY_KPT_HMAC_TYPE_SHA224,
-    CPA_CY_KPT_HMAC_TYPE_SHA256,
-    CPA_CY_KPT_HMAC_TYPE_SHA384,
-    CPA_CY_KPT_HMAC_TYPE_SHA512,
-    CPA_CY_KPT_HMAC_TYPE_SHA3_224,
-    CPA_CY_KPT_HMAC_TYPE_SHA3_256,
-    CPA_CY_KPT_HMAC_TYPE_SHA3_384,
-    CPA_CY_KPT_HMAC_TYPE_SHA3_512
-}CpaCyKptHMACType;
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      Return Status
- * @description
- *      This enumeration lists all the possible return status after completing
- *      KPT APIs.
- *
- *****************************************************************************/
-typedef enum CpaCyKptKeyManagementStatus_t{
-    CPA_CY_KPT_SUCCESS = 0,
-    /**< Generic success status for all KPT wrapping key handling functions*/
-    CPA_CY_KPT_REGISTER_HANDLE_FAIL_RETRY,
-    /**< WKT is busy, retry after some time*/
-    CPA_CY_KPT_REGISTER_HANDLE_FAIL_DUPLICATE,
-    /**<Handle is already present in WKT; this is attempt at duplication */
-    CPA_CY_KPT_LOAD_KEYS_FAIL_INVALID_HANDLE,
-    /**<LoadKey call does not provide a handle that was previously registered.
-     * Either application error, or malicious application. Reject request to
-     * load the key.*/
-    CPA_CY_KPT_REGISTER_HANDLE_FAIL_WKT_FULL,
-    /**< Failed to register wrapping key as WKT is full*/
-    CPA_CY_KPT_WKT_ENTRY_NOT_FOUND,
-    /**< Unable to find SWK entry by handle */
-    CPA_CY_KPT_REGISTER_HANDLE_FAIL_INSTANCE_QUOTA_EXCEEDED,
-    /**< This application has opened too many WKT entries. A Quota is enforced
-     * to prevent DoS attacks*/
-    CPA_CY_KPT_LOADKEYS_FAIL_CHECKSUM_ERROR,
-    /**< Checksum error in key loading*/
-    CPA_CY_KPT_LOADKEYS_FAIL_HANDLE_NOT_REGISTERED,
-    /**< Key is not registered in key loading*/
-    CPA_CY_KPT_LOADKEYS_FAIL_POSSIBLE_DOS_ATTACK,
-    /**< Possible Dos attack happened in key loading*/
-    CPA_CY_KPT_LOADKEYS_FAIL_INVALID_AC_SEND_HANDLE,
-    /**< Invalid key handle got from PTT*/
-    CPA_CY_KPT_LOADKEYS_FAIL_INVALID_DATA_OBJ,
-    /**< Invalid data object got from PTT*/
-    CPA_CY_KPT_FAILED,
-}CpaCyKptKeyManagementStatus;
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      Key selection flag.
- * @description
- *      This enumeration lists possible actions to be performed  during
- *      cpaCyKptLoadKeys invocation.
- *****************************************************************************/
-typedef enum CpaCyKptKeySelectionFlags_t {
-    CPA_CY_KPT_SWK,
-    /**<Symmetric wrapping key,only a SWK will be loaded from PTT to QAT*/
-    CPA_CY_KPT_WPK,
-    /**<Wrapped private key, a data blob including SWK and CPK will be loaded
-    from PTT to QAT, and WPK will be return to application.*/
-    CPA_CY_KPT_OPAQUE_DATA,
-    /**<Opaque data,a opaque data will be loaded from PTT to QAT*/
-    CPA_CY_KPT_HMAC_AUTH_PARAMS,
-    /**<HMAC auth params,HMAC auth params will be loaded from PTT to QAT*/
-    CPA_CY_KPT_RN_SEED
-    /**<DRBG seed,A rondom data generated by PTT will be loaded from PTT
-    to QAT*/
-}CpaCyKptKeySelectionFlags;
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      Key action.
- * @description
- *      PTT architecture support a "per-use" HMAC authorization for accessing
- *      and using key objects stored in PTT. This HMAC check is based on the
- *      use of running nonces shared between the application and PTT. To
- *      stay compatible with PTT's security protocol, QAT implements HMAC
- *      authorization protocol. This flag, set first time in cpaCyKptLoadKeys,
- *      will be used to determine whether HMAC authorization must be processed
- *      when QAT decrypts WPKs using SWKs.
- *
- *****************************************************************************/
-typedef enum CpaCyKptKeyAction_t {
-    CPA_CY_KPT_NO_HMAC_AUTH_CHECK,
-    /**<Do not need HMAC authentication check in KPT Crypto service */
-    CPA_CY_KPT_HMAC_AUTH_CHECK
-    /**< Need HMAC authentication check in KPT Crypto service */
-}CpaCyKptKeyAction;
+typedef struct CpaCyKptLoadKey_t
+{
+    CpaFlatBuffer eSWK;
+    /**< Encrypted SWK */
+    CpaCyKptWrappingKeyType wrappingAlgorithm;
+    /**< Symmetric wrapping algorithm */
+} CpaCyKptLoadKey;
 
 /**
  *****************************************************************************
@@ -244,150 +201,231 @@ typedef enum CpaCyKptKeyAction_t {
  *      Max length of initialization vector
  * @description
  *      Defines the permitted max iv length in bytes that may be used in
- *      private key wrapping/unwrapping.For AEC-GCM,iv length is 12 bytes,for
- *      AES-CBC,iv length is 16 bytes.
- *@see  cpaCyKptWrappingFormat
+ *      private key wrapping/unwrapping.For AEC-GCM, iv length is 12 bytes.
  *
- *****************************************************************************/
-#define CPA_CY_KPT_MAX_IV_LENGTH  (16)
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      KPT wrapping format structure.
- * @description
- *      This structure defines wrapping format which is used to wrap clear
- *      private keys using a symmetric wrapping key.Application sets these
- *      parameters through the cpaCyKptLoadKeys calls.
- *
- *****************************************************************************/
-typedef struct CpaCyKptWrappingFormat_t {
-    CpaCyKptWrappingKeyType   wrappingAlgorithm;
-    /**< Symmetric wrapping algorithm*/
-    Cpa8U               iv[CPA_CY_KPT_MAX_IV_LENGTH];
-    /**< Initialization Vector */
-    Cpa32U              iterationCount;
-    /**< Iteration Count for Key Wrap Algorithms */
-    CpaCyKptHMACType    hmacType;
-    /**< Hash algorithm used in WPK tag generation*/
-} CpaCyKptWrappingFormat;
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      RSA wrapped private key size structure For Representation 2.
- * @description
- *      This structure contains byte length of wrapped quintuple of p,q,dP,dQ
- *      and qInv which are required for the second representation of RSA
- *      private key.
- *       PKCS #1 V2.1 specification defines the second representation of the
- *      RSA private key,The quintuple of p, q, dP, dQ, and qInv  are required
- *      for this representation.
- * @ref CpaCyRsaPrivateKeyRep2
- *
- *****************************************************************************/
-typedef struct CpaCyKptRsaWpkSizeRep2_t {
-    Cpa32U pLenInBytes;
-    /**< The byte length of wrapped prime p */
-    Cpa32U qLenInBytes;
-    /**< The byte length of wrapped prime q */
-    Cpa32U dpLenInBytes;
-    /**< The byte length of wrapped factor CRT exponent (dP) */
-    Cpa32U dqLenInBytes;
-    /**< The byte length of wrapped factor CRT exponent (dQ) */
-    Cpa32U qinvLenInBytes;
-    /**< The byte length of wrapped coefficient (qInv) */
-} CpaCyKptRsaWpkSizeRep2;
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      Wrapped private key size union.
- * @description
- *      A wrapped private key size union, either wrapped quintuple of RSA
- *      representation 2 private key,or byte length of wrapped ECC/RSA Rep1/DSA/
- *      ECDSA private key.
- *
- *****************************************************************************/
-typedef union CpaCyKptWpkSize_t
-{
-   Cpa32U  wpkLenInBytes;
-   /**< The byte length of wrapped private key for Rsa rep1,ECC,DSA
-    *and  ECDSA case*/
-   CpaCyKptRsaWpkSizeRep2 rsaWpkSizeRep2;
-   /**< The byte length of wrapped private key for RSA rep2 case*/
-}CpaCyKptWpkSize;
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      Max length of HMAC value in HMAC authentication during KPT crypto
- *      service.
- * @description
- *      Defines the permitted max HMAC value length in bytes that may be used
- *      to do HMAC verification in KPT crypto service.
  *@see  cpaCyKptUnwrapContext
  *
  *****************************************************************************/
-#define CPA_CY_KPT_HMAC_LENGTH  (64)
+#define CPA_CY_KPT_MAX_IV_LENGTH  (12)
 
 /**
  *****************************************************************************
  * @ingroup cpaCyKpt
- *      Length of nonce generated by application in HMAC authentication during
- *      KPT crypto service.
+ *      Max length of Additional Authenticated Data
  * @description
- *      Defines the caller nonce length in bytes that will be used to do HMAC
- *      authentication in KPT crypto service.
+ *      Defines the permitted max aad length in bytes that may be used in
+ *      private key wrapping/unwrapping.
+ *
  *@see  cpaCyKptUnwrapContext
  *
  *****************************************************************************/
-#define CPA_CY_KPT_CALLER_NONCE_LENGTH  (64)
+#define CPA_CY_KPT_MAX_AAD_LENGTH  (16)
 
 /**
  *****************************************************************************
- * @ingroup cpaCyKpt
- *      Length of nonce generated by QAT in HMAC authentication during KPT
- *      crypto service.
- * @description
- *      Defines the device nonce length in bytes that will be used to do HMAC
- *      authentication in KPT crypto service.
- *@see  cpaCyKptUnwrapContext
- *
- *****************************************************************************/
-#define CPA_CY_KPT_DEVICE_NONCE_LENGTH  (64)
-
-/**
- *****************************************************************************
+ * @file cpa_cy_kpt.h
  * @ingroup cpaCyKpt
  *      Structure of KPT unwrapping context.
  * @description
  *      This structure is a parameter of KPT crypto APIs, it contains data
- *      relating to KPT WPK unwrapping and HMAC authentication,application
- *      should complete those information in structure.
+ *      relating to KPT WPK unwrapping, the application needs to fill in this
+ *      information.
  *
  *****************************************************************************/
-typedef struct CpaCyKptUnwrapContext_t{
-    CpaCyKptHandle   kptHandle;
+typedef struct CpaCyKptUnwrapContext_t
+{
+    CpaCyKptHandle kptHandle;
     /**< This is application's unique handle that identifies its
      * (symmetric) wrapping key*/
-    CpaCyKptWpkSize  wpkSize;
-    /**< WPK's key size*/
-    CpaCyKptHMACType  hmacAlg;
-    /**< HMAC algorithm used in HMAC authentication in KPT crypto service*/
-    Cpa8U          hmacAuthValue[CPA_CY_KPT_HMAC_LENGTH];
-    /**< HMAC authentication value input by the application in KPT crypto
-     * service;*/
-    Cpa8U          callerNonce[CPA_CY_KPT_CALLER_NONCE_LENGTH];
-    /**< Caller(app) nonce generated by app in KPT crypto service*/
-    Cpa8U          deviceNonce[CPA_CY_KPT_DEVICE_NONCE_LENGTH];
-    /**< Device nonce generated by device in KPT crypto service*/
+    Cpa8U iv[CPA_CY_KPT_MAX_IV_LENGTH];
+    /**< Initialization Vector */
+    Cpa8U additionalAuthData[CPA_CY_KPT_MAX_AAD_LENGTH];
+    /**< A buffer holding the Additional Authenticated Data.*/
+    Cpa32U aadLenInBytes;
+    /**< Number of bytes representing the size of AAD within additionalAuthData
+     *   buffer. */
 } CpaCyKptUnwrapContext;
 
 /**
  *****************************************************************************
+ * @file cpa_cy_kpt.h
  * @ingroup cpaCyKpt
- *      KPTECDSA Sign R & S Operation Data.
+ *      RSA Private Key Structure For Representation 1.
+ * @description
+ *      This structure contains the first representation that can be used for
+ *      describing the RSA private key, represented by the tuple of the
+ *      modulus (N) and the private exponent (D).
+ *      The representation is encrypted as follows:
+ *      Encrypt - AES-256-GCM (Key, AAD, Input)
+ *      "||" - denotes concatenation
+ *      Key = SWK
+ *      AAD = DER(OID)
+ *      Input = (D || N)
+ *      Encrypt (SWK, AAD, (D || N))
+ *      Output (AuthTag, (D || N)')
+ *      EncryptedRSAKey = (D || N)'
+ *
+ *      privateKey = (EncryptedRSAKey || AuthTag)
+ *
+ *      OID's that shall be supported by KPT implementation:
+ *            OID                  DER(OID)
+ *            1.2.840.113549.1.1   06 08 2A 86 48 86 F7 0D 01 01
+ *
+ *      Permitted lengths for N and D are:
+ *      - 512 bits (64 bytes),
+ *      - 1024 bits (128 bytes),
+ *      - 1536 bits (192 bytes),
+ *      - 2048 bits (256 bytes),
+ *      - 3072 bits (384 bytes),
+ *      - 4096 bits (512 bytes), or
+ *      - 8192 bits (1024 bytes).
+ *
+ *      AuthTag is 128 bits (16 bytes)
+ *
+ * @note It is important that the value D is big enough. It is STRONGLY
+ *      recommended that this value is at least half the length of the modulus
+ *      N to protect against the Wiener attack.
+ *
+ *****************************************************************************/
+typedef struct CpaCyKptRsaPrivateKeyRep1_t
+{
+    CpaFlatBuffer privateKey;
+    /**< The EncryptedRSAKey concatenated with AuthTag */
+} CpaCyKptRsaPrivateKeyRep1;
+
+/**
+ *****************************************************************************
+ * @file cpa_cy_kpt.h
+ * @ingroup cpaCyKpt
+ *      KPT RSA Private Key Structure For Representation 2.
+ * @description
+ *      This structure contains the second representation that can be used for
+ *      describing the RSA private key. The quintuple of p, q, dP, dQ, and qInv
+ *      (explained below and in the spec) are required for the second
+ *      representation. For KPT the parameters are Encrypted
+ *      with the assoicated SWK as follows:
+ *      Encrypt - AES-256-GCM (Key, AAD, Input)
+ *      "||" - denotes concatenation
+ *      Key = SWK
+ *      AAD = DER(OID)
+ *      Input = (P || Q || dP || dQ || Qinv || publicExponentE)
+ *      Expanded Description:
+ *         Encrypt (SWK, AAD,
+ *                     (P || Q || dP || dQ || Qinv || publicExponentE))
+ *         EncryptedRSAKey = (P || Q || dP || dQ || Qinv || publicExponentE)'
+ *      Output (AuthTag, EncryptedRSAKey)
+ *
+ *      privateKey = EncryptedRSAKey || AuthTag
+ *
+ *      OID's that shall be supported by KPT implementation:
+ *            OID                  DER(OID)
+ *            1.2.840.113549.1.1   06 08 2A 86 48 86 F7 0D 01 01
+ *
+ *      All of the encrypted parameters will be of equal size. The length of
+ *      each will be equal to keySize in bytes/2.
+ *      For example for a key size of 256 Bytes (2048 bits), the length of
+ *      P, Q, dP, dQ, and Qinv are all 128 Bytes, plus the
+ *      publicExponentE of 256 Bytes, giving a total size for
+ *      EncryptedRSAKey of 896 Bytes.
+ *
+ *      AuthTag is 128 bits (16 bytes)
+ *
+ *      Permitted Key Sizes are:
+ *      - 512 bits (64 bytes),
+ *      - 1024 bits (128 bytes),
+ *      - 1536 bits (192 bytes),
+ *      - 2048 bits (256 bytes),
+ *      - 3072 bits (384 bytes),
+ *      - 4096 bits (512 bytes), or
+ *      - 8192 bits (1024 bytes).
+ *
+ *****************************************************************************/
+typedef struct CpaCyKptRsaPrivateKeyRep2_t
+{
+    CpaFlatBuffer privateKey;
+    /**< RSA private key representation 2 is built up from the
+     *   tuple of p, q, dP, dQ, qInv, publicExponentE and AuthTag.
+     */
+} CpaCyKptRsaPrivateKeyRep2;
+
+/**
+ *****************************************************************************
+ * @file cpa_cy_kpt.h
+ * @ingroup cpaCyKpt
+ *      RSA Private Key Structure.
+ * @description
+ *      This structure contains the two representations that can be used for
+ *      describing the RSA private key. The privateKeyRepType will be used to
+ *      identify which representation is to be used. Typically, using the
+ *      second representation results in faster decryption operations.
+ *
+ *****************************************************************************/
+typedef struct CpaCyKptRsaPrivateKey_t
+{
+    CpaCyRsaVersion version;
+    /**< Indicates the version of the PKCS #1 specification that is
+     * supported.
+     * Note that this applies to both representations. */
+    CpaCyRsaPrivateKeyRepType privateKeyRepType;
+    /**< This value is used to identify which of the private key
+     * representation types in this structure is relevant.
+     * When performing key generation operations for Type 2 representations,
+     * memory must also be allocated for the type 1 representations, and values
+     * for both will be returned. */
+    CpaCyKptRsaPrivateKeyRep1 privateKeyRep1;
+    /**< This is the first representation of the RSA private key as
+     * defined in the PKCS #1 V2.2 specification. */
+    CpaCyKptRsaPrivateKeyRep2 privateKeyRep2;
+    /**< This is the second representation of the RSA private key as
+     * defined in the PKCS #1 V2.2 specification. */
+} CpaCyKptRsaPrivateKey;
+
+/**
+ *****************************************************************************
+ * @file cpa_cy_kpt.h
+ * @ingroup cpaCyKpt
+ *      KPT RSA Decryption Primitive Operation Data
+ * @description
+ *      This structure lists the different items that are required in the
+ *      cpaCyKptRsaDecrypt function. As the RSA decryption primitive and
+ *      signature primitive operations are mathematically identical this
+ *      structure may also be used to perform an RSA signature primitive
+ *      operation.
+ *      When performing an RSA decryption primitive operation, the input data
+ *      is the cipher text and the output data is the message text.
+ *      When performing an RSA signature primitive operation, the input data
+ *      is the message and the output data is the signature.
+ *      The client MUST allocate the memory for this structure. When the
+ *      structure is passed into the function, ownership of the memory passes
+ *      to he function. Ownership of the memory returns to the client when
+ *      this structure is returned in the CpaCyGenFlatBufCbFunc
+ *      callback function.
+ *
+ * @note
+ *      If the client modifies or frees the memory referenced in this structure
+ *      after it has been submitted to the cpaCyKptRsaDecrypt function, and
+ *      before it has been returned in the callback, undefined behavior will
+ *      result.
+ *      All values in this structure are required to be in Most Significant Byte
+ *      first order, e.g. inputData.pData[0] = MSB.
+ *
+ *****************************************************************************/
+typedef struct CpaCyKptRsaDecryptOpData_t
+{
+    CpaCyKptRsaPrivateKey *pRecipientPrivateKey;
+    /**< Pointer to the recipient's RSA private key. */
+    CpaFlatBuffer inputData;
+    /**< The input data that the RSA decryption primitive operation is
+     * performed on. The data pointed to is an integer that MUST be in big-
+     * endian order. The value MUST be between 0 and the modulus n - 1. */
+} CpaCyKptRsaDecryptOpData;
+
+
+/**
+ *****************************************************************************
+ * @file cpa_cy_kpt.h
+ * @ingroup cpaCyKpt
+ *      KPT ECDSA Sign R & S Operation Data.
  *
  * @description
  *      This structure contains the operation data for the cpaCyKptEcdsaSignRS
@@ -396,11 +434,32 @@ typedef struct CpaCyKptUnwrapContext_t{
  *      the function, ownership of the memory passes to the function. Ownership
  *      of the memory returns to the client when this structure is returned in
  *      the callback function.
+ *      This key structure is encrypted when passed into cpaCyKptEcdsaSignRS
+ *      Encrypt - AES-256-GCM (Key, AAD, Input)
+ *      "||" - denotes concatenation
+ *
+ *      Key = SWK
+ *      AAD = DER(OID)
+ *      Input = (d)
+ *      Encrypt (SWK, AAD, (d))
+ *      Output (AuthTag, EncryptedECKey)
+ *
+ *      privatekey == EncryptedECKey || AuthTag
+ *
+ *      OID's that shall be supported by KPT implementation:
+ *          Curve      OID                  DER(OID)
+ *          secp256r1  1.2.840.10045.3.1.7  06 08 2A 86 48 CE 3D 03 01 07
+ *          secp384r1  1.3.132.0.34         06 05 2B 81 04 00 22
+ *          secp521r1  1.3.132.0.35         06 05 2B 81 04 00 23
+ *
+ *      Expected private key (d) sizes:
+ *          secp256r1   256 bits
+ *          secp384r1   384 bits
+ *          secp521r1   576 bits (rounded up to a multiple of 64-bit quadword)
+ *
+ *      AuthTag is 128 bits (16 bytes)
  *
  *      For optimal performance all data buffers SHOULD be 8-byte aligned.
- *
- *      All values in this structure are required to be in Most Significant Byte
- *      first order, e.g. a.pData[0] = MSB.
  *
  * @note
  *      If the client modifies or frees the memory referenced in this
@@ -412,149 +471,187 @@ typedef struct CpaCyKptUnwrapContext_t{
  *      cpaCyEcdsaSignRS()
  *
  *****************************************************************************/
-typedef struct _CpaCyKptEcdsaSignRSOpData {
-    CpaFlatBuffer xg;
-    /**< x coordinate of base point G */
-    CpaFlatBuffer yg;
-    /**< y coordinate of base point G */
-    CpaFlatBuffer n;
-    /**< order of the base point G, which shall be prime */
-    CpaFlatBuffer q;
-    /**< prime modulus or irreducible polynomial over GF(2^r) */
-    CpaFlatBuffer a;
-    /**< a elliptic curve coefficient */
-    CpaFlatBuffer b;
-    /**< b elliptic curve coefficient */
+typedef struct CpaCyKptEcdsaSignRSOpData_t
+{
+    CpaFlatBuffer privateKey;
+    /**< Encrypted private key data of the form
+     * EncryptECKey || AuthTag */
     CpaFlatBuffer m;
     /**< digest of the message to be signed */
-    CpaFlatBuffer d;
-    /**< private key */
-    CpaCyEcFieldType fieldType;
-    /**< field type for the operation */
 } CpaCyKptEcdsaSignRSOpData;
 
 /**
  *****************************************************************************
- * @ingroup cpaCyKpt
- *      Perform KPT key handle register function.
+ * Discovery and Provisioning APIs for KPT
  *
- * @description
- *      Used for loading an application's wrapping key from PTT to QAT.
- *      An application first precomputes/initializes a 64 bit handle value
- *      using CPU based RDRAND instruction or other means and passes it to
- *      QAT. This will signal to QAT that a KPT key transfer operation is
- *      about to begin
- * @context
- *      This is a synchronous function and it can sleep. It MUST NOT be
- *      executed in a context that DOES NOT permit sleeping.
- * @assumptions
- *      None
- * @sideEffects
- *      None
- * @blocking
- *      This function is synchronous and blocking.
- * @reentrant
- *      No
- * @threadSafe
- *      Yes
- *
- * @param[in]  instanceHandle       QAT service instance handle.
- * @param[in]  keyHandle            A 64-bit handle value
- * @param[out] pKptStatus           One of the status codes denoted in the
- *                                  enumerate type of
- *                                  cpaCyKptKeyManagementStatus
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully.
- * @retval CPA_STATUS_FAIL           Function failed.
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
- * @retval CPA_STATUS_RESOURCE       Error related to system resources.
- * @retval CPA_STATUS_RESTARTING     API implementation is restarting.
- *                                   Resubmit the request.
- *
- * @pre
- *      Component has been initialized.
- * @post
- *      None
- * @note
- *     This function operates in a synchronous manner and no asynchronous
- *     callback will be generated.
- * @see
- *      None
  *****************************************************************************/
-CpaStatus cpaCyKptRegisterKeyHandle(CpaInstanceHandle instanceHandle,
-                                  CpaCyKptHandle keyHandle,
-                                  CpaCyKptKeyManagementStatus *pKptStatus);
+
+ /**
+  *****************************************************************************
+  * @file cpa_cy_kpt.h
+  * @ingroup cpaCyKpt
+  *      Query KPT's issuing public key(R_Pu) and signature from QAT driver.
+  * @description
+  *      This function is to query the RSA3K issuing key and its
+  *      PKCS#1 v2.2 SHA-384 signature from the QAT driver.
+  * @context
+  *      This function may sleep, and  MUST NOT be called in interrupt context.
+  * @assumptions
+  *      None
+  * @sideEffects
+  *      None
+  * @blocking
+  *      This function is synchronous and blocking.
+  * @param[in]  instanceHandle       Instance handle.
+  * @param[out] pIssueCert           KPT-2.0 Issuing certificate in PEM format
+                                     as defined in RFC#7468
+  * @param[out] pKptStatus           One of the status codes denoted in the
+  *                                  enumerate type CpaCyKptKeyManagementStatus
+  *              CPA_CY_KPT_SUCCESS  Issuing key retrieved successfully
+  *              CPA_CY_KPT_FAILED   Operation failed
+  *
+  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
+  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in.
+  * @retval CPA_STATUS_FAIL          Function failed. Suggested course of action
+  *                                  is to shutdown and restart.
+  * @retval CPA_STATUS_UNSUPPORTED   Function is not supported.
+  * @retval CPA_STATUS_RESTARTING    API implementation is restarting.
+  *                                  Resubmit the request.
+  *
+  * @pre
+  *      The component has been initialized via cpaCyStartInstance function.
+  * @post
+  *      None
+  * @note
+  *      Note that this is a synchronous function and has no completion callback
+  *      associated with it.
+  * @see
+  *
+  *****************************************************************************/
+ CpaStatus
+ cpaCyKptQueryIssuingKeys(const CpaInstanceHandle instanceHandle,
+        CpaFlatBuffer *pPublicX509IssueCert,
+        CpaCyKptKeyManagementStatus *pKptStatus);
+
+ /**
+  *****************************************************************************
+  * @file cpa_cy_kpt.h
+  * @ingroup cpaCyKpt
+  *      Query KPT's Per-Part public key(I_pu) and signature from QAT
+  *      device
+  * @description
+  *      This function is to query RSA3K Per-Part public key and its
+  *      PKCS#1 v2.2 SHA-384 signature from the QAT device.
+  * @context
+  *      This function may sleep, and  MUST NOT be called in interrupt context.
+  * @assumptions
+  *      None
+  * @sideEffects
+  *      None
+  * @blocking
+  *      This function is synchronous and blocking.
+  * @param[in]  instanceHandle       Instance handle.
+  * @param[out] pDevCredential       Device Per-Part public key
+  * @param[out] pKptStatus           One of the status codes denoted in the
+  *                                  enumerate type CpaCyKptKeyManagementStatus
+  *              CPA_CY_KPT_SUCCESS  Device credentials retreived successfully
+  *              CPA_CY_KPT_FAILED   Operation failed
+  *
+  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
+  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in.
+  * @retval CPA_STATUS_FAIL          Function failed. Suggested course of action
+  *                                  is to shutdown and restart.
+  * @retval CPA_STATUS_UNSUPPORTED   Function is not supported.
+  * @retval CPA_STATUS_RESTARTING    API implementation is restarting.
+  *                                  Resubmit the request.
+  *
+  * @pre
+  *      The component has been initialized via cpaCyStartInstance function.
+  * @post
+  *      None
+  * @note
+  *      Note that this is a synchronous function and has no completion callback
+  *      associated with it.
+  * @see
+  *
+  *****************************************************************************/
+ CpaStatus
+ cpaCyKptQueryDeviceCredentials(const CpaInstanceHandle instanceHandle,
+        CpaCyKptValidationKey *pDevCredential,
+        CpaCyKptKeyManagementStatus *pKptStatus);
+
+ /**
+  *****************************************************************************
+  * @file cpa_cy_kpt.h
+  * @ingroup cpaCyKpt
+  *      Perform KPT key loading function.
+  *
+  * @description
+  *      This function is invoked by a QAT application to load an encrypted
+  *      symmetric wrapping key.
+  * @context
+  *      This is a synchronous function and it can sleep. It MUST NOT be
+  *      executed in a context that DOES NOT permit sleeping.
+  * @assumptions
+  *      None
+  * @sideEffects
+  *      None
+  * @blocking
+  *      This function is synchronous and blocking.
+  * @reentrant
+  *      No
+  * @threadSafe
+  *      Yes
+  *
+  * @param[in]  instanceHandle      QAT service instance handle.
+  * @param[in]  pSWK                Encrypted SWK
+  * @param[out] keyHandle           A 64-bit handle value created by KPT
+  * @param[out] pKptStatus          One of the status codes denoted in the
+  *                                 enumerate type CpaCyKptKeyManagementStatus
+  *   CPA_CY_KPT_SUCCESS  Key Loaded successfully
+  *   CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_VFID
+  *       SWK count exceeds the configured maxmium value per VFID
+  *   CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_PASID
+  *       SWK count exceeds the configured maxmium value per PASID
+  *   CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED
+  *       SWK count exceeds the configured maxmium value when not scoped to
+  *       VFID or PASID
+  *   CPA_CY_KPT_FAILED   Operation failed due to unspecified reason
+  *
+  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
+  * @retval CPA_STATUS_FAIL          Function failed.
+  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in.
+  * @retval CPA_STATUS_RESOURCE      Error related to system resources.
+  * @retval CPA_STATUS_RESTARTING    API implementation is restarting.
+  *                                  Resubmit the request.
+  * @retval CPA_STATUS_UNSUPPORTED   KPT-2.0 is not supported.
+  *
+  * @pre
+  *      Component has been initialized.
+  * @post
+  *      None
+  * @note
+  *      None
+  * @see
+  *      None
+  *****************************************************************************/
+ CpaStatus
+ cpaCyKptLoadKey(CpaInstanceHandle instanceHandle,
+    CpaCyKptLoadKey *pSWK,
+    CpaCyKptHandle *keyHandle,
+    CpaCyKptKeyManagementStatus *pKptStatus);
 
 /**
  *****************************************************************************
- * @ingroup cpaCyKpt
- *      Perform KPT key loading function.
- *
- * @description
- *      This function is invoked by QAT application after instructing PTT to
- *      send its wrapping key to QAT.
- *      After PTT returns a TPM_SUCCESS, the wrapping key structure is placed
- *      in QAT. The Application completes the 3-way handshake by invoking this
- *      API and requesting QAT to store the wrapping key, along with its
- *      handle.
- * @context
- *      This is a synchronous function and it can sleep. It MUST NOT be
- *      executed in a context that DOES NOT permit sleeping.
- * @assumptions
- *      None
- * @sideEffects
- *      None
- * @blocking
- *      This function is synchronous and blocking.
- * @reentrant
- *      No
- * @threadSafe
- *      Yes
- *
- * @param[in]  instanceHandle      QAT service instance handle.
- * @param[in]  keyHandle           A 64-bit handle value
- * @param[in]  keySelFlag          Flag to indicate which kind of mode
- *                                 (SWK or WPK) should be loaded.
- * @param[in]  keyAction           Whether HAMC authentication is needed
- * @param[in]  pKptWrappingFormat  Pointer to CpaCyKptWrappingFormat whose
- *                                 fields will be written to WKT.
- * @param[out] pOutputData         FlatBuffer pointer, which contains the
- *                                 wrapped private key structure used by
- *                                 application.
- * @param[out] pKptStatus          One of the status codes denoted in the
- *                                 enumerate type CpaCyKptKeyManagementStatus
- * @retval CPA_STATUS_SUCCESS       Function executed successfully.
- * @retval CPA_STATUS_FAIL          Function failed.
- * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in.
- * @retval CPA_STATUS_RESOURCE      Error related to system resources.
- * @retval CPA_STATUS_RESTARTING    API implementation is restarting.
- *                                  Resubmit the request.
- * @pre
- *      Component has been initialized.
- * @post
- *      None
- * @note
- *      None
- * @see
- *      None
- *****************************************************************************/
-CpaStatus cpaCyKptLoadKeys(CpaInstanceHandle instanceHandle,
-                         CpaCyKptHandle keyHandle,
-                         CpaCyKptWrappingFormat *pKptWrappingFormat,
-                         CpaCyKptKeySelectionFlags keySelFlag,
-                         CpaCyKptKeyAction keyAction,
-                         CpaFlatBuffer *pOutputData,
-                         CpaCyKptKeyManagementStatus *pKptStatus);
-
-/**
- *****************************************************************************
+ * @file cpa_cy_kpt.h
  * @ingroup cpaCyKpt
  *      Perform KPT delete keys function according to key handle
  *
  * @description
  *      Before closing a QAT session(instance), an application that has
- *      previously stored its wrapping key in QAT using the KPT framework
- *      executes this call to delete its wrapping key in QAT.
+ *      previously stored its wrapping key in a QAT device using the KPT
+ *      framework executes this call to delete its wrapping key in the QAT
+ *      device.
  * @context
  *      This is a synchronous function and it can sleep. It MUST NOT be
  *      executed in a context that DOES NOT permit sleeping.
@@ -573,6 +670,10 @@ CpaStatus cpaCyKptLoadKeys(CpaInstanceHandle instanceHandle,
  * @param[in]  keyHandle            A 64-bit handle value
  * @param[out] pkptstatus           One of the status codes denoted in the
  *                                  enumerate type CpaCyKptKeyManagementStatus
+ *   CPA_CY_KPT_SUCCESS  Key Deleted successfully
+ *   CPA_CY_KPT_SWK_FAIL_NOT_FOUND For any reason the input handle cannot be
+ *        found.
+ *   CPA_CY_KPT_FAILED   Operation failed due to unspecified reason
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
  * @retval CPA_STATUS_FAIL           Function failed.
@@ -589,17 +690,25 @@ CpaStatus cpaCyKptLoadKeys(CpaInstanceHandle instanceHandle,
  * @see
  *      None
  *****************************************************************************/
-CpaStatus cpaCyKptDeleteKey(CpaInstanceHandle instanceHandle,
-                            CpaCyKptHandle keyHandle,
-                            CpaCyKptKeyManagementStatus * pkptstatus);
+CpaStatus
+cpaCyKptDeleteKey(CpaInstanceHandle instanceHandle,
+        CpaCyKptHandle keyHandle,
+        CpaCyKptKeyManagementStatus *pKptStatus);
+
+/**
+*****************************************************************************
+* Usage APIs for KPT
+*
+*****************************************************************************/
 
 /**
  *****************************************************************************
+ * @file cpa_cy_kpt.h
  * @ingroup cpaCyKpt
- *      Perform KPT mode RSA decrypt primitive operation on the input data.
+ *      Perform KPT-2.0 mode RSA decrypt primitive operation on the input data.
  *
  * @description
- *      This function is variant of cpaCyRsaDecrypt, which  will perform
+ *      This function is a variant of cpaCyRsaDecrypt, which will perform
  *      an RSA decryption primitive operation on the input data using the
  *      specified RSA private key which are encrypted. As the RSA decryption
  *      primitive and signing primitive operations are mathematically
@@ -644,7 +753,7 @@ CpaStatus cpaCyKptDeleteKey(CpaInstanceHandle instanceHandle,
  *                                On invocation the callback function will
  *                                contain this parameter in the pOut parameter.
  * @param[in]  pKptUnwrapContext  Pointer of structure into which the content
- *                                of KptUnwrapContext is kept,The client MUST
+ *                                of KptUnwrapContext is kept. The client MUST
  *                                allocate this memory and copy structure
  *                                KptUnwrapContext into this flat buffer.
  *
@@ -662,120 +771,36 @@ CpaStatus cpaCyKptDeleteKey(CpaInstanceHandle instanceHandle,
  * @note
  *      By virtue of invoking cpaSyKptRsaDecrypt, the implementation understands
  *      that pDecryptOpData contains an encrypted private key that requires
- *      unwrapping. KptUnwrapContext contains an 'KptHandle' field that points
+ *      unwrapping. KptUnwrapContext contains a 'KptHandle' field that points
  *      to the unwrapping key in the WKT.
  *      When pRsaDecryptCb is non-NULL an asynchronous callback is generated in
  *      response to this function call.
  *      Any errors generated during processing are reported as part of the
  *      callback status code. For optimal performance, data pointers SHOULD be
  *      8-byte aligned.
- *      In KPT release,private key field in CpaCyRsaDecryptOpData is a
+ *      In KPT release, private key field in CpaCyKptRsaDecryptOpData is a
  *      concatenation of cipher text and hash tag.
  *      For optimal performance, data pointers SHOULD be 8-byte aligned.
  * @see
- *      CpaCyRsaDecryptOpData,
+ *      CpaCyKptRsaDecryptOpData,
  *      CpaCyGenFlatBufCbFunc,
- *      cpaCyRsaGenKey(),
- *      cpaCyRsaEncrypt()
  *
  *****************************************************************************/
-CpaStatus cpaCyKptRsaDecrypt(const CpaInstanceHandle       instanceHandle,
-                             const CpaCyGenFlatBufCbFunc   pRsaDecryptCb,
-                             void                          *pCallbackTag,
-                             const CpaCyRsaDecryptOpData   *pDecryptOpData,
-                             CpaFlatBuffer                 *pOutputData,
-                             CpaFlatBuffer                 *pKptUnwrapContext);
-
-/**
- *****************************************************************************
- * @ingroup cpaCyEc
- *      Perform KPT mode EC Point Multiplication.
- *
- * @description
- *      This function is variant of cpaCyEcPointMultiply, which will
- *      perform Elliptic Curve Point Multiplication as per
- *      ANSI X9.63 Annex D.3.2.
- *
- * @context
- *      When called as an asynchronous function it cannot sleep. It can be
- *      executed in a context that does not permit sleeping.
- *      When called as a synchronous function it may sleep. It MUST NOT be
- *      executed in a context that DOES NOT permit sleeping.
- * @assumptions
- *      None
- * @sideEffects
- *      None
- * @blocking
- *      Yes when configured to operate in synchronous mode.
- * @reentrant
- *      No
- * @threadSafe
- *      Yes
- *
- * @param[in]  instanceHandle     Instance handle.
- * @param[in]  pCb                Callback function pointer. If this is set to
- *                                a NULL value the function will operate
- *                                synchronously.
- * @param[in]  pCallbackTag       User-supplied value to help identify request.
- * @param[in]  pOpData            Structure containing all the data needed to
- *                                perform the operation. The client code
- *                                allocates the memory for this structure. This
- *                                component takes ownership of the memory until
- *                                it is returned in the callback.
- * @param[out] pMultiplyStatus    In synchronous mode, the multiply output is
- *                                valid (CPA_TRUE) or the output is invalid
- *                                (CPA_FALSE).
- * @param[out] pXk                Pointer to xk flat buffer.
- * @param[out] pYk                Pointer to yk flat buffer.
- * @param[in]  pKptUnwrapContext  Pointer of structure into which the content
- *                                of KptUnwrapContext is kept,The client MUST
- *                                allocate this memory and copy structure
- *                                KptUnwrapContext into this flat buffer.
- *
- * @retval CPA_STATUS_SUCCESS       Function executed successfully.
- * @retval CPA_STATUS_FAIL          Function failed.
- * @retval CPA_STATUS_RETRY         Resubmit the request.
- * @retval CPA_STATUS_INVALID_PARAM Invalid parameter in.
- * @retval CPA_STATUS_RESOURCE      Error related to system resources.
- * @retval CPA_STATUS_RESTARTING    API implementation is restarting. Resubmit
- *                                  the request.
- *
- * @pre
- *      The component has been initialized via cpaCyStartInstance function.
- * @post
- *      None
- * @note
- *      By virtue of invoking the cpaCyKptEcPointMultiply, the implementation
- *      understands that CpaCyEcPointMultiplyOpData contains an encrypted 
- *      private key that requires unwrapping. KptUnwrapContext contains an 
- *      'KptHandle' field that points to the unwrapping key in the WKT.
- *      When pCb is non-NULL an asynchronous callback of type
- *      CpaCyEcPointMultiplyCbFunc is generated in response to this function
- *      call.
- *      In KPT release,private key field in cpaCyKptEcPointMultiply is a
- *      concatenation of cipher text and hash tag.
- *      For optimal performance, data pointers SHOULD be 8-byte aligned.
- * @see
- *      CpaCyEcPointMultiplyOpData,
- *      CpaCyEcPointMultiplyCbFunc
- *
- *****************************************************************************/
-CpaStatus cpaCyKptEcPointMultiply(const   CpaInstanceHandle    instanceHandle,
-                                  const   CpaCyEcPointMultiplyCbFunc  pCb,
-                                  void*                           pCallbackTag,
-                                  const   CpaCyEcPointMultiplyOpData* pOpData,
-                                  CpaBoolean                  *pMultiplyStatus,
-                                  CpaFlatBuffer               *pXk,
-                                  CpaFlatBuffer               *pYk,
-                                  CpaFlatBuffer               *pKptUnwrapContext);
+CpaStatus
+cpaCyKptRsaDecrypt(const CpaInstanceHandle instanceHandle,
+        const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
+        void *pCallbackTag,
+        const CpaCyKptRsaDecryptOpData *pDecryptOpData,
+        CpaFlatBuffer *pOutputData,
+        CpaCyKptUnwrapContext *pKptUnwrapContext);
 
 /**
  *****************************************************************************
  * @ingroup cpaCyKpt
  *      Generate ECDSA Signature R & S.
  * @description
- *      This function is a varient of cpaCyEcdsaSignRS, it generates ECDSA
- *      Signature R & S as per ANSI X9.62 2005 section 7.3.
+ *      This function is a variant of cpaCyEcdsaSignRS, it generates ECDSA
+ *      signature R & S as per ANSI X9.62 2005 section 7.3.
  * @context
  *      When called as an asynchronous function it cannot sleep. It can be
  *      executed in a context that does not permit sleeping.
@@ -828,12 +853,12 @@ CpaStatus cpaCyKptEcPointMultiply(const   CpaInstanceHandle    instanceHandle,
  * @note
  *      By virtue of invoking the cpaCyKptEcdsaSignRS, the implementation
  *      understands CpaCyEcdsaSignRSOpData contains an encrypted private key that
- *      requires unwrapping. KptUnwrapContext contains an 'KptHandle' field
+ *      requires unwrapping. KptUnwrapContext contains a 'KptHandle' field
  *      that points to the unwrapping key in the WKT.
  *      When pCb is non-NULL an asynchronous callback of type
  *      CpaCyEcdsaSignRSCbFunc generated in response to this function
  *      call.
- *      In KPT release,private key field in CpaCyEcdsaSignRSOpData is a
+ *      In KPT release, private key field in CpaCyEcdsaSignRSOpData is a
  *      concatenation of cipher text and hash tag.
  * @see
  *      None
@@ -846,213 +871,7 @@ cpaCyKptEcdsaSignRS(const CpaInstanceHandle instanceHandle,
         CpaBoolean *pSignStatus,
         CpaFlatBuffer *pR,
         CpaFlatBuffer *pS,
-        CpaFlatBuffer *pKptUnwrapContext);
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *      This function is varient of cpaCyDsaSignS,which generate DSA S
- *      Signature.
- * @description
- *      This function generates the DSA S signature as described in FIPS 186-3
- *      Section 4.6:
- *          s = (k^-1(z + xr)) mod q
- *
- *      Here, z = the leftmost min(N, outlen) bits of Hash(M).  This function
- *      does not perform the SHA digest; z is computed by the caller and
- *      passed as a parameter in the pOpData field.
- *
- *      The protocol status, returned in the callback function as parameter
- *      protocolStatus (or, in the case of synchronous invocation, in the
- *      parameter *pProtocolStatus) is used to indicate whether the value
- *      s == 0.
- *
- *      Specifically, (protocolStatus == CPA_TRUE) means s != 0, while
- *      (protocolStatus == CPA_FALSE) means s == 0.
- *
- *      If signature r has been generated in advance, then this function can
- *      be used to generate the signature s once the message becomes available.
- *
- * @context
- *      When called as an asynchronous function it cannot sleep. It can be
- *      executed in a context that does not permit sleeping.
- *      When called as a synchronous function it may sleep. It MUST NOT be
- *      executed in a context that DOES NOT permit sleeping.
- * @assumptions
- *      None
- * @sideEffects
- *      None
- * @blocking
- *      Yes when configured to operate in synchronous mode.
- * @reentrant
- *      No
- * @threadSafe
- *      Yes
- *
- * @param[in]  instanceHandle    Instance handle.
- * @param[in]  pCb               Callback function pointer. If this is set to a
- *                               NULL value the function will operate
- *                               synchronously.
- * @param[in]  pCallbackTag      User-supplied value to help identify request.
- * @param[in]  pOpData           Structure containing all the data needed to
- *                               perform the operation. The client code
- *                               allocates the memory for this structure. This
- *                               component takes ownership of the memory until
- *                               it is returned in the callback.
- * @param[out] pProtocolStatus   The result passes/fails the DSA protocol
- *                               related checks.
- * @param[out] pS                DSA message signature s.
- *                               On invocation the callback function will
- *                               contain this parameter in the pOut parameter.
- * @param[in]  pKptUnwrapContext  Pointer of structure into which the content
- *                                of KptUnwrapContext is kept,The client MUST
- *                                allocate this memory and copy structure
- *                                KptUnwrapContext into this flat buffer.
- *
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully.
- * @retval CPA_STATUS_FAIL           Function failed.
- * @retval CPA_STATUS_RETRY          Resubmit the request.
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
- * @retval CPA_STATUS_RESOURCE       Error related to system resources.
- * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
- *                                   the request.
- * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
- *
- * @pre
- *      The component has been initialized via cpaCyStartInstance function.
- * @post
- *      None
- * @note
- *      When pCb is non-NULL an asynchronous callback of type
- *      CpaCyDsaSSignCbFunc is generated in response to this function
- *      call.
- *      For optimal performance, data pointers SHOULD be 8-byte aligned.
- *
- *      By virtue of invoking cpaCyKptDsaSignS, the implementation understands
- *      CpaCyDsaSSignOpData contains an encrypted private key that
- *      requires unwrapping. KptUnwrapContext contains an 'KptHandle' field
- *      that points to the unwrapping key in the WKT.
- *      In KPT,private key field in CpaCyDsaSSignOpData is a concatenation
- *      of cipher text and hash tag.
- *      For optimal performance, data pointers SHOULD be 8-byte aligned.
- * @see
- *      CpaCyDsaSSignOpData,
- *      CpaCyDsaGenCbFunc,
- *      cpaCyDsaSignR(),
- *      cpaCyDsaSignRS()
- *
- *****************************************************************************/
-CpaStatus
-cpaCyKptDsaSignS(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaGenCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaSSignOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pS,
-        CpaFlatBuffer *pKptUnwrapContext);
-
-/**
- *****************************************************************************
- * @ingroup cpaCyKpt
- *     This function is a varient of cpaCyDsaSignRS,which generate DSA R and
- *     S Signature
- * @description
- *     This function generates the DSA R and S signatures as described in
- *     FIPS 186-3 Section 4.6:
- *
- *         r = (g^k mod p) mod q
- *         s = (k^-1(z + xr)) mod q
- *
- *     Here, z = the leftmost min(N, outlen) bits of Hash(M).  This function
- *     does not perform the SHA digest; z is computed by the caller and
- *     passed as a parameter in the pOpData field.
- *
- *     The protocol status, returned in the callback function as parameter
- *     protocolStatus (or, in the case of synchronous invocation, in the
- *     parameter *pProtocolStatus) is used to indicate whether either of
- *     the values r or s are zero.
- *
- *     Specifically, (protocolStatus == CPA_TRUE) means neither is zero (i.e.
- *     (r != 0) && (s != 0)), while (protocolStatus == CPA_FALSE) means that at
- *     least one of r or s is zero (i.e. (r == 0) || (s == 0)).
- *
- * @context
- *     When called as an asynchronous function it cannot sleep. It can be
- *     executed in a context that does not permit sleeping.
- *     When called as a synchronous function it may sleep. It MUST NOT be
- *     executed in a context that DOES NOT permit sleeping.
- * @assumptions
- *     None
- * @sideEffects
- *     None
- * @blocking
- *     Yes when configured to operate in synchronous mode.
- * @reentrant
- *     No
- * @threadSafe
- *     Yes
- *
- * @param[in]  instanceHandle    Instance handle.
- * @param[in]  pCb               Callback function pointer. If this is  set to
- *                               a NULL value the function will operate
- *                               synchronously.
- * @param[in]  pCallbackTag      User-supplied value to help identify request.
- * @param[in]  pOpData           Structure containing all the data needed to
- *                               perform the operation. The client code
- *                               allocates the memory for this structure. This
- *                               component takes ownership of the memory until
- *                               it is returned in the callback.
- * @param[out] pProtocolStatus   The result passes/fails the DSA protocol
- *                               related checks.
- * @param[out] pR                DSA message signature r.
- * @param[out] pS                DSA message signature s.
- * @param[in]  pKptUnwrapContext  Pointer of structure into which the content
- *                                of KptUnwrapContext is kept,The client MUST
- *                                allocate this memory and copy structure
- *                                KptUnwrapContext into this flat buffer.
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully.
- * @retval CPA_STATUS_FAIL           Function failed.
- * @retval CPA_STATUS_RETRY          Resubmit the request.
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
- * @retval CPA_STATUS_RESOURCE       Error related to system resources.
- * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
- *                                   the request.
- * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
- *
- * @pre
- *      The component has been initialized via cpaCyStartInstance function.
- * @post
- *      None
- * @note
- *      When pCb is non-NULL an asynchronous callback of type
- *      CpaCyDsaRSSignCbFunc is generated in response to this function
- *      call.
- *      For optimal performance, data pointers SHOULD be 8-byte aligned.
- *      By virtue of invoking CyKptDsaSignRS, the implementation understands
- *      CpaCyDsaRSSignOpData contains an enrypted private key that requires
- *      unwrapping. KptUnwrapContext contains an 'KptHandle' field that points
- *      to the unwrapping key in the WKT.
- *      In KPT,private key field in CpaCyDsaRSSignOpData is a concatenation
- *      of cipher text and hash tag.
- *      For optimal performance, data pointers SHOULD be 8-byte aligned.
- * @see
- *      CpaCyDsaRSSignOpData,
- *      CpaCyDsaRSSignCbFunc,
- *      cpaCyDsaSignR(),
- *      cpaCyDsaSignS()
- *
- *****************************************************************************/
-CpaStatus
-cpaCyKptDsaSignRS(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaRSSignCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaRSSignOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pR,
-        CpaFlatBuffer *pS,
-        CpaFlatBuffer *pKptUnwrapContext);
+        CpaCyKptUnwrapContext *pKptUnwrapContext);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */
