@@ -20,6 +20,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| July 2022 | 006 | 22.07 | - Added support for lz4/lz4s compression algorithms<br>- Added support for Compression End-to-end (E2E) integrity check<br>- Added support for PKE generic point multiply<br>- Updated QAT APIs<br>- Enabled CPM2.0b<br>- Split rpm package |
 | November 2021 | 005 | 21.11 | - Added qatlib-tests rpm package<br>- Added option to configure script to skip building sample code |
 | August 2021 | 004 | 21.08 | - Added support for deflate compression - Compress and Verify (CnV) and Compress and Verify and Recover (CnVnR)<br>- Added Physical Function to Virtual Function (PFVF) communication support |
 | May 2021 | 003 | 21.05 | - Added support for AES-CCM 192/265<br>- Added support for SHA3-224/384/512 (no partials support)<br>- Added support for ChaCha20-Poly1305<br>- Added support for PKE 8K (RSA, DH, ModExp, ModInv)<br>- Fixed device enumeration on different nodes<br>- Fixed pci_vfio_set_command for 32 bit builds |
@@ -65,10 +66,13 @@ The following services are available in qatlib via the QuickAssist API:
     generation/verification up to 8192 bits
   * DSA parameter generation and digital signature generation/verification
   * Elliptic Curve Cryptography: ECDSA, ECDHE, Edwards Montgomery curves
+  * Generic point multiply
 * Compression
   * Deflate
+  * lz4/lz4s
   * Compress and Verify (CnV)
   * Compress and Verify and Recover (CnVnR)
+  * End-to-end (E2E) integrity check
 
 This package includes:
 * libqat: user space library for QAT devices exposed via the vfio kernel driver
@@ -94,6 +98,9 @@ The following features are not currently supported:
 * Intel® Key Protection Technology (KPT)
 * Event driven polling
 * Maximum 16 processes per end point
+* accumulateXXHash when combined with autoSelectBestHuffmanTree
+* accumulateXXHash in Decompression or Combined sessions
+* integrityCrcCheck for Compression direction requests
 
 
 ## Environmental Assumptions
@@ -143,7 +150,6 @@ where: \<Component\> is one of the following:
 | QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
 | QATE-76698 | [GEN- Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
-| QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -182,20 +188,9 @@ where: \<Component\> is one of the following:
 | Reference # | QATE-76698 |
 | Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system. In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
 | Implication | Multi-process applications running in guest OS will fail with default Policy settings. |
-| Resolution | If more than 1 process is needed in a guest OS, set POLICY=n (where n>0) in /etc/sysconfig/qat and restart qatmgr. The process will then receive n VFs. |
+| Resolution | When passing VFs to a guest, the libvirt XML file should specify that all VFs from a given PF (i.e. with the same host domain + bus) are assigned to a common bus on the guest. The first VF, mapped to function='0x0', should also set `multifunction='on'`. Also, if n processes are needed in the guest, then n VFs from each PF should be passed to the guest, to ensure all guest processes have both compression and crypto instances. In addition, on either host or guest, don’t use POLICY=1 as it will only allocate 1 instance. At least 2 instances are needed so a process has both CY and DC instances. Set either POLICY=0 or POLICY=2 (or 4, 6, ...) in `/etc/sysconfig/qat` and restart qatmgr. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
-
-## QATE-12241
-| Title      |         CY - TLS1.2 with secret key lengths greater than 64 are not supported     |
-|----------|:-------------
-| Reference # | QATE-12241 |
-| Description | Algorithms, as with Diffie-Hellman using 8K parameters that can use a secret key length greater than 64 bytes is not supported.|
-| Implication | Key generation would fail for TLS1.2 algorithms that use more than 64 bytes secret length keys. |
-| Resolution | For TLS1.2 algorithms, with secret keys greater than 64 bytes, use software for key generation. This issue will be addressed in a future release, which will allow TLS1.2 algorithms with secret keys greater than 64 bytes for key generation to succeed. |
-| Affected OS | Linux |
-| Driver/Module | CPM-IA - Crypto |
-
 
 ## Resolved Issues
 Resolved issues relating to the Intel® QAT software are described
@@ -205,6 +200,7 @@ in this section.
 |-------------|------------|
 | QATE-76846 | [GEN - Forking and re-initialising use-cases do not work](#qate-76846) |
 | QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
+| QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
 
 ## QATE-76846
 | Title      |         GEN - Forking and re-initialising use-cases do not work     |
@@ -226,7 +222,17 @@ in this section.
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Data Compression |
 
-## Licensing
+## QATE-12241
+| Title      |         CY - TLS1.2 with secret key lengths greater than 64 are not supported     |
+|----------|:-------------
+| Reference # | QATE-12241 |
+| Description | Algorithms, as with Diffie-Hellman using 8K parameters that can use a secret key length greater than 64 bytes is not supported.|
+| Implication | Key generation would fail for TLS1.2 algorithms that use more than 64 bytes secret length keys. |
+| Resolution | This is resolved with the 22.07 release. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - Crypto |
+
+ ## Licensing
 * This product is released under the BSD-3-Clause.
 
 ## Legal
@@ -236,7 +242,7 @@ Intel Corporation in the U.S. and/or other countries.
 
 \*Other names and brands may be claimed as the property of others.
 
-Copyright &copy; 2016-2021, Intel Corporation. All rights reserved.
+Copyright &copy; 2016-2022, Intel Corporation. All rights reserved.
 
 ## Terminology
 
