@@ -271,6 +271,9 @@ pkginclude_HEADERS = \
 	quickassist/lookaside/access_layer/include/icp_sal_versions.h \
 	quickassist/utilities/libusdm_drv/qae_mem.h
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = qatlib.pc
+
 if HAVE_SYSTEMD
 systemdsystemunit_DATA = quickassist/utilities/service/qat.service
 endif

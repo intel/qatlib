@@ -227,7 +227,7 @@ AC_ARG_ENABLE(service,
 AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue -a x$enable_systemd != xno ])
 
 # Config files.
-AC_CONFIG_FILES([Makefile qatlib.spec])
+AC_CONFIG_FILES([Makefile qatlib.spec qatlib.pc])
 if test x$enable_systemd != xno
 then
     AC_CONFIG_FILES([quickassist/utilities/service/qat.service quickassist/utilities/service/qat_init.sh])
