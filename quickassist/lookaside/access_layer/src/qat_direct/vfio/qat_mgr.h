@@ -75,6 +75,11 @@
 #define MAX_INSTANCES 16
 #define MAX_SERVICES 4
 #define BIT(n) (1 << n)
+#ifndef MAX
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+#endif
+#define MAX_PAYLOAD_SIZE                                                       \
+    MAX(sizeof(struct qatmgr_msg_req), sizeof(struct qatmgr_msg_rsp))
 
 enum serv_type
 {

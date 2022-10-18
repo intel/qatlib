@@ -72,6 +72,22 @@ static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
 
 
+static const char *qatmgr_msgtype_str[] = {
+    "QATMGR_MSGTYPE_UNKNOWN",       /* string for unknown msg*/
+    "QATMGR_MSGTYPE_SECTION_GET",   /* string for get section msg*/
+    "QATMGR_MSGTYPE_SECTION_PUT",   /* string for put section msg*/
+    "QATMGR_MSGTYPE_NUM_DEVICES",   /* string for num devices msg*/
+    "QATMGR_MSGTYPE_DEVICE_INFO",   /* string for device info msg*/
+    "QATMGR_MSGTYPE_DEVICE_ID",     /* string for device id msg*/
+    "QATMGR_MSGTYPE_SECTION_INFO",  /* string for section info msg*/
+    "QATMGR_MSGTYPE_INSTANCE_INFO", /* string for instance info msg*/
+    "QATMGR_MSGTYPE_INSTANCE_NAME", /* string for instance name msg*/
+    "QATMGR_MSGTYPE_VFIO_FILE",     /* string for vfio file path msg*/
+};
+
+#define QATMGR_MSGTYPES_STR_MAX                                                \
+    (sizeof(qatmgr_msgtype_str) / sizeof(qatmgr_msgtype_str[0]) - 1)
+
 /* Cache of PF capabilities */
 struct pf_capabilities
 {
@@ -1045,7 +1061,7 @@ bool qat_mgr_is_dev_available()
     return dev_found;
 }
 
-void dump_message(void *ptr, char *text)
+static void dump_message(void *ptr, char *text)
 {
     struct qatmgr_msg_req *req = ptr;
     int payload_size;
@@ -1060,10 +1076,13 @@ void dump_message(void *ptr, char *text)
 
     printf("%s\n", text);
     printf("Message type %d\n", req->hdr.type);
+    if (req->hdr.type > 0 && req->hdr.type <= QATMGR_MSGTYPES_STR_MAX)
+        printf("Message name %s\n", qatmgr_msgtype_str[req->hdr.type]);
     printf("   length %d\n", req->hdr.len);
     payload_size = req->hdr.len - sizeof(req->hdr);
     payload = (uint8_t *)req + sizeof(req->hdr);
-    if (payload_size > 0)
+
+    if (payload_size > 0 && payload_size <= MAX_PAYLOAD_SIZE)
     {
         printf("    Payload: ");
         for (i = 0; i < payload_size; i++, payload++)
@@ -1073,6 +1092,14 @@ void dump_message(void *ptr, char *text)
                 printf("\n");
         }
         printf("\n");
+    }
+    if (payload_size > MAX_PAYLOAD_SIZE)
+    {
+        qat_log(
+            LOG_LEVEL_ERROR,
+            "Message payload size (%d) out of range. Max payload size is %d\n",
+            payload_size,
+            MAX_PAYLOAD_SIZE);
     }
 }
 
@@ -1117,6 +1144,8 @@ static int handle_get_num_devices(struct qatmgr_msg_req *req,
         return -1;
     }
 
+    dump_message(req, "Request");
+
     if (index < 0 || index >= num_section_data)
     {
         qat_log(LOG_LEVEL_ERROR, "Bad index\n");
@@ -1128,7 +1157,7 @@ static int handle_get_num_devices(struct qatmgr_msg_req *req,
     rsp->num_devices = section->num_devices;
     build_msg_header(rsp, QATMGR_MSGTYPE_NUM_DEVICES, sizeof(rsp->num_devices));
 
-    dump_message(rsp, "QATMGR_MSGTYPE_NUM_DEVICES");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1148,6 +1177,8 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
 
     if (index < 0 || index >= num_section_data)
     {
@@ -1187,7 +1218,7 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
     rsp->device_info.device_pci_id = section->device_data[device_num].pci_id;
     build_msg_header(rsp, QATMGR_MSGTYPE_DEVICE_INFO, sizeof(rsp->device_info));
 
-    dump_message(rsp, "QATMGR_MSGTYPE_DEVICE_INFO");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1208,6 +1239,8 @@ static int handle_get_device_id(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
 
     if (index < 0 || index >= num_section_data)
     {
@@ -1233,7 +1266,7 @@ static int handle_get_device_id(struct qatmgr_msg_req *req,
     build_msg_header(rsp,
                      QATMGR_MSGTYPE_DEVICE_ID,
                      ICP_ARRAY_STRLEN_SANITIZE(rsp->device_id) + 1);
-    dump_message(rsp, "QATMGR_MSGTYPE_DEVICE_ID");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1255,6 +1288,8 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
 
     if (index < 0 || index >= num_section_data)
     {
@@ -1287,7 +1322,7 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     build_msg_header(
         rsp, QATMGR_MSGTYPE_VFIO_FILE, sizeof(rsp->vfio_file.fd) + len + 1);
 
-    dump_message(rsp, "QATMGR_MSGTYPE_VFIO_FILE");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1307,6 +1342,8 @@ static int handle_get_section_info(struct qatmgr_msg_req *req,
         return -1;
     }
 
+    dump_message(req, "Request");
+
     if (index < 0 || index >= num_section_data)
     {
         qat_log(LOG_LEVEL_ERROR, "Bad index\n");
@@ -1320,7 +1357,7 @@ static int handle_get_section_info(struct qatmgr_msg_req *req,
     build_msg_header(
         rsp, QATMGR_MSGTYPE_SECTION_INFO, sizeof(rsp->section_info));
 
-    dump_message(rsp, "QATMGR_MSGTYPE_SECTION_INFO");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1341,6 +1378,8 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
 
     if (index < 0 || index >= num_section_data)
     {
@@ -1428,7 +1467,7 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
         err_msg(rsp, "Unknown instance type");
         return -1;
     }
-    dump_message(rsp, "QATMGR_MSGTYPE_INSTANCE_NAME");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1452,6 +1491,8 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
 
     if (index < 0 || index >= num_section_data)
     {
@@ -1593,7 +1634,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
         return -1;
     }
 
-    dump_message(rsp, "QATMGR_MSGTYPE_INSTANCE_INFO");
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1675,6 +1716,9 @@ static int handle_section_request(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
+
     if (pid != getpid())
     {
         pid = getpid();
@@ -1719,7 +1763,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
             *section_name);
 
     ICP_STRLCPY(*section_name, rsp->name, name_buf_size);
-
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1741,6 +1785,8 @@ static int handle_section_release(struct qatmgr_msg_req *req,
         err_msg(rsp, "Inconsistent length");
         return -1;
     }
+
+    dump_message(req, "Request");
 
     if (*section_name == NULL)
     {
@@ -1764,6 +1810,7 @@ static int handle_section_release(struct qatmgr_msg_req *req,
             *index = -1;
         }
     }
+    dump_message(rsp, "Response");
     return 0;
 }
 
@@ -1777,8 +1824,6 @@ int handle_message(struct qatmgr_msg_req *req,
     ICP_CHECK_FOR_NULL_PARAM(rsp);
     ICP_CHECK_FOR_NULL_PARAM(index);
     ICP_CHECK_FOR_NULL_PARAM(section_name);
-
-    dump_message(req, "Request");
 
     if (req->hdr.version != THIS_LIB_VERSION)
     {
