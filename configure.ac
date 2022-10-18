@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [22.07.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [22.07.1], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,7 +11,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [3:0:0])
+AC_SUBST([LIBQAT_VERSION], [3:1:0])
 AC_SUBST([LIBUSDM_VERSION], [0:1:0])
 
 # Checks for programs.

@@ -87,7 +87,7 @@ exit 0
 %systemd_postun_with_restart qat.service
 
 %files
-%doc INSTALL
+%doc INSTALL README.md SECURITY.md
 %license LICENSE*
 %{_libdir}/libqat.so.%{libqat_soversion}*
 %{_libdir}/libusdm.so.%{libusdm_soversion}*
@@ -129,11 +129,16 @@ exit 0
 %{_mandir}/man8/qat_init.sh.8*
 
 %changelog
-* Wed Jun 14 2021 Marcin Malinowski <marcinx.malinowski@intel.com> - 22.07-0-1
-- Update to qatlib 22.07
+* Tue Oct 04 2022 Michal Ferenc <michal1x.ferenc@intel.com> - 22.07.1-1
+- Update to qatlib 22.07.1
 
-* Fri Jun 10 2022 Szczepan Mejer <szczepanx.mejer@intel.com> - 21.11-0-4
-- Extract qatmgr to separate rpm package
+* Fri Jul 22 2022 Fedora Release Engineering <releng@fedoraproject.org> - 22.07.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
+* Fri Jul 22 2022 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 22.07.0-1
+- Update to qatlib 22.07
+- Removed patches as fixes are present in qatlib 22.07
+- Moved qat.service to separate rpm
 
 * Tue Mar 22 2022 Vladis Dronov <vdronov@redhat.com> - 21.11.0-3
 - Fix small issues in qatlib-tests package
