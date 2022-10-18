@@ -20,6 +20,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| October 2022 | 007 | 22.07.1 | - Fix for QATE-86605 |
 | July 2022 | 006 | 22.07 | - Added support for lz4/lz4s compression algorithms<br>- Added support for Compression End-to-end (E2E) integrity check<br>- Added support for PKE generic point multiply<br>- Updated QAT APIs<br>- Enabled CPM2.0b<br>- Split rpm package |
 | November 2021 | 005 | 21.11 | - Added qatlib-tests rpm package<br>- Added option to configure script to skip building sample code |
 | August 2021 | 004 | 21.08 | - Added support for deflate compression - Compress and Verify (CnV) and Compress and Verify and Recover (CnVnR)<br>- Added Physical Function to Virtual Function (PFVF) communication support |
@@ -123,7 +124,7 @@ The following assumptions are made concerning the deployment environment:
 ## Examples
 Example applications that showcase usage of the QAT APIs are included in the
 package (quickassist/lookaside/access_layer/src/sample_code).
-Please refer to [Intel® QuickAssist Technology API Programmer's Guide](https://01.org/sites/default/files/downloads/330684-009-intel-qat-api-programmers-guide.pdf).
+Please refer to [Intel® QuickAssist Technology API Programmer's Guide](https://www.intel.com/content/www/us/en/content-details/709196/intel-quickassist-technology-api-programmer-s-guide.html).
 
 ## Open Issues
 Known issues relating to the Intel® QAT software are described
