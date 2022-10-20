@@ -1,7 +1,7 @@
 ===============================================================================
 
 
-July 2022
+October 2022
 ===============================================================================
 
 
@@ -63,17 +63,20 @@ Check System Prerequisites
     running from a distro many of these are taken care of, if not here they
     are:
 
-     * platform must have an Intel® Communications Chipset 4xxx Series device
-        Use "lspci -d 8086:4940" to check PF devices exist.
-        Use "lspci -d 8086:4941" to check VF devices exist.
-     * OR platform must have an Intel® 401xx series device
-        Use "lspci -d 8086:4942" to check PF devices exist.
-        Use "lspci -d 8086:4943" to check VF devices exist.
-        VFs are only visible if all prerequisites below are satisfied.
+     * platform must have one of the following Intel® Communications devices:
+        4xxx  : Use "lspci -d 8086:4940" to check Physical Function (PF)
+                devices are present.
+        401xx : Use "lspci -d 8086:4942" to check PF devices are present.
+        Note: Later, after "systemctl start qat" or "make install" steps, the
+        corresponding Virtual Function devices will also be visible and bound
+        to the vfio-pci driver.
+        4xxx  : Use "lspci -d 8086:4941" to check VF devices have been created.
+        401xx : Use "lspci -d 8086:4943" to check VF devices have been created.
      * firmware must be available
         Check that these files exist, if not contact qat-linux@intel.com
-        /lib/firmware/qat_4xxx.bin
-        /lib/firmware/qat_4xxx_mmp.bin
+        /lib/firmware/qat_4xxx.bin or /lib/firmware/qat_4xxx.bin.xz
+        /lib/firmware/qat_4xxx_mmp.bin or /lib/firmware/qat_4xxx_mmp.bin.xz
+        On updating these files run "sudo dracut --force" to update initramfs.
      * kernel driver must be running
         Use "lsmod | grep qat" to check that these kernel modules are running:
         intel_qat
@@ -82,6 +85,8 @@ Check System Prerequisites
          * Linux kernel v5.11+ (This is for crypto, for compression use v5.17+)
          * Fedora 34+ (for compression use 36+)
          * RHEL 8.4+ (for compression use 9.0+)
+     * each PF device must be bound to the 4xxx driver
+        Use "ls /sys/bus/pci/drivers/4xxx/" to show the BDFs of each bound PF
      * BIOS settings
         Intel VT-d and SR-IOV must be enabled in the platform BIOS.
         Consult your platform guide on how to do this.
@@ -118,30 +123,28 @@ Compilation and installation - quickstart instructions
         # Install qatlib
         sudo dnf install -y qatlib
 
-        # Add your user to qat group
+        # Add your user to qat group and re-login to make the change effective
         sudo usermod -a -G qat `whoami`
+        sudo su -l $USER
 
         # Enable qat service and make persistent after reboot
         sudo systemctl enable qat
         sudo systemctl start qat
 
-        # Increase amount of locked memory for your user
-        # Note: cpa_sample_code requires a mimimum of 500MB to run compression tests.
-        # To add 500MB:
-        sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
-        echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null
+        # The library is now ready to use with your application
 
-        # Re-login in order to update the user's group
-        sudo su -l $USER
-
-        # If you want to run sample code you need to build from sources, these
-        # steps will download qatlib source rpm, extract it and build sample code.
-        # Install dependencies
-        sudo dnf install -y gcc systemd-devel automake autoconf libtool
-        sudo dnf install -y openssl-devel zlib-devel
+        # You can also follow these steps to try out a pre-built sample
+        # application:
 
         # Install qatlib-tests rpm
         sudo dnf install -y qatlib-tests
+
+        # cpa_sample_code requires a mimimum of 500MB to run its compression demo
+        # To increase amount of locked memory for your user to 500MB:
+        sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
+        echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null
+        # Re-login in order to make the change effective
+        sudo su -l $USER
 
         # Run it! (takes several minutes to complete)
         cpa_sample_code
@@ -152,7 +155,7 @@ Compilation and installation - quickstart instructions
 
         # Install dependencies
         sudo dnf install -y gcc systemd-devel automake autoconf libtool
-        sudo dnf install -y openssl-devel zlib-devel
+        sudo dnf install -y openssl-devel zlib-devel yasm
 
         # Clone QATlib into ~/qatlib, i.e. in your home dir
         cd ~
@@ -166,27 +169,31 @@ Compilation and installation - quickstart instructions
         sudo make install
 
         # Add your user to the "qat" group which was automatically
-        # created by --enable-service
+        # created by --enable-service. Then re-login to make the change
+        # effective, this will also move you back into your home directory
         sudo usermod -a -G qat `whoami`
+        sudo su -l $USER
 
-        # Increase amount of locked memory for your user
-        # Note: cpa_sample_code requires a mimimum of 500MB to run compression tests.
-        # To add 500MB:
+        # The library is now ready to use with your application
+
+        # You can also follow these steps to try out a sample application:
+
+        # cpa_sample_code requires a mimimum of 500MB to run its compression demo
+        # To increase the amount of locked memory for your user to 500MB:
         sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
         echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null
-
-        # Re-login in order to update the user group, this will move you back
-        # into your home dir
+        # Re-login in order to make the change effective
         sudo su -l $USER
 
         # Compression sample code expects to find data files at a known location,
         # so call the samples-install target to put them there
+        cd qatlib
         sudo make samples-install
 
-        # Run! (takes several minutes to complete)
+        # Run it! (takes several minutes to complete)
         cpa_sample_code
 
-        # no need to leave the samples installed, so cleanup
+        # No need to leave the samples installed, so cleanup
         sudo make samples-uninstall
 
 ===============================================================================
@@ -205,6 +212,7 @@ Compilation and installation - detailed instructions
             make
             autotools (automake, autoconf, libtool)
             systemd-devel
+            yasm
 
         libraries:
             openssl-devel
@@ -460,7 +468,7 @@ Common issues
         After updating re-login so the changes take effect:
         sudo su -l $USER
 
-    Issue: error on make install
+    Issue: error on make install or on systemctl start qat
         "Job for qat.service failed because the control process exited with
         error code"
         System logs (dmesg) show QAT kernel module failed with error like:
@@ -476,7 +484,7 @@ Common issues
         see pre-requisites section above.
         In order to load the firmware, the driver must be reloaded, i.e. run:
         "sudo rmmod qat_4xxx; sudo modprobe qat_4xxx; sudo systemctl start qat".
-        For a persistent change (fix for future reboots) run "dracut --force".
+        For a persistent change (on future reboots) run "sudo dracut --force".
 
     Issue: X kernel taint flag seen on SUSE from SLES15-SP4 onwards
         "intel_qat: externally supported module,setting X kernel taint flag."
