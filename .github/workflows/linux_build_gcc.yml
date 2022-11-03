@@ -1,0 +1,27 @@
+name: Linux Build gcc
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev yasm
+    - uses: actions/checkout@v3
+      with:
+        repository: intel/qatlib
+    
+    - name: autogen
+      run: ACLOCAL_PATH=/usr/share/aclocal ./autogen.sh
+      
+    - name: configure
+      run: ./configure
+           
+    - name: make
+      run: make -j
