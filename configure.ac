@@ -121,10 +121,21 @@ else
     AC_MSG_RESULT(${enable_systemd})
 fi
 
-# Check for yasm
-AC_CHECK_PROG(YASM, yasm, yes , no)
-if test "$YASM" = "no"; then
-    AC_MSG_ERROR([yasm required])
+AC_CHECK_PROG(YASM_BINARY, yasm, yes , no)
+
+AC_ARG_ENABLE(fast-crc-in-assembler,
+        AS_HELP_STRING([--disable-fast-crc-in-assembler], [Force use of C code instead of faster assembler implementation of CRC for DC integrityCrc feature. Not recommended unless assembler compiler unavailable.]),
+        [disable_fast_crc_in_assembler="yes"], [disable_fast_crc_in_assembler="no"])
+
+AC_MSG_CHECKING(force disable fast crc in assembler)
+AC_MSG_RESULT(${disable_fast_crc_in_assembler})
+
+AM_CONDITIONAL(USE_CCODE_CRC, test "$disable_fast_crc_in_assembler" = "yes" )
+
+if ( test "$disable_fast_crc_in_assembler" = "no" ); then
+    if (test "${YASM_BINARY}" = "no"); then
+        AC_MSG_ERROR(Yasm not found)
+    fi
 fi
 
 # Check location of systemd unit files

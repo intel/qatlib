@@ -375,6 +375,11 @@ Full list of Configuration options
         --disable-stats
                 Disables statistic collection (Use for performance optimization).
 
+        --disable-fast-crc-in-assembler
+                Force use of C code instead of faster assembler implementation
+                of CRC for DC integrityCrc feature. Not recommended unless
+                assembler compiler unavailable.
+
         --enable-icp-log-syslog
                 Enables debugging messages to be outputted to the
                 system log instead of standard output.

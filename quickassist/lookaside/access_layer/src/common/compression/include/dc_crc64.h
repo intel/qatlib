@@ -76,11 +76,17 @@
  * @param[in]  buffer         Pointer to data byte array to calculate CRC on
  * @param[in]  buffer_length  Length of data array
  *
- * @retval Cpa64U             64bit long CRC checksum for given buffer
+ * @retval uint64_t           64bit long CRC checksum for given buffer
  */
-extern Cpa64U crc64_ecma_norm_by8(Cpa64U initial_crc,
-                                  const Cpa8U *buffer,
-                                  Cpa64U buffer_length);
+#ifdef USE_CCODE_CRC
+uint64_t crc64_ecma_norm_base(uint64_t initial_crc,
+                              const uint8_t *buffer,
+                              uint64_t buffer_length);
+#else
+extern uint64_t crc64_ecma_norm_by8(uint64_t initial_crc,
+                                    const uint8_t *buffer,
+                                    uint64_t buffer_length);
+#endif
 
 /**
  * @description
