@@ -1,4 +1,5 @@
 ![Linux build with gcc](https://github.com/intel/qatlib/actions/workflows/linux_build_gcc.yml/badge.svg)
+![CodeQL scan](https://github.com/intel/qatlib/actions/workflows/codeql.yml/badge.svg)
 
 # Intel&reg; QuickAssist Technology Library (QATlib)
 
