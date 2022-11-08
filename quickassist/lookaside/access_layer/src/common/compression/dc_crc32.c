@@ -123,8 +123,13 @@ Cpa32U dcCalculateCrc32(CpaBufferList *pBufferList,
             computeLength = consumedBytes;
             consumedBytes = 0;
         }
+#ifdef USE_CCODE_CRC
+        currentCrc =
+            crc32_gzip_refl_base(currentCrc, pBuffer->pData, computeLength);
+#else
         currentCrc =
             crc32_gzip_refl_by8(currentCrc, pBuffer->pData, computeLength);
+#endif
         pBuffer++;
     }
 

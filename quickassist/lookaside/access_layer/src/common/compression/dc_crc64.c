@@ -119,8 +119,13 @@ Cpa64U dcCalculateCrc64(const CpaBufferList *pBufferList,
             computeLength = consumedBytes;
             consumedBytes = 0;
         }
+#ifdef USE_CCODE_CRC
+        currentCrc =
+            crc64_ecma_norm_base(currentCrc, pBuffer->pData, computeLength);
+#else
         currentCrc =
             crc64_ecma_norm_by8(currentCrc, pBuffer->pData, computeLength);
+#endif
         pBuffer++;
     }
 

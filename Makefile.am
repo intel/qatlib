@@ -119,12 +119,14 @@ lib@LIBUSDMNAME@_la_LDFLAGS = -version-info $(LIBUSDM_VERSION) \
 			      $(COMMON_LDFLAGS) \
 			      -export-symbols-regex '^(qae)'
 
-# Creating CRC libs from asm files using yasm with automake-like output
+if !USE_CCODE_CRC
+# Creating CRC libs from asm files using nasm with automake-like output
 libcrc_SOURCES_DIR = quickassist/lookaside/access_layer/src/common/compression/
 %.lo:
 	@echo "  CCAS     $(libcrc_SOURCES_DIR)$@"
 	@$(LIBTOOL) --mode=compile --quiet \
-	yasm -f x64 -f elf64 -D LINUX -X gnu -g dwarf2 $(libcrc_SOURCES_DIR)$(@:.lo=.S) -o $@ -prefer-non-pic
+	nasm -f elf64 -D LINUX -X gnu $(libcrc_SOURCES_DIR)$(@:.lo=.S) -I$(libcrc_SOURCES_DIR) -o $@ -prefer-non-pic
+endif
 
 lib_LTLIBRARIES += lib@LIBQATNAME@.la
 lib@LIBQATNAME@_la_SOURCES = \
@@ -216,6 +218,10 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/device/sal_dev_info.c \
 	quickassist/lookaside/access_layer/src/user/sal_user.c \
 	quickassist/lookaside/access_layer/src/user/sal_user_dyn_instance.c
+if USE_CCODE_CRC
+lib@LIBQATNAME@_la_SOURCES += \
+	quickassist/lookaside/access_layer/src/common/compression/dc_crc_base.c
+endif
 lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			    -I$(srcdir)/quickassist/utilities/osal/include \
 			    -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
@@ -235,7 +241,10 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			    -D USER_SPACE \
 			    -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
 			    $(COMMON_FLAGS)
-lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la crc32_gzip_refl_by8.lo crc64_ecma_norm_by8.lo -lcrypto
+lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la -lcrypto
+if !USE_CCODE_CRC
+lib@LIBQATNAME@_la_LIBADD += crc32_gzip_refl_by8.lo crc64_ecma_norm_by8.lo
+endif
 lib@LIBQATNAME@_la_LDFLAGS = -version-info $(LIBQAT_VERSION) \
 			     $(COMMON_LDFLAGS) \
 			     -export-symbols-regex '^(cpa|icp_sal)'
@@ -270,6 +279,9 @@ pkginclude_HEADERS = \
 	quickassist/lookaside/access_layer/include/icp_sal.h \
 	quickassist/lookaside/access_layer/include/icp_sal_versions.h \
 	quickassist/utilities/libusdm_drv/qae_mem.h
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = qatlib.pc libqat.pc libusdm.pc
 
 if HAVE_SYSTEMD
 systemdsystemunit_DATA = quickassist/utilities/service/qat.service
@@ -369,6 +381,10 @@ ICP_DC_ERROR_SIMULATION = 1
 COMMON_FLAGS += -DICP_DC_ERROR_SIMULATION
 endif
 
+
+if USE_CCODE_CRC
+COMMON_FLAGS += -DUSE_CCODE_CRC
+endif
 
 include Samples.am
 

@@ -194,6 +194,15 @@ int qatmgr_open(void)
     {
         qat_log(LOG_LEVEL_INFO, "Build static configuration\n");
         ret = adf_vfio_build_sconfig();
+        if (!ret)
+        {
+            /** mutex isn't needed for static path but client use
+             * common qat_mgr_lib code which is used also by qatmgr
+             * where mutex is needed
+             * so it should be initialized to make lib working properly
+             **/
+            ret = init_section_data_mutex();
+        }
     }
 
     return ret;
@@ -205,6 +214,7 @@ int qatmgr_close(void)
     {
         qat_log(LOG_LEVEL_DEBUG, "Cleanup static configuration\n");
         qat_mgr_cleanup_cfg();
+        destroy_section_data_mutex();
         return 0;
     }
 

@@ -8,6 +8,7 @@
 - [Revision History](#revision-history)
 - [Overview](#overview)
 - [Features](#features)
+- [Deprecated Features & Planned Deprecations](#deprecated-features--planned-deprecations)
 - [Setup](#setup)
 - [Supported Devices](#supported-devices)
 - [Limitations](#limitations)
@@ -23,6 +24,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| November 2022 | 008 | 22.07.2 | - Changed from yasm to nasm for assembly compilation<br> - Added configuration option to use C implementation of soft CRC implementation instead of asm<br>- Added support for pkg-config<br>- Added missing lock around accesses to some global data in qatmgr |
 | October 2022 | 007 | 22.07.1 | - Fix for QATE-86605 |
 | July 2022 | 006 | 22.07 | - Added support for lz4/lz4s compression algorithms<br>- Added support for Compression End-to-end (E2E) integrity check<br>- Added support for PKE generic point multiply<br>- Updated QAT APIs<br>- Enabled CPM2.0b<br>- Split rpm package |
 | November 2021 | 005 | 21.11 | - Added qatlib-tests rpm package<br>- Added option to configure script to skip building sample code |
@@ -83,6 +85,10 @@ This package includes:
 * libusdm: user space library for memory management
 * qatmgr: user space daemon for device management
 * Sample codes: applications to demo usage of the libs
+
+## Deprecated Features & Planned Deprecations
+* The following configuration option will be deprecated after 2023:
+  * `--enable-legacy-lib-names`
 
 ## Setup
 Please refer to [INSTALL](INSTALL) for details on installing the library.

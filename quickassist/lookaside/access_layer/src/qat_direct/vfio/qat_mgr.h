@@ -295,5 +295,7 @@ int handle_message(struct qatmgr_msg_req *req,
                    int *index);
 
 int release_section(int index, pthread_t tid, char *name, size_t name_len);
+int init_section_data_mutex(void);
+int destroy_section_data_mutex(void);
 
 #endif /* QAT_MGR_H */

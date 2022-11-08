@@ -6,7 +6,10 @@ Samples.am
 autogen.sh
 configure.ac
 filelist
+libqat.pc.in
+libusdm.pc.in
 qat_init.sh.8
+qatlib.pc.in
 qatlib.spec.in
 qatmgr.8
 quickassist/include/cpa.h
@@ -54,6 +57,7 @@ quickassist/lookaside/access_layer/src/common/compression/dc_buffers.c
 quickassist/lookaside/access_layer/src/common/compression/dc_chain.c
 quickassist/lookaside/access_layer/src/common/compression/dc_crc32.c
 quickassist/lookaside/access_layer/src/common/compression/dc_crc64.c
+quickassist/lookaside/access_layer/src/common/compression/dc_crc_base.c
 quickassist/lookaside/access_layer/src/common/compression/dc_datapath.c
 quickassist/lookaside/access_layer/src/common/compression/dc_dp.c
 quickassist/lookaside/access_layer/src/common/compression/dc_err_sim.c
