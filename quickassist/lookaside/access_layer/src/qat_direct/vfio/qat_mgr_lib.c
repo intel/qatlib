@@ -72,6 +72,8 @@ static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
 
 
+static pthread_mutex_t section_data_mutex;
+
 static const char *qatmgr_msgtype_str[] = {
     "QATMGR_MSGTYPE_UNKNOWN",       /* string for unknown msg*/
     "QATMGR_MSGTYPE_SECTION_GET",   /* string for get section msg*/
@@ -171,6 +173,26 @@ static char *qat_device_name(int device_id)
     return "unknown";
 }
 
+
+int init_section_data_mutex()
+{
+    if (pthread_mutex_init(&section_data_mutex, NULL) != 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+int destroy_section_data_mutex()
+{
+    if (pthread_mutex_destroy(&section_data_mutex))
+    {
+        return -1;
+    }
+
+    return 0;
+}
 
 void qat_mgr_cleanup_cfg(void)
 {
@@ -1678,6 +1700,13 @@ int release_section(int index, pthread_t tid, char *name, size_t name_len)
 static int get_section(pthread_t tid, char **derived_section_name)
 {
     int i;
+    int assigned = 0;
+
+    if (pthread_mutex_lock(&section_data_mutex))
+    {
+        qat_log(LOG_LEVEL_ERROR, "Unable to lock section_data mutex\n");
+        return -1;
+    }
 
     for (i = 0; i < num_section_data; i++)
     {
@@ -1685,12 +1714,25 @@ static int get_section(pthread_t tid, char **derived_section_name)
             continue; /* Assigned to another thread */
 
         section_data[i].assigned_tid = tid;
+        assigned = 1;
+        break;
+    }
+
+    if (pthread_mutex_unlock(&section_data_mutex))
+    {
+        qat_log(LOG_LEVEL_ERROR, "Unable to unlock section_data mutex\n");
+        return -1;
+    }
+
+    if (assigned)
+    {
         qat_log(
             LOG_LEVEL_DEBUG, "Got section %s\n", section_data[i].section_name);
         if (derived_section_name)
             *derived_section_name = section_data[i].section_name;
         return i;
     }
+
     return -1;
 }
 
@@ -1738,7 +1780,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
     sec = get_section(tid, &derived_name);
     if (sec < 0)
     {
-        qat_log(LOG_LEVEL_ERROR, "Couldn't get secton %s\n", req->name);
+        qat_log(LOG_LEVEL_ERROR, "Couldn't get section %s\n", req->name);
         err_msg(rsp, "No section available");
         return -1;
     }

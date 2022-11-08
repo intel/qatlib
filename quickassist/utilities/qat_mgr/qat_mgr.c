@@ -456,6 +456,16 @@ int main(int argc, char **argv)
         printf("get_dev_list failed\n");
     }
 
+    if (num_devices == 0)
+    {
+        if (foreground)
+            qat_log(LOG_LEVEL_ERROR, "No QAT device found");
+        else
+            write_parent(parent_pipe, "No QAT device found");
+
+        exit(-1);
+    }
+
     for (i = 0; i < num_devices; i++)
     {
         qat_log(LOG_LEVEL_INFO,
@@ -510,6 +520,13 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+    if (init_section_data_mutex())
+    {
+        perror("init section_data mutex error");
+        qat_mgr_cleanup_cfg();
+        exit(-1);
+    }
+
     if (!foreground)
         close(parent_pipe);
 
@@ -534,6 +551,7 @@ int main(int argc, char **argv)
         qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_tid);
     }
 
+    destroy_section_data_mutex();
     qat_mgr_cleanup_cfg();
     return 0;
 }

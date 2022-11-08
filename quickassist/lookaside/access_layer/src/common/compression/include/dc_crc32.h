@@ -76,11 +76,17 @@
  * @param[in]  buffer         Pointer to data byte array to calculate CRC on
  * @param[in]  buffer_length  Length of data array
  *
- * @retval Cpa32U             32bit long CRC checksum for given buffer
+ * @retval uint32_t           32bit long CRC checksum for given buffer
  */
-extern Cpa32U crc32_gzip_refl_by8(Cpa32U initial_crc,
-                                  const Cpa8U *buffer,
-                                  Cpa64U buffer_length);
+#ifdef USE_CCODE_CRC
+uint32_t crc32_gzip_refl_base(uint32_t initial_crc,
+                              uint8_t *buffer,
+                              uint64_t buffer_length);
+#else
+extern uint32_t crc32_gzip_refl_by8(uint32_t initial_crc,
+                                    uint8_t *buffer,
+                                    uint64_t buffer_length);
+#endif
 
 /**
  * @description

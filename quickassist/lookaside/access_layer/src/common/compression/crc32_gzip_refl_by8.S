@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;  Copyright(c) 2011-2019 Intel Corporation All rights reserved.
+;  Copyright(c) 2011-2022 Intel Corporation All rights reserved.
 ;
 ;  Redistribution and use in source and binary forms, with or without
 ;  modification, are permitted provided that the following conditions
@@ -86,8 +86,11 @@ section .text
 %endif
 
 align 16
-global  crc32_gzip_refl_by8:ISAL_SYM_TYPE_FUNCTION
+; following line changed to build with nasm in qatlib env
+global crc32_gzip_refl_by8:ISAL_SYM_TYPE_FUNCTION
 crc32_gzip_refl_by8:
+	; following line commented out to build with nasm
+	; endbranch
 
         ; unsigned long c = crc ^ 0xffffffffL;
         not     arg1_low32	;
@@ -619,6 +622,3 @@ pshufb_shf_table:
 ;       dq 0x060504030201008f, 0x0e0d0c0b0a090807 ; shl 1  (16-15) / shr15
 dq 0x8786858483828100, 0x8f8e8d8c8b8a8988
 dq 0x0706050403020100, 0x000e0d0c0b0a0908
-
-;;;       func        core, ver, snum
-slversion crc32_gzip_refl_by8, 01,   00,  002c

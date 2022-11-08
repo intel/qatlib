@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;  Copyright(c) 2011-2019 Intel Corporation All rights reserved.
+;  Copyright(c) 2011-2022 Intel Corporation All rights reserved.
 ;
 ;  Redistribution and use in source and binary forms, with or without
 ;  modification, are permitted provided that the following conditions
@@ -62,10 +62,14 @@ section .text
         %define VARIABLE_OFFSET 16*2+8
 %endif
 align 16
-global	crc64_ecma_norm_by8:ISAL_SYM_TYPE_FUNCTION
+; following line changed to build with nasm in qatlib env
+global crc64_ecma_norm_by8:ISAL_SYM_TYPE_FUNCTION
 crc64_ecma_norm_by8:
-        ; commented out for CPM2.0 compatibility
-        ;not	arg1      ;~init_crc
+        ; following line commented out to build with nasm
+	; endbranch
+
+	; commented out for CPM gen4 HW compatibility
+	;not   arg1      ;~init_crc
 
 	sub	rsp,VARIABLE_OFFSET
 
@@ -351,7 +355,7 @@ _barrett:
 	pextrq	rax, xmm7, 0
 
 _cleanup:
-        ; commented out for CPM2.0 compatibility
+	; commented out for CPM gen4 HW compatibility
 	;not     rax
 %ifidn __OUTPUT_FORMAT__, win64
         movdqa  xmm6, [rsp + XMM_SAVE + 16*0]
@@ -579,6 +583,3 @@ dq 0x8786858483828100, 0x8f8e8d8c8b8a8988
 dq 0x0706050403020100, 0x0f0e0d0c0b0a0908
 dq 0x8080808080808080, 0x0f0e0d0c0b0a0908
 dq 0x8080808080808080, 0x8080808080808080
-
-;;;       func        core, ver, snum
-slversion crc64_ecma_norm_by8, 01,   00,  001a

@@ -26,6 +26,7 @@
 *.lo
 *.o
 *.m4
+*.pc
 build
 /alg_chaining_sample
 /ccm_sample

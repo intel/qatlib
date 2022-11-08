@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: qatlib
+Description: Provides access to Intel QAT hardware accelerated cryptography and compression
+URL: https://github.com/intel/qatlib
+Version: @VERSION@
+Requires: libqat libusdm

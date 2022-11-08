@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [22.07.1], [qat-linux@intel.com])
+AC_INIT([qatlib], [22.07.2], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,7 +11,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [3:1:0])
+AC_SUBST([LIBQAT_VERSION], [3:2:0])
 AC_SUBST([LIBUSDM_VERSION], [0:1:0])
 
 # Checks for programs.
@@ -121,10 +121,21 @@ else
     AC_MSG_RESULT(${enable_systemd})
 fi
 
-# Check for yasm
-AC_CHECK_PROG(YASM, yasm, yes , no)
-if test "$YASM" = "no"; then
-    AC_MSG_ERROR([yasm required])
+AC_CHECK_PROG(NASM_BINARY, nasm, yes , no)
+
+AC_ARG_ENABLE(fast-crc-in-assembler,
+        AS_HELP_STRING([--disable-fast-crc-in-assembler], [Force use of C code instead of faster assembler implementation of CRC for DC integrityCrc feature. Not recommended unless assembler compiler unavailable.]),
+        [disable_fast_crc_in_assembler="yes"], [disable_fast_crc_in_assembler="no"])
+
+AC_MSG_CHECKING(force disable fast crc in assembler)
+AC_MSG_RESULT(${disable_fast_crc_in_assembler})
+
+AM_CONDITIONAL(USE_CCODE_CRC, test "$disable_fast_crc_in_assembler" = "yes" )
+
+if ( test "$disable_fast_crc_in_assembler" = "no" ); then
+    if (test "${NASM_BINARY}" = "no"); then
+        AC_MSG_ERROR(Nasm not found)
+    fi
 fi
 
 # Check location of systemd unit files
@@ -227,7 +238,7 @@ AC_ARG_ENABLE(service,
 AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue -a x$enable_systemd != xno ])
 
 # Config files.
-AC_CONFIG_FILES([Makefile qatlib.spec])
+AC_CONFIG_FILES([Makefile qatlib.spec qatlib.pc libqat.pc libusdm.pc])
 if test x$enable_systemd != xno
 then
     AC_CONFIG_FILES([quickassist/utilities/service/qat.service quickassist/utilities/service/qat_init.sh])
