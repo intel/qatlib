@@ -37,7 +37,7 @@ jobs:
 
     # Install dependencies and build
     - name: Install dependencies
-      run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev yasm
+      run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev yasm nasm
 
     - name: autogen
       run: ACLOCAL_PATH=/usr/share/aclocal ./autogen.sh
