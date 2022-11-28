@@ -48,7 +48,6 @@ This package contains sample applications that use the Intel QuickAssists APIs.
 %package       service
 Summary:       A daemon for qatlib resources management
 Requires:      %{name}%{?_isa} = %{version}-%{release}
-Provides:      qatlib-service
 %{?systemd_requires}
 
 %description   service
