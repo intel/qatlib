@@ -1,7 +1,7 @@
 ===============================================================================
 
 
-November 2022
+February 2023
 ===============================================================================
 
 
@@ -236,9 +236,15 @@ Compilation and installation - detailed instructions
         "Configuration options" section below or by calling:
             ./configure --help
 
-        To setup configuration that will automatically enable qat service
-        during installation - call:
-        ./configure --enable-service
+        To run in Managed Mode, enable qat service. This can be done
+        automatically during installation by calling:
+            ./configure --enable-service
+
+        In some case, e.g. containers, it may be preferable to run without
+        the qat service, to avoid a dependency on systemd.
+        In this case --enable-service should not be used on calling ./configure.
+        This is referred to as Standalone Mode.
+        See also the "Configuration and tuning section" below.
 
     ----------------------------------------------------------------------------
 
@@ -257,8 +263,9 @@ Compilation and installation - detailed instructions
 
         Set maximum amount of locked memory for your user.
             The maximum amount of locked memory should be set correctly by
-            defining memlock limit. For cpa_sample_code running crypto at least
-            200MB are required, if running compression set at least 500MB.
+            defining memlock limit which is 16MB per VF. For cpa_sample_code
+            running crypto at least 200MB are required, if running compression
+            set at least 500MB.
             To set 500MB add a line like this
             <your user> - memlock 500000
             in the file /etc/security/limits.conf.
@@ -331,6 +338,148 @@ Compilation and installation - detailed instructions
         Clean up:
             make clean
             make distclean
+
+    ----------------------------------------------------------------------------
+
+    7) Configuration and tuning
+
+        There are parameters which can be tweaked to optimise for an
+        application's workload which might work in two modes:
+        managed (when qat service is enabled) and standalone (without service
+        ie within container)
+
+        MANAGED MODE
+
+        In Managed mode, qatmgr manages allocation of the VF resources to
+        each process on process startup.
+        Following parameters can be set in /etc/sysconfig/qat:
+
+        POLICY
+            Indicates how many VFs will be assigned to each process.
+
+            POLICY=0 or not set
+                (Default) One VF from each PF will be assigned to each process.
+
+            POLICY=N
+                N VFs will be assigned to each process.
+
+        ServicesEnabled
+            Tells the kernel driver which Services to enable on PFs. All VFs on
+            a PF have the same service.
+    
+            Unset
+                (Default) Every even-numbered PF has sym;asym (i.e. PF0, PF2, …
+                have crypto), every odd-numbered PF has dc (i.e. PF1, PF3, …
+                have data compression)
+
+            ServicesEnabled=sym;asym
+                All PFs, and so all VFs, have sym;asym only.
+
+            ServicesEnabled=dc
+                All PFs, and so all VFs, have dc only.
+
+        The following examples are based on a one-socket QAT 4xxx platform.
+        This has 1 socket, each with 4 PFs, each PF has 16 VFs. Each VF enabled
+        for dc has 4 instances, each VF enabled for sym;asym has 2 sym instances
+        and 2 asym instances.
+
+        Usage
+            Flexibility
+                On default configuration, with neither param set, each process
+                will be allocated one VF from each PF, so 4 VFs. Each will have
+                2 sym;asym VFs, so 4 sym instances and 4 asym instances
+                and 2 dc VFs, so 8 dc instances.
+                The maximum number of processes is 8. N sockets will have 8 * N.
+
+            Scalability and flexibility
+                POLICY=2. ServicesEnabled unset. Each process will be
+                allocated 2 VFs, 1 with sym;asym, 1 with dc. So each will have
+                2 sym instances 2 asym instance and 4 dc instances.
+                The maximum number of processes is 32. 16 VFs * 4 PFs / POLICY.
+                N sockets will have 32 * N.
+
+            Crypto-only scalability
+                POLICY=1. ServicesEnabled=sym;asym. All VFs have sym;asym.
+                Each process will be allocated 1 VF so will have 2 sym instances
+                and 2 asym instances.
+                The maximum number of processes is 64. 16 VFs * 4 PFs.
+                N sockets will have 64 * N.
+
+            Compression-only scalability:
+                POLICY=1. ServicesEnabled=dc. All VFs have dc. Each process 
+                will be allocated 1 VF so will have 4 dc instances.
+                The maximum number of processes is 64. Same as for sym;asym
+
+        STANDALONE MODE
+
+        In standalone mode, there is no qatmgr and this is preferred way to run
+        on containers.
+
+        Each standalone process assumes VF devices which it can't open are in
+        use by another process and looks for unopened VFs.
+
+        Neither POLICY nor ServicesEnabled apply to standalone mode and
+        the services must be configured directly in the kernel driver
+        as in Note1. Also is possible to enable VFs using qat_init.sh if that
+        is used then ServiceEnabled in /etc/sysconfig/qat is used to select
+        the service.
+
+        QAT_POLICY environment variable tune VF number attached to a process.
+        Valid values are the same as for POLICY, but for QAT_POLICY=0 there is
+        a limit up to 6 VFs.
+
+        Note1: The ServicesEnabled configuration requires Linux kernel v6.0
+        or later and applies to all PFs on the platform. To view the PF config
+        or to set config per PF follow instructions here or script below:
+        https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-driver-qat.
+        If an alternative config is set per PF following those instructions,
+        then neither ServicesEnabled nor POLICY should be set in
+        /etc/sysconfig/qat, else it will not be deterministic which instances
+        a process receives.
+
+        ------------------------------------------------------------------------
+        #!/bin/bash
+
+        printf "%-13s | %-5s | %-12s | %-12s | %-10s\n"  "VFIO GROUP" "NODE"   \
+        "PF BDF" "VF BDF" "SERVICES"
+        echo "--------------------------------------------------------------"
+
+        for vfio_group in /dev/vfio/*; do
+            if [ $vfio_group = "/dev/vfio/vfio" ]; then
+                continue
+            fi
+
+            group=${vfio_group##*/}
+            # assume one bdf per iommu group
+            bdf=$(ls /sys/kernel/iommu_groups/$group/devices/)
+            vendor=$(cat /sys/kernel/iommu_groups/$group/devices/$bdf/vendor)
+            node=$(cat /sys/kernel/iommu_groups/$group/devices/$bdf/numa_node)
+            did=$(cat /sys/kernel/iommu_groups/$group/devices/$bdf/device)
+
+            if [ "$vendor" != "0x8086" ]; then
+                continue
+            fi
+
+            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ]; then
+                continue
+            fi
+
+            regex='([a-z0-9]+):([a-z0-9]+):.*'
+            [[ $bdf =~ $regex ]]
+            pf_domain=${BASH_REMATCH[1]}
+            pf_bus=${BASH_REMATCH[2]}
+            pf_bdf="$pf_domain:$pf_bus:00.0"
+
+            printf "%-15s %-7s %-14s %-14s %-10s\n"  "$vfio_group"  "$node"    \
+            "$pf_bdf"   "$bdf"                                                 \
+            "$(cat /sys/bus/pci/devices/$pf_bdf/qat/cfg_services)"
+
+        done
+        ------------------------------------------------------------------------
+
+        Note2: As the library assumes that all VFs from the same PF have
+        the same services, take care when passing VFs through to a VM that all
+        VFs from the same Host PF are passed through with a common Domain/Bus.
 
 ===============================================================================
 
@@ -406,6 +555,10 @@ Full list of Configuration options
         --enable-service
                 Automatically creates "qat" group and enables systemd service
                 during installation.
+
+        --enable-legacy-algorithms
+                Enable deprecated legacy crypto algorithms. See the README.md for the
+                list of algorithms which are deprecated by default.
 
         MAX_MR
                 Number of Miller Rabin rounds for prime operations. Setting this
