@@ -218,7 +218,6 @@ void LacSymQat_HashContentDescInit(
     lac_sym_qat_hash_precompute_info_t *pPrecompute,
     Cpa32U *pHashBlkSizeInBytes)
 {
-
     icp_qat_fw_auth_cd_ctrl_hdr_t *cd_ctrl =
         (icp_qat_fw_auth_cd_ctrl_hdr_t *)&(pMsg->cd_ctrl);
     lac_sym_qat_hash_defs_t *pHashDefs = NULL;
@@ -575,8 +574,6 @@ STATIC void LacSymQat_HashSetupBlockInit(
         CPA_CY_SYM_HASH_AES_CBC_MAC == pHashSetupData->hashAlgorithm ||
         CPA_CY_SYM_HASH_ZUC_EIA3 == pHashSetupData->hashAlgorithm)
     {
-        LAC_ENSURE_NOT_NULL(pPrecompute);
-
         /* for HMAC in mode 1 authCounter is the block size
          * else the authCounter is 0. The firmware expects the counter to be
          * big endian */
@@ -635,14 +632,19 @@ STATIC void LacSymQat_HashSetupBlockInit(
             }
         }
 
-        pPrecompute->state1Size = pHashDefs->qatInfo->state1Length;
-        pPrecompute->state2Size = pHashDefs->qatInfo->state2Length;
+        LAC_ENSURE_NOT_NULL(pPrecompute);
 
-        /* Set the destination for pre-compute state1 data to be written */
-        pPrecompute->pState1 = hashBlkPtrs.pInHashInitState1;
+        if (NULL != pPrecompute)
+        {
+            pPrecompute->state1Size = pHashDefs->qatInfo->state1Length;
+            pPrecompute->state2Size = pHashDefs->qatInfo->state2Length;
 
-        /* Set the destination for pre-compute state1 data to be written */
-        pPrecompute->pState2 = hashBlkPtrs.pInHashInitState2;
+            /* Set the destination for pre-compute state1 data to be written */
+            pPrecompute->pState1 = hashBlkPtrs.pInHashInitState1;
+
+            /* Set the destination for pre-compute state1 data to be written */
+            pPrecompute->pState2 = hashBlkPtrs.pInHashInitState2;
+        }
     }
     /* For digest and nested digest */
     else
@@ -808,14 +810,20 @@ STATIC void LacSymQat_HashSetupBlockOptimisedFormatInit(
                          pHashDefs->algInfo->stateSize,
                      state2PadLen);
     }
-    pPrecompute->state1Size = pHashDefs->qatInfo->state1Length;
-    pPrecompute->state2Size = pHashDefs->qatInfo->state2Length;
 
-    /* Set the destination for pre-compute state1 data to be written */
-    pPrecompute->pState1 = pHashBlkPtrs.pInHashInitState1;
+    LAC_ENSURE_NOT_NULL(pPrecompute);
 
-    /* Set the destination for pre-compute state1 data to be written */
-    pPrecompute->pState2 = pHashBlkPtrs.pInHashInitState2;
+    if (NULL != pPrecompute)
+    {
+        pPrecompute->state1Size = pHashDefs->qatInfo->state1Length;
+        pPrecompute->state2Size = pHashDefs->qatInfo->state2Length;
+
+        /* Set the destination for pre-compute state1 data to be written */
+        pPrecompute->pState1 = pHashBlkPtrs.pInHashInitState1;
+
+        /* Set the destination for pre-compute state1 data to be written */
+        pPrecompute->pState2 = pHashBlkPtrs.pInHashInitState2;
+    }
 }
 
 void LacSymQat_HashStatePrefixAadBufferSizeGet(

@@ -100,14 +100,33 @@ corpus_type_t sampleCorpus;
 #endif
 
 #if CY_API_VERSION_AT_LEAST(3, 0)
+
 #ifdef SC_KPT2_ENABLED
+#ifdef SC_SM2_ENABLED
+#define ASYMETRIC_CODE                                                         \
+    (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE | KPT_RSA_CODE |               \
+     KPT_ECDSA_CODE | SM2_CODE)
+#else /*#SC_SM2_ENABLED*/
 #define ASYMETRIC_CODE                                                         \
     (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE | KPT_RSA_CODE | KPT_ECDSA_CODE)
+#endif /*#SC_SM2_ENABLED*/
+#else  /*#SC_KPT2_ENABLED*/
+#ifdef SC_SM2_ENABLED
+#define ASYMETRIC_CODE (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE | SM2_CODE)
 #else
 #define ASYMETRIC_CODE (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE)
 #endif
-#else
+#endif /*#SC_KPT2_ENABLED*/
+#else  /*#if CY_API_VERSION_AT_LEAST(3, 0)*/
 #define ASYMETRIC_CODE (RSA_CODE | DSA_CODE | ECDSA_CODE | DH_CODE)
+#endif /*#if CY_API_VERSION_AT_LEAST(3, 0)*/
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+/*add for SM3 and SM4*/
+extern smx_key_size_pairs_t cipherSM4TestList[];
+extern smx_key_size_pairs_t algChainSM4SM3TestList[];
+extern int cipherSM4TestList_count;
+extern int algChainSM4SM3TestList_count;
 #endif
 
 #ifdef USER_SPACE
@@ -273,9 +292,13 @@ CpaStatus checkSingleInstance()
 #define COMPRESSION_CODE (32)
 #define CHAINING_CODE (128)
 #if CY_API_VERSION_AT_LEAST(3, 0)
+#define SMx_CODE (2048)
 #ifdef SC_KPT2_ENABLED
 #define KPT_RSA_CODE (256)
 #define KPT_ECDSA_CODE (512)
+#endif
+#ifdef SC_SM2_ENABLED
+#define SM2_CODE (1024)
 #endif
 #endif
 #define FIRST_INSTANCE (1)
@@ -287,6 +310,11 @@ CpaStatus checkSingleInstance()
 #define NUMBER_OF_CORES_TO_USE (8)
 
 #define KASUMI_40_BYTE_BUFFER (40)
+
+/*add for SM2*/
+#ifdef SC_SM2_ENABLED
+#define SM2_TEST_ALL_STEPS (6)
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -312,13 +340,15 @@ int main(int argc, char *argv[])
     Cpa32U prevCnVRequestFlag = 0;
 #endif
 #endif
-    CpaInstanceInfo2 info = {0};
+    CpaInstanceInfo2 *info = NULL;
 #ifdef DO_CRYPTO
     CpaStatus status_asym = CPA_STATUS_FAIL;
     CpaCySymCapabilitiesInfo symCapInfo = {{0}};
     Cpa32U computeLatency = 0;
     CpaCyCapabilitiesInfo symCap = {0};
     CpaCyCapabilitiesInfo asymCap = {0};
+    Cpa16U includeKasumiAlg = 0;
+    Cpa16U includeSnow3GAlgChain = 0;
 #else
 #ifdef USER_SPACE
     Cpa32U computeLatency = 0;
@@ -514,21 +544,33 @@ int main(int argc, char *argv[])
             return CPA_STATUS_FAIL;
         }
 
+        info = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+        if (info == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for info");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+        memset(info, 0, sizeof(CpaInstanceInfo2));
+
         for (i = 0; i < numInst_g; i++)
         {
-            status = cpaCyInstanceGetInfo2(cyInst_g[i], &info);
+            status = cpaCyInstanceGetInfo2(cyInst_g[i], info);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not get instance info\n");
+                freeInstanceMapping();
+                qaeMemFree((void **)&info);
                 return status;
             }
-            if (prevDevId == info.physInstId.packageId)
+            if (prevDevId == info->physInstId.packageId)
             {
                 continue;
             }
-            prevDevId = info.physInstId.packageId;
+            prevDevId = info->physInstId.packageId;
             printDriverVersion(prevDevId);
         }
+        qaeMemFree((void **)&info);
 
         if (runTests & SYMMETRIC_CODE)
         {
@@ -601,7 +643,17 @@ int main(int argc, char *argv[])
             PRINT("runTests=%d\n", runTests);
         }
 #endif
+#ifdef SC_SM2_ENABLED
+        if (asymCap.ecSm2Supported == CPA_FALSE && (runTests & SM2_CODE))
+        {
+            PRINT("Warning! Skipping SM2 tests as they are not supported "
+                  "on Instance\n");
+            runTests ^= 1 << 10;
+            PRINT("runTests=%d\n", runTests);
+        }
 #endif
+#endif
+
         /* Check capabilities before running kasumi wireless alg tests*/
         if (symCap.symSupported == CPA_TRUE && (runTests & SYMMETRIC_CODE))
         {
@@ -613,15 +665,34 @@ int main(int argc, char *argv[])
                 return status;
             }
 
-            if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
-                                      CPA_CY_SYM_CIPHER_KASUMI_F8)) &&
-                (1 == includeWirelessAlgs))
+            if (1 == includeWirelessAlgs)
             {
-                PRINT("Warning! Skipping Kasumi wireless algorithm tests as "
-                      "they are not supported on "
-                      "Instance\n");
-                includeWirelessAlgs = 0;
-                PRINT("includeWirelessAlgs = %d\n", includeWirelessAlgs);
+                includeKasumiAlg = 1;
+                includeSnow3GAlgChain = 1;
+
+                if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                         CPA_CY_SYM_CIPHER_KASUMI_F8))
+                {
+                    PRINT(
+                        "Warning! Skipping Kasumi wireless algorithm tests as "
+                        "they are not supported on "
+                        "Instance\n");
+                    includeKasumiAlg = 0;
+                    PRINT("includeKasumiAlgs = %d\n", includeKasumiAlg);
+                }
+
+                if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                          CPA_CY_SYM_CIPHER_SNOW3G_UEA2)) ||
+                    (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes,
+                                          CPA_CY_SYM_HASH_SNOW3G_UIA2)))
+                {
+                    PRINT("Warning! Skipping Snow3G wireless algorithm chain "
+                          "tests as they are not supported on "
+                          "Instance\n");
+                    includeSnow3GAlgChain = 0;
+                    PRINT("includeSnow3GAlgChain = %d\n",
+                          includeSnow3GAlgChain);
+                }
             }
         }
     }
@@ -680,21 +751,33 @@ int main(int argc, char *argv[])
             return CPA_STATUS_FAIL;
         }
 
+        info = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+        if (info == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for info");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+        memset(info, 0, sizeof(CpaInstanceInfo2));
+
         for (i = 0; i < numInst_g; i++)
         {
-            status = cpaDcInstanceGetInfo2(dcInst_g[i], &info);
+            status = cpaDcInstanceGetInfo2(dcInst_g[i], info);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not get instance info\n");
+                qaeMemFree((void **)&info);
                 return status;
             }
-            if (prevDevId == info.physInstId.packageId)
+            if (prevDevId == info->physInstId.packageId)
             {
                 continue;
             }
-            prevDevId = info.physInstId.packageId;
+            prevDevId = info->physInstId.packageId;
             printDriverVersion(prevDevId);
         }
+        qaeMemFree((void **)&info);
+
         status = cpaDcQueryCapabilities(dcInst_g[0], &dcCap);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -772,34 +855,6 @@ int main(int argc, char *argv[])
             }
         }
 
-        /*AES128-CBC HMAC-SHA1 test*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
-        {
-            status =
-                setupAlgChainTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                  KEY_SIZE_128_IN_BYTES,
-                                  CPA_CY_SYM_HASH_SHA1,
-                                  CPA_CY_SYM_HASH_MODE_AUTH,
-                                  SHA1_AUTH_KEY_LENGTH_IN_BYTES,
-                                  CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
-                                  CPA_CY_PRIORITY_NORMAL,
-                                  ASYNC,
-                                  packetSizes[lv_count],
-                                  DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                  cyNumBuffers,
-                                  cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupAlgChainTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-        } /*End of test*/
-
         /*AES256-CBC HMAC-SHA512 test*/
         for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
         {
@@ -848,37 +903,6 @@ int main(int argc, char *argv[])
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("Error calling setupAlgChainTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-        } /*End of test*/
-        /*AES128-CBC HMAC-SHA1 test*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
-        {
-
-            status =
-                setupAlgChainDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                    KEY_SIZE_128_IN_BYTES,
-                                    CPA_CY_SYM_HASH_SHA1,
-                                    CPA_CY_SYM_HASH_MODE_AUTH,
-                                    SHA1_AUTH_KEY_LENGTH_IN_BYTES,
-                                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
-                                    CPA_CY_PRIORITY_HIGH,
-                                    ASYNC,
-                                    packetSizes[lv_count],
-                                    SYM_DP_ENQUEUEING,
-                                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                    SINGLE_REQUEST,
-                                    SYM_DP_SINGLE_SESSION,
-                                    cyNumBuffers,
-                                    cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupAlgChainDpTest\n");
                 return CPA_STATUS_FAIL;
             }
             status = createStartandWaitForCompletionCrypto(SYM);
@@ -1006,7 +1030,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (includeWirelessAlgs)
+        if (includeKasumiAlg)
         {
             /*KASUMI TEST*/
             for (lv_count = 0; lv_count < numWirelessPacketSizes; lv_count++)
@@ -1057,6 +1081,68 @@ int main(int argc, char *argv[])
                     retStatus = CPA_STATUS_FAIL;
                 }
             }
+        }
+
+        if (includeSnow3GAlgChain)
+        {
+            /*SNOW3G-UEA2 HMAC-SNOW3G-UIA2 TEST*/
+            for (lv_count = 0; lv_count < numWirelessPacketSizes; lv_count++)
+            {
+                status = setupAlgChainTest(
+                    CPA_CY_SYM_CIPHER_SNOW3G_UEA2,
+                    KEY_SIZE_128_IN_BYTES,
+                    CPA_CY_SYM_HASH_SNOW3G_UIA2,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    SNOW3G_UIA2_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_NORMAL,
+                    ASYNC,
+                    wirelessPacketSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*SNOW3G-UEA2 HMAC-SNOW3G-UIA2 TEST*/
+            for (lv_count = 0; lv_count < numWirelessPacketSizes; lv_count++)
+            {
+                status = setupAlgChainDpTest(
+                    CPA_CY_SYM_CIPHER_SNOW3G_UEA2,
+                    KEY_SIZE_128_IN_BYTES,
+                    CPA_CY_SYM_HASH_SNOW3G_UIA2,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    SNOW3G_UIA2_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    wirelessPacketSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
         }
     }
 #endif /* DO_CRYPTO */
@@ -1157,14 +1243,11 @@ int main(int argc, char *argv[])
 
     if (((DH_CODE & runTests) == DH_CODE) && (computeLatency == 0))
     {
-        /*test the 2nd packet size of ModSize only for signOfLife*/
         if (signOfLife)
         {
-            numModSizes = ONE_PACKET + ONE_PACKET;
+            numModSizes = ONE_PACKET;
         }
-        /*modSize starts at 512 which is not supported by DH, so we skip the
-         * 1st modSize*/
-        for (lv_count = ONE_PACKET; lv_count < numModSizes; lv_count++)
+        for (lv_count = 0; lv_count < numModSizes; lv_count++)
         {
             status = setupDhTest(modSizes[lv_count],
                                  EXPONENT_180_BIT,
@@ -1193,8 +1276,8 @@ int main(int argc, char *argv[])
      **************************************************************************/
     if (((DSA_CODE & runTests) == DSA_CODE) && (computeLatency == 0))
     {
-        status = setupDsaTest(MODULUS_1024_BIT,
-                              EXPONENT_160_BIT,
+        status = setupDsaTest(MODULUS_2048_BIT,
+                              EXPONENT_256_BIT,
                               ASYNC,
                               cyNumBuffers,
                               cyAsymLoops);
@@ -1236,6 +1319,60 @@ int main(int argc, char *argv[])
     }
 #endif /*DO_CRYPTO*/
 
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_SM2_ENABLED
+#ifdef DO_CRYPTO
+    /***************************************************************************
+     * SM2 TESTS
+     **************************************************************************/
+
+    if ((SM2_CODE & runTests) == SM2_CODE)
+    {
+        Cpa32U sm2_step = 0;
+        for (sm2_step = 0; sm2_step < SM2_TEST_ALL_STEPS; sm2_step++)
+        {
+            status = setupSm2Test(GFP_SM2_SIZE_IN_BITS,
+                                  CPA_CY_EC_FIELD_TYPE_PRIME,
+                                  ASYNC,
+                                  sm2_step,
+                                  cyNumBuffers,
+                                  cyAsymLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                switch (sm2_step)
+                {
+                    case SM2_STEP_SIGN:
+                        PRINT_ERR("Error setting up SM2_STEP_SIGN Test");
+                        break;
+                    case SM2_STEP_VERIFY:
+                        PRINT_ERR("Error setting up SM2_STEP_VERIFY Test");
+                        break;
+                    case SM2_STEP_ENC:
+                        PRINT_ERR("Error setting up SM2_STEP_ENC Test");
+                        break;
+                    case SM2_STEP_DEC:
+                        PRINT_ERR("Error setting up SM2_STEP_DEC Test");
+                        break;
+                    case SM2_STEP_KEYEX_P1:
+                        PRINT_ERR("Error setting up SM2_STEP_KEYEX_P1 Test");
+                        break;
+                    case SM2_STEP_KEYEX_P2:
+                        PRINT_ERR("Error setting up SM2_STEP_KEYEX_P2 Test");
+                        break;
+                }
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletionCrypto(ASYM);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+        }
+    }
+#endif /*DO_CRYPTO*/
+#endif /*SC_SM2_ENABLED*/
+#endif
+
 #ifdef INCLUDE_COMPRESSION
     if (signOfLife)
     {
@@ -1273,7 +1410,7 @@ int main(int argc, char *argv[])
             disableAdditionalCmpbufferSize_g = 1;
             dynamicHuffmanEnabled(NULL, &dynamicEnabled);
 
-#if defined(USER_SPACE) || (!defined(USER_SPACE) && !defined(__FreeBSD__))
+#if !defined(_KERNEL)
             /*STATIC L1 & L3 COMPRESSION*/
             status = setupDcTest(CPA_DC_DEFLATE,
                                  CPA_DC_DIR_COMPRESS,
@@ -1519,7 +1656,7 @@ int main(int argc, char *argv[])
                     return status;
                 }
             }
-#endif /* USER_SPACE */
+#endif /* _KERNEL */
 
             /* Data Plane API Sample Code Test */
             /*STATIC DP_API L1 & L3 COMPRESS & DECOMPRESS*/
@@ -1886,6 +2023,180 @@ int main(int argc, char *argv[])
         } // End of if(numDcInst>0)
     }     // End of if((COMPRESSION_CODE & runTests)== COMPRESSION_CODE
 
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef DO_CRYPTO
+    /***************************************************************************
+     * SM3 and SM4 TESTS
+     **************************************************************************/
+
+    if ((SMx_CODE & runTests) == SMx_CODE)
+    {
+        Cpa32U sm_count = 0;
+
+        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+        {
+            status = setupHashTest(CPA_CY_SYM_HASH_SM3,
+                                   CPA_CY_SYM_HASH_MODE_PLAIN,
+                                   SM3_DIGEST_LENGTH_IN_BYTES,
+                                   CPA_CY_PRIORITY_HIGH,
+                                   ASYNC,
+                                   packetSizes[lv_count],
+                                   cyNumBuffers,
+                                   cySymLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("Error calling setupHashTest\n");
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletionCrypto(SYM);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+        }
+        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+        {
+            status = setupHashDpTest(CPA_CY_SYM_HASH_SM3,
+                                     CPA_CY_SYM_HASH_MODE_PLAIN,
+                                     SM3_DIGEST_LENGTH_IN_BYTES,
+                                     CPA_CY_PRIORITY_HIGH,
+                                     ASYNC,
+                                     packetSizes[lv_count],
+                                     SYM_DP_ENQUEUEING,
+                                     SINGLE_REQUEST,
+                                     SYM_DP_SINGLE_SESSION,
+                                     cyNumBuffers,
+                                     cySymLoops);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("Error calling setupHashDpTest\n");
+                return CPA_STATUS_FAIL;
+            }
+            status = createStartandWaitForCompletionCrypto(SYM);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                retStatus = CPA_STATUS_FAIL;
+            }
+        }
+        for (sm_count = 0; sm_count < algChainSM4SM3TestList_count; sm_count++)
+        {
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupAlgChainTest(
+                    algChainSM4SM3TestList[sm_count].cipherAlg,
+                    algChainSM4SM3TestList[sm_count].cipherKeySizeInBytes,
+                    algChainSM4SM3TestList[sm_count].hashAlg,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    algChainSM4SM3TestList[sm_count].hashKeySizeInBytes,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+        }
+        for (sm_count = 0; sm_count < cipherSM4TestList_count; sm_count++)
+        {
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupCipherTest(
+                    cipherSM4TestList[sm_count].cipherAlg,
+                    cipherSM4TestList[sm_count].cipherKeySizeInBytes,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+        }
+
+        for (sm_count = 0; sm_count < algChainSM4SM3TestList_count; sm_count++)
+        {
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupAlgChainDpTest(
+                    algChainSM4SM3TestList[sm_count].cipherAlg,
+                    algChainSM4SM3TestList[sm_count].cipherKeySizeInBytes,
+                    algChainSM4SM3TestList[sm_count].hashAlg,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    algChainSM4SM3TestList[sm_count].hashKeySizeInBytes,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+        }
+        for (sm_count = 0; sm_count < cipherSM4TestList_count; sm_count++)
+        {
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupCipherDpTest(
+                    cipherSM4TestList[sm_count].cipherAlg,
+                    cipherSM4TestList[sm_count].cipherKeySizeInBytes,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+        }
+    }
+#endif /*DO_CRYPTO*/
+#endif
+
 #ifdef USER_SPACE
 #ifdef SC_CHAINING_ENABLED
     /*
@@ -1899,38 +2210,6 @@ int main(int argc, char *argv[])
             prevCnVRequestFlag = getSetupCnVRequestFlag();
             setSetupCnVRequestFlag(STRICT_CNV_WITH_RECOVERY |
                                    LOOSE_CNV_WITH_RECOVERY);
-
-            /* sha1 + stateless static compress chaining */
-            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                      2,
-                                      CPA_DC_DEFLATE,
-                                      CPA_DC_DIR_COMPRESS,
-                                      SAMPLE_CODE_CPA_DC_L1,
-                                      CPA_DC_HT_STATIC,
-                                      CPA_DC_STATELESS,
-                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                      dcBufferSize,
-                                      sampleCorpus,
-                                      ASYNC,
-                                      CPA_CY_SYM_OP_HASH,
-                                      CPA_CY_SYM_CIPHER_NULL,
-                                      0,
-                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                      CPA_CY_PRIORITY_NORMAL,
-                                      CPA_CY_SYM_HASH_SHA1,
-                                      CPA_CY_SYM_HASH_MODE_PLAIN,
-                                      SHA1_DIGEST_LENGTH_IN_BYTES,
-                                      dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcChainTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
 
             /* sha256 + stateless static compress chaining */
             status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
@@ -1952,38 +2231,6 @@ int main(int argc, char *argv[])
                                       CPA_CY_SYM_HASH_SHA256,
                                       CPA_CY_SYM_HASH_MODE_PLAIN,
                                       SHA256_DIGEST_LENGTH_IN_BYTES,
-                                      dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcChainTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-
-            /* sha1 + stateless dynamic compress chaining */
-            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                      2,
-                                      CPA_DC_DEFLATE,
-                                      CPA_DC_DIR_COMPRESS,
-                                      SAMPLE_CODE_CPA_DC_L1,
-                                      CPA_DC_HT_FULL_DYNAMIC,
-                                      CPA_DC_STATELESS,
-                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                      dcBufferSize,
-                                      sampleCorpus,
-                                      ASYNC,
-                                      CPA_CY_SYM_OP_HASH,
-                                      CPA_CY_SYM_CIPHER_NULL,
-                                      0,
-                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                      CPA_CY_PRIORITY_NORMAL,
-                                      CPA_CY_SYM_HASH_SHA1,
-                                      CPA_CY_SYM_HASH_MODE_PLAIN,
-                                      SHA1_DIGEST_LENGTH_IN_BYTES,
                                       dcLoops);
             if (CPA_STATUS_SUCCESS != status)
             {

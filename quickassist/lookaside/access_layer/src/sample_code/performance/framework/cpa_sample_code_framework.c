@@ -229,6 +229,8 @@ volatile CpaBoolean cnverr_g = CPA_FALSE;
 volatile CpaBoolean cnvnrerr_g = CPA_FALSE;
 volatile CpaBoolean dataIntegrity_g = CPA_FALSE;
 volatile CpaBoolean dataIntegrityVerify_g = CPA_FALSE;
+volatile CpaBoolean hwVerify_g = CPA_FALSE;
+volatile CpaBoolean keyCorrupt_g = CPA_FALSE;
 int verboseOutput = 1;
 
 CpaStatus setDataIntegrity(CpaBoolean val)
@@ -288,10 +290,39 @@ CpaStatus printReliability(void)
     return CPA_STATUS_SUCCESS;
 }
 
+CpaStatus setHwVerify(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        hwVerify_g = CPA_TRUE;
+    }
+    else
+    {
+        hwVerify_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+CpaStatus setKeyCorrupt(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        keyCorrupt_g = CPA_TRUE;
+    }
+    else
+    {
+        keyCorrupt_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
 EXPORT_SYMBOL(reliability_g);
 EXPORT_SYMBOL(setReliability);
 EXPORT_SYMBOL(setUseStaticPrime);
 EXPORT_SYMBOL(printReliability);
+EXPORT_SYMBOL(hwVerify_g);
+EXPORT_SYMBOL(setHwVerify);
+EXPORT_SYMBOL(setKeyCorrupt);
+EXPORT_SYMBOL(keyCorrupt_g);
 
 /*Global flag to enable sleep function that is used to slow down pulling for
  *request on thread RETRY e.g. concurrent performance measurements*/
@@ -1082,7 +1113,8 @@ void qatModifyCyThreadLogicalQaInstance(Cpa8U threadOffset,
                                         CpaInstanceHandle *symOrAsymIaCore,
                                         Cpa8U numCyInstances)
 {
-    Cpa8U i = 0, j = 0;
+    Cpa32U i = 0;
+    Cpa8U j = 0;
 
     for (i = threadOffset; i < numCreatedThreads_g; i++)
     {

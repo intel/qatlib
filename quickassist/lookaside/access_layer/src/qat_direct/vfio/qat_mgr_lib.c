@@ -255,7 +255,7 @@ static int open_file_with_link_check(const char *filename, int flags)
     fd = open(filename, flags | O_NOFOLLOW);
     if (fd < 0)
     {
-        qat_log(LOG_LEVEL_ERROR, "Open failed on %s\n", filename);
+        qat_log(LOG_LEVEL_INFO, "Open failed on %s\n", filename);
         return fd;
     }
 
@@ -527,6 +527,9 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     closedir(devvfio_dir);
 
     *num_devices = num_devs;
+
+    if (!num_devs)
+        qat_log(LOG_LEVEL_ERROR, "No devices found\n");
 
     qsort(dev_list, *num_devices, sizeof(dev_list[0]), bdf_compare);
 

@@ -40,7 +40,7 @@ Type=forking
 PIDFile=/run/qat/qatmgr.pid
 Group=qat
 RuntimeDirectory=qat
-RuntimeDirectoryMode=775
+RuntimeDirectoryMode=755
 Environment="POLICY=0"
 EnvironmentFile=-/etc/sysconfig/qat
 ExecStartPre=/bin/sh -c "test $(getent group qat)"

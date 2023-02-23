@@ -630,6 +630,7 @@ typedef union UINT128_t {
  *        may be used for test purposes.
  */
 #ifdef OSAL_ENSURE_ON
+#ifndef __WPP_EN__
 #define __FILENAME__ (strrchr("/" __FILE__, '/') + 1)
 #define OSAL_ENSURE(c, str)                                                    \
     do                                                                         \
@@ -700,6 +701,7 @@ typedef union UINT128_t {
                 __LINE__);                                                     \
         return OSAL_FAIL;                                                      \
     }
+#endif // #ifndef __WPP_EN__
 #else
 #define OSAL_ENSURE(c, str)                                                    \
     do                                                                         \

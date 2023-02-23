@@ -185,7 +185,7 @@ CpaStatus qatFreeCompressionLists(compression_test_params_t *setup,
 #ifdef SC_CHAINING_ENABLED
 /*free the array of chaining source and destination CpaBufferLists
  * free the array of chainging results*/
-CpaStatus qatFreeDcChainLists(CpaDcChainRqResults **chainResultArray,
+CpaStatus qatFreeDcChainLists(void **chainResultArray,
                               CpaDcChainOpData **chainOpDataArray)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -193,7 +193,7 @@ CpaStatus qatFreeDcChainLists(CpaDcChainRqResults **chainResultArray,
 
     if (NULL != chainResultArray)
     {
-        status = FreeArrayOfStructures((void **)chainResultArray);
+        status = FreeArrayOfStructures(chainResultArray);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("could not free chainResultArray");
@@ -281,18 +281,25 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
 /*allocate the array of source and destination dc chain Lists
  * allocate the array of results*/
 CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
-                                  CpaDcChainRqResults **chainResultArray,
+                                  void **chainResultArray,
                                   CpaDcChainOpData **chainOpDataArray)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U chainResultLen = 0;
+
+    if (setup->legacyChainRequest)
+        chainResultLen = sizeof(CpaDcChainRqResults);
+#ifdef SC_CHAINING_EXT_ENABLED
+    else
+        chainResultLen = sizeof(CpaDcChainRqVResults);
+#endif
 
     if (NULL != chainResultArray)
     {
         if (CPA_STATUS_SUCCESS == status)
         {
-            status = AllocArrayOfStructures((void **)chainResultArray,
-                                            setup->numLists,
-                                            sizeof(CpaDcChainRqResults));
+            status = AllocArrayOfStructures(
+                chainResultArray, setup->numLists, chainResultLen);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not allocate chainResultArray\n");
@@ -303,7 +310,7 @@ CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
             status =
                 AllocArrayOfStructures((void **)chainOpDataArray,
                                        setup->numLists * setup->numSessions,
-                                       sizeof(CpaDcChainRqResults));
+                                       sizeof(CpaDcChainOpData));
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not allocate chainOpDataArray\n");
@@ -518,7 +525,6 @@ CpaStatus qatDcChainSessionInit(compression_test_params_t *setup,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U sessionSize = 0;
-    CpaDcSessionSetupData tempSetupData = setup->setupData;
 
     Cpa8U numSessions = setup->numSessions;
     CpaDcChainSessionSetupData chainSessionData[numSessions];
@@ -532,7 +538,18 @@ CpaStatus qatDcChainSessionInit(compression_test_params_t *setup,
             chainSessionData[1].sessType = CPA_DC_CHAIN_COMPRESS_DECOMPRESS;
             chainSessionData[1].pDcSetupData = &(setup->setupData);
             break;
-
+        case CPA_DC_CHAIN_COMPRESS_THEN_AEAD:
+            chainSessionData[0].sessType = CPA_DC_CHAIN_COMPRESS_DECOMPRESS;
+            chainSessionData[0].pDcSetupData = &(setup->setupData);
+            chainSessionData[1].sessType = CPA_DC_CHAIN_SYMMETRIC_CRYPTO;
+            chainSessionData[1].pCySetupData = &(setup->symSetupData);
+            break;
+        case CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS:
+            chainSessionData[0].sessType = CPA_DC_CHAIN_SYMMETRIC_CRYPTO;
+            chainSessionData[0].pCySetupData = &(setup->symSetupData);
+            chainSessionData[1].sessType = CPA_DC_CHAIN_COMPRESS_DECOMPRESS;
+            chainSessionData[1].pDcSetupData = &(setup->setupData);
+            break;
         default:
             PRINT_ERR("Unsupported chaining operation.\n");
             status = CPA_STATUS_FAIL;
@@ -574,8 +591,6 @@ CpaStatus qatDcChainSessionInit(compression_test_params_t *setup,
     }
     if (CPA_STATUS_SUCCESS == status)
     {
-        tempSetupData.sessDirection = CPA_DC_DIR_COMPRESS;
-        chainSessionData[1].pDcSetupData = &(tempSetupData);
         status = cpaDcChainInitSession(setup->dcInstanceHandle,
                                        *pSessionHandle,
                                        setup->chainOperation,
@@ -829,6 +844,29 @@ void qatDumpBufferListInfo(compression_test_params_t *setup,
     qatCompressDumpToFile(setup, pSrc, "srcFile", "srcFileSize", 0);
     qatCompressDumpToFile(setup, pDst, "dstFile", "dstFileSize", 0);
     qatCompressDumpToFile(setup, pCmp, "cmpFile", "cmpFileSize", 0);
+}
+
+CpaStatus qatIsBufEmpty(Cpa8U *buf, size_t pktSize)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    if (pktSize < (2 * sizeof(uint64_t)))
+    {
+        if (*buf != 0 || memcmp(buf, buf + 1, pktSize - 1) != 0)
+        {
+            status = CPA_STATUS_FAIL;
+        }
+    }
+    else
+    {
+        if (memcmp(buf, buf + sizeof(uint64_t), pktSize - sizeof(uint64_t)) !=
+            0)
+        {
+            status = CPA_STATUS_FAIL;
+        }
+    }
+
+    return status;
 }
 
 CpaStatus qatCmpBuffers(compression_test_params_t *setup,
@@ -1585,11 +1623,13 @@ void qatDcPollAndSetNextPollCounter(compression_test_params_t *setup)
 }
 
 void qatDcRetryHandler(compression_test_params_t *setup,
-                       CpaInstanceInfo2 instanceInfo2)
+                       const CpaInstanceInfo2 *pInstanceInfo2)
 {
     setup->performanceStats->retries++;
+
     // poll if DP API is being used, or if poll inline flag is set
-    if ((poll_inline_g || setup->isDpApi) && instanceInfo2.isPolled)
+    if ((poll_inline_g || setup->isDpApi) && (pInstanceInfo2 != NULL) &&
+        pInstanceInfo2->isPolled)
     {
         qatDcPollAndSetNextPollCounter(setup);
     }

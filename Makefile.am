@@ -109,8 +109,9 @@ qatmgr_LDADD = -lpthread
 
 lib_LTLIBRARIES = lib@LIBUSDMNAME@.la
 lib@LIBUSDMNAME@_la_SOURCES = \
-	quickassist/utilities/libusdm_drv/user_space/qae_mem_utils.c \
-	quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.c
+	quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_utils_vfio.c \
+	quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.c \
+	quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_hugepage_utils_vfio.c
 lib@LIBUSDMNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			     -I$(srcdir)/quickassist/utilities/libusdm_drv/include \
 			     -I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
@@ -321,9 +322,7 @@ EXTRA_DIST = LICENSE \
 	quickassist/lookaside/access_layer/src/qat_direct \
 	quickassist/utilities/osal \
 	quickassist/utilities/libusdm_drv/include \
-	quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.h \
-	quickassist/utilities/libusdm_drv/user_space/qae_mem_user_utils.h \
-	quickassist/utilities/libusdm_drv/user_space/qae_page_table.h \
+	quickassist/utilities/libusdm_drv/user_space \
 	quickassist/lookaside/access_layer/src/sample_code
 
 DISTCHECK_CONFIGURE_FLAGS = \
@@ -384,6 +383,13 @@ endif
 
 if USE_CCODE_CRC
 COMMON_FLAGS += -DUSE_CCODE_CRC
+endif
+
+if QAT_LEGACY_ALGORITHMS_AC
+QAT_LEGACY_ALGORITHMS = y
+COMMON_FLAGS += -DQAT_LEGACY_ALGORITHMS
+else
+QAT_LEGACY_ALGORITHMS = n
 endif
 
 include Samples.am

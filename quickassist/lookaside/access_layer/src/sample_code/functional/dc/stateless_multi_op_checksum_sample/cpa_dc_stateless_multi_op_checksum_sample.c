@@ -222,6 +222,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     CpaDcRqResults dcResults;
     Cpa32U dataConsumed = 0;
     Cpa32U dataProduced = 0;
+    Cpa32U checksum = 0;
     struct COMPLETION_STRUCT complete;
 
     INIT_OPDATA(&opData, CPA_DC_FLUSH_FINAL);
@@ -395,6 +396,10 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         /* Reset counters and checksum */
         dataConsumed = 0;
         dataProduced = 0;
+
+        /* To compare the checksum with decompressed output */
+        checksum = dcResults.checksum;
+
         memset(&dcResults, 0, sizeof(CpaDcRqResults));
     }
 
@@ -477,6 +482,31 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         PRINT_DBG("Data consumed %d\n", dataConsumed);
         PRINT_DBG("Data produced %d\n", dataProduced);
         PRINT_DBG("Checksum 0x%x\n", dcResults.checksum);
+        for (bufferNum = 0; bufferNum < numBuffers; bufferNum++)
+        {
+            /* Compare with original Src buffer */
+            if (0 == memcmp(bufferListDstArray2[bufferNum].pBuffers->pData,
+                            bufferListSrcArray[bufferNum].pBuffers->pData,
+                            SAMPLE_MAX_BUFF))
+            {
+                PRINT_DBG("Output matches expected output\n");
+            }
+            else
+            {
+                PRINT_ERR("Output does not match expected output\n");
+                status = CPA_STATUS_FAIL;
+            }
+        }
+        if (checksum == dcResults.checksum)
+        {
+            PRINT_DBG("Checksums match after compression and decompression\n");
+        }
+        else
+        {
+            PRINT_ERR("Checksums does not match after compression and "
+                      "decompression\n");
+            status = CPA_STATUS_FAIL;
+        }
     }
     for (bufferNum = 0; bufferNum < numBuffers; bufferNum++)
     {

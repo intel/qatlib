@@ -271,7 +271,15 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
     perf_data_t *pPerfData = NULL;
     CpaCyEcPointMultiplyCbFunc cbFunc = NULL;
 #ifdef POLL_INLINE
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
         cbFunc = calcEcPointCb;
@@ -284,10 +292,11 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
             return CPA_STATUS_FAIL;
         }
     }
@@ -387,7 +396,7 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -402,20 +411,25 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
     {
         PRINT_ERR("Failed to perform cpaCyEcPointMultiply: status: %d\n",
                   status);
-        CALC_EC_POINT_MEM_FREE;
-        return status;
+        status = CPA_STATUS_FAIL;
+        goto exit;
     }
     else
     {
         if (multiplyStatus == CPA_FALSE)
         {
             PRINT_ERR("cpaCyEcPointMultiply status is CPA_FALSE\n");
-            CALC_EC_POINT_MEM_FREE;
-            return CPA_STATUS_FAIL;
+            status = CPA_STATUS_FAIL;
+            goto exit;
         }
     }
+
+exit:
     /*free the memory in the operation data structure*/
     CALC_EC_POINT_MEM_FREE;
+#ifdef POLL_INLINE
+    qaeMemFree((void **)&instanceInfo2);
+#endif
     return status;
 }
 EXPORT_SYMBOL(calcEcPoint);
@@ -613,7 +627,7 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
     Cpa32U retries = 0;
     perf_data_t *pPerfData = NULL;
     CpaCyEcdsaSignRSCbFunc signRSCbFunc = NULL;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
 #ifdef SC_KPT2_ENABLED
@@ -635,6 +649,7 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
 #endif
 
 #ifdef POLL_INLINE
+    CpaBoolean isPolled = CPA_FALSE;
     if (poll_inline_g)
     {
         pPerfData = setup->performanceStats;
@@ -651,16 +666,29 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
         return status;
     }
 
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
         return CPA_STATUS_FAIL;
     }
-    if (instanceInfo2.physInstId.packageId > packageIdCount_g)
+    if (instanceInfo2->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo2.physInstId.packageId;
+        packageIdCount_g = instanceInfo2->physInstId.packageId;
     }
+#ifdef POLL_INLINE
+    isPolled = instanceInfo2->isPolled;
+#endif
+    qaeMemFree((void **)&instanceInfo2);
 
     pSignRSOpData = qaeMemAlloc(sizeof(CpaCyEcdsaSignRSOpData));
     if (NULL == pSignRSOpData)
@@ -806,7 +834,7 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -1164,12 +1192,11 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
     Cpa32U node = 0;
     /*pointer to location to store performance data*/
     perf_data_t *pEcdsaData = NULL;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
     CpaCyEcdsaVerifyCbFunc cbFunc = NULL;
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_FAIL;
     perf_data_t *pPerfData = setup->performanceStats;
-    CpaInstanceInfo2 instanceInfo2 = {0};
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 #endif
@@ -1179,18 +1206,15 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
 #endif
 #endif
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
-#ifdef POLL_INLINE
-    if (poll_inline_g)
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            goto barrier;
-        }
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        goto barrier;
     }
-#endif
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
@@ -1203,18 +1227,21 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
         status = cpaCyQueryCapabilities(setup->cyInstanceHandle, &pCapInfo);
         if ((CPA_STATUS_SUCCESS == status) && !pCapInfo.kptSupported)
         {
-            PRINT_ERR("Inst (BDF:%02x:%02d.%d) does not support KPT2!\n",
-                      (Cpa8U)(instanceInfo.physInstId.busAddress >> 8),
-                      (Cpa8U)((instanceInfo.physInstId.busAddress & 0xFF) >> 3),
-                      (Cpa8U)(instanceInfo.physInstId.busAddress & 7));
+            PRINT_ERR(
+                "Inst (BDF:%02x:%02d.%d) does not support KPT2!\n",
+                (Cpa8U)(instanceInfo->physInstId.busAddress >> 8),
+                (Cpa8U)((instanceInfo->physInstId.busAddress & 0xFF) >> 3),
+                (Cpa8U)(instanceInfo->physInstId.busAddress & 7));
             sampleCodeBarrier();
-            return CPA_STATUS_SUCCESS;
+            status = CPA_STATUS_SUCCESS;
+            goto barrier;
         }
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyQueryCapabilities failed!\n");
             sampleCodeBarrier();
-            return status;
+            status = CPA_STATUS_FAIL;
+            goto barrier;
         }
     }
 #endif
@@ -1506,6 +1533,7 @@ barrier:
     if (CPA_STATUS_SUCCESS != status)
     {
         setup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&instanceInfo);
         return status;
     }
 
@@ -1531,7 +1559,7 @@ barrier:
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (instanceInfo->isPolled)
                         {
                             sampleCodeAsymPollInstance(setup->cyInstanceHandle,
                                                        0);
@@ -1558,12 +1586,13 @@ barrier:
                 PRINT_ERR("ECDSA Verify function failed with status:%d\n",
                           status);
                 ECDSA_PERFORM_MEM_FREE();
+                qaeMemFree((void **)&instanceInfo);
                 return status;
             }
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo2.isPolled)
+                if (instanceInfo->isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -1594,7 +1623,7 @@ barrier:
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((instanceInfo2.isPolled))
+        if ((instanceInfo->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -1623,6 +1652,7 @@ barrier:
     sampleCodeSemaphoreDestroy(&pEcdsaData->comp);
     /*Free all memory*/
     ECDSA_PERFORM_MEM_FREE();
+    qaeMemFree((void **)&instanceInfo);
     if (CPA_STATUS_SUCCESS != setup->performanceStats->threadReturnStatus)
     {
         status = CPA_STATUS_FAIL;
@@ -1701,7 +1731,7 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     CpaInstanceHandle *cyInstances = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     ecdsa_test_params_t *params = (ecdsa_test_params_t *)testSetup->setupPtr;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 #ifdef SC_DEV_INFO_ENABLED
     CpaDeviceInfo deviceInfo = {0};
 #endif
@@ -1751,23 +1781,33 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     ecdsaSetup.cyInstanceHandle =
         cyInstances[(testSetup->logicalQaInstance) % numInstances];
 
-    status = cpaCyInstanceGetInfo2(ecdsaSetup.cyInstanceHandle, &instanceInfo);
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(ecdsaSetup.cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
 
 #ifdef SC_DEV_INFO_ENABLED
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    status = cpaGetDeviceInfo(instanceInfo->physInstId.packageId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         sampleCodeThreadExit();
     }
     if (CPA_FALSE == deviceInfo.cyAsymEnabled)
@@ -1778,16 +1818,17 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
                   __LINE__);
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         sampleCodeThreadExit();
     }
 #endif
-    if (instanceInfo.physInstId.packageId > packageIdCount_g)
+    if (instanceInfo->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo.physInstId.packageId;
+        packageIdCount_g = instanceInfo->physInstId.packageId;
     }
 
     memset(ecdsaSetup.performanceStats, 0, sizeof(perf_data_t));
-    ecdsaSetup.performanceStats->packageId = instanceInfo.physInstId.packageId;
+    ecdsaSetup.performanceStats->packageId = instanceInfo->physInstId.packageId;
 
     ecdsaSetup.threadID = testSetup->threadID;
 
@@ -1834,6 +1875,7 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
     }
     qaeMemFree((void **)&cyInstances);
+    qaeMemFree((void **)&instanceInfo);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 EXPORT_SYMBOL(ecdsaPerformance);

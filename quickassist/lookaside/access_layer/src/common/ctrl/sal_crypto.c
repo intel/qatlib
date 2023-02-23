@@ -1767,9 +1767,11 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
     status = LacDh_Init(pCryptoService);
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
+#ifdef QAT_LEGACY_ALGORITHMS
     /* Init Dsa stats */
     status = LacDsa_Init(pCryptoService);
     LAC_CHECK_STATUS_ASYM_INIT(status);
+#endif
 
     /* Init Ec stats */
     status = LacEc_Init(pCryptoService);
@@ -2664,7 +2666,11 @@ void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
         pCapInfo->ecEdMontSupported = CPA_FALSE;
 #else
         pCapInfo->dhSupported = CPA_TRUE;
+#ifdef QAT_LEGACY_ALGORITHMS
         pCapInfo->dsaSupported = CPA_TRUE;
+#else
+        pCapInfo->dsaSupported = CPA_FALSE;
+#endif
         pCapInfo->rsaSupported = CPA_TRUE;
         pCapInfo->ecSupported = CPA_TRUE;
         pCapInfo->ecdhSupported = CPA_TRUE;
@@ -3371,8 +3377,11 @@ CpaStatus cpaCySymQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
 
     if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CIPHER)
     {
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_NULL);
+#ifdef QAT_LEGACY_ALGORITHMS
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_ECB);
+#endif
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_NULL);
+        
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CBC);
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CTR);
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_XTS);
@@ -3381,8 +3390,10 @@ CpaStatus cpaCySymQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
     if (pGenericService->capabilitiesMask &
         ICP_ACCEL_CAPABILITIES_AUTHENTICATION)
     {
+#ifdef QAT_LEGACY_ALGORITHMS
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA1);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA224);
+#endif
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA256);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA384);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA512);
@@ -3431,7 +3442,9 @@ CpaStatus cpaCySymQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
 
     if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SHA3_EXT)
     {
+#ifdef QAT_LEGACY_ALGORITHMS
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_224);
+#endif
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_384);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_512);

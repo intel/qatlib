@@ -174,29 +174,39 @@ static CpaStatus symDpPerformOp(CpaInstanceHandle cyInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
+        CpaPhysicalAddr pPhySrcBuffer;
         /** Populate the structure containing the operational data that is
          * needed to run the algorithm
          */
         //<snippet name="opDataDp">
         pOpData->cryptoStartSrcOffsetInBytes = 0;
         pOpData->messageLenToCipherInBytes = sizeof(sampleAlgChainingSrc);
-        pOpData->iv = sampleVirtToPhys(pIvBuffer);
+        pOpData->iv =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pIvBuffer,
+                              cyInstHandle,
+                              CPA_ACC_SVC_TYPE_CRYPTO);
         pOpData->pIv = pIvBuffer;
         pOpData->hashStartSrcOffsetInBytes = 0;
         pOpData->messageLenToHashInBytes = sizeof(sampleAlgChainingSrc);
         /* Even though MAC follows immediately after the region to hash
            digestIsAppended is set to false in this case due to
            errata number IXA00378322 */
-        pOpData->digestResult =
-            sampleVirtToPhys(pSrcBuffer) + sizeof(sampleAlgChainingSrc);
+        pPhySrcBuffer =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pSrcBuffer,
+                              cyInstHandle,
+                              CPA_ACC_SVC_TYPE_CRYPTO);
+        pOpData->digestResult = pPhySrcBuffer + sizeof(sampleAlgChainingSrc);
         pOpData->instanceHandle = cyInstHandle;
         pOpData->sessionCtx = sessionCtx;
         pOpData->ivLenInBytes = sizeof(sampleCipherIv);
-        pOpData->srcBuffer = sampleVirtToPhys(pSrcBuffer);
+        pOpData->srcBuffer = pPhySrcBuffer;
         pOpData->srcBufferLen = bufferSize;
-        pOpData->dstBuffer = sampleVirtToPhys(pSrcBuffer);
+        pOpData->dstBuffer = pPhySrcBuffer;
         pOpData->dstBufferLen = bufferSize;
-        pOpData->thisPhys = sampleVirtToPhys(pOpData);
+        pOpData->thisPhys =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pOpData,
+                              cyInstHandle,
+                              CPA_ACC_SVC_TYPE_CRYPTO);
         pOpData->pCallbackTag = (void *)0;
         //</snippet>
     }
@@ -281,7 +291,14 @@ CpaStatus symDpSample(void)
     Cpa32U sessionCtxSize = 0;
     CpaInstanceHandle cyInstHandle = NULL;
     CpaCySymSessionSetupData sessionSetupData = {0};
-    CpaInstanceInfo2 info2 = {0};
+    CpaInstanceInfo2 *info2 = NULL;
+
+    status = OS_MALLOC(&info2, sizeof(CpaInstanceInfo2));
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to allocate memory for info2");
+        return CPA_STATUS_FAIL;
+    }
 
     /*
      * In this simplified version of instance discovery, we discover
@@ -290,6 +307,7 @@ CpaStatus symDpSample(void)
     sampleCyGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
+        OS_FREE(info2);
         return CPA_STATUS_FAIL;
     }
 
@@ -299,12 +317,12 @@ CpaStatus symDpSample(void)
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        status = cpaCyInstanceGetInfo2(cyInstHandle, &info2);
+        status = cpaCyInstanceGetInfo2(cyInstHandle, info2);
     }
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        if (info2.isPolled == CPA_FALSE)
+        if (info2->isPolled == CPA_FALSE)
         {
             status = CPA_STATUS_FAIL;
             PRINT_ERR("This sample code works only with instances "
@@ -422,6 +440,7 @@ CpaStatus symDpSample(void)
 
     /* Free session Context */
     PHYS_CONTIG_FREE(sessionCtx);
+    OS_FREE(info2);
 
     PRINT_DBG("cpaCyStopInstance\n");
     cpaCyStopInstance(cyInstHandle);

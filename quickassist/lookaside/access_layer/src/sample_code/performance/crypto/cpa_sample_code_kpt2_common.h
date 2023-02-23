@@ -67,6 +67,9 @@
 #include <openssl/rsa.h>
 #include <openssl/bn.h>
 #include <openssl/obj_mac.h>
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+#include <openssl/param_build.h>
+#endif
 #include "cpa_cy_kpt.h"
 #include "cpa_sample_code_crypto_utils.h"
 

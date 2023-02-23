@@ -62,11 +62,9 @@ section .text
         %define VARIABLE_OFFSET 16*2+8
 %endif
 align 16
-; following line changed to build with nasm in qatlib env
-global crc64_ecma_norm_by8:ISAL_SYM_TYPE_FUNCTION
+mk_global 	crc64_ecma_norm_by8, function
 crc64_ecma_norm_by8:
-        ; following line commented out to build with nasm
-	; endbranch
+	endbranch
 
 	; commented out for CPM gen4 HW compatibility
 	;not   arg1      ;~init_crc

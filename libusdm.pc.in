@@ -6,5 +6,5 @@ includedir=@includedir@
 Name: libusdm
 Description: User space library for memory management
 Version: @VERSION@
-Libs: -L${libdir} -lusdm
+Libs: -L${libdir} -l@LIBUSDMNAME@
 Cflags: -I${includedir}

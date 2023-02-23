@@ -1061,22 +1061,23 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
 
     OptCurveParams curves[] = {
         /* P256 */
-        {.dataOperationSizeBytes = LAC_EC_SIZE_QW4_IN_BYTES,
-         .function_point = PKE_EC_POINT_MULTIPLICATION_P256,
-         .function_generator = PKE_EC_GENERATOR_MULTIPLICATION_P256,
-         .p = nist_p256_p,
-         .h = nist_p256_h,
-         .a = nist_p256_a,
-         .b = nist_p256_b},
+        { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_256_BITS),
+          .function_point = PKE_EC_POINT_MULTIPLICATION_P256,
+          .function_generator = PKE_EC_GENERATOR_MULTIPLICATION_P256,
+          .p = nist_p256_p,
+          .h = nist_p256_h,
+          .a = nist_p256_a,
+          .b = nist_p256_b },
 
         /* P384 */
-        {.dataOperationSizeBytes = LAC_EC_SIZE_QW8_IN_BYTES,
-         .function_point = PKE_EC_POINT_MULTIPLICATION_P384,
-         .function_generator = PKE_EC_GENERATOR_MULTIPLICATION_P384,
-         .p = nist_p384_p,
-         .h = nist_p384_h,
-         .a = nist_p384_a,
-         .b = nist_p384_b}};
+        { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
+          .function_point = PKE_EC_POINT_MULTIPLICATION_P384,
+          .function_generator = PKE_EC_GENERATOR_MULTIPLICATION_P384,
+          .p = nist_p384_p,
+          .h = nist_p384_h,
+          .a = nist_p384_a,
+          .b = nist_p384_b }
+    };
 
     /* Loop through each curve returning when found and setting
      * dataOperationSizeBytes and function id */

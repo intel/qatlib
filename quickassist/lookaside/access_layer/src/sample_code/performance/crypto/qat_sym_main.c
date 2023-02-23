@@ -320,7 +320,7 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
     Cpa32U *pPacketSize;
     Cpa16U numInstances = 0;
     CpaInstanceHandle *cyInstances = NULL;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 
     memset(&symTestSetup, 0, sizeof(symmetric_test_params_t));
 
@@ -396,20 +396,30 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
         sampleCodeThreadExit();
     }
 
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        sampleCodeThreadExit();
+        return;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
     /* give our thread a logical crypto instance to use*/
     symTestSetup.cyInstanceHandle = cyInstances[testSetup->logicalQaInstance];
-    status =
-        cpaCyInstanceGetInfo2(symTestSetup.cyInstanceHandle, &instanceInfo);
+    status = cpaCyInstanceGetInfo2(symTestSetup.cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
-    if (instanceInfo.physInstId.packageId > packageIdCount_g)
+    if (instanceInfo->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo.physInstId.packageId;
+        packageIdCount_g = instanceInfo->physInstId.packageId;
     }
 
     pPacketSize = qaeMemAlloc(sizeof(Cpa32U) * pSetup->numBuffLists);
@@ -419,6 +429,7 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
         PRINT_ERR("Could not allocate memory for pPacketSize\n");
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         sampleCodeThreadExit();
     }
 
@@ -458,7 +469,7 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
     /*assign our thread a unique memory location to store performance stats*/
     symTestSetup.performanceStats = testSetup->performanceStats;
     symTestSetup.performanceStats->packageId =
-        instanceInfo.physInstId.packageId;
+        instanceInfo->physInstId.packageId;
     symTestSetup.performanceStats->averagePacketSizeInBytes =
         testSetup->packetSize;
     /* give our thread a logical crypto instance to use*/
@@ -484,6 +495,7 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
         sampleCodeBarrier();
         qaeMemFree((void **)&pPacketSize);
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         sampleCodeThreadComplete(testSetup->threadID);
     }
 
@@ -518,6 +530,7 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
     /*free memory and exit*/
     qaeMemFree((void **)&pPacketSize);
     qaeMemFree((void **)&cyInstances);
+    qaeMemFree((void **)&instanceInfo);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 

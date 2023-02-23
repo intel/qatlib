@@ -138,7 +138,7 @@ CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC inline CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
+STATIC INLINE CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
                                            Cpa32U inputSize,
                                            Cpa32U *outputSize)
 {
@@ -165,7 +165,7 @@ STATIC inline CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC inline CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
+STATIC INLINE CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
                                            Cpa32U inputSize,
                                            Cpa32U *outputSize)
 {
@@ -250,7 +250,7 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
     return status;
 }
 
-STATIC inline CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
+STATIC INLINE CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
@@ -268,7 +268,7 @@ STATIC inline CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC inline CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
+STATIC INLINE CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;

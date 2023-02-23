@@ -578,4 +578,29 @@ void sampleDcStartPolling(CpaInstanceHandle dcInstHandle);
 void sampleDcStopPolling(void);
 
 
+#ifdef __x86_64__
+#define SAMPLE_CODE_UINT Cpa64U
+#define SAMPLE_CODE_INT Cpa64S
+#else
+#define SAMPLE_CODE_UINT Cpa32U
+#define SAMPLE_CODE_INT Cpa32S
+#endif // __x86_64__
+/**
+ *****************************************************************************
+ * @ingroup sampleUtils
+ *
+ *      convert virtual address of a buffer to address that can be accessed by
+ *      the owner of the instance from device point of view.
+ *
+ * @param[in]   pVirtAddr                virtual address of the buffer
+ * @param[in]   instance                 crypto instance handle
+ * @param[in]   type                     service type
+ *
+ * @retval CpaPhysicalAddr               address from device point of view,
+ *                                       or NULL if failed to convert
+ *
+ ****************************************************************************/
+CpaPhysicalAddr virtAddrToDevAddr(void *pVirtAddr,
+                                  CpaInstanceHandle instance,
+                                  CpaAccelerationServiceType type);
 #endif

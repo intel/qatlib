@@ -158,7 +158,7 @@ void LacPke_HdrWrite(icp_qat_fw_pke_request_t *pMsg,
  *                        externally allocated. This information needs to
  *                        be tracked to ensure we use the corect virt2phys
  *                        function, values may be updated by this function.
- * @param[in/out] pInternalInMemList
+ * @param[in/out] pInternalOutMemList
  *                        pointer to a list of Booleans that indicate if
  *                        output data buffers passed to QAT are internally
  *                        or externally allocated, values may be updated by
@@ -181,11 +181,14 @@ CpaStatus LacPke_ResizeParams(lac_pke_qat_req_data_param_info_t *pParamInfo,
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U i = 0;
 
+    LAC_CHECK_NULL_PARAM(pParamInfo);
+
     /* resize input parameter flat buffers (end if NULL encountered) */
     for (i = 0; (i < LAC_MAX_MMP_INPUT_PARAMS) &&
                 (NULL != pParamInfo->clientInputParams[i]);
          i++)
     {
+        LAC_CHECK_NULL_PARAM(pInternalInMemList);
         /* resize buffer (round length up to whole quadwords) if
            required */
         Cpa32U dataLen = pParamInfo->clientInputParams[i]->dataLenInBytes;
@@ -214,6 +217,7 @@ CpaStatus LacPke_ResizeParams(lac_pke_qat_req_data_param_info_t *pParamInfo,
                 (NULL != pParamInfo->clientOutputParams[i]);
          i++)
     {
+        LAC_CHECK_NULL_PARAM(pInternalOutMemList);
         /* resize buffer (and round length up to whole quadwords) if
            required */
         /* Need to copy when resizing output buffer for case
@@ -736,7 +740,8 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
                     (NULL != pReqData->paramInfo.pkeOutputParams[i]);
              i++)
         {
-            if (CPA_TRUE == pInternalOutMemList[i])
+            if ((NULL != pInternalOutMemList) &&
+                (CPA_TRUE == pInternalOutMemList[i]))
             {
                 LAC_MEM_SHARED_WRITE_VIRT_TO_PHYS_PTR_INTERNAL(
                     pReqData->u3.outArgList.flat_array[i],

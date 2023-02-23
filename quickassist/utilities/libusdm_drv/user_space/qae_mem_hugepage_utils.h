@@ -70,23 +70,32 @@
 #ifndef QAE_MEM_HUGEPAGE_UTILS_H
 #define QAE_MEM_HUGEPAGE_UTILS_H
 #include "qae_mem_utils.h"
+#include "qae_mem_user_utils.h"
 
-uint64_t hugepage_virt2phy(const int fd,
-                           const void *virtaddr,
-                           const size_t size);
+API_LOCAL
+uint64_t __qae_hugepage_virt2phy(const int fd,
+                                 const void *virtaddr,
+                                 const size_t size);
 
-void *hugepage_mmap_phy_addr(const size_t len);
+API_LOCAL
+void *__qae_hugepage_mmap_phy_addr(const size_t len);
 
-dev_mem_info_t *hugepage_alloc_slab(const int fd,
-                                    const size_t size,
-                                    const int node,
-                                    enum slabType type);
+API_LOCAL
+int __qae_hugepage_iommu_unmap(const int fd, const dev_mem_info_t *memInfo);
 
-int hugepage_iommu_unmap(const int fd, const dev_mem_info_t *memInfo);
 
-void hugepage_free_slab(const dev_mem_info_t *memInfo);
+API_LOCAL
+dev_mem_info_t *__qae_hugepage_alloc_slab(const int fd,
+                                          const size_t size,
+                                          const int node,
+                                          enum slabType type);
 
-int init_hugepages(const int fd);
+API_LOCAL
+void __qae_hugepage_free_slab(const dev_mem_info_t *memInfo);
 
-int hugepage_enabled(void);
+API_LOCAL
+int __qae_init_hugepages(const int fd);
+
+API_LOCAL
+int __qae_hugepage_enabled(void);
 #endif

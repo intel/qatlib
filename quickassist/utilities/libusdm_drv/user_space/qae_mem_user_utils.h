@@ -70,6 +70,9 @@
 #ifndef QAE_MEM_USER_UTILS_H
 #define QAE_MEM_USER_UTILS_H
 
+#include <stdarg.h>
+#include <stdio.h>
+
 #ifndef SKIP_BUILTIN_FUNC
 #define unlikely(x) __builtin_expect((x), 0)
 #else

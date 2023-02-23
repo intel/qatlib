@@ -129,9 +129,9 @@ extern "C" {
 /**< Max length of hardware version string */
 
 /* Part name and number of the accelerator device  */
-#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 22
-#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 7
-#define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 2
+#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 23
+#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 2
+#define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 0
 #define SAL_INFO2_DRIVER_SW_VERSION_TYPE "in-tree"
 
 #define VERSION_STRING(ver) #ver

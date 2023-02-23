@@ -8,6 +8,7 @@
 - [Revision History](#revision-history)
 - [Overview](#overview)
 - [Features](#features)
+- [Insecure Algorithms](#insecure-algorithms)
 - [Deprecated Features & Planned Deprecations](#deprecated-features--planned-deprecations)
 - [Setup](#setup)
 - [Supported Devices](#supported-devices)
@@ -24,6 +25,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| February 2023 | 009 | 23.02 | - Added configuration option --enable-legacy-algorithms to use these insecure crypto algorithms and disabled them by default (AES-ECB, SHA-1, SHA2-224, SHA3-224, RSA512/1024/1536, DSA)<br>- Refactored code in quickassist/utilities/libusdm_drv<br>- Bugfixes<br>- Updated documentation with configuration and tuning information |
 | November 2022 | 008 | 22.07.2 | - Changed from yasm to nasm for assembly compilation<br> - Added configuration option to use C implementation of soft CRC implementation instead of asm<br>- Added support for pkg-config<br>- Added missing lock around accesses to some global data in qatmgr |
 | October 2022 | 007 | 22.07.1 | - Fix for QATE-86605 |
 | July 2022 | 006 | 22.07 | - Added support for lz4/lz4s compression algorithms<br>- Added support for Compression End-to-end (E2E) integrity check<br>- Added support for PKE generic point multiply<br>- Updated QAT APIs<br>- Enabled CPM2.0b<br>- Split rpm package |
@@ -51,10 +53,10 @@ sample codes.
 
 The following services are available in qatlib via the QuickAssist API:
 * Symmetric (Bulk) Cryptography
-  * Ciphers (AES-ECB, AES-CBC, AES-CTR (no partials support),
+  * Ciphers ([AES-ECB](#insecure-algorithms), AES-CBC, AES-CTR (no partials support),
     AES-XTS (no partials support), AES-GCM, AES-CCM (192/256)
-  * Message digest/hash (SHA1, SHA2 (224/256/384/512),
-    SHA3 (224/256/384/512) (no partials support) and
+  * Message digest/hash ([SHA1](#insecure-algorithms), SHA2 ([224](#insecure-algorithms)/256/384/512),
+    SHA3 ([224](#insecure-algorithms)/256/384/512) (no partials support) and
     authentication (AES-CBC-MAC, AES-XCBC-MAC)
   * Algorithm chaining (one cipher and one hash in a single operation)
   * Authenticated encryption (CCM-128 (no partials support),
@@ -68,9 +70,9 @@ The following services are available in qatlib via the QuickAssist API:
 * Asymmetric (Public Key) Cryptography
   * Modular exponentiation and modular inversion up to 8192 bits
   * Diffie-Hellman (DH) key generation phase 1 and 2 up to 8192 bits
-  * RSA key generation, encryption/decryption and digital signature
+  * [RSA](#insecure-algorithms) key generation, encryption/decryption and digital signature
     generation/verification up to 8192 bits
-  * DSA parameter generation and digital signature generation/verification
+  * [DSA](#insecure-algorithms) parameter generation and digital signature generation/verification
   * Elliptic Curve Cryptography: ECDSA, ECDHE, Edwards Montgomery curves
   * Generic point multiply
 * Compression
@@ -85,6 +87,18 @@ This package includes:
 * libusdm: user space library for memory management
 * qatmgr: user space daemon for device management
 * Sample codes: applications to demo usage of the libs
+
+## Insecure Algorithms
+The following algorithms are considered insecure and are disabled by default.
+* AES-ECB
+* SHA-1
+* SHA2-224 
+* SHA3-224
+* RSA512/1024/1536
+* DSA
+
+To enable these algorithms, use the following configuration option:
+   * `--enable-legacy-algorithms`
 
 ## Deprecated Features & Planned Deprecations
 * The following configuration option will be deprecated after 2023:
@@ -107,7 +121,7 @@ The following features are not currently supported:
 * Dynamic instances
 * Intel® Key Protection Technology (KPT)
 * Event driven polling
-* Maximum 16 processes per end point
+* More than 16 processes per end point
 * accumulateXXHash when combined with autoSelectBestHuffmanTree
 * accumulateXXHash in Decompression or Combined sessions
 * integrityCrcCheck for Compression direction requests

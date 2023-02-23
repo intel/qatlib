@@ -802,7 +802,7 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaStatus sessionStatus = CPA_STATUS_SUCCESS;
     Cpa32U node = 0;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
     CpaInstanceHandle cyInstHandle = setup->cyInstanceHandle;
     Cpa8U *pIvBuffer = NULL;
     Cpa32U ivBufferLen = setup->ivLength;
@@ -859,13 +859,23 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
         }
     }
 
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     // Get instance info
-    status = cpaCyInstanceGetInfo2(cyInstHandle, &instanceInfo2);
+    status = cpaCyInstanceGetInfo2(cyInstHandle, instanceInfo2);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
         return status;
     }
+    qaeMemFree((void **)&instanceInfo2);
 
     // Get node
     status = sampleCodeCyGetNode(cyInstHandle, &node);

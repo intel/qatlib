@@ -83,10 +83,14 @@
 #include "cpa_sample_code_utils.h"
 #include "cpa_sample_code_framework.h"
 
+#ifdef SC_SM2_ENABLED
+#include "cpa_cy_ecsm2.h"
+#endif /* SC_SM2_ENABLED */
 
 #ifdef USER_SPACE
 #include <sched.h>
-#endif /* USER_SPACE */
+#endif
+
 
 #ifdef POLL_INLINE
 extern Cpa32U asymPollingInterval_g;
@@ -308,6 +312,18 @@ typedef enum ecdsa_step_s
     ECDSA_STEP_POINT_MULTIPLY
 } ecdsa_step_t;
 
+#ifdef SC_SM2_ENABLED
+/*enum to define SM2 step */
+typedef enum sm2_step_s
+{
+    SM2_STEP_SIGN = 0,
+    SM2_STEP_VERIFY,
+    SM2_STEP_ENC,
+    SM2_STEP_DEC,
+    SM2_STEP_KEYEX_P1,
+    SM2_STEP_KEYEX_P2
+} sm2_step_t;
+#endif /* SC_SM2_ENABLED */
 
 /*enum to define DSA step*/
 typedef enum dsa_step_s
@@ -317,6 +333,17 @@ typedef enum dsa_step_s
 } dsa_step_t;
 
 #if CY_API_VERSION_AT_LEAST(3, 0)
+/*add for SM3 and SM4*/
+typedef struct smx_key_size_pairs_s
+{
+    CpaCySymCipherAlgorithm cipherAlg;
+    Cpa32U cipherKeySizeInBytes;
+    CpaCySymHashAlgorithm hashAlg;
+    Cpa32U hashKeySizeInBytes;
+    Cpa32U cipherOffset;
+
+} smx_key_size_pairs_t;
+
 /*enum to define EC-Gen step */
 typedef enum ec_gen_step_s
 {
@@ -390,6 +417,9 @@ typedef enum ec_gen_step_s
 #define SHA3_256_BLOCK_LENGTH_IN_BYTES (136)
 
 
+/*add for SM3 and SM4*/
+#define SM3_DIGEST_LENGTH_IN_BYTES (32)
+
 #define BUFFER_SIZE_0 (0)
 #define BUFFER_SIZE_32 (32)
 #define BUFFER_SIZE_40 (40)
@@ -428,6 +458,7 @@ typedef enum ec_gen_step_s
 #define IV_LEN_FOR_8_BYTE_BLOCK_CIPHER (8)
 #define IV_LEN_FOR_12_BYTE_BLOCK_CIPHER (12)
 #define IV_LEN_FOR_16_BYTE_BLOCK_CIPHER (16)
+#define IV_LEN_FOR_24_BYTE_BLOCK_CIPHER (24)
 #define IV_LEN_FOR_12_BYTE_GCM (12)
 #define IV_LEN_FOR_16_BYTE_GCM (16)
 
@@ -494,6 +525,28 @@ typedef enum ec_gen_step_s
 #define GF2_K571_SIZE_IN_BITS (571)
 #define GF2_K571_SIZE_IN_BYTES (72)
 
+#ifdef SC_SM2_ENABLED
+/******************************************************************************
+ * SM2 Test Params
+ *****************************************************************************/
+#define GFP_SM2_SIZE_IN_BYTE (32)
+/*According to the SM2 spec, KDF function will pad a 4-bytes counter to the
+ * end of each data block. For a performance reason, the KDF function need
+ * more 4-bytes memory pre-malloced for the input data.
+ */
+#define KDF_COUNTER_PADDING (4)
+#define GFP_SM2_COORDINATE_SIZE_IN_BYTE GFP_SM2_SIZE_IN_BYTE
+/*encoded point, 1 byte header + 32 bytes x coordinate + 32 bytes y coordinate
+ */
+#define GFP_SM2_POINT_SIZE_IN_BYTE (2 * GFP_SM2_SIZE_IN_BYTE + 1)
+/*this is used for kdf function in SM2 key exchange
+ * 32 bytes x coordinate + 32 bytes y coordinate + 4 bytes padding counter
+ */
+#define SM3_HASH_SIZE_IN_BYTE GFP_SM2_SIZE_IN_BYTE
+#define HEADER_UNCOMPRESSION_POINT (0x04)
+#define SECRET_KEY_LEN_IN_BYTE (16)
+#define GFP_SM2_SIZE_IN_BITS (256)
+#endif /* SC_SM2_ENABLED */
 
 #define GFP_NISTP192_BITMASK 0x1
 #define GFP_NISTP224_BITMASK 0x2
@@ -850,6 +903,90 @@ typedef struct ecdsa_test_params_s
 #endif
 } ecdsa_test_params_t;
 
+#ifdef SC_SM2_ENABLED
+/**
+ * ******************************************************************************
+ * @ingroup cryptoThreads
+ *      SM2 Setup Data.
+ * @description
+ *      This structure contains data relating to setting up an SM2 performance
+ *      test.
+ *      The client needs to complete the information in this structure in order
+ *      to setup a test.
+ *
+ ****************************************************************************/
+typedef struct sm2_test_params_s
+{
+    /*pointer to pre-allocated memory for thread to store performance data*/
+    perf_data_t *performanceStats;
+    /*crypto instance handle of service that has already been started*/
+    CpaInstanceHandle cyInstanceHandle;
+    /* run test using synchronous or asynchronous mode */
+    sync_mode_t syncMode;
+
+    Cpa32U nLenInBytes;
+    CpaCyEcFieldType fieldType;
+    Cpa32U numBuffers;
+    Cpa32U numLoops;
+    sm2_step_t step;
+    CpaFlatBuffer *digest;
+    CpaFlatBuffer *message;
+    CpaFlatBuffer *cipher;
+    CpaFlatBuffer *random;
+    CpaFlatBuffer *d;
+    CpaFlatBuffer *d2;
+    CpaFlatBuffer *xP;
+    CpaFlatBuffer *yP;
+    CpaFlatBuffer *x1;
+    CpaFlatBuffer *y1;
+    CpaFlatBuffer *x2;
+    CpaFlatBuffer *y2;
+    CpaCyEcsm2VerifyOpData **verifyOp;
+} sm2_test_params_t;
+
+/**
+ ******************************************************************************
+ * @ingroup cryptoThreads
+ *      SM2  Temp Data.
+ * @description
+ *      This structure contains data relating to setting up an SM2 performance
+ *      test.
+ *      The client needs to complete the information in this structure in order
+ *      to setup a test.
+ *
+ ****************************************************************************/
+typedef struct sm2_perf_buf_s
+{
+    CpaFlatBuffer *pC1Buffer;
+    CpaFlatBuffer *pC2Buffer;
+    CpaFlatBuffer *pC3Buffer;
+    CpaFlatBuffer *pHashBuffer;
+    CpaFlatBuffer *pIntermediateBuffer;
+    CpaFlatBuffer *pEncOutputData;
+    CpaFlatBuffer *pDecOutputData;
+    CpaCyEcsm2EncryptOutputData *pEncPKEOut;
+    CpaCyEcsm2DecryptOutputData *pDecPKEOut;
+    CpaCyEcsm2KeyExOutputData *pKeyexPKEOut;
+} sm2_perf_buf_t;
+
+/**
+ *******************************************************************************
+ * @ingroup cryptoThreads
+ *      SM2 Callback Tag.
+ * @description
+ *      This structure contains data relating to setting up an SM2 performance
+ *      test.
+ *      The client needs to complete the information in this structure in order
+ *      to setup a test.
+ *
+ *
+ *****************************************************************************/
+typedef struct sm2_perf_test_s
+{
+    sm2_test_params_t *setup;
+    sm2_perf_buf_t *perf_buffer;
+} sm2_perf_test_t;
+#endif /* SC_SM2_ENABLED */
 
 /**
  *****************************************************************************
@@ -1019,6 +1156,23 @@ typedef struct nrbg_test_params_s
     Cpa32U numLoops;
 } nrbg_test_params_t;
 
+#ifdef SC_SM2_ENABLED
+/**
+ *******************************************************************************
+ *  @ingroup cryptoThreads
+ *       setupSm2Test
+ *
+ *  @description
+ *       setup a test to run an sm2 performance test
+ *       - should be called before createTheads framework function
+ ******************************************************************************/
+CpaStatus setupSm2Test(Cpa32U nLenInBits,
+                       CpaCyEcFieldType fieldType,
+                       sync_mode_t syncMode,
+                       sm2_step_t step,
+                       Cpa32U numBuffers,
+                       Cpa32U numLoops);
+#endif /* SC_SM2_ENABLED */
 
 /**
  *****************************************************************************

@@ -282,3 +282,40 @@ void sampleDcStopPolling(void)
     OS_SLEEP(10);
 }
 
+
+CpaPhysicalAddr virtAddrToDevAddr(void *pVirtAddr,
+                                  CpaInstanceHandle instanceHandle,
+                                  CpaAccelerationServiceType type)
+{
+    CpaStatus status;
+    CpaInstanceInfo2 instanceInfo = { 0 };
+
+    /* Get the address translation mode */
+    switch (type)
+    {
+#ifdef DO_CRYPTO
+        case CPA_ACC_SVC_TYPE_CRYPTO:
+            status = cpaCyInstanceGetInfo2(instanceHandle, &instanceInfo);
+            break;
+#endif
+        case CPA_ACC_SVC_TYPE_DATA_COMPRESSION:
+            status = cpaDcInstanceGetInfo2(instanceHandle, &instanceInfo);
+            break;
+        default:
+            status = CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        return (CpaPhysicalAddr)(uintptr_t)NULL;
+    }
+
+    if (instanceInfo.requiresPhysicallyContiguousMemory)
+    {
+        return sampleVirtToPhys(pVirtAddr);
+    }
+    else
+    {
+        return (CpaPhysicalAddr)(uintptr_t)pVirtAddr;
+    }
+}

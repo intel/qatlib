@@ -71,10 +71,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/poll.h>
 #include <stddef.h>
 #include <libgen.h>
 #include <getopt.h>
 #include <sys/resource.h>
+#include <signal.h>
 #include "icp_platform.h"
 #include "qat_log.h"
 #include "qat_mgr.h"
@@ -96,6 +98,8 @@ static int parent_pipe = 0;
 #define DEBUG_LEVEL_MIN 0
 #define DEBUG_LEVEL_MAX 2
 
+#define CLIENT_TIMEOUT_DEFAULT_MS 1000
+
 #define MAX_ERR_STRING_LEN 1024
 
 struct ucred
@@ -111,55 +115,85 @@ void *handle_client(void *arg)
     int bytes_w = 0;
     int index = -1;
     pid_t tid;
-    int connect_fd;
+    int conn_fd;
     struct qatmgr_msg_req msgreq;
     struct qatmgr_msg_rsp msgrsp;
     char *section_name = NULL;
+    struct pollfd fd;
+    int ret = -1;
 
-    connect_fd = (intptr_t)arg;
+    conn_fd = (intptr_t)arg;
     tid = pthread_self();
 
-    qat_log(LOG_LEVEL_DEBUG, "connect_fd %d, tid %ul\n", connect_fd, tid);
+    qat_log(LOG_LEVEL_DEBUG,
+            "connect_fd %d, tid %ul, client_timeout %d ms\n",
+            conn_fd,
+            tid,
+            CLIENT_TIMEOUT_DEFAULT_MS);
 
-    while ((bytes_r = read(connect_fd, (void *)&msgreq, sizeof(msgreq))) > 0)
+    memset(&fd, 0, sizeof(fd));
+    fd.fd = conn_fd;
+    fd.events = POLLIN;
+
+    ret = poll(&fd, 1, CLIENT_TIMEOUT_DEFAULT_MS);
+    if (ret > 0)
     {
-        qat_log(LOG_LEVEL_DEBUG,
-                "tid %d, Received %u bytes: Message type %d, length %d\n",
-                tid,
-                bytes_r,
-                msgreq.hdr.type,
-                msgreq.hdr.len);
+        while ((bytes_r = read(conn_fd, (void *)&msgreq, sizeof(msgreq))) > 0)
+        {
+            qat_log(LOG_LEVEL_DEBUG,
+                    "tid %d, Received %u bytes: Message type %d, length %d\n",
+                    tid,
+                    bytes_r,
+                    msgreq.hdr.type,
+                    msgreq.hdr.len);
 
-        handle_message(&msgreq, &msgrsp, &section_name, tid, &index);
+            handle_message(&msgreq, &msgrsp, &section_name, tid, &index);
 
-        /* Send response */
-        bytes_w = write(connect_fd, (const void *)&msgrsp, msgrsp.hdr.len);
-        if (bytes_w < 0)
-            break;
+            /* Send response */
+            bytes_w = write(conn_fd, (const void *)&msgrsp, msgrsp.hdr.len);
+            if (bytes_w < 0)
+                break;
 
-        if (bytes_w < msgrsp.hdr.len)
-            qat_log(LOG_LEVEL_ERROR, "Socket write incomplete\n");
+            if (bytes_w < msgrsp.hdr.len)
+                qat_log(LOG_LEVEL_ERROR, "Socket write incomplete\n");
+        }
+
+        /* If the socket is closed while a section is still held then release it
+         */
+        if (index >= 0 && section_name)
+        {
+            qat_log(
+                LOG_LEVEL_INFO, "Force release of section %s\n", section_name);
+            release_section(index,
+                            tid,
+                            section_name,
+                            strnlen(section_name, QATMGR_MAX_STRLEN));
+            free(section_name);
+        }
+
+        if (bytes_r < 0 || bytes_w < 0)
+        {
+            qat_log(LOG_LEVEL_ERROR, "Socket read/write error %d\n", errno);
+        }
+        else if (bytes_r == 0)
+        {
+            qat_log(LOG_LEVEL_INFO, "EOF tid %d\n", tid);
+        }
+    }
+    else if (ret == 0)
+    {
+        qat_log(LOG_LEVEL_ERROR,
+                "qatmgr timed out waiting on data from the client, connect_fd "
+                "%d, tid %ul\n",
+                conn_fd,
+                tid);
+    }
+    else
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to poll client fd\n");
     }
 
-    /* If the socket is closed while a section is still held then release it */
-    if (index >= 0 && section_name)
-    {
-        qat_log(LOG_LEVEL_INFO, "Force release of section %s\n", section_name);
-        release_section(
-            index, tid, section_name, strnlen(section_name, QATMGR_MAX_STRLEN));
-        free(section_name);
-    }
-
-    if (bytes_r < 0 || bytes_w < 0)
-    {
-        qat_log(LOG_LEVEL_ERROR, "Socket read/write error %d\n", errno);
-    }
-    else if (bytes_r == 0)
-    {
-        qat_log(LOG_LEVEL_INFO, "EOF tid %d\n", tid);
-    }
-
-    close(connect_fd);
+    close(conn_fd);
     return NULL;
 }
 
@@ -357,6 +391,14 @@ static int parse_and_validate_arg(char *arg, int *val, int min, int max)
     return 0;
 }
 
+void signal_handler(int sig_num)
+{
+    if (sig_num == SIGPIPE)
+    {
+        qat_log(LOG_LEVEL_DEBUG, "qatmgr received SIGPIPE signal\n");
+    }
+}
+
 int main(int argc, char **argv)
 {
     struct sockaddr_un sockaddr;
@@ -450,6 +492,8 @@ int main(int argc, char **argv)
             exit(-1);
         }
     }
+
+    signal(SIGPIPE, signal_handler);
 
     if (qat_mgr_get_dev_list(&num_devices, dev_list, list_size, 0))
     {

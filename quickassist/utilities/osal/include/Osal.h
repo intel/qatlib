@@ -770,7 +770,6 @@ OSAL_PUBLIC void osalMemAlignedFree(void *ptr);
  */
 #define OSAL_MMU_VIRT_TO_PHYS(virtAddr) OSAL_OS_MMU_VIRT_TO_PHYS(virtAddr)
 
-#if (!defined(__Freebsd__))
 /**
  * @ingroup IxOsal
  *
@@ -786,8 +785,6 @@ OSAL_PUBLIC void osalMemAlignedFree(void *ptr);
  * @return Corresponding virtual address, as UINT32
  */
 #define OSAL_MMU_PHYS_TO_VIRT(physAddr) OSAL_OS_MMU_PHYS_TO_VIRT(physAddr)
-
-#endif /*!defined(__Freebsd__)*/
 
 /**
  * @ingroup Osal

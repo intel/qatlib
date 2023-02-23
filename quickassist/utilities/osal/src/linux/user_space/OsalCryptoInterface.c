@@ -55,14 +55,18 @@
 #define TRANSFORM(TYPE) TYPE##_Transform
 #define UPDATE(TYPE) TYPE##_Update
 #define FINAL(TYPE) TYPE##_Final
+#ifndef OSAL_AES_SET_ENCRYPT
 #define OSAL_AES_SET_ENCRYPT AES_set_encrypt_key
+#endif
 #define OSAL_AES_ENCRYPT AES_encrypt
 #else
 #define INIT(TYPE) ossl_##TYPE##_Init
 #define TRANSFORM(TYPE) ossl_##TYPE##_Transform
 #define UPDATE(TYPE) ossl_##TYPE##_Update
 #define FINAL(TYPE) ossl_##TYPE##_Final
+#ifndef OSAL_AES_SET_ENCRYPT
 #define OSAL_AES_SET_ENCRYPT ossl_AES_set_encrypt_key
+#endif
 #define OSAL_AES_ENCRYPT ossl_AES_encrypt
 #endif
 
@@ -71,8 +75,6 @@
 #define AES_128_KEY_LEN_BYTES 16
 #define AES_192_KEY_LEN_BYTES 24
 #define AES_256_KEY_LEN_BYTES 32
-#ifdef USE_OPENSSL
-#endif
 
 OSAL_STATUS
 osalHashMD5(UINT8 *in, UINT8 *out)
@@ -264,12 +266,11 @@ osalAESEncrypt(UINT8 *key, UINT32 keyLenInBytes, UINT8 *in, UINT8 *out)
     return OSAL_SUCCESS;
 }
 
-#ifdef USE_OPENSSL
 #define EXPANDED_KEY_KAT 0xcb5befb4
 static OSAL_STATUS osalAesSetEncryptByteSwap(INT32 *byte_swap)
 {
     UINT32 key_len_bits = AES_128_KEY_LEN_BYTES << BYTE_TO_BITS_SHIFT;
-    UINT8 key[AES_128_KEY_LEN_BYTES] = {0};
+    UINT8 key[AES_128_KEY_LEN_BYTES] = { 0 };
     static INT32 byte_swap_required = -1;
     UINT32 lw_per_round = 4;
     int status;
@@ -288,7 +289,7 @@ static OSAL_STATUS osalAesSetEncryptByteSwap(INT32 *byte_swap)
     /* First 4 bytes of the last round of expanded key */
     key_val = rev_key.rd_key[lw_per_round * rev_key.rounds];
 
-    if (key_val == EXPANDED_KEY_KAT)
+    if (EXPANDED_KEY_KAT == key_val)
         byte_swap_required = 0;
     else if (key_val == __builtin_bswap32(EXPANDED_KEY_KAT))
         byte_swap_required = 1;
@@ -298,7 +299,6 @@ static OSAL_STATUS osalAesSetEncryptByteSwap(INT32 *byte_swap)
     *byte_swap = byte_swap_required;
     return OSAL_SUCCESS;
 }
-#endif
 
 OSAL_STATUS
 osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
@@ -309,9 +309,7 @@ osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
     INT32 lw_left_to_copy = key_len_in_bytes / lw_per_round;
     UINT32 *key_pointer = NULL;
     INT32 status = 0;
-#ifdef USE_OPENSSL
     INT32 swap;
-#endif
 
     /* Error check for wrong input key len */
     if (AES_128_KEY_LEN_BYTES != key_len_in_bytes &&
@@ -325,11 +323,9 @@ osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
         return OSAL_FAIL;
     }
 
-#ifdef USE_OPENSSL
     status = osalAesSetEncryptByteSwap(&swap);
-    if (status != OSAL_SUCCESS)
+    if (OSAL_SUCCESS != status)
         return status;
-#endif
 
     status = OSAL_AES_SET_ENCRYPT(
         key, key_len_in_bytes << BYTE_TO_BITS_SHIFT, &rev_key);
@@ -344,14 +340,10 @@ osalAESKeyExpansionForward(UINT8 *key, UINT32 key_len_in_bytes, UINT32 *out)
     {
         for (i = 0; i < MIN(lw_left_to_copy, lw_per_round); i++, j++)
         {
-#ifdef USE_OPENSSL
             if (swap)
                 out[j] = __builtin_bswap32(key_pointer[i]);
             else
                 out[j] = key_pointer[i];
-#else
-            out[j] = __builtin_bswap32(key_pointer[i]);
-#endif
         }
 
         lw_left_to_copy -= lw_per_round;

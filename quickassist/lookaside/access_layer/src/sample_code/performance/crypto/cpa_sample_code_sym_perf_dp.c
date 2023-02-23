@@ -617,8 +617,11 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
     else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
                  setup->setupData.hashSetupData.hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-             || CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                    setup->setupData.hashSetupData.hashAlgorithm
+             || ((CPA_CY_SYM_HASH_ZUC_EIA3 ==
+                  setup->setupData.hashSetupData.hashAlgorithm) &&
+                 (KEY_SIZE_128_IN_BYTES ==
+                  setup->setupData.hashSetupData.authModeSetupData
+                      .authKeyLenInBytes))
 #endif
     )
     {
@@ -812,8 +815,11 @@ static CpaStatus symmetricDpPerformOpDataSetup(
         if (CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
                 setup->setupData.hashSetupData.hashAlgorithm
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-            || CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                   setup->setupData.hashSetupData.hashAlgorithm
+            || ((CPA_CY_SYM_HASH_ZUC_EIA3 ==
+                 setup->setupData.hashSetupData.hashAlgorithm) &&
+                (KEY_SIZE_128_IN_BYTES ==
+                 setup->setupData.hashSetupData.authModeSetupData
+                     .authKeyLenInBytes))
 #endif
         )
         {
@@ -871,7 +877,10 @@ static CpaStatus symmetricDpPerformOpDataSetup(
             || setup->setupData.cipherSetupData.cipherAlgorithm ==
                    CPA_CY_SYM_CIPHER_ZUC_EEA3
 #endif
-        )
+            || setup->setupData.cipherSetupData.cipherAlgorithm ==
+                   CPA_CY_SYM_CIPHER_SM4_CBC ||
+            setup->setupData.cipherSetupData.cipherAlgorithm ==
+                CPA_CY_SYM_CIPHER_SM4_CTR)
         {
             pOpdata[createCount]->ivLenInBytes =
                 IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
@@ -1070,7 +1079,7 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     Cpa64U numOps = 0;
     Cpa64U nextPoll = symPollingInterval_g;
     CpaBoolean performNowFlag = CPA_TRUE;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
     /* backoff timer parameters initialization */
     Cpa32U k = 0;
     Cpa32U backoff = 0;
@@ -1085,7 +1094,6 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     Cpa32U staticAssign = 0, busyLoopCount = 0, j = 0;
     perf_cycles_t startBusyLoop = 0, endBusyLoop = 0, totalBusyLoopCycles = 0;
     CpaStatus pollStatus = CPA_STATUS_SUCCESS;
-
     /* Check if setup is NULL */
     if (NULL == setup)
     {
@@ -1099,16 +1107,26 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     pSymData = setup->performanceStats;
     /* Zero initialize pSymData*/
     saveClearRestorePerfStats(pSymData);
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
-    pSymData->packageId = instanceInfo.physInstId.packageId;
+    pSymData->packageId = instanceInfo->physInstId.packageId;
     /*preset the number of ops we plan to submit*/
     pSymData->numOperations = (Cpa64U)setup->numBuffLists * numOfLoops;
     coo_init(pSymData, pSymData->numOperations);
+    qaeMemFree((void **)&instanceInfo);
     /* reset number of response to 0, sync sym operations within outside loop*/
     pSymData->responses = 0;
 
@@ -1498,7 +1516,7 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
     CpaBoolean performNow = CPA_FALSE;
     perf_data_t *pSymData = NULL;
     Cpa32U numOps = 0;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
     /* Check if setup is NULL */
     if (NULL == setup)
     {
@@ -1510,13 +1528,22 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
     /* Initialize perform data structure with setup->performanceStats*/
     pSymData = setup->performanceStats;
     saveClearRestorePerfStats(pSymData);
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
-    pSymData->packageId = instanceInfo.physInstId.packageId;
+    pSymData->packageId = instanceInfo->physInstId.packageId;
 
     /*preset the number of ops we plan to submit*/
     pSymData->numOperations = (Cpa64U)setup->numBuffLists * numOfLoops;
@@ -1684,6 +1711,7 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
             pSymData, setup->cyInstanceHandle, pSymData->numOperations);
     }
 
+    qaeMemFree((void **)&instanceInfo);
     return status;
 }
 
@@ -1962,12 +1990,7 @@ static CpaStatus sampleSymmetricDpPerform(symmetric_test_params_t *setup)
         (setup->setupData.hashSetupData.hashAlgorithm ==
              CPA_CY_SYM_HASH_SNOW3G_UIA2 ||
          setup->setupData.hashSetupData.hashAlgorithm ==
-             CPA_CY_SYM_HASH_KASUMI_F9
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 2
-         || setup->setupData.hashSetupData.hashAlgorithm ==
-                CPA_CY_SYM_HASH_ZUC_EIA3
-#endif
-         ))
+             CPA_CY_SYM_HASH_KASUMI_F9))
     {
         setup->setupData.hashSetupData.digestResultLenInBytes =
             DIGEST_RESULT_4BYTES;
@@ -2189,7 +2212,7 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     Cpa32U *pPacketSize = NULL;
     Cpa16U numInstances = 0;
     CpaInstanceHandle *cyInstances = NULL;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 #if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
     int fd = -1;
 #endif
@@ -2244,8 +2267,16 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     /* give our thread a logical crypto instance to use*/
     symTestSetup.cyInstanceHandle = cyInstances[testSetup->logicalQaInstance];
 
-    status =
-        cpaCyInstanceGetInfo2(symTestSetup.cyInstanceHandle, &instanceInfo);
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        goto exit;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(symTestSetup.cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
@@ -2254,13 +2285,13 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     }
 
     symTestSetup.performanceStats->packageId =
-        instanceInfo.physInstId.packageId;
-    if (instanceInfo.physInstId.packageId > packageIdCount_g)
+        instanceInfo->physInstId.packageId;
+    if (instanceInfo->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo.physInstId.packageId;
+        packageIdCount_g = instanceInfo->physInstId.packageId;
     }
 
-    if (instanceInfo.isPolled == CPA_FALSE)
+    if (instanceInfo->isPolled == CPA_FALSE)
     {
         PRINT("Data-Plane operations not supported on non-polled instances\n");
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -2273,6 +2304,7 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     {
         PRINT("Data-Plane operations not supported on Epoll instances\n");
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         icp_sal_CyPutFileDescriptor(symTestSetup.cyInstanceHandle, fd);
         symTestSetup.performanceStats->threadReturnStatus =
             CPA_STATUS_UNSUPPORTED;
@@ -2392,6 +2424,7 @@ exit:
         qaeMemFree((void **)&pPacketSize);
     }
     qaeMemFree((void **)&cyInstances);
+    qaeMemFree((void **)&instanceInfo);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 EXPORT_SYMBOL(sampleSymmetricDpPerformance);
@@ -2521,30 +2554,17 @@ CpaStatus setupSymmetricDpTest(
               authKeyLengthInBytes);
         symmetricSetup->setupData.hashSetupData.digestResultLenInBytes = 16;
     }
+
+
     if (((hashAlg == CPA_CY_SYM_HASH_KASUMI_F9) ||
-         (hashAlg == CPA_CY_SYM_HASH_SNOW3G_UIA2)
-#ifdef SC_WITH_QAT17
-         || (hashAlg == CPA_CY_SYM_HASH_ZUC_EIA3)
-#endif
-             ) &&
+         (hashAlg == CPA_CY_SYM_HASH_SNOW3G_UIA2)) &&
         (authKeyLengthInBytes != 4))
     {
         PRINT("CPA_CY_SYM_HASH_SNOW3G_UIA2/CPA_CY_SYM_HASH_KASUMI_F9"
-#ifdef SC_WITH_QAT17
-              "/CPA_CY_SYM_HASH_ZUC_EIA3"
-#endif
               " digest length %u unsupported "
               "defaulting to 4 \n",
               authKeyLengthInBytes);
         symmetricSetup->setupData.hashSetupData.digestResultLenInBytes = 4;
-    }
-
-    if ((hashAlg == CPA_CY_SYM_HASH_AES_CMAC) && (authKeyLengthInBytes != 16))
-    {
-        PRINT("CPA_CY_SYM_HASH_AES_CMAC digest length %u unsupported "
-              "defaulting to 16 \n",
-              authKeyLengthInBytes);
-        symmetricSetup->setupData.hashSetupData.digestResultLenInBytes = 16;
     }
 
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
@@ -2583,10 +2603,13 @@ CpaStatus setupSymmetricDpTest(
     }
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
     // ZUC-EIA3 supports authKeyLen=128bits and digestResultLen=32bits
-    else if (CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlg)
+    else if (CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlg &&
+             authKeyLengthInBytes < KEY_SIZE_256_IN_BYTES)
     {
         symmetricSetup->setupData.hashSetupData.authModeSetupData
             .authKeyLenInBytes = KEY_SIZE_128_IN_BYTES;
+        symmetricSetup->setupData.hashSetupData.digestResultLenInBytes =
+            setHashDigestLen(hashAlg);
     }
 #endif
     else

@@ -222,6 +222,8 @@ extern volatile CpaBoolean cnvnrerr_g;
 extern volatile CpaBoolean error_flag_g;
 extern volatile CpaBoolean dataIntegrity_g;
 extern volatile CpaBoolean dataIntegrityVerify_g;
+extern volatile CpaBoolean hwVerify_g;
+extern volatile CpaBoolean keyCorrupt_g;
 CpaStatus setReliability(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
 

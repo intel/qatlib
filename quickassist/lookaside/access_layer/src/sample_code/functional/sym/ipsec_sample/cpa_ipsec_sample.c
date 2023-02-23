@@ -63,7 +63,7 @@
 /*
  * This is sample code that demonstrates usage of the symmetric API, and
  * specifically using this API to perform an IPSec like operation.
- * In this example we use the algorithm aes128-cbc + sha1-hmac
+ * In this example we use the algorithm aes128-cbc + sha256-hmac
  */
 
 #include "cpa.h"
@@ -119,9 +119,11 @@ static Cpa8U sampleCipherIv[] = {0xca,
                                  0x59,
                                  0x04};
 
-static Cpa8U sampleAuthKey[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE,
-                                0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD,
-                                0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF};
+static Cpa8U sampleAuthKey[] = {
+    0xEE, 0xE2, 0x7B, 0x5B, 0x10, 0xFD, 0xD2, 0x58, 0x49, 0x77, 0xF1,
+    0x22, 0xD7, 0x1B, 0xA4, 0xCA, 0xEC, 0xBD, 0x15, 0xE2, 0x52, 0x6A,
+    0x21, 0x0B, 0x41, 0x4C, 0x41, 0x4E, 0xA1, 0xAA, 0x01, 0x3F
+};
 
 static Cpa8U sampleEspHdrData[] =
     {0x00, 0x00, 0x01, 0x2c, 0x00, 0x00, 0x00, 0x05};
@@ -230,18 +232,19 @@ static Cpa8U expectedOutput[] = {
     0x26,
     0x23,
     /* ICV */
-    0xE6,
-    0x55,
-    0xBD,
-    0x90,
-    0x33,
-    0x2D,
-    0x04,
-    0x8C,
-    0x34,
-    0x06,
-    0xE3,
-    0x2D};
+    0x68,
+    0x9A,
+    0xAC,
+    0x49,
+    0xA0,
+    0xD2,
+    0x45,
+    0x21,
+    0x15,
+    0xD6,
+    0xA1,
+    0x5B
+};
 
 CpaStatus algChainSample(void);
 
@@ -551,7 +554,7 @@ CpaStatus algChainSample(void)
         sessionSetupData.cipherSetupData.cipherDirection =
             CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT;
 
-        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA1;
+        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
         sessionSetupData.hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_AUTH;
         sessionSetupData.hashSetupData.digestResultLenInBytes = ICV_LENGTH;
         sessionSetupData.hashSetupData.authModeSetupData.authKey =
@@ -626,7 +629,7 @@ CpaStatus algChainSample(void)
         sessionSetupData.cipherSetupData.cipherDirection =
             CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT;
 
-        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA1;
+        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
         sessionSetupData.hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_AUTH;
         sessionSetupData.hashSetupData.digestResultLenInBytes = ICV_LENGTH;
         sessionSetupData.hashSetupData.authModeSetupData.authKey =

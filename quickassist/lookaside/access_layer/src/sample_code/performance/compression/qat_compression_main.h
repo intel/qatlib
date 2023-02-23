@@ -212,7 +212,7 @@ CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
  *
  *     @retval CPA_STATUS_FAIL      some of the memory could not be freed
  ****************************************************************************/
-CpaStatus qatFreeDcChainLists(CpaDcChainRqResults **chainResultArray,
+CpaStatus qatFreeDcChainLists(void **chainResultArray,
                               CpaDcChainOpData **chainOpDataArray);
 
 #endif
@@ -270,7 +270,7 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
  *                                   allocated
  ****************************************************************************/
 CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
-                                  CpaDcChainRqResults **chainResultArray,
+                                  void **chainResultArray,
                                   CpaDcChainOpData **chainOpDataArray);
 #endif
 
@@ -535,6 +535,25 @@ void qatDumpBufferListInfo(compression_test_params_t *setup,
 CpaStatus qatCmpBuffers(compression_test_params_t *setup,
                         CpaBufferList *pSrc,
                         CpaBufferList *pDst);
+
+/**
+ *****************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sample_code
+ *
+ * @description
+ *         check the buffer if contains all zeros.
+ *
+ * @param[in]   buf                     pointer to buffer
+ * @param[in]   ptkSize                 buffer size
+ *
+ *
+ * @retval CPA_STATUS_SUCCESS           Function executed successfully
+ *
+ * @retval CPA_STATUS_FAIL              If buffer doesn't contains all zeros
+ ****************************************************************************/
+CpaStatus qatIsBufEmpty(Cpa8U *buf, size_t pktSize);
 
 /**
  *****************************************************************************
@@ -853,7 +872,7 @@ void qatDcPollAndSetNextPollCounter(compression_test_params_t *setup);
  * @retval CPA_STATUS_FAIL              the driver failed to poll
  ****************************************************************************/
 void qatDcRetryHandler(compression_test_params_t *setup,
-                       CpaInstanceInfo2 instanceInfo2);
+                       const CpaInstanceInfo2 *pInstanceInfo2);
 
 /**
  *****************************************************************************
