@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: libqat
 Description: User space library that allows to access Intel QAT devices
 Version: @VERSION@
-Libs: -L${libdir} -lqat
+Libs: -L${libdir} -l@LIBQATNAME@
 Cflags: -I${includedir}
 Requires: libusdm libcrypto

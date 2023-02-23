@@ -427,41 +427,42 @@ static char *overflowAndZeroFileNames[] =
 #define CORPUS_TO_STR(corpus) #corpus
 #define CORPUS_STR(corpus) CORPUS_TO_STR(corpus)
 static corpusInfo corpus[] = {
-    [CANTERBURY_CORPUS] = {CANTERBURY_CORPUS,
-                           CORPUS_STR(CANTERBURY_CORPUS),
-                           CORPUS_DATA_INIT(canterburyFileNames)},
-    [CALGARY_CORPUS] = {CALGARY_CORPUS,
-                        CORPUS_STR(CALGARY_CORPUS),
-                        CORPUS_DATA_INIT(calgaryFileNames)},
-    [RANDOM] = {RANDOM, CORPUS_STR(RANDOM), CORPUS_DATA_EMPTY},
-    [SIGN_OF_LIFE_CORPUS] = {SIGN_OF_LIFE_CORPUS,
-                             CORPUS_STR(SIGN_OF_LIFE_CORPUS),
-                             CORPUS_DATA_INIT(signOfLifeFile)},
-    [CALGARY_SIX_FILES] = {CALGARY_SIX_FILES,
-                           CORPUS_STR(CALGARY_SIX_FILES),
-                           CORPUS_DATA_INIT(calgarySixFileNames)},
-    [CALGARY_FULL_SET] = {CALGARY_FULL_SET,
-                          CORPUS_STR(CALGARY_FULL_SET),
-                          CORPUS_DATA_INIT(calgaryFullFileNames)},
-    [ZERO_LENGTH_FILE] = {ZERO_LENGTH_FILE,
-                          CORPUS_STR(ZERO_LENGTH_FILE),
-                          CORPUS_DATA_INIT(zeroLengthFilenames)},
-    [OVERFLOW_FILE] = {OVERFLOW_FILE,
-                       CORPUS_STR(OVERFLOW_FILE),
-                       CORPUS_DATA_INIT(overflowFileNames)},
-    [OVERFLOW_AND_ZERO_FILE] = {OVERFLOW_AND_ZERO_FILE,
-                                CORPUS_STR(OVERFLOW_AND_ZERO_FILE),
-                                CORPUS_DATA_INIT(overflowAndZeroFileNames)},
-    [CORPUS_TYPE_EXTENDED] = {CORPUS_TYPE_EXTENDED,
-                              CORPUS_STR(CORPUS_TYPE_EXTENDED),
-                              CORPUS_DATA_EMPTY},
+    [CANTERBURY_CORPUS] = { CANTERBURY_CORPUS,
+                            CORPUS_STR(CANTERBURY_CORPUS),
+                            CORPUS_DATA_INIT(canterburyFileNames) },
+    [CALGARY_CORPUS] = { CALGARY_CORPUS,
+                         CORPUS_STR(CALGARY_CORPUS),
+                         CORPUS_DATA_INIT(calgaryFileNames) },
+    [RANDOM] = { RANDOM, CORPUS_STR(RANDOM), CORPUS_DATA_EMPTY },
+    [SIGN_OF_LIFE_CORPUS] = { SIGN_OF_LIFE_CORPUS,
+                              CORPUS_STR(SIGN_OF_LIFE_CORPUS),
+                              CORPUS_DATA_INIT(signOfLifeFile) },
+    [CALGARY_SIX_FILES] = { CALGARY_SIX_FILES,
+                            CORPUS_STR(CALGARY_SIX_FILES),
+                            CORPUS_DATA_INIT(calgarySixFileNames) },
+    [CALGARY_FULL_SET] = { CALGARY_FULL_SET,
+                           CORPUS_STR(CALGARY_FULL_SET),
+                           CORPUS_DATA_INIT(calgaryFullFileNames) },
+    [ZERO_LENGTH_FILE] = { ZERO_LENGTH_FILE,
+                           CORPUS_STR(ZERO_LENGTH_FILE),
+                           CORPUS_DATA_INIT(zeroLengthFilenames) },
+    [OVERFLOW_FILE] = { OVERFLOW_FILE,
+                        CORPUS_STR(OVERFLOW_FILE),
+                        CORPUS_DATA_INIT(overflowFileNames) },
+    [OVERFLOW_AND_ZERO_FILE] = { OVERFLOW_AND_ZERO_FILE,
+                                 CORPUS_STR(OVERFLOW_AND_ZERO_FILE),
+                                 CORPUS_DATA_INIT(overflowAndZeroFileNames) },
+    [CORPUS_TYPE_EXTENDED] = { CORPUS_TYPE_EXTENDED,
+                               CORPUS_STR(CORPUS_TYPE_EXTENDED),
+                               CORPUS_DATA_EMPTY },
 
     /*All Corpus type should added above
      * CORPUS_TYPE_INVALID.
      */
-    [CORPUS_TYPE_INVALID] = {CORPUS_TYPE_INVALID,
-                             CORPUS_STR(CORPUS_TYPE_INVALID),
-                             CORPUS_DATA_EMPTY}};
+    [CORPUS_TYPE_INVALID] = { CORPUS_TYPE_INVALID,
+                              CORPUS_STR(CORPUS_TYPE_INVALID),
+                              CORPUS_DATA_EMPTY }
+};
 
 #define CHECK_CORPUS_TYPE_AND_RETURN(type, status)                             \
     do                                                                         \
@@ -674,6 +675,7 @@ CpaStatus startDcServices(Cpa32U buffSize, Cpa32U numBuffs)
             PRINT_ERR(" Unable to allocate memory for Instances \n");
             return CPA_STATUS_FAIL;
         }
+
         /* Get DC Instances */
         status = cpaDcGetInstances(numDcInstances_g, dcInstances_g);
         /* Check Status */
@@ -697,6 +699,11 @@ CpaStatus startDcServices(Cpa32U buffSize, Cpa32U numBuffs)
             qaeMemFree((void **)&dcInstances_g);
             return CPA_STATUS_FAIL;
         }
+
+        /* Initialize memory for buffer lists */
+        memset(
+            pInterBuffList_g, 0, numDcInstances_g * sizeof(CpaBufferList **));
+
         /* Start the Loop to create Buffer List for each instance*/
         for (i = 0; i < numDcInstances_g; i++)
         {
@@ -1328,7 +1335,7 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
     perf_data_t stats = {0};
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U i = 0;
-    Cpa32U throughput = 0, currentThroughput = 0;
+    Cpa32U throughput = 0;
     Cpa32U bytesConsumed = 0, bytesProduced = 0;
     Cpa32U averageNumLoops = 0;
     compression_test_params_t *dcSetup =
@@ -1393,7 +1400,6 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
         bytesConsumed += data->performanceStats[i]->bytesConsumedPerLoop;
         bytesProduced += data->performanceStats[i]->bytesProducedPerLoop;
         dcSetup->numLoops = data->performanceStats[i]->numLoops;
-        currentThroughput += data->performanceStats[i]->currentThroughput;
         clearPerfStats(data->performanceStats[i]);
     }
     /* get the maximum number of cycles Required */
@@ -1742,7 +1748,7 @@ void dcPrintTestData(compression_test_params_t *dcSetup)
 }
 EXPORT_SYMBOL(dcPrintTestData);
 
-#ifdef SC_CHAINING_ENABLED
+#if defined(SC_CHAINING_ENABLED) || defined(SC_CHAINING_EXT_ENABLED)
 void dcChainPrintTestData(compression_test_params_t *chainSetup)
 {
     PRINT("API                    ");
@@ -1801,6 +1807,25 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
                 PRINT("Static Stateless Compress AES_CBC Encrypt Chaining\n");
             }
             break;
+        case (CPA_DC_CHAIN_COMPRESS_THEN_AEAD):
+            if (chainSetup->symSetupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_AES_GCM &&
+                chainSetup->setupData.sessState == CPA_DC_STATELESS &&
+                chainSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
+            {
+                PRINT("Static Stateless Compress AES_GCM Encrypt Chaining\n");
+            }
+            break;
+        case (CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS):
+            if (chainSetup->symSetupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_AES_GCM &&
+                chainSetup->setupData.sessState == CPA_DC_STATELESS &&
+                chainSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
+            {
+                PRINT("Static Stateless AES_GCM Decrypt Decompression "
+                      "Chaining\n");
+            }
+            break;
         default:
             PRINT("Unsupported        %d\n", chainSetup->chainOperation);
             break;
@@ -1838,6 +1863,26 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
         }
     }
 
+#ifdef SC_CHAINING_EXT_ENABLED
+    if ((CPA_DC_CHAIN_COMPRESS_THEN_AEAD == chainSetup->chainOperation) ||
+        (CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS == chainSetup->chainOperation))
+    {
+        PRINT("AppendCRC Enabled      ");
+        switch (chainSetup->appendCRC)
+        {
+            case (CPA_TRUE):
+                PRINT("YES\n");
+                break;
+            case (CPA_FALSE):
+                PRINT("NO\n");
+                break;
+            default:
+                PRINT("Not known\n");
+                break;
+        }
+    }
+#endif
+
     PRINT("Direction              ");
     switch (chainSetup->dcSessDir)
     {
@@ -1869,6 +1914,8 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
     PRINT("Compression Level      %d\n", chainSetup->setupData.compLevel);
 
     PRINT("Corpus                 ");
+    PRINT("%s\n", getCorpusName(chainSetup->corpus));
+    PRINT("Corpus Filename        ");
     PRINT("%s\n",
           getFileNameInCorpus(chainSetup->corpus, chainSetup->corpusFileIndex));
 #if (CPA_DC_API_VERSION_NUM_MAJOR > 1) && (CPA_DC_API_VERSION_NUM_MINOR > 1)

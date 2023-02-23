@@ -143,6 +143,9 @@ CpaStatus disableZeroByteRequest(void);
 #define DEFLATE_DEF_WINBITS (15)
 #define DEFLATE_DEF_MEMLEVEL (8)
 
+#define CPA_CRC64_POLYNOMIAL1 0x42F0E1EBA9EA3693ULL
+#define CPA_CRC64_POLYNOMIAL2 0x9A6C9329AC4BC9B5ULL
+
 #define CHECK_AND_STOPDCSERVICES()                                             \
     if (dc_service_started_g == CPA_TRUE)                                      \
     {                                                                          \

@@ -253,17 +253,17 @@ void adf_proxy_depopulate_device_info(icp_accel_dev_t *accel_dev)
     return;
 }
 
-STATIC inline int adf_dev_bank_handle_get(adf_dev_bank_handle_t *bank)
+STATIC INLINE int adf_dev_bank_handle_get(adf_dev_bank_handle_t *bank)
 {
     return __sync_fetch_and_add(&bank->refs, 1);
 }
 
-STATIC inline int adf_dev_bank_handle_put(adf_dev_bank_handle_t *bank)
+STATIC INLINE int adf_dev_bank_handle_put(adf_dev_bank_handle_t *bank)
 {
     return __sync_fetch_and_sub(&bank->refs, 1);
 }
 
-STATIC inline int adf_dev_bank_handle_check(adf_dev_bank_handle_t *bank)
+STATIC INLINE int adf_dev_bank_handle_check(adf_dev_bank_handle_t *bank)
 {
     return __sync_val_compare_and_swap(&bank->refs, 0, 0);
 }

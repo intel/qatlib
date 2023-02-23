@@ -297,11 +297,12 @@ CpaStatus nrbgPerform(nrbg_test_params_t *setup)
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
  ***************************************************************************/
-void nrbgPrintStats(thread_creation_data_t *data)
+CpaStatus nrbgPrintStats(thread_creation_data_t *data)
 {
     PRINT("NRBG\n");
     PRINT("NRBG Size %23u\n", data->packetSize);
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /***************************************************************************

@@ -62,9 +62,9 @@
 
 /*
  * This is sample code that demonstrates usage of the symmetric API, and
- * specifically using this API to perform a hash of a file using SHA1.
+ * specifically using this API to perform a hash of a file using SHA256.
  * Note this program will only work with files greater than SAMPLE_BUFF_SIZE
- * (Output can be compared with sha1sum in linux)
+ * (Output can be compared with sha256sum in linux)
  */
 
 #include "cpa.h"
@@ -74,9 +74,9 @@
 
 extern int gDebugParam;
 
-/* The digest length must be less than or equal to sha1 digest
-   length (20) for this example */
-#define DIGEST_LENGTH 20
+/* The digest length must be less than or equal to sha256 digest
+   length (32) for this example */
+#define DIGEST_LENGTH 32
 
 /* Size of the buffer sent to the api */
 #define SAMPLE_BUFF_SIZE 4096
@@ -344,7 +344,7 @@ CpaStatus hashFileSample(void)
          * for a plain hash operation */
         sessionSetupData.sessionPriority = CPA_CY_PRIORITY_NORMAL;
         sessionSetupData.symOperation = CPA_CY_SYM_OP_HASH;
-        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA1;
+        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
         sessionSetupData.hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_PLAIN;
         sessionSetupData.hashSetupData.digestResultLenInBytes = DIGEST_LENGTH;
         /* Place the digest result in a buffer unrelated to srcBuffer */

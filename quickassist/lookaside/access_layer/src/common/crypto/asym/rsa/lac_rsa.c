@@ -167,14 +167,25 @@ CpaBoolean LacRsa_IsValidRsaSize(Cpa32U opSizeInBytes)
 {
     Cpa32U opSizeInBits = LAC_NUM_BITS_IN_BYTE * opSizeInBytes;
 
+#ifdef QAT_LEGACY_ALGORITHMS
     if ((LAC_512_BITS != opSizeInBits) && (LAC_1024_BITS != opSizeInBits) &&
         (LAC_1536_BITS != opSizeInBits) && (LAC_2048_BITS != opSizeInBits) &&
         (LAC_3072_BITS != opSizeInBits) && (LAC_4096_BITS != opSizeInBits) &&
         (LAC_8192_BITS != opSizeInBits))
+#else
+    if ((LAC_2048_BITS != opSizeInBits) && (LAC_3072_BITS != opSizeInBits) && 
+        (LAC_4096_BITS != opSizeInBits) && (LAC_8192_BITS != opSizeInBits))
+#endif
     {
+#ifdef QAT_LEGACY_ALGORITHMS
         LAC_INVALID_PARAM_LOG(
             "Invalid operation size. Valid op sizes for "
             "RSA are 512, 1024, 1536, 2048, 3072, 4096 and 8192 bits.");
+#else
+        LAC_INVALID_PARAM_LOG(
+            "Invalid operation size. Valid op sizes for "
+            "RSA are 2048, 3072, 4096 and 8192 bits.");
+#endif
         return CPA_FALSE;
     }
 

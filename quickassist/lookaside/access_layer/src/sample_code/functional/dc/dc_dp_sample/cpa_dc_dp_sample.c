@@ -163,6 +163,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     Cpa8U *pDstBuffer = NULL;
     Cpa8U *pDst2Buffer = NULL;
     CpaDcDpOpData *pOpData = NULL;
+    Cpa32U checksum = 0;
 
     //<snippet name="memAlloc">
     numBuffers = 2;
@@ -194,10 +195,14 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         pBufferListSrc->numBuffers = 2;
         pBufferListSrc->flatBuffers[0].dataLenInBytes = sizeof(sampleData) / 2;
         pBufferListSrc->flatBuffers[0].bufferPhysAddr =
-            sampleVirtToPhys(pSrcBuffer);
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pSrcBuffer,
+                              dcInstHandle,
+                              CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
         pBufferListSrc->flatBuffers[1].dataLenInBytes = sizeof(sampleData) / 2;
         pBufferListSrc->flatBuffers[1].bufferPhysAddr =
-            sampleVirtToPhys(pSrcBuffer2);
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pSrcBuffer2,
+                              dcInstHandle,
+                              CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
         //</snippet>
     }
 
@@ -235,7 +240,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         pBufferListDst->numBuffers = 1;
         pBufferListDst->flatBuffers[0].dataLenInBytes = bufferSize;
         pBufferListDst->flatBuffers[0].bufferPhysAddr =
-            sampleVirtToPhys(pDstBuffer);
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pDstBuffer,
+                              dcInstHandle,
+                              CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 
         //<snippet name="opDataDp">
         /* Allocate memory for operational data. Note this needs to be
@@ -252,13 +259,22 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         pOpData->bufferLenForData = dstBufferSize;
         pOpData->dcInstance = dcInstHandle;
         pOpData->pSessionHandle = sessionHdl;
-        pOpData->srcBuffer = sampleVirtToPhys(pBufferListSrc);
+        pOpData->srcBuffer =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pBufferListSrc,
+                              dcInstHandle,
+                              CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
         pOpData->srcBufferLen = CPA_DP_BUFLIST;
-        pOpData->destBuffer = sampleVirtToPhys(pBufferListDst);
+        pOpData->destBuffer =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pBufferListDst,
+                              dcInstHandle,
+                              CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
         pOpData->destBufferLen = CPA_DP_BUFLIST;
         pOpData->sessDirection = CPA_DC_DIR_COMPRESS;
         INIT_DC_DP_CNV_OPDATA(pOpData);
-        pOpData->thisPhys = sampleVirtToPhys(pOpData);
+        pOpData->thisPhys =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pOpData,
+                              dcInstHandle,
+                              CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
         pOpData->pCallbackTag = (void *)0;
         //</snippet>
 
@@ -309,6 +325,8 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                 PRINT_DBG("Data produced %d\n", pOpData->results.produced);
                 PRINT_DBG("CRC checksum 0x%x\n", pOpData->results.checksum);
             }
+            /* To compare the checksum with decompressed output */
+            checksum = pOpData->results.checksum;
         }
     }
 
@@ -339,7 +357,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
             pBufferListDst2->numBuffers = 1;
             pBufferListDst2->flatBuffers[0].dataLenInBytes = SAMPLE_MAX_BUFF;
             pBufferListDst2->flatBuffers[0].bufferPhysAddr =
-                sampleVirtToPhys(pDst2Buffer);
+                virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pDst2Buffer,
+                                  dcInstHandle,
+                                  CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 
             /** Can reuse prev OpData
              */
@@ -347,13 +367,22 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
             pOpData->bufferLenForData = SAMPLE_MAX_BUFF;
             pOpData->dcInstance = dcInstHandle;
             pOpData->pSessionHandle = sessionHdl;
-            pOpData->srcBuffer = sampleVirtToPhys(pBufferListDst);
+            pOpData->srcBuffer =
+                virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pBufferListDst,
+                                  dcInstHandle,
+                                  CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
             pOpData->srcBufferLen = CPA_DP_BUFLIST;
-            pOpData->destBuffer = sampleVirtToPhys(pBufferListDst2);
+            pOpData->destBuffer = virtAddrToDevAddr(
+                (SAMPLE_CODE_UINT *)(uintptr_t)pBufferListDst2,
+                dcInstHandle,
+                CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
             pOpData->destBufferLen = CPA_DP_BUFLIST;
             pOpData->sessDirection = CPA_DC_DIR_DECOMPRESS;
             INIT_DC_DP_CNV_OPDATA(pOpData);
-            pOpData->thisPhys = sampleVirtToPhys(pOpData);
+            pOpData->thisPhys =
+                virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pOpData,
+                                  dcInstHandle,
+                                  CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
             pOpData->pCallbackTag = (void *)0;
 
             PRINT_DBG("cpaDcDpEnqueueOpBatch\n");
@@ -416,6 +445,17 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                     else
                     {
                         PRINT_ERR("Output does not match expected output\n");
+                        status = CPA_STATUS_FAIL;
+                    }
+                    if (checksum == pOpData->results.checksum)
+                    {
+                        PRINT_DBG("Checksums match after compression and "
+                                  "decompression\n");
+                    }
+                    else
+                    {
+                        PRINT_ERR("Checksums does not match after compression "
+                                  "and decompression\n");
                         status = CPA_STATUS_FAIL;
                     }
                 }

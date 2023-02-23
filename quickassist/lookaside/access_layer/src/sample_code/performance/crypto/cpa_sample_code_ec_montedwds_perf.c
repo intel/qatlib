@@ -134,7 +134,7 @@ void ecMontEdwdsCallback(void *pCallbackTag,
  *      Print the performance stats of the ecMontEdwds operations
  *
  ***************************************************************************/
-static void ecMontEdwdsPrintStats(thread_creation_data_t *data)
+static CpaStatus ecMontEdwdsPrintStats(thread_creation_data_t *data)
 {
     ec_montedwds_test_params_t *setup =
         (ec_montedwds_test_params_t *)data->setupPtr;
@@ -189,6 +189,7 @@ static void ecMontEdwdsPrintStats(thread_creation_data_t *data)
     PRINT("Curve type            %s\n", curveTypeText);
 
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /***************************************************************************
@@ -469,16 +470,25 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
     sample_ec_montedwds_vectors_t testVectors = {0};
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_SUCCESS;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
             return CPA_STATUS_FAIL;
         }
     }
@@ -571,7 +581,7 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
 #ifdef POLL_INLINE
                         if (poll_inline_g)
                         {
-                            if (instanceInfo2.isPolled)
+                            if (instanceInfo2->isPolled)
                             {
                                 sampleCodeAsymPollInstance(
                                     setup->cyInstanceHandle, 0);
@@ -603,7 +613,7 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
 #ifdef POLL_INLINE
                 if (poll_inline_g)
                 {
-                    if (instanceInfo2.isPolled)
+                    if (instanceInfo2->isPolled)
                     {
                         ++numOps;
                         if (numOps == nextPoll)
@@ -633,7 +643,7 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
 #ifdef POLL_INLINE
         if (poll_inline_g)
         {
-            if ((instanceInfo2.isPolled))
+            if ((instanceInfo2->isPolled))
             {
                 /* Now need to wait for all the inflight Requests */
                 pollStatus = cyPollNumOperations(pPerfData,
@@ -663,6 +673,10 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
     sampleCodeSemaphoreDestroy(&pPerfData->comp);
     ecMontEdwdsFreeData(setup, ppOpData, ppXk, ppYk);
 
+#ifdef POLL_INLINE
+    qaeMemFree((void **)&instanceInfo2);
+#endif
+
     return status;
 }
 
@@ -681,7 +695,7 @@ void ecMontEdwdsPerformance(single_thread_test_data_t *testSetup)
     CpaStatus status = CPA_STATUS_FAIL;
     ec_montedwds_test_params_t *params =
         (ec_montedwds_test_params_t *)testSetup->setupPtr;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 
     /*this barrier is to halt this thread when run in user space context, the
      * startThreads function releases this barrier, in kernel space is does
@@ -734,8 +748,19 @@ void ecMontEdwdsPerformance(single_thread_test_data_t *testSetup)
     ecMontEdwdsSetup.cyInstanceHandle =
         cyInstances[testSetup->logicalQaInstance];
 
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        ecMontEdwdsSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+        return;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
     status =
-        cpaCyInstanceGetInfo2(ecMontEdwdsSetup.cyInstanceHandle, &instanceInfo);
+        cpaCyInstanceGetInfo2(ecMontEdwdsSetup.cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
@@ -743,12 +768,12 @@ void ecMontEdwdsPerformance(single_thread_test_data_t *testSetup)
         ecMontEdwdsSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
-    if (instanceInfo.physInstId.packageId > packageIdCount_g)
+    if (instanceInfo->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo.physInstId.packageId;
+        packageIdCount_g = instanceInfo->physInstId.packageId;
     }
     ecMontEdwdsSetup.performanceStats->packageId =
-        instanceInfo.physInstId.packageId;
+        instanceInfo->physInstId.packageId;
     ecMontEdwdsSetup.syncMode = params->syncMode;
     ecMontEdwdsSetup.generator = params->generator;
     ecMontEdwdsSetup.curveType = params->curveType;
@@ -771,6 +796,7 @@ void ecMontEdwdsPerformance(single_thread_test_data_t *testSetup)
     }
 
     qaeMemFree((void **)&cyInstances);
+    qaeMemFree((void **)&instanceInfo);
     sampleCodeThreadExit();
 }
 

@@ -176,11 +176,20 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
                         CpaFlatBuffer **encryptedSWK)
 {
     CpaStatus status = CPA_STATUS_FAIL;
-    CpaBoolean retStatus = CPA_TRUE;
     CpaCyKptValidationKey *pPerPartPublicKeyData = NULL;
-    RSA *pKey = NULL;
     EVP_PKEY *pPubKey = NULL;
     EVP_PKEY_CTX *pCtx = NULL;
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+    BN_CTX *pBn_ctx = NULL;
+    OSSL_PARAM_BLD *pBld = NULL;
+    BIGNUM *pE_bn = NULL;
+    BIGNUM *pN_bn = NULL;
+    OSSL_PARAM *pParams = NULL;
+#else
+    CpaBoolean retStatus = CPA_TRUE;
+    RSA *pKey = NULL;
+#endif
+
     int ret = 0;
     CpaCyKptKeyManagementStatus kptStatus = CPA_CY_KPT_SUCCESS;
     Cpa32U node = 0;
@@ -242,6 +251,67 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
             status = CPA_STATUS_FAIL;
         }
     }
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        pBn_ctx = BN_CTX_new();
+        pBld = OSSL_PARAM_BLD_new();
+        if ((NULL == pBn_ctx) || (NULL == pBld))
+        {
+            status = CPA_STATUS_FAIL;
+        }
+    }
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        pN_bn = BN_CTX_get(pBn_ctx);
+        pE_bn = BN_CTX_get(pBn_ctx);
+        if ((NULL == pN_bn) || (NULL == pE_bn))
+        {
+            status = CPA_STATUS_FAIL;
+        }
+    }
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        BN_bin2bn(pPerPartPublicKeyData->publicKey.modulusN.pData,
+                  pPerPartPublicKeyData->publicKey.modulusN.dataLenInBytes,
+                  pN_bn);
+        OSSL_PARAM_BLD_push_BN(pBld, "n", pN_bn);
+
+        BN_bin2bn(
+            pPerPartPublicKeyData->publicKey.publicExponentE.pData,
+            pPerPartPublicKeyData->publicKey.publicExponentE.dataLenInBytes,
+            pE_bn);
+        OSSL_PARAM_BLD_push_BN(pBld, "e", pE_bn);
+
+        pParams = OSSL_PARAM_BLD_to_param(pBld);
+        if (NULL == pParams)
+        {
+            status = CPA_STATUS_FAIL;
+        }
+    }
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        pCtx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+        if (NULL == pCtx)
+        {
+            PRINT_ERR("Allocates generate key context failed!\n");
+            status = CPA_STATUS_FAIL;
+        }
+    }
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        EVP_PKEY_fromdata_init(pCtx);
+        EVP_PKEY_fromdata(pCtx, &pPubKey, EVP_PKEY_PUBLIC_KEY, pParams);
+        EVP_PKEY_CTX_free(pCtx);
+
+        pCtx = EVP_PKEY_CTX_new(pPubKey, NULL);
+        if (NULL == pCtx)
+        {
+            PRINT_ERR("Allocates public key algorithm context failed!\n");
+            status = CPA_STATUS_FAIL;
+        }
+    }
+#else
     if (CPA_STATUS_SUCCESS == status)
     {
         pKey = RSA_new();
@@ -286,6 +356,7 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
             status = CPA_STATUS_FAIL;
         }
     }
+#endif // #if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
     if (CPA_STATUS_SUCCESS == status)
     {
         if (EVP_PKEY_encrypt_init(pCtx) > 0)
@@ -334,6 +405,20 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
         }
     }
 
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+    if (NULL != pBn_ctx)
+    {
+        BN_CTX_free(pBn_ctx);
+    }
+    if (NULL != pBld)
+    {
+        OSSL_PARAM_BLD_free(pBld);
+    }
+    if (NULL != pParams)
+    {
+        OSSL_PARAM_free(pParams);
+    }
+#endif
     if (NULL != pCtx)
     {
         EVP_PKEY_CTX_free(pCtx);

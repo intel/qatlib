@@ -261,22 +261,7 @@ EXPORT_SYMBOL(setBusyLoopCounter);
 EXPORT_SYMBOL(busyLoop);
 EXPORT_SYMBOL(busyLoop2);
 EXPORT_SYMBOL(busyLoopCounter_g);
-/*
-static int busyLoopInit(void)
-{
-    PRINT("Busy Loop Module Loaded\n");
 
-    return 0;
-}
-
-static void busyLoopExit(void)
-{
-    PRINT("Busy Loop Module Unloaded\n");
-}
-
-module_init(busyLoopInit);
-module_exit(busyLoopExit);
-*/
 MODULE_AUTHOR("Intel Corporation");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Sample Code");

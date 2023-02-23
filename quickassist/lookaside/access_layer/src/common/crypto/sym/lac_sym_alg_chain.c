@@ -116,6 +116,21 @@
 /* Session writer timeout */
 #define LOCK_SESSION_WRITER_TIMEOUT 1000
 
+#define LAC_IS_LEGACY_ALGORITHMS(cipherAlgo, hashAlgo)                         \
+    ((CPA_CY_SYM_CIPHER_ARC4 == (cipherAlgo)) ||                               \
+     (CPA_CY_SYM_CIPHER_AES_ECB == (cipherAlgo)) ||                            \
+     (CPA_CY_SYM_CIPHER_DES_CBC == (cipherAlgo)) ||                            \
+     (CPA_CY_SYM_CIPHER_DES_ECB == (cipherAlgo)) ||                            \
+     (CPA_CY_SYM_CIPHER_3DES_ECB == (cipherAlgo)) ||                           \
+     (CPA_CY_SYM_CIPHER_3DES_CBC == (cipherAlgo)) ||                           \
+     (CPA_CY_SYM_CIPHER_3DES_CTR == (cipherAlgo)) ||                           \
+     (CPA_CY_SYM_CIPHER_AES_F8 == (cipherAlgo)) ||                             \
+     (CPA_CY_SYM_CIPHER_SM4_ECB == (cipherAlgo)) ||                            \
+     (CPA_CY_SYM_HASH_MD5 == (hashAlgo)) ||                                    \
+     (CPA_CY_SYM_HASH_SHA1 == (hashAlgo)) ||                                   \
+     (CPA_CY_SYM_HASH_SHA224 == (hashAlgo)) ||                                 \
+     (CPA_CY_SYM_HASH_SHA3_224 == (hashAlgo)))
+
 static inline void LacAlgChain_LockSessionReader(
     lac_session_desc_t *pSessionDesc)
 {
@@ -536,7 +551,12 @@ void LacAlgChain_HashCDBuild(
                                       pPrecomputeDataOptimisedCd,
                                       &sizeInBytes);
 
-        *pOptimisedHwBlockOffsetInDRAM += sizeInBytes;
+        LAC_ENSURE_NOT_NULL(pOptimisedHwBlockOffsetInDRAM);
+
+        if (NULL != pOptimisedHwBlockOffsetInDRAM)
+        {
+            *pOptimisedHwBlockOffsetInDRAM += sizeInBytes;
+        }
     }
     else if (pSessionDesc->useSymConstantsTable)
     {
@@ -1458,6 +1478,15 @@ CpaStatus LacAlgChain_SessionInit(
 
     pCipherData = &(pSessionSetupData->cipherSetupData);
     pHashData = &(pSessionSetupData->hashSetupData);
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    if (LAC_IS_LEGACY_ALGORITHMS(pCipherData->cipherAlgorithm,
+                                 pHashData->hashAlgorithm))
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("Unsupported Cipher/Hash Algorithm");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+#endif
 
     /*-------------------------------------------------------------------------
      * Populate session data

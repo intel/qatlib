@@ -40,9 +40,19 @@
 
 #include "Osal.h"
 
+#if defined(__GNUC__) && !defined(__llvm__) && !defined(__INTEL_COMPILER)
+#define GCC_VER (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+#else
+#define GCC_VER 0
+#endif
+
 OSAL_PUBLIC OSAL_INLINE INT64 osalAtomicGet(OsalAtomic *atomicVar)
 {
+#if GCC_VER >= 40700
+    return __atomic_load_n(atomicVar, __ATOMIC_ACQUIRE);
+#else
     return __sync_fetch_and_and(atomicVar, (INT64)0xFFFFFFFFFFFFFFFFULL);
+#endif
 }
 
 OSAL_PUBLIC OSAL_INLINE void osalAtomicSet(INT64 inValue, OsalAtomic *atomicVar)

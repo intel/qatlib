@@ -176,6 +176,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     CpaDcOpData opData = {};
     Cpa32U bufferSize = sizeof(sampleData);
     Cpa32U dstBufferSize = bufferSize;
+    Cpa32U checksum = 0;
     Cpa32U numBuffers = 1; /* only using 1 buffer in this case */
     /* allocate memory for bufferlist and array of flat buffers in a contiguous
      * area and carve it up to reduce number of memory allocations required. */
@@ -330,6 +331,8 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                 PRINT_DBG("Data produced %d\n", dcResults.produced);
                 PRINT_DBG("Adler checksum 0x%x\n", dcResults.checksum);
             }
+            /* To compare the checksum with decompressed output */
+            checksum = dcResults.checksum;
         }
     }
     /*
@@ -432,6 +435,17 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                 else
                 {
                     PRINT_ERR("Output does not match expected output\n");
+                    status = CPA_STATUS_FAIL;
+                }
+                if (checksum == dcResults.checksum)
+                {
+                    PRINT_DBG("Checksums match after compression and "
+                              "decompression\n");
+                }
+                else
+                {
+                    PRINT_ERR("Checksums does not match after compression and "
+                              "decompression\n");
                     status = CPA_STATUS_FAIL;
                 }
             }

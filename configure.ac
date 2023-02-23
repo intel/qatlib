@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [22.07.2], [qat-linux@intel.com])
+AC_INIT([qatlib], [23.02.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,8 +11,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [3:2:0])
-AC_SUBST([LIBUSDM_VERSION], [0:1:0])
+AC_SUBST([LIBQAT_VERSION], [3:3:0])
+AC_SUBST([LIBUSDM_VERSION], [1:0:1])
 
 # Checks for programs.
 AC_PROG_AWK
@@ -236,6 +236,12 @@ AC_ARG_ENABLE(service,
     [service=true], [service=false]
 )
 AM_CONDITIONAL([SERVICE_AC], [test x$service = xtrue -a x$enable_systemd != xno ])
+
+AC_ARG_ENABLE(legacy-algorithms,
+	AS_HELP_STRING([--enable-legacy-algorithms], [Enable legacy crypto algorithms.]),
+	[enable_legacy_algorithms="yes"], [enable_legacy_algorithms="no"])
+
+AM_CONDITIONAL(QAT_LEGACY_ALGORITHMS_AC, test "$enable_legacy_algorithms" = "yes" )
 
 # Config files.
 AC_CONFIG_FILES([Makefile qatlib.spec qatlib.pc libqat.pc libusdm.pc])

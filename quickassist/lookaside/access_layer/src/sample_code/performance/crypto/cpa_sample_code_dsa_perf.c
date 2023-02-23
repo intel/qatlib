@@ -872,16 +872,24 @@ CpaStatus dsaPerform(dsa_test_params_t *setup)
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_SUCCESS;
     perf_data_t *pPerfData = setup->performanceStats;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 #endif
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 
 #ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
@@ -1157,6 +1165,9 @@ barrier:
     /* exiting the function if any failure occurs in previous steps*/
     if (CPA_STATUS_SUCCESS != status)
     {
+#ifdef POLL_INLINE
+        qaeMemFree((void **)&instanceInfo2);
+#endif
         return status;
     }
     /* get a timestamp before submitting any requests. After submitting
@@ -1182,7 +1193,7 @@ barrier:
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (instanceInfo2->isPolled)
                         {
                             sampleCodeAsymPollInstance(setup->cyInstanceHandle,
                                                        0);
@@ -1206,7 +1217,7 @@ barrier:
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo2.isPolled)
+                if (instanceInfo2->isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -1236,7 +1247,7 @@ barrier:
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -1266,6 +1277,9 @@ barrier:
     FREE_DSA_MEM;
     sampleCodeSemaphoreDestroy(&pDsaData->comp);
     pDsaData->threadReturnStatus = status;
+#ifdef POLL_INLINE
+    qaeMemFree((void **)&instanceInfo2);
+#endif
     if (CPA_STATUS_SUCCESS != setup->performanceStats->threadReturnStatus)
     {
         status = CPA_STATUS_FAIL;
@@ -1330,16 +1344,24 @@ CpaStatus dsaSignPerform(dsa_test_params_t *setup)
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_SUCCESS;
     perf_data_t *pPerfData = setup->performanceStats;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 #endif
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 
 #ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
@@ -1615,7 +1637,7 @@ barrier:
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (instanceInfo2->isPolled)
                         {
                             sampleCodeAsymPollInstance(setup->cyInstanceHandle,
                                                        0);
@@ -1639,7 +1661,7 @@ barrier:
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo2.isPolled)
+                if (instanceInfo2->isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -1668,7 +1690,7 @@ barrier:
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -1697,6 +1719,9 @@ barrier:
     FREE_DSA_SIGN_MEM;
     sampleCodeSemaphoreDestroy(&pDsaData->comp);
     pDsaData->threadReturnStatus = status;
+#ifdef POLL_INLINE
+    qaeMemFree((void **)&instanceInfo2);
+#endif
     if (CPA_STATUS_SUCCESS != setup->performanceStats->threadReturnStatus)
     {
         status = CPA_STATUS_FAIL;

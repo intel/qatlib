@@ -331,39 +331,37 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
     Cpa32U loops = 0;
     CpaStatus status = CPA_STATUS_FAIL;
     Cpa32U i = 0;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
     Cpa32U busyLoopValue = busyLoopCounter_g;
     perf_cycles_t startBusyLoop = 0, endBusyLoop = 0;
     Cpa32U busyLoopCount = 0, staticAssign = 0;
+
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_FAIL;
     perf_data_t *pPerfData = setup->performanceStats;
-    CpaInstanceInfo2 instanceInfo2 = {0};
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 #endif
 
-#ifdef POLL_INLINE
-    if (poll_inline_g)
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            return CPA_STATUS_FAIL;
-        }
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return CPA_STATUS_FAIL;
     }
-#endif
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
     /*pre-set the number of ops we plan to submit*/
     setup->performanceStats->numOperations = (Cpa64U)numBuffers * numLoops;
     setup->performanceStats->responses = 0;
-    setup->performanceStats->packageId = instanceInfo.physInstId.packageId;
+    setup->performanceStats->packageId = instanceInfo->physInstId.packageId;
     coo_init(setup->performanceStats, setup->performanceStats->numOperations);
     /* Completion used in callback */
     sampleCodeSemaphoreInit(&setup->performanceStats->comp, 0);
@@ -402,7 +400,7 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (instanceInfo->isPolled)
                         {
                             sampleCodeAsymPollInstance(setup->cyInstanceHandle,
                                                        0);
@@ -429,7 +427,7 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo2.isPolled)
+                if (instanceInfo->isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -447,7 +445,7 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -491,6 +489,8 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
     coo_deinit(setup->performanceStats);
 
     sampleCodeSemaphoreDestroy(&setup->performanceStats->comp);
+    qaeMemFree((void **)&instanceInfo);
+
     return status;
 }
 EXPORT_SYMBOL(dhPhase1);
@@ -623,14 +623,15 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
     Cpa32U loops = 0;
     CpaStatus status = CPA_STATUS_FAIL;
     CpaCyGenFlatBufCbFunc cbFunc = NULL;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
+
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_FAIL;
-    CpaInstanceInfo2 instanceInfo2 = {0};
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
     perf_data_t *pPerfData = setup->performanceStats;
 #endif
+
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 
     if (CPA_CC_BUSY_LOOPS == iaCycleCount_g)
@@ -638,11 +639,19 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
         timeStampTime_g = getTimeStampTime();
         PRINT("timeStampTime_g %llu\n", timeStampTime_g);
     }
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
 
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
     /*pre-set the number of ops we plan to submit*/
@@ -650,35 +659,26 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
     setup->performanceStats->numOperations = (Cpa64U)numLoops * numBuffers;
     setup->performanceStats->responses = 0;
     setup->performanceStats->retries = 0;
-    setup->performanceStats->packageId = instanceInfo.physInstId.packageId;
+    setup->performanceStats->packageId = instanceInfo->physInstId.packageId;
     /* Completion used in callback */
     sampleCodeSemaphoreInit(&setup->performanceStats->comp, 0);
     coo_init(setup->performanceStats, setup->performanceStats->numOperations);
     if (NULL == pOctetStringSecretKey)
     {
         PRINT_ERR("Error pOctetStringSecretKey Null pointer passed\n");
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
     if (NULL == pCpaDhOpDataP2)
     {
         PRINT_ERR("Error pCpaDhOpDataP2 Null pointer passed\n");
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
     if (ASYNC == setup->syncMode)
     {
         cbFunc = dhCallback;
     }
-#ifdef POLL_INLINE
-    if (poll_inline_g)
-    {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            return CPA_STATUS_FAIL;
-        }
-    }
-#endif
     /*this barrier will wait until all threads get to this point*/
     /*don't want to wait here if its alice as she only loops once*/
     sampleCodeBarrier();
@@ -707,7 +707,7 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (instanceInfo->isPolled)
                         {
                             icp_sal_CyPollInstance(setup->cyInstanceHandle, 0);
                             nextPoll = numOps + asymPollingInterval_g;
@@ -729,7 +729,7 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo2.isPolled)
+                if (instanceInfo->isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -756,7 +756,7 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -785,6 +785,7 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
     /* Completion used in callback */
     sampleCodeSemaphoreDestroy(&setup->performanceStats->comp);
 
+    qaeMemFree((void **)&instanceInfo);
 
     return status;
 }
@@ -955,7 +956,7 @@ static CpaStatus dhPerform(asym_test_params_t *setup)
     Cpa32U node = 0;
     Cpa32U numLoopsPhase1 = 1;
     CpaBoolean stopAtPhase1 = CPA_FALSE;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
 
 
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
@@ -1042,15 +1043,26 @@ static CpaStatus dhPerform(asym_test_params_t *setup)
         return CPA_STATUS_FAIL;
     }
     memset(pDhData, 0, sizeof(perf_data_t));
-    if (cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2) !=
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        DH_MEM_FREE();
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
+    if (cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2) !=
         CPA_STATUS_SUCCESS)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
         DH_MEM_FREE();
+        qaeMemFree((void **)&instanceInfo2);
         return CPA_STATUS_FAIL;
     }
 
-    pDhData->packageId = instanceInfo2.physInstId.packageId;
+    pDhData->packageId = instanceInfo2->physInstId.packageId;
+    qaeMemFree((void **)&instanceInfo2);
 
     /***************************************************************************
      * PHASE1
@@ -1215,12 +1227,12 @@ CpaStatus dhPrintStats(thread_creation_data_t *data)
  *****************************************************************************/
 void dhPerformance(single_thread_test_data_t *testSetup)
 {
-    asym_test_params_t dhSetup;
+    asym_test_params_t dhSetup = { 0 };
     Cpa16U numInstances = 0;
     CpaInstanceHandle *cyInstances = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     asym_test_params_t *params = (asym_test_params_t *)testSetup->setupPtr;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 #ifdef SC_DEV_INFO_ENABLED
     CpaDeviceInfo deviceInfo = {0};
 #endif
@@ -1276,23 +1288,35 @@ void dhPerformance(single_thread_test_data_t *testSetup)
     dhSetup.threadID = testSetup->threadID;
     dhSetup.cyInstanceHandle = cyInstances[testSetup->logicalQaInstance];
 
-    status = cpaCyInstanceGetInfo2(dhSetup.cyInstanceHandle, &instanceInfo);
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        qaeMemFree((void **)&cyInstances);
+        sampleCodeThreadExit();
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(dhSetup.cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
 
 #ifdef SC_DEV_INFO_ENABLED
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    status = cpaGetDeviceInfo(instanceInfo->physInstId.packageId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         sampleCodeThreadExit();
     }
     if (CPA_FALSE == deviceInfo.cyAsymEnabled)
@@ -1303,12 +1327,13 @@ void dhPerformance(single_thread_test_data_t *testSetup)
                   __LINE__);
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         qaeMemFree((void **)&cyInstances);
+        qaeMemFree((void **)&instanceInfo);
         sampleCodeThreadExit();
     }
 #endif
-    if (instanceInfo.physInstId.packageId > packageIdCount_g)
+    if (instanceInfo->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo.physInstId.packageId;
+        packageIdCount_g = instanceInfo->physInstId.packageId;
     }
 
     dhSetup.modulusSizeInBytes = params->modulusSizeInBytes;
@@ -1329,6 +1354,7 @@ void dhPerformance(single_thread_test_data_t *testSetup)
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_SUCCESS;
     }
     qaeMemFree((void **)&cyInstances);
+    qaeMemFree((void **)&instanceInfo);
     sampleCodeThreadComplete(testSetup->threadID);
 }
 EXPORT_SYMBOL(dhPerformance);

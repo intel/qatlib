@@ -260,12 +260,6 @@ CpaStatus qatCompressionE2EVerify(compression_test_params_t *setup,
             (CPA_STATUS_SUCCESS == status))
         {
 #if DC_API_VERSION_AT_LEAST(3, 2)
-            /* For Stateless case do not seed previous E2E checksum*/
-            if (setup->setupData.sessState == CPA_DC_STATELESS)
-            {
-                setup->e2e->swInputChecksum = 0;
-                setup->e2e->swOutputChecksum = 0;
-            }
 #endif
             /* Verify integrity CRCs (iCrc + oCrc) */
             /* Calculate CRC on the input buffer list.*/

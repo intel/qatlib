@@ -504,7 +504,6 @@ static CpaStatus performDcDpBatchOp(compression_test_params_t *setup,
     Cpa32U compressLoops = 0;
     Cpa32U remainingOps = 0;
     Cpa32U submittedOps = 0;
-    Cpa32U numOps = 0;
     Cpa32U totalBuffers = 0;
     /* Status variable */
     CpaStatus status = CPA_STATUS_FAIL;
@@ -580,7 +579,7 @@ static CpaStatus performDcDpBatchOp(compression_test_params_t *setup,
                         break;
                     }
                 } while (CPA_STATUS_RETRY == status);
-                numOps += remainingOps;
+
                 if (CPA_CC_BUSY_LOOPS == iaCycleCount_g)
                 {
                     startBusyLoop = busyLoopTimeStamp();

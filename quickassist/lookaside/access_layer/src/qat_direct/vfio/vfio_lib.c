@@ -124,10 +124,15 @@ static void add_bar(pcs_t *pcs, void *ptr, const size_t size)
 
 static void remove_and_close_group(vfio_dev_info_t *dev)
 {
+    int ret = 0;
     ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
 
-    ioctl(
+    ret = ioctl(
         dev->vfio_group_fd, VFIO_GROUP_UNSET_CONTAINER, dev->vfio_container_fd);
+    if (ret)
+    {
+        ADF_ERROR("VFIO_GROUP_UNSET_CONTAINER ioctl failed\n");
+    }
     --container_fd_ref;
     close(dev->vfio_group_fd);
     dev->vfio_group_fd = -1;
@@ -176,14 +181,14 @@ int open_vfio_dev(const char *vfio_file,
         ret = ioctl(container_fd, VFIO_GET_API_VERSION);
         if (VFIO_API_VERSION != ret)
         {
-            ADF_ERROR("Unknown API version\n");
+            ADF_ERROR("VFIO_GET_API_VERSION ioctl failed\n");
             return -1;
         }
 
         ret = ioctl(container_fd, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU);
         if (!ret)
         {
-            ADF_ERROR("Doesn't support the IOMMU driver we want\n");
+            ADF_ERROR("VFIO_CHECK_EXTENSION ioctl failed\n");
             return -1;
         }
     }
@@ -208,7 +213,13 @@ int open_vfio_dev(const char *vfio_file,
     }
 
     /* Test the group is viable and available */
-    ioctl(dev->vfio_group_fd, VFIO_GROUP_GET_STATUS, &group_status);
+    ret = ioctl(dev->vfio_group_fd, VFIO_GROUP_GET_STATUS, &group_status);
+    if (ret)
+    {
+        ADF_ERROR("VFIO_GROUP_GET_STATUS ioctl failed\n");
+        close(dev->vfio_group_fd);
+        return -1;
+    }
 
     if (!(group_status.flags & VFIO_GROUP_FLAGS_VIABLE))
     {
@@ -218,8 +229,14 @@ int open_vfio_dev(const char *vfio_file,
     }
 
     /* Add the group to the container */
-    ioctl(
+    ret = ioctl(
         dev->vfio_group_fd, VFIO_GROUP_SET_CONTAINER, &dev->vfio_container_fd);
+    if (ret)
+    {
+        ADF_ERROR("VFIO_GROUP_SET_CONTAINER ioctl failed\n");
+        close(dev->vfio_group_fd);
+        return -1;
+    }
     container_fd_ref++;
 
     if (!already_enabled)
@@ -227,7 +244,7 @@ int open_vfio_dev(const char *vfio_file,
         ret = ioctl(dev->vfio_container_fd, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU);
         if (ret)
         {
-            ADF_ERROR("Cannot enable selected IOMMU model\n");
+            ADF_ERROR("VFIO_SET_IOMMU ioctl failed\n");
             remove_and_close_group(dev);
 
             return -1;
@@ -236,6 +253,12 @@ int open_vfio_dev(const char *vfio_file,
 
     /* Get a file descriptor for the device */
     dev->vfio_dev_fd = ioctl(dev->vfio_group_fd, VFIO_GROUP_GET_DEVICE_FD, bdf);
+    if (dev->vfio_dev_fd < 0)
+    {
+        ADF_ERROR("VFIO_GROUP_GET_DEVICE_FD ioctl failed\n");
+        remove_and_close_group(dev);
+        return -1;
+    }
 
     if (pci_vfio_set_command(dev->vfio_dev_fd, PCI_COMMAND_MEMORY, true))
     {
@@ -247,7 +270,14 @@ int open_vfio_dev(const char *vfio_file,
     }
 
     /* Test and setup the device */
-    ioctl(dev->vfio_dev_fd, VFIO_DEVICE_GET_INFO, &device_info);
+    ret = ioctl(dev->vfio_dev_fd, VFIO_DEVICE_GET_INFO, &device_info);
+    if (ret)
+    {
+        ADF_ERROR("VFIO_DEVICE_GET_INFO ioctl failed\n");
+        close(dev->vfio_dev_fd);
+        remove_and_close_group(dev);
+        return -1;
+    }
 
     for (i = 0; i < device_info.num_regions; i++)
     {
@@ -257,8 +287,20 @@ int open_vfio_dev(const char *vfio_file,
 
         /* Setup mappings... read/write offsets, mmaps
          * For PCI devices, config space is a region */
-        ioctl(dev->vfio_dev_fd, VFIO_DEVICE_GET_REGION_INFO, &reg);
-
+        ret = ioctl(dev->vfio_dev_fd, VFIO_DEVICE_GET_REGION_INFO, &reg);
+        if (ret)
+        {
+            if (!reg.size)
+            {
+                ADF_DEBUG("VFIO_DEVICE_GET_REGION_INFO ioctl failed, "
+                          "detected zero sized region, "
+                          "unimplemented PCI BAR possible\n");
+            }
+            else
+            {
+                ADF_ERROR("VFIO_DEVICE_GET_REGION_INFO ioctl failed\n");
+            }
+        }
         /* skip non-mmapable BARs */
         if ((reg.flags & VFIO_REGION_INFO_FLAG_MMAP) == 0)
         {
@@ -293,7 +335,7 @@ int open_vfio_dev(const char *vfio_file,
     ret = ioctl(dev->vfio_dev_fd, VFIO_DEVICE_RESET);
     if (ret)
     {
-        ADF_ERROR("Cannot reset the device\n");
+        ADF_ERROR("VFIO_DEVICE_RESET ioctl failed\n");
         close_vfio_dev(dev);
 
         return -1;

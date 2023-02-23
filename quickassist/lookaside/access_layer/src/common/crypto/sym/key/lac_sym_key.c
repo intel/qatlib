@@ -1046,6 +1046,28 @@ CpaStatus cpaCyKeyGenMgf(const CpaInstanceHandle instanceHandle_in,
         instanceHandle = instanceHandle_in;
     }
 
+#ifdef ICP_PARAM_CHECK
+    /* check for valid acceleration handle */
+    LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
+    SAL_CHECK_ADDR_TRANS_SETUP(instanceHandle);
+#endif
+
+    /* check LAC is initialised */
+    SAL_RUNNING_CHECK(instanceHandle);
+
+#ifdef ICP_PARAM_CHECK
+    /* check this is a crypto or sym instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        instanceHandle,
+        (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_SYM));
+#endif
+
+#ifdef ICP_PARAM_CHECK
+    /* Param check specific for Ext function, rest of parameters validated
+     * in LacSymKey_MgfCommon */
+    LAC_CHECK_NULL_PARAM(pKeyGenMgfOpData);
+#endif
+
     /* If synchronous Operation */
     if (NULL == pKeyGenCb)
     {
@@ -1094,6 +1116,22 @@ CpaStatus cpaCyKeyGenMgfExt(const CpaInstanceHandle instanceHandle_in,
     {
         instanceHandle = instanceHandle_in;
     }
+
+#ifdef ICP_PARAM_CHECK
+    /* check for valid acceleration handle */
+    LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
+    SAL_CHECK_ADDR_TRANS_SETUP(instanceHandle);
+#endif
+
+    /* check LAC is initialised */
+    SAL_RUNNING_CHECK(instanceHandle);
+
+#ifdef ICP_PARAM_CHECK
+    /* check this is a crypto or sym instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        instanceHandle,
+        (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_SYM));
+#endif
 
     /* If synchronous Operation */
     if (NULL == pKeyGenCb)

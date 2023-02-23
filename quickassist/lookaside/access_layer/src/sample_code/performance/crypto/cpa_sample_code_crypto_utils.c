@@ -149,7 +149,6 @@ EXPORT_SYMBOL(wirelessPacketSizes);
 EXPORT_SYMBOL(numWirelessPacketSizes);
 
 Cpa32U modSizes[] = {
-    MODULUS_1024_BIT,
     MODULUS_2048_BIT,
     MODULUS_4096_BIT,
 };
@@ -502,6 +501,35 @@ static const Cpa8U q_4096[] = {
     0x84, 0x4E, 0xBF, 0x7B};
 
 
+#if CY_API_VERSION_AT_LEAST(3, 0)
+/*  add for SM3 and SM4  */
+smx_key_size_pairs_t cipherSM4TestList[] = {
+    { CPA_CY_SYM_CIPHER_SM4_ECB, KEY_SIZE_128_IN_BYTES, 0, 0 },
+    { CPA_CY_SYM_CIPHER_SM4_CBC, KEY_SIZE_128_IN_BYTES, 0, 0 },
+    { CPA_CY_SYM_CIPHER_SM4_CTR, KEY_SIZE_128_IN_BYTES, 0, 0 }
+};
+
+smx_key_size_pairs_t algChainSM4SM3TestList[] = {
+    { CPA_CY_SYM_CIPHER_SM4_ECB,
+      KEY_SIZE_128_IN_BYTES,
+      CPA_CY_SYM_HASH_SM3,
+      SM3_DIGEST_LENGTH_IN_BYTES },
+    { CPA_CY_SYM_CIPHER_SM4_CBC,
+      KEY_SIZE_128_IN_BYTES,
+      CPA_CY_SYM_HASH_SM3,
+      SM3_DIGEST_LENGTH_IN_BYTES },
+    { CPA_CY_SYM_CIPHER_SM4_CTR,
+      KEY_SIZE_128_IN_BYTES,
+      CPA_CY_SYM_HASH_SM3,
+      SM3_DIGEST_LENGTH_IN_BYTES },
+};
+
+int cipherSM4TestList_count =
+    sizeof(cipherSM4TestList) / (sizeof(smx_key_size_pairs_t));
+int algChainSM4SM3TestList_count =
+    sizeof(algChainSM4SM3TestList) / (sizeof(smx_key_size_pairs_t));
+#endif
+
 
 Cpa32U getThroughput(Cpa64U numPackets, Cpa32U packetSize, perf_cycles_t cycles)
 {
@@ -605,8 +633,8 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
     perf_data_t **tempPerformanceStats;
 
     Cpa64U buffersProcessed = 0;
-    Cpa32U throughput = 0;
-    Cpa32U devThoughput = 0;
+    Cpa32U opsPerSec = 0;
+    Cpa32U devOpsperSec = 0;
 
     /*stop all crypto instances, There is no other place we can stop CyServices
      * as all other function run in thread context and its not safe to call
@@ -716,10 +744,10 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
             (stats2[i].endCyclesTimestamp - stats2[i].startCyclesTimestamp);
         if (!signOfLife)
         {
-            devThoughput = getOpsPerSecond(buffersProcessed, numOfCycles);
+            devOpsperSec = getOpsPerSecond(buffersProcessed, numOfCycles);
         }
         buffersProcessed = 0;
-        throughput += devThoughput;
+        opsPerSec += devOpsperSec;
         stats.numOperations += stats2[i].numOperations;
         stats.responses += stats2[i].responses;
         stats.retries += stats2[i].retries;
@@ -737,7 +765,7 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
     if (!signOfLife)
     {
         PRINT("CPU Frequency(kHz)    %u\n", sampleCodeGetCpuFreq());
-        PRINT("Operations per second %8u\n", throughput);
+        PRINT("Operations per second %8u\n", opsPerSec);
         if (iaCycleCount_g)
         {
             do_div(stats.offloadCycles, data->numberOfThreads);
@@ -1859,7 +1887,8 @@ CpaStatus generatePrime(CpaFlatBuffer *primeCandidate,
     Cpa32U millerRabinDataLen = 0;
     Cpa32U node = 0;
 #ifdef POLL_INLINE
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    CpaBoolean isPolled = CPA_FALSE;
 #endif
     millerRabinDataLen = primeCandidate->dataLenInBytes;
     /* The QA API has a a limit on the minimum size( 64 bytes) of the buffer
@@ -1867,15 +1896,26 @@ CpaStatus generatePrime(CpaFlatBuffer *primeCandidate,
      */
     MR_PRIME_LEN(millerRabinDataLen);
 #ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
             return CPA_STATUS_FAIL;
         }
     }
+    isPolled = instanceInfo2->isPolled;
+    qaeMemFree((void **)&instanceInfo2);
 #endif
     status = sampleCodeCyGetNode(cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
@@ -2017,7 +2057,7 @@ CpaStatus generatePrime(CpaFlatBuffer *primeCandidate,
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (isPolled)
                         {
                             icp_sal_CyPollInstance(setup->cyInstanceHandle, 0);
                         }
@@ -2050,7 +2090,7 @@ CpaStatus generatePrime(CpaFlatBuffer *primeCandidate,
 #ifdef POLL_INLINE
         if (poll_inline_g)
         {
-            if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+            if ((CPA_STATUS_SUCCESS == status) && (isPolled))
             {
                 /*
                 ** Now need to wait for all the inflight Requests.
@@ -2388,8 +2428,9 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
     perf_data_t *pPerfData = NULL;
 
 #ifdef POLL_INLINE
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    CpaBoolean isPolled = CPA_FALSE;
 
-    CpaInstanceInfo2 instanceInfo2 = {0};
     if (poll_inline_g)
     {
         pPerfData = qaeMemAlloc(sizeof(perf_data_t));
@@ -2405,15 +2446,26 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
 #endif
 
 #ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(instanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(instanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
             return CPA_STATUS_FAIL;
         }
     }
+    isPolled = instanceInfo2->isPolled;
+    qaeMemFree((void **)&instanceInfo2);
 #endif
     status = sampleCodeCyGetNode(instanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
@@ -2528,7 +2580,7 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -2543,6 +2595,7 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
 
     memcpy(digest->pData, pOpData->pDigestResult, digestLenInBytes);
     digest->dataLenInBytes = digestLenInBytes;
+
 /* Remove the session - session init has already succeeded */
     status = removeSymSession(instanceHandle, pSessionCtx);
 
@@ -3188,8 +3241,19 @@ void printCipherAlg(CpaCySymCipherSetupData cipherSetupData)
         case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             PRINT("ZUC-EEA3");
             break;
+        case CPA_CY_SYM_CIPHER_SM4_ECB:
+            PRINT("SM4-ECB");
+            break;
+        case CPA_CY_SYM_CIPHER_SM4_CTR:
+            PRINT("SM4-CTR");
+            break;
+        case CPA_CY_SYM_CIPHER_SM4_CBC:
+            PRINT("SM4-CBC");
+            break;
+        case CPA_CY_SYM_CIPHER_CHACHA:
+            PRINT("CHACHA");
+            break;
 #endif /*CPA_CY_API_VERSION_NUM_MAJOR >= 2*/
-
         default:
             PRINT("UNKNOWN_CIPHER %d\n", cipherSetupData.cipherAlgorithm);
             break;
@@ -3264,6 +3328,9 @@ void printHashAlg(CpaCySymHashSetupData hashSetupData)
             PRINT("AES-CBC-MAC");
             break;
 #endif
+        case CPA_CY_SYM_HASH_SM3:
+            PRINT("SM3");
+            break;
         default:
             PRINT("UNKNOWN_HASH\n");
             break;

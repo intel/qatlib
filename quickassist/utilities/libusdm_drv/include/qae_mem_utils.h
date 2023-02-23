@@ -73,6 +73,7 @@
 #include <linux/io.h>
 #include <linux/version.h>
 #include <linux/mm.h>
+#include <linux/atomic.h>
 
 #if (KERNEL_VERSION(2, 6, 38) >= LINUX_VERSION_CODE)
 #define kstrtoll strict_strtoll
@@ -176,22 +177,6 @@ typedef struct dev_mem_info_s
     };
 } dev_mem_info_t;
 
-/* Kernel space memory information structure. */
-typedef struct kdev_mem_info_s
-{
-    void *kmalloc_ptr; /* kernel space only (small slab) */
-    /* Pointer to mem originally returned by kmalloc */
-    void *huge_mem_ctrl;
-    uint64_t size;
-    /* Slab size */
-    uint64_t phy_addr; /* shared b/w user/kernel */
-    /* Physical address of the kmalloc'ed area */
-    struct kdev_mem_info_s *pPrev_kernel;
-    struct kdev_mem_info_s *pNext_kernel;
-    struct kdev_mem_info_s *pPrev_kernel_hash;
-    struct kdev_mem_info_s *pNext_kernel_hash;
-} kdev_mem_info_t;
-
 typedef struct user_page_info_s
 {
     /* Use 64-bit unsigned to support 32bit application on
@@ -244,6 +229,25 @@ typedef struct dev_mem_file_s
     unsigned int size;
 } dev_mem_file_t;
 
+#ifdef __KERNEL__
+/* Kernel space memory information structure. */
+typedef struct kdev_mem_info_s
+{
+    void *kmalloc_ptr; /* kernel space only (small slab) */
+    /* Pointer to mem originally returned by kmalloc */
+    void *huge_mem_ctrl;
+    uint64_t size;
+    /* Slab size */
+    atomic_t mmap_ref;
+    /* Mapped pages counter */
+    uint64_t phy_addr; /* shared b/w user/kernel */
+    /* Physical address of the kmalloc'ed area */
+    struct kdev_mem_info_s *pPrev_kernel;
+    struct kdev_mem_info_s *pNext_kernel;
+    struct kdev_mem_info_s *pPrev_kernel_hash;
+    struct kdev_mem_info_s *pNext_kernel_hash;
+} kdev_mem_info_t;
+
 /**
  *****************************************************************************
  * @ingroup qaeMemUtils
@@ -261,9 +265,10 @@ typedef struct user_proc_mem_list_s
     kdev_mem_info_t *tail;
     kdev_mem_info_t *hugepage_head;
     kdev_mem_info_t *hugepage_tail;
-    struct user_proc_mem_list_s *pPrev;
-    struct user_proc_mem_list_s *pNext;
+    struct user_proc_mem_list_s *pPrev_user;
+    struct user_proc_mem_list_s *pNext_user;
 } user_proc_mem_list_t;
+
 /**
  *****************************************************************************
  * @ingroup qaeMemUtils
@@ -277,6 +282,7 @@ typedef struct user_mem_dev_s
     user_proc_mem_list_t *head;
     user_proc_mem_list_t *tail;
 } user_mem_dev_t;
+#endif /* __KERNEL__ */
 
 /*
  ******************************************************************************
@@ -285,12 +291,11 @@ typedef struct user_mem_dev_s
  * @description
  *      inserts a new element at the head of a
  *      double linked list in user or kernel mode
- *      depending on mode parameter if mode is an
- *      empty string kernel mode is used
+ *      depending on mode parameter
  *      elementToAdd - ptr to the new element
  *      headPtr - ptr to the first element in list
  *      tailPtr - ptr to the last element int the list
- *      mode - _kernel,_user or empty
+ *      mode - _kernel or _user
  ******************************************************************************/
 
 #define ADD_ELEMENT_TO_HEAD_LIST(elementToAdd, headPtr, tailPtr, mode)         \
@@ -317,12 +322,11 @@ typedef struct user_mem_dev_s
  * @description
  *      inserts a new element at the head of a
  *      double linked list in user or kernel mode
- *      depending on mode parameter if mode is an
- *      empty string kernel mode is used
+ *      depending on mode parameter
  *      elementToAdd - ptr to the new element
  *      headPtr - ptr to the first element in list
  *      tailPtr - ptr to the last element int the list
- *      mode - _kernel,_user or empty
+ *      mode - _kernel or _user
  ******************************************************************************/
 
 #define ADD_ELEMENT_TO_END_LIST(elementToAdd, headPtr, tailPtr, mode)          \
@@ -349,12 +353,11 @@ typedef struct user_mem_dev_s
  * @description
  *      removes an element from a
  *      double linked list in user or kernel mode
- *      depending on mode parameter if mode is an
- *      empty string kernel mode is used
+ *      depending on mode parameter
  *      elementToREmove - ptr to the new element
  *      headPtr - ptr to the first element in list
  *      tailPtr - ptr to the last element int the list
- *      mode - _kernel,_user or empty
+ *      mode - _kernel or _user
  ******************************************************************************/
 
 #define REMOVE_ELEMENT_FROM_LIST(elementToRemove, headPtr, tailPtr, mode)      \

@@ -510,6 +510,10 @@ CpaStatus cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle_in,
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
+
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
         instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -851,6 +855,11 @@ CpaStatus cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle_in,
 #ifdef ICP_PARAM_CHECK
     lac_dsa_ln_pairs_t lnPair = LAC_DSA_INVALID_PAIR;
 #endif
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
+
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
         instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -1195,6 +1204,10 @@ CpaStatus cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle_in,
     Cpa32U bitLenL = 0, opSizeLInBytes = 0;
     Cpa32U bitLenX = 0;
     lac_dsa_l_values_t opIndex = LAC_DSA_L_INVALID;
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -1555,6 +1568,10 @@ CpaStatus cpaCyDsaSignR(const CpaInstanceHandle instanceHandle_in,
     Cpa32U bitLenL = 0, nonceN = 0;
     Cpa32U opSizeNInBytes = 0;
     lac_dsa_ln_pairs_t opIndex = LAC_DSA_INVALID_PAIR;
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -1927,6 +1944,10 @@ CpaStatus cpaCyDsaSignS(const CpaInstanceHandle instanceHandle_in,
     Cpa32U byteLen = 0;
 #endif
     lac_dsa_n_values_t opIndex = LAC_DSA_N_INVALID;
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -2329,6 +2350,10 @@ CpaStatus cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle_in,
     Cpa32U byteLen = 0;
 #endif
     lac_dsa_ln_pairs_t opIndex = LAC_DSA_INVALID_PAIR;
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -2756,6 +2781,10 @@ CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle_in,
 #endif
     lac_dsa_ln_pairs_t opIndex = LAC_DSA_INVALID_PAIR;
 
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
+
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
         instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -2991,6 +3020,9 @@ CpaStatus cpaCyDsaQueryStats(CpaInstanceHandle instanceHandle,
                              CpaCyDsaStats *pDsaStats)
 {
     sal_crypto_service_t *pCryptoService = NULL;
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 #ifdef ICP_TRACE
     LAC_LOG2("Called with params (0x%lx, 0x%lx)\n",
              (LAC_ARCH_UINT)instanceHandle,
@@ -3037,6 +3069,11 @@ CpaStatus cpaCyDsaQueryStats64(CpaInstanceHandle instanceHandle,
              (LAC_ARCH_UINT)instanceHandle,
              (LAC_ARCH_UINT)pDsaStats);
 #endif
+
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#endif
+
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle)
     {
         instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -3071,6 +3108,9 @@ CpaStatus cpaCyDsaQueryStats64(CpaInstanceHandle instanceHandle,
  ***************************************************************************/
 CpaStatus LacDsa_Init(CpaInstanceHandle instanceHandle)
 {
+#ifndef QAT_LEGACY_ALGORITHMS
+    return CPA_STATUS_UNSUPPORTED;
+#else
     sal_crypto_service_t *pCryptoService = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
@@ -3090,6 +3130,7 @@ CpaStatus LacDsa_Init(CpaInstanceHandle instanceHandle)
     LacDsa_CompileTimeAssertions();
 
     return status;
+#endif
 }
 
 /**
@@ -3097,6 +3138,7 @@ CpaStatus LacDsa_Init(CpaInstanceHandle instanceHandle)
  */
 void LacDsa_StatsFree(CpaInstanceHandle instanceHandle)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     sal_crypto_service_t *pCryptoService =
         (sal_crypto_service_t *)instanceHandle;
 
@@ -3104,6 +3146,7 @@ void LacDsa_StatsFree(CpaInstanceHandle instanceHandle)
     {
         LAC_OS_FREE(pCryptoService->pLacDsaStatsArr);
     }
+#endif
 }
 
 /**
@@ -3111,10 +3154,12 @@ void LacDsa_StatsFree(CpaInstanceHandle instanceHandle)
  */
 void LacDsa_StatsReset(CpaInstanceHandle instanceHandle)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     sal_crypto_service_t *pCryptoService =
         (sal_crypto_service_t *)instanceHandle;
 
     LAC_DSA_STATS_INIT(pCryptoService);
+#endif
 }
 
 /**
@@ -3124,6 +3169,7 @@ void LacDsa_StatsReset(CpaInstanceHandle instanceHandle)
  ***************************************************************************/
 void LacDsa_StatsShow(CpaInstanceHandle instanceHandle)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaCyDsaStats64 dsaStats = {0};
 
 
@@ -3231,4 +3277,9 @@ void LacDsa_StatsShow(CpaInstanceHandle instanceHandle)
             dsaStats.numDsaVerifyCompleted,
             dsaStats.numDsaVerifyCompletedErrors,
             dsaStats.numDsaVerifyFailures);
+#else
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            "  DSA not suppported \n");
+#endif
 }

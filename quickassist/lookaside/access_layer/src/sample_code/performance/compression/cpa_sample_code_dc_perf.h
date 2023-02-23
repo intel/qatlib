@@ -256,6 +256,8 @@ typedef struct compression_test_params_s
 {
     /* Session Direction */
     CpaDcSessionDir dcSessDir;
+    /*number of CpaBufferLists to allocate/submit and loop over*/
+    Cpa32U numLists;
     /*compression instance handle of service that has already been started*/
     CpaInstanceHandle dcInstanceHandle;
     /*pointer to pre-allocated memory for thread to store performance data*/
@@ -294,8 +296,6 @@ typedef struct compression_test_params_s
     // session per file array of FileSize provides the fileSize for each session
     Cpa32U sessions;
     Cpa32U inputListSize;
-    /*number of CpaBufferLists to allocate/submit and loop over*/
-    Cpa32U numLists;
     Cpa32U *packetSizeInBytesArray;
     Cpa32U outputListSize;
     Cpa32U *numberOfOutputLists;
@@ -313,14 +313,20 @@ typedef struct compression_test_params_s
      * buffer.
      */
     CpaBoolean induceOverflow;
-#ifdef SC_CHAINING_ENABLED
+#if defined(SC_CHAINING_ENABLED) || defined(SC_CHAINING_EXT_ENABLED)
     CpaDcChainOperations chainOperation;
-#endif
+    CpaBoolean legacyChainRequest;
+    CpaBoolean appendCRC;
+    CpaBoolean testIntegrity;
+    /* Initial Value Length */
+    Cpa32U symIvLength;
     Cpa8U numSessions;
-    /*stores the setup data thread running symmetric operations*/
-    CpaCySymSessionSetupData symSetupData;
+    CpaBoolean keyDerive;
+#endif
     /*the logicalQaInstance for the cipher to use*/
     Cpa32U logicalQaInstance;
+    /*stores the setup data thread running symmetric operations*/
+    CpaCySymSessionSetupData symSetupData;
     sample_code_semaphore_t comp;
     /*flag to enable use of xlt in sample code*/
     CpaBoolean useXlt;
@@ -328,8 +334,6 @@ typedef struct compression_test_params_s
     qat_dc_e2e_t *e2e;
     CpaBoolean disableAdditionalCmpbufferSize;
 #if DC_API_VERSION_AT_LEAST(3, 2)
-    /*flag to set (NS)Sessionless compression/decompression Request*/
-    CpaBoolean setNsRequest;
 #endif
     CpaDcSessionHandle *pSessionHandle;
     /* the Destination Buffer size obtained using
@@ -603,6 +607,33 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
                            Cpa32U numLoops);
 #endif
 
+#ifdef SC_CHAINING_EXT_ENABLED
+CpaStatus setupDcChainExtTest(CpaDcChainOperations chainOperation,
+                              Cpa8U numSessions,
+                              CpaDcCompType algorithm,
+                              CpaDcSessionDir direction,
+                              CpaDcCompLvl compLevel,
+                              CpaDcHuffType huffmanType,
+                              CpaDcSessionState state,
+                              Cpa32U windowsSize,
+                              Cpa32U testBufferSize,
+                              corpus_type_t corpusType,
+                              sync_mode_t syncFlag,
+                              CpaCySymOp opType,
+                              CpaCySymCipherAlgorithm cipherAlg,
+                              Cpa32U cipherKeyLengthInBytes,
+                              CpaCySymCipherDirection cipherDir,
+                              CpaCySymAlgChainOrder algChainOrder,
+                              CpaCyPriority priority,
+                              CpaCySymHashAlgorithm hashAlg,
+                              CpaCySymHashMode hashMode,
+                              Cpa32U authKeyLengthInBytes,
+                              Cpa32U numLoops,
+                              CpaBoolean appendCrc,
+                              CpaBoolean keyDerive,
+                              CpaBoolean dropData);
+#endif
+
 /**
  * *****************************************************************************
  *  @ingroup compressionThreads
@@ -822,6 +853,28 @@ void freeCbTags(dc_callbacktag_t ***ppCallbackTag,
 void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
                           Cpa32U numLists,
                           Cpa32U numSessions);
+#endif
+
+#ifdef SC_CHAINING_EXT_ENABLED
+/**
+ * *****************************************************************************
+ *  @ingroup compressionThreads
+ *  free callback  Structures
+ *
+ *  @description
+ *      this API frees all the chain operation structures
+ *
+ *  @threadSafe
+ *      No
+ *
+ *  @param[in] pOpData   array of CpaDcChainOpData structure.
+ *  @param[in] numLists number of buffer list.
+ *  @param[in] numSessions number of session in chaining operation.
+ *
+ ******************************************************************************/
+void dcExtChainOpDataMemFree(CpaDcChainOpData *pOpdata,
+                             Cpa32U numLists,
+                             Cpa32U numSessions);
 #endif
 
 /**

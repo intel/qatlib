@@ -569,20 +569,30 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
     Cpa32U node = 0;
 
 #ifdef POLL_INLINE
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
 #endif
 
 
 #ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
             return CPA_STATUS_FAIL;
         }
     }
+    qaeMemFree((void **)&instanceInfo2);
 #endif
 
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
@@ -1186,19 +1196,32 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     /*functions called in this code over writes the performanceStats->response,
      * so we use a local counter to count responses */
     Cpa32U responses = 0;
-    CpaInstanceInfo2 instanceInfo2 = {0};
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+    Cpa32U packageId = 0;
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
         return CPA_STATUS_FAIL;
     }
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("sampleCodeCyGetNode failed with status %u\n", status);
+        qaeMemFree((void **)&instanceInfo2);
         return status;
     }
+    packageId = instanceInfo2->physInstId.packageId;
+    qaeMemFree((void **)&instanceInfo2);
     /************************************************************************/
     /* Allocate all the memory for DH and DSA operations                    */
     /************************************************************************/
@@ -1452,7 +1475,7 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     sampleCodeBarrier();
     memset(setup->performanceStats, 0, sizeof(perf_data_t));
     setup->performanceStats->startCyclesTimestamp = sampleCodeTimestamp();
-    setup->performanceStats->packageId = instanceInfo2.physInstId.packageId;
+    setup->performanceStats->packageId = packageId;
     /*pre-set the number of ops we plan to submit*/
     /*number of responses equals the number of QA APIs we have chained together
      * multiplied by the number of buffers and how many times we have looped
@@ -1687,11 +1710,12 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
  * @description
  *      This function prints the IKE-DSA performance stats
  ******************************************************************************/
-void ikeDsaPrintStats(thread_creation_data_t *data)
+CpaStatus ikeDsaPrintStats(thread_creation_data_t *data)
 {
     PRINT("IKE_DSA SIMULATION\n");
     PRINT("Modulus Size %17u\n", data->packetSize);
     printAsymStatsAndStopServices(data);
+    return CPA_STATUS_SUCCESS;
 }
 
 /*****************************************************************************

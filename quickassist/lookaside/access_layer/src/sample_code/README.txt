@@ -250,6 +250,8 @@ The runTests parameter is a bit masked variable used to control which tests are
     runTests=63                         Run all tests. (default)
     runTests=32 runStateful=1           Run both stateful and stateless compression test.
     runTests=32 runStateful=1 useCnv=1  Run CNV test.
+    runTests=1024                       Run SM2 test.
+    runTests=2048                       Run SM3&4 test.
 
 The current default is runTests=63, run all tests.
 

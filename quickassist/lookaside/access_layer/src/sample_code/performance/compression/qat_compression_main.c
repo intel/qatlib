@@ -89,7 +89,7 @@ extern CpaStatus createStartandWaitForCompletion(Cpa32U instType);
         perfStats->nextPoll = 0;                                               \
         perfStats->numOperations = 0;                                          \
         coo_deinit(perfStats);                                                 \
-        coo_init(perfStats, numLists *numLoops);                               \
+        coo_init(perfStats, (Cpa64U)numLists *(Cpa64U)numLoops);               \
         qatFreeLatency(perfStats);                                             \
         qatInitLatency(perfStats, numLists, numLoops);                         \
     } while (0)
@@ -311,10 +311,7 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
 
     /* register the test buffersize */
     testSetupData_g[testTypeCount_g].packetSize = testBufferSize;
-    if (CPA_TRUE == gUseStatefulLite)
-    {
-    }
-    else
+    if (CPA_FALSE == gUseStatefulLite)
     {
         dcSetup->useStatefulLite = CPA_FALSE;
     }
@@ -638,7 +635,8 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
     const corpus_file_t *const fileArray = getFilesInCorpus(setup->corpus);
 
     saveClearRestorePerfStats(setup->performanceStats);
-    coo_init(setup->performanceStats, setup->numLists * setup->numLoops);
+    coo_init(setup->performanceStats,
+             (Cpa64U)setup->numLists * (Cpa64U)setup->numLoops);
 
     // allocate memory for source & destination bufferLists and results
     status = qatAllocateCompressionLists(setup,
@@ -748,7 +746,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             /* Restore latency and COO measurement */
             latency_enable = latency_enable_flag;
             coo_init(setup->performanceStats,
-                     setup->numLists * setup->numLoops);
+                     (Cpa64U)setup->numLists * (Cpa64U)setup->numLoops);
 
             qatDcUpdateProducedBufferLength(
                 setup, destBufferListArray, resultArray);
@@ -975,7 +973,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
 EXPORT_SYMBOL(qatDcPerform);
 
 CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
-                             CpaInstanceInfo2 instanceInfo2,
+                             const CpaInstanceInfo2 *pInstanceInfo2,
                              CpaDcSessionDir compressDirection,
                              CpaDcSessionHandle pSessionHandle,
                              CpaBufferList *arrayOfSrcBufferLists,
@@ -1042,7 +1040,7 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
 
         if (CPA_STATUS_RETRY == status)
         {
-            qatDcRetryHandler(setup, instanceInfo2);
+            qatDcRetryHandler(setup, pInstanceInfo2);
             /*context switch to give firmware time to process*/
             AVOID_SOFTLOCKUP;
         }
@@ -1072,13 +1070,22 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                           CpaDcRqResults *arrayOfResults)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
     Cpa32U numLoops = 0;
     Cpa32U listNum = 0;
     Cpa32U previousChecksum = 0;
     CpaDcChecksum checksum = CPA_DC_NONE;
     CpaDcStats dcStats = {0};
     CpaBoolean isCnVerrorRecovered = CPA_FALSE;
+
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
     checksum = setup->setupData.checksum;
     /* init checksum */
     if (CPA_DC_ADLER32 == checksum)
@@ -1122,7 +1129,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
     {
         /*get the instance2 info, this is used to determine if the instance
          * being used is polled*/
-        status = cpaDcInstanceGetInfo2(setup->dcInstanceHandle, &instanceInfo2);
+        status = cpaDcInstanceGetInfo2(setup->dcInstanceHandle, instanceInfo2);
         QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS("cpaDcInstanceGetInfo2",
                                                   status);
     }
@@ -1190,7 +1197,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                                            setup->dcInstanceHandle,
                                            CPA_FALSE,
                                            CPA_FALSE);
-                if (poll_inline_g && instanceInfo2.isPolled)
+                if (poll_inline_g && instanceInfo2->isPolled)
                 {
                     /*poll every 'n' requests as set by
                      * dcPollingInterval_g*/
@@ -1257,7 +1264,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                                 arrayOfDestBufferLists,
                                 arrayOfResults,
                                 listNum,
-                                (const char *)instanceInfo2.partName))
+                                (const char *)instanceInfo2->partName))
                         {
                             PRINT_ERR("Decomp did not consume all data\n");
                             PRINT("Input Buffersize: %u\n",
@@ -1309,7 +1316,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
         } /* number of times we loop over same file */
         if (poll_inline_g)
         {
-            if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+            if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
             {
                 /*
                  ** Now need to wait for all the inflight Requests.
@@ -1397,6 +1404,9 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
         qatSummariseLatencyMeasurements(setup->performanceStats);
         sampleCodeSemaphoreDestroy(&setup->performanceStats->comp);
     } /* if semaphoreInit was successful */
+
+    qaeMemFree((void **)&instanceInfo2);
+
     return status;
 }
 EXPORT_SYMBOL(qatCompressData);

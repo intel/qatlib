@@ -332,16 +332,29 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
     CpaCyRsaPrivateKey **pPrivateKey = NULL;
     CpaCyRsaPublicKey **pPublicKey = NULL;
     Cpa32U node = 0;
+    Cpa32U packageId = 0;
     /*functions called in this code over writes the performanceStats->response,
      * so we use a local counter to count responses */
     Cpa32U responses = 0;
-    CpaInstanceInfo2 instanceInfo2 = {0};
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
         return CPA_STATUS_FAIL;
     }
+    packageId = instanceInfo2->physInstId.packageId;
+    qaeMemFree((void **)&instanceInfo2);
+
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -629,7 +642,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
     sampleCodeBarrier();
     memset(setup->performanceStats, 0, sizeof(perf_data_t));
     setup->performanceStats->startCyclesTimestamp = sampleCodeTimestamp();
-    setup->performanceStats->packageId = instanceInfo2.physInstId.packageId;
+    setup->performanceStats->packageId = packageId;
     /*pre-set the number of ops we plan to submit*/
     /*number of responses equals the number of QA APIs we have chained together
      * multiplied by the number of buffers and how many times we have looped

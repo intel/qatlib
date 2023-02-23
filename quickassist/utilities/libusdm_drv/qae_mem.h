@@ -77,47 +77,8 @@ extern "C" {
 #include <linux/types.h>
 #else
 #include <stdint.h>
+#include <stddef.h>
 #endif
-
-/**
- *****************************************************************************
- * @ingroup CommonMemoryDriver
- *      QAE Major Version Number
- *
- * @description
- *      The QAE API major version number. This number will be incremented
- *      when significant changes to the API have occurred. The combination of
- *      the major and minor number definitions represents the complete version
- *      number for this interface.
- *
- *****************************************************************************/
-#define QAE_API_VERSION_NUM_MAJOR (1)
-
-/**
- *****************************************************************************
- * @ingroup CommonMemoryDriver
- *       QAE Minor Version Number
- *
- * @description
- *      The QAE API minor version number. This number will be incremented
- *      when minor changes to the API have occurred. The combination of the
- *      major and minor number definitions represents the complete version
- *      number for this interface.
- *
- *****************************************************************************/
-#define QAE_API_VERSION_NUM_MINOR (0)
-
-/**< Check for QAE API version (at least) */
-#define QAE_API_VERSION_AT_LEAST(major, minor)                                 \
-    (QAE_API_VERSION_NUM_MAJOR > major ||                                      \
-     (QAE_API_VERSION_NUM_MAJOR == major &&                                    \
-      QAE_API_VERSION_NUM_MINOR >= minor))
-
-/**< Check for QAE API version (less than) */
-#define QAE_API_VERSION_LESS_THAN(major, minor)                                \
-    (QAE_API_VERSION_NUM_MAJOR < major ||                                      \
-     (QAE_API_VERSION_NUM_MAJOR == major &&                                    \
-      QAE_API_VERSION_NUM_MINOR < minor))
 
 /**
  *****************************************************************************
@@ -180,7 +141,7 @@ void qaeMemFree(void **ptr);
  * @param[in] node - NUMA node
  * @param[in] phys_alignment_byte - A non-zero value representing memory
  *                                  boundary alignment in bytes. It must
- *                                  be in powers of 2 not exceeding 4KB.
+ *                                  be in powers of 2 not exceeding 4MB.
  *
  * @retval pointer to the allocated memory or NULL if the allocation failed
  *
@@ -255,6 +216,27 @@ void qaeMemFreeNonZeroNUMA(void **ptr);
  *
  ****************************************************************************/
 uint64_t qaeVirtToPhysNUMA(void *pVirtAddr);
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *      qaePhysToVirtNUMA
+ *
+ * @brief
+ *      Translates a physical address to a virtual one of a memory allocated
+ *      by qaeMemAllocNUMA() function. Applicable for user space.
+ *
+ * @param[in] physAddress - physical address
+ *
+ * @retval pointer to the virtual address or 0 (NULL) on error
+ *
+ * @pre
+ *      physAddress points to memory previously allocated by qaeMemAllocNUMA
+ * @post
+ *      Appropriate virtual address is provided
+ *
+ ****************************************************************************/
+void *qaePhysToVirtNUMA(uint64_t physAddress);
 
 /**
  *****************************************************************************

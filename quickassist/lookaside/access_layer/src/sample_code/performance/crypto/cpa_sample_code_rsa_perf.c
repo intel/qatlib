@@ -281,7 +281,14 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     perf_data_t *pPerfData = setup->performanceStats;
     CpaCyRsaKeyGenCbFunc rsaKeyGenCb = NULL;
 #ifdef POLL_INLINE
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
 #endif
 
 
@@ -292,10 +299,11 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo2);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
             return CPA_STATUS_FAIL;
         }
         rsaKeyGenCb = rsaKeyGenCallback;
@@ -400,7 +408,8 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     {
         PRINT("Error could not generate privateKeyRep2.prime1P");
         FREE_GENERATE_RSA_KEY_MEM();
-        return CPA_STATUS_FAIL;
+        status = CPA_STATUS_FAIL;
+        goto exit;
     }
 
     ALLOC_FLAT_BUFF_DATA(instanceHandle,
@@ -423,7 +432,8 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     {
         PRINT("Error could not generate privateKeyRep2.prime2Q");
         FREE_GENERATE_RSA_KEY_MEM();
-        return CPA_STATUS_FAIL;
+        status = CPA_STATUS_FAIL;
+        goto exit;
     }
 
     /*set the keyGen operation data*/
@@ -465,7 +475,8 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
                     PRINT("Error could not generate privateKeyRep2.prime1P");
                     FREE_GENERATE_RSA_KEY_MEM();
                     sampleCodeSemaphoreDestroy(&pPerfData->comp);
-                    return CPA_STATUS_FAIL;
+                    status = CPA_STATUS_FAIL;
+                    goto exit;
                 }
                 if (generatePrime(&(pPrivateKey->privateKeyRep2.prime2Q),
                                   instanceHandle,
@@ -474,7 +485,8 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
                     PRINT("Error could not generate privateKeyRep2.prime2Q");
                     FREE_GENERATE_RSA_KEY_MEM();
                     sampleCodeSemaphoreDestroy(&pPerfData->comp);
-                    return CPA_STATUS_FAIL;
+                    status = CPA_STATUS_FAIL;
+                    goto exit;
                 }
                 keyGenOpData.prime1P = pPrivateKey->privateKeyRep2.prime1P;
                 keyGenOpData.prime2Q = pPrivateKey->privateKeyRep2.prime2Q;
@@ -485,7 +497,8 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
         PRINT_ERR("Failed to generate RSA key, status: %d\n", status);
         FREE_GENERATE_RSA_KEY_MEM();
         sampleCodeSemaphoreDestroy(&pPerfData->comp);
-        return CPA_STATUS_FAIL;
+        status = CPA_STATUS_FAIL;
+        goto exit;
     }
     if (SYNC == setup->syncMode || rsaKeyGenCb == NULL)
     {
@@ -495,7 +508,7 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -516,6 +529,11 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
         }
     }
     sampleCodeSemaphoreDestroy(&pPerfData->comp);
+
+exit:
+#ifdef POLL_INLINE
+    qaeMemFree((void **)&instanceInfo2);
+#endif
     return status;
 }
 EXPORT_SYMBOL(generateRSAKey);
@@ -525,16 +543,19 @@ EXPORT_SYMBOL(generateRSAKey);
  *
  * @description
  * Frees any memory allocated by the genKeyArray function
- * qaeMemFreeNUMA first checks to see if any memory is allocated before
+ * qaeMemFree first checks to see if any memory is allocated before
  * attempting to free
  ******************************************************************************/
-#define FREE_GEN_KEY_ARRAY_MEM()                                               \
+#define FREE_GEN_KEY_ARRAY_MEM(publicCount, privateCount)                      \
     do                                                                         \
     {                                                                          \
         Cpa32U j = 0;                                                          \
-        for (j = 0; j < setup->numBuffers; j++)                                \
+        for (j = 0; j < privateCount; j++)                                     \
         {                                                                      \
             qaeMemFree((void **)&pPrivateKey[j]);                              \
+        }                                                                      \
+        for (j = 0; j < publicCount; j++)                                      \
+        {                                                                      \
             qaeMemFree((void **)&pPublicKey[j]);                               \
         }                                                                      \
     } while (0)
@@ -581,6 +602,7 @@ CpaStatus genKeyArray(asym_test_params_t *setup,
         if (NULL == pPublicKey[bufferCount])
         {
             PRINT_ERR("No memory for pTmpPublicKey\n");
+            FREE_GEN_KEY_ARRAY_MEM(bufferCount, bufferCount);
             return CPA_STATUS_FAIL;
         }
         memset(pPublicKey[bufferCount], 0, sizeof(CpaCyRsaPublicKey));
@@ -592,7 +614,7 @@ CpaStatus genKeyArray(asym_test_params_t *setup,
         if (NULL == pPrivateKey[bufferCount])
         {
             PRINT_ERR("No memory for pTmpPrivateKey\n");
-            FREE_GEN_KEY_ARRAY_MEM();
+            FREE_GEN_KEY_ARRAY_MEM(bufferCount + 1, bufferCount);
             return CPA_STATUS_FAIL;
         }
         memset(pPrivateKey[bufferCount], 0, sizeof(CpaCyRsaPrivateKey));
@@ -619,7 +641,7 @@ CpaStatus genKeyArray(asym_test_params_t *setup,
         if (status != CPA_STATUS_SUCCESS)
         {
             PRINT_ERR("RSAKey gen error %d on %d\n", status, bufferCount);
-            FREE_GEN_KEY_ARRAY_MEM();
+            FREE_GEN_KEY_ARRAY_MEM(bufferCount + 1, bufferCount + 1);
             return status;
         }
     }
@@ -1042,12 +1064,30 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
     perf_data_t *pPerfData = setup->performanceStats;
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_SUCCESS;
-    CpaInstanceInfo2 instanceInfo2 = {0};
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
 #endif
 
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
+#ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR(
+            "Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
+        return CPA_STATUS_FAIL;
+    }
+#endif
     setup->performanceStats->averagePacketSizeInBytes =
         setup->modulusSizeInBytes;
     setup->performanceStats->numOperations = (Cpa64U)numLoops * numBuffers;
@@ -1090,7 +1130,7 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo2.isPolled)
+                        if (instanceInfo2->isPolled)
                         {
                             coo_poll_trad_cy(pPerfData,
                                              setup->cyInstanceHandle,
@@ -1117,7 +1157,7 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo2.isPolled)
+                if (instanceInfo2->isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -1160,6 +1200,9 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
     coo_average(pPerfData);
     coo_deinit(pPerfData);
     sampleCodeSemaphoreDestroy(&setup->performanceStats->comp);
+#ifdef POLL_INLINE
+    qaeMemFree((void **)&instanceInfo2);
+#endif
     return status;
 }
 
@@ -1184,11 +1227,12 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
     Cpa32U outsideLoopCount = 0;
     CpaCyGenFlatBufCbFunc cbFunc = NULL;
     perf_data_t *pPerfData = setup->performanceStats;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 #ifdef POLL_INLINE
     CpaStatus pollStatus = CPA_STATUS_FAIL;
     Cpa64U numOps = 0;
     Cpa64U nextPoll = asymPollingInterval_g;
+    CpaBoolean isPolled = CPA_FALSE;
 #endif
 #ifdef LATENCY_CODE
     Cpa64U latency_submissions = 0;
@@ -1284,13 +1328,22 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         setup->performanceStats->start_times = request_submit_start;
     }
 #endif
-    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
+        qaeMemFree((void **)&instanceInfo);
         return CPA_STATUS_FAIL;
     }
-    setup->performanceStats->packageId = instanceInfo.physInstId.packageId;
+    setup->performanceStats->packageId = instanceInfo->physInstId.packageId;
     setup->performanceStats->averagePacketSizeInBytes =
         setup->modulusSizeInBytes;
     setup->performanceStats->numOperations = (Cpa64U)numLoops * numBuffers;
@@ -1325,15 +1378,16 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #endif
     }
 #ifdef POLL_INLINE
-    memset(&instanceInfo, 0, sizeof(CpaInstanceInfo));
     if (poll_inline_g)
     {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo);
             return CPA_STATUS_FAIL;
         }
+        isPolled = instanceInfo->isPolled;
     }
 #endif
 #ifdef USER_SPACE
@@ -1344,13 +1398,17 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         status = cpaCyQueryCapabilities(setup->cyInstanceHandle, &pCapInfo);
         if ((CPA_STATUS_SUCCESS == status) && !pCapInfo.kptSupported)
         {
-            PRINT_ERR("Inst (BDF:%02x:%02d.%d) does not support KPT2!\n",
-                      (Cpa8U)(instanceInfo.physInstId.busAddress >> 8),
-                      (Cpa8U)((instanceInfo.physInstId.busAddress & 0xFF) >> 3),
-                      (Cpa8U)(instanceInfo.physInstId.busAddress & 7));
+            PRINT_ERR(
+                "Inst (BDF:%02x:%02d.%d) does not support KPT2!\n",
+                (Cpa8U)(instanceInfo->physInstId.busAddress >> 8),
+                (Cpa8U)((instanceInfo->physInstId.busAddress & 0xFF) >> 3),
+                (Cpa8U)(instanceInfo->physInstId.busAddress & 7));
             sampleCodeBarrier();
+            qaeMemFree((void **)&instanceInfo);
             return CPA_STATUS_SUCCESS;
         }
+        qaeMemFree((void **)&instanceInfo);
+
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyQueryCapabilities failed!\n");
@@ -1408,6 +1466,8 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 
 #endif
+
+    qaeMemFree((void **)&instanceInfo);
 
     /*this barrier will wait until all threads get to this point*/
     sampleCodeBarrier();
@@ -1478,7 +1538,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #ifdef POLL_INLINE
                     if (poll_inline_g)
                     {
-                        if (instanceInfo.isPolled)
+                        if (isPolled)
                         {
                             coo_poll_trad_cy(pPerfData,
                                              setup->cyInstanceHandle,
@@ -1539,7 +1599,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #ifdef POLL_INLINE
             if (poll_inline_g)
             {
-                if (instanceInfo.isPolled)
+                if (isPolled)
                 {
                     ++numOps;
                     if (numOps == nextPoll)
@@ -1563,7 +1623,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #ifdef POLL_INLINE
     if (poll_inline_g)
     {
-        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo.isPolled))
+        if ((CPA_STATUS_SUCCESS == status) && (isPolled))
         {
             /*
             ** Now need to wait for all the inflight Requests.
@@ -1900,7 +1960,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     Cpa16U numInstances = 0;
     CpaInstanceHandle *cyInstances = NULL;
     asym_test_params_t *params = (asym_test_params_t *)testSetup->setupPtr;
-    CpaInstanceInfo2 instanceInfo = {0};
+    CpaInstanceInfo2 *instanceInfo = NULL;
 #ifdef SC_DEV_INFO_ENABLED
     CpaDeviceInfo deviceInfo = {0};
 #endif
@@ -1950,12 +2010,19 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
         goto exit;
     }
 
+    instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo");
+        return;
+    }
+    memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));
+
     /* give our thread a logical crypto instance to use.
      * Use % to wrap around the max number of instances*/
     rsaTestSetup.cyInstanceHandle =
         cyInstances[(testSetup->logicalQaInstance) % numInstances];
-    status =
-        cpaCyInstanceGetInfo2(rsaTestSetup.cyInstanceHandle, &instanceInfo);
+    status = cpaCyInstanceGetInfo2(rsaTestSetup.cyInstanceHandle, instanceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaCyInstanceGetInfo2 failed", __func__, __LINE__);
@@ -1965,7 +2032,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
 
 #ifdef SC_DEV_INFO_ENABLED
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    status = cpaGetDeviceInfo(instanceInfo->physInstId.packageId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);
@@ -1982,9 +2049,9 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
         goto exit;
     }
 #endif
-    if (instanceInfo.physInstId.packageId > packageIdCount_g)
+    if (instanceInfo->physInstId.packageId > packageIdCount_g)
     {
-        packageIdCount_g = instanceInfo.physInstId.packageId;
+        packageIdCount_g = instanceInfo->physInstId.packageId;
     }
 
     rsaTestSetup.modulusSizeInBytes = testSetup->packetSize;
@@ -2036,6 +2103,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_SUCCESS;
     }
 exit:
+    qaeMemFree((void **)&instanceInfo);
     qaeMemFree((void **)&cyInstances);
     sampleCodeThreadComplete(testSetup->threadID);
 }

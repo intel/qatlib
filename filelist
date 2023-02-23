@@ -1,6 +1,7 @@
 INSTALL
 LICENSE
 Makefile.am
+README.md
 SECURITY.md
 Samples.am
 autogen.sh
@@ -380,11 +381,14 @@ quickassist/lookaside/firmware/include/icp_qat_hw_20_comp.h
 quickassist/lookaside/firmware/include/icp_qat_hw_20_comp_defs.h
 quickassist/utilities/libusdm_drv/include/qae_mem_utils.h
 quickassist/utilities/libusdm_drv/qae_mem.h
-quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.c
 quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.h
 quickassist/utilities/libusdm_drv/user_space/qae_mem_user_utils.h
-quickassist/utilities/libusdm_drv/user_space/qae_mem_utils.c
-quickassist/utilities/libusdm_drv/user_space/qae_page_table.h
+quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.c
+quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.h
+quickassist/utilities/libusdm_drv/user_space/qae_page_table_common.h
+quickassist/utilities/libusdm_drv/user_space/qae_page_table_defs.h
+quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_hugepage_utils_vfio.c
+quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_utils_vfio.c
 quickassist/utilities/osal/include/Osal.h
 quickassist/utilities/osal/include/OsalDevDrvCommon.h
 quickassist/utilities/osal/include/OsalTypes.h
