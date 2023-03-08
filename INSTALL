@@ -73,9 +73,15 @@ Check System Prerequisites
         4xxx  : Use "lspci -d 8086:4941" to check VF devices have been created.
         401xx : Use "lspci -d 8086:4943" to check VF devices have been created.
      * firmware must be available
-        Check that these files exist, if not contact qat-linux@intel.com
+        Check that these files exist:
         /lib/firmware/qat_4xxx.bin or /lib/firmware/qat_4xxx.bin.xz
         /lib/firmware/qat_4xxx_mmp.bin or /lib/firmware/qat_4xxx_mmp.bin.xz
+        If not, download the firmware images from linux-firmware and copy them
+        to /lib/firmware:
+        wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qat_4xxx.bin
+        wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qat_4xxx_mmp.bin
+        sudo mv qat_4xxx.bin /lib/firmware
+        sudo mv qat_4xxx_mmp.bin /lib/firmware
         On updating these files run "sudo dracut --force" to update initramfs.
      * kernel driver must be running
         Use "lsmod | grep qat" to check that these kernel modules are running:
