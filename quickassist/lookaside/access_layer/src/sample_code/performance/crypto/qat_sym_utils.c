@@ -841,7 +841,7 @@ CpaStatus qatSymPerform(symmetric_test_params_t *setup,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pSymData, setup->cyInstanceHandle, pSymData->numOperations);

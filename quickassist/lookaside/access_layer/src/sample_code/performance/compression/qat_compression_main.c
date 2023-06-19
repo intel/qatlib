@@ -241,7 +241,7 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
         return CPA_STATUS_FAIL;
     }
 
-    /*check that atleast 1 loop of the data set is to be submitted*/
+    /* check that at least 1 loop of the data set is to be submitted*/
     if (numLoops == 0)
     {
         PRINT_ERR("numLoops must be > 0\n");
@@ -572,7 +572,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         (testSetup->performanceStats->threadReturnStatus == CPA_STATUS_FAIL))
     {
         // In case of test failure stopDcServicesFromPrintStats function call
-        // from waitForThreadCompletion funtion stops the dc services and not
+        // from waitForThreadCompletion function stops the dc services and not
         // print the performance stats.
         testSetup->statsPrintFunc =
             (stats_print_func_t)stopDcServicesFromPrintStats;
@@ -1319,7 +1319,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
             if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
             {
                 /*
-                 ** Now need to wait for all the inflight Requests.
+                 ** Now need to wait for all the in-flight Requests.
                  */
                 status =
                     dcPollNumOperations(setup->performanceStats,
@@ -1344,7 +1344,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
         }
         else
         {
-            /* In case of failure during submissions, all inflight requests
+            /* In case of failure during submissions, all in-flight requests
              * should be collected before releasing memory that is used by
              * the SAL/Driver. This is specially true for async response
              * processing via callback function.
@@ -1553,7 +1553,7 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
                  * However if some lists don't overflow even after output
                  * buffer reduction, highlight the fact and ignore.
                  */
-                PRINT("!!No Overflow reported for List Num: %d status: %d\n",
+                PRINT("No Overflow reported for List Num: %d status: %d\n",
                       i,
                       resultArray[i].status);
             }

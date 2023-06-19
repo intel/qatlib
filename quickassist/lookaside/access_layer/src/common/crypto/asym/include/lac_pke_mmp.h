@@ -66,7 +66,7 @@
 
 /* A functionality id that is guaranteed to be invalid */
 #define LAC_PKE_INVALID_FUNC_ID 0
-/* A index for maping table that is guaranteed to be invalid */
+/* A index for mapping table that is guaranteed to be invalid */
 #define LAC_PKE_INVALID_INDEX -1
 /* Current total of input/output parameters */
 #define LAC_MAX_MMP_PARAMS 8

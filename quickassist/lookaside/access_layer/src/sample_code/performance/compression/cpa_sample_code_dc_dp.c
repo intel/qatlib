@@ -207,7 +207,7 @@ void dcDpCallbackFunction(CpaDcDpOpData *pOpData)
     if (CPA_DC_WDOG_TIMER_ERR == (Cpa8S)pResults->status)
     {
         PRINT_ERR("Slice hang is detected\n");
-        /* fw does not respond for any furthur requests in case of slice hang
+        /* fw does not respond to any further requests in case of slice hang
          * so, exit the test */
         pPerfData->numOperations = pPerfData->responses;
         pPerfData->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1520,7 +1520,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
         }
         else
         {
-            /* For performance use cases additonal buffer size  is not required
+            /* For performance use cases additional buffer size  is not required
              * to be added to the cmp buffer, as there is no SW checks*/
             status = createBuffersDp(bufferSize,
                                      setup->numberOfBuffers[i],

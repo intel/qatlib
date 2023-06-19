@@ -59,7 +59,7 @@
 #define CSR_RING_STAT_RL_EXCEPTION_MASK (0x1UL << 10)
 #define CSR_RING_STAT_RL_HALT_MASK (0x1UL << 9)
 
-/* Ring Base Addresse */
+/* Ring Base Address */
 #define BUILD_RING_BASE_ADDR_4XXX(addr, size)                                  \
     (((addr >> 6) & (0xFFFFFFFFFFFFFFFFULL << size)) << 6)
 

@@ -427,7 +427,7 @@ CpaStatus cipherSample(void)
         /* Perform Cipher operation */
         status = cipherPerformOp(cyInstHandle, sessionCtx);
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         /*

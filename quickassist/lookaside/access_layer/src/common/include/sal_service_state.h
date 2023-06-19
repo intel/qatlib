@@ -82,7 +82,7 @@
 *
 * @description
 *      This function checks the state of an instance to see if it is in the
-*      runnning state
+*      running state
 *
 * @param[in]  instance   Instance handle (assumes this is valid, i.e. checked
 *                        before this function is called)

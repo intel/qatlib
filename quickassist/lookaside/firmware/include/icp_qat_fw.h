@@ -297,11 +297,11 @@ typedef struct icp_qat_fw_comn_req_mid_s
      * field */
 
     uint32_t src_length;
-    /** < Length of source flat buffer incase src buffer
+    /** < Length of source flat buffer in case src buffer
      * type is flat */
 
     uint32_t dst_length;
-    /** < Length of source flat buffer incase dst buffer
+    /** < Length of source flat buffer in case dst buffer
      * type is flat */
 
 } icp_qat_fw_comn_req_mid_t;

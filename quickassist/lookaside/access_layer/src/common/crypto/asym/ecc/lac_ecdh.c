@@ -603,7 +603,7 @@ CpaStatus cpaCyEcdhPointMultiply(const CpaInstanceHandle instanceHandle_in,
             }
             else
             {
-                /* In GF2 9QW and 4QW speacial cases h has already been
+                /* In GF2 9QW and 4QW special cases h has already been
                    checked (and is known by MMP) and the size of k has already
                    been checked in getRange function so just need to check
                    8QW case */

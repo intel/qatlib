@@ -448,7 +448,7 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);
@@ -759,7 +759,7 @@ CpaStatus dhPhase2Perform(CpaFlatBuffer **pOctetStringSecretKey,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);

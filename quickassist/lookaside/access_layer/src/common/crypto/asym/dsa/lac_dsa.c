@@ -3280,6 +3280,6 @@ void LacDsa_StatsShow(CpaInstanceHandle instanceHandle)
 #else
     osalLog(OSAL_LOG_LVL_USER,
             OSAL_LOG_DEV_STDOUT,
-            "  DSA not suppported \n");
+            "  DSA not supported \n");
 #endif
 }

@@ -290,7 +290,7 @@ CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
  * @description
  *      Chaining response callback
  *
- * @param[in]       pRespMsg         Chaining response discriptor
+ * @param[in]       pRespMsg         Chaining response descriptor
  *
  * @retval none
  *

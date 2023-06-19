@@ -87,7 +87,7 @@ extern "C" {
  *
  * @brief
  *      When used in user space, allocates memsize bytes of virtual memory.
- *      When used in kernel space, allocates memsize bytes of contigous and
+ *      When used in kernel space, allocates memsize bytes of contiguous and
  *      pinned memory.
  *
  * @param[in] memsize - the amount of memory in bytes to be allocated

@@ -842,7 +842,7 @@ CpaStatus cyPollNumOperationsTimeout(perf_data_t *pPerfData,
         if (totalCycles > timeout)
         {
             PRINT_ERR("Timeout on polling remaining Operations\n");
-            PRINT("Responses expected = %llu, recieved = %llu\n",
+            PRINT("Responses expected = %llu, received = %llu\n",
                   (unsigned long long)numOperations,
                   (unsigned long long)pPerfData->responses);
             return CPA_STATUS_FAIL;
@@ -1765,7 +1765,7 @@ static void incrementPrimeCandidate(CpaFlatBuffer *primeCandidate)
      * bytes*/
     for (i = primeCandidate->dataLenInBytes - SECOND_LAST_BYTE; i >= 0; i--)
     {
-        /*if the byte is not 0xff then roll over wont occur, and we
+        /*if the byte is not 0xff then roll over won't occur, and we
          * can increment and exit*/
         if (primeCandidate->pData[i] != 0xFF)
         {
@@ -2093,7 +2093,7 @@ CpaStatus generatePrime(CpaFlatBuffer *primeCandidate,
             if ((CPA_STATUS_SUCCESS == status) && (isPolled))
             {
                 /*
-                ** Now need to wait for all the inflight Requests.
+                ** Now need to wait for all the in-flight Requests.
                 */
                 status = cyPollNumOperationsTimeout(&primePerfData,
                                                     setup->cyInstanceHandle,
@@ -2583,7 +2583,7 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
         if ((CPA_STATUS_SUCCESS == status) && (isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, instanceHandle, pPerfData->numOperations);
@@ -2623,7 +2623,7 @@ CpaStatus removeSymSession(CpaInstanceHandle instanceHandle,
          * by incrementing the sleep time by twice the previous value
          * for each retry. Total sleep time would be 1.6 secs
          * for 15 number of retries which would be enough for all
-         * inflight requests to get processed.
+         * in-flight requests to get processed.
          */
         Cpa64U delay = REMOVE_SESSION_WAIT;
         static const Cpa16U maxRetries = 15;
@@ -2667,9 +2667,9 @@ CpaStatus removeSymSession(CpaInstanceHandle instanceHandle,
     do
     {
         /* Linux: The session will only be removed if there are
-         * no inflight requests. Until then, the function will
+         * no in-flight requests. Until then, the function will
          * ask to retry. This should not result in infinite loop
-         * as all inflight requests are guranteed to return even
+         * as all in-flight requests are guaranteed to return even
          * in case of QAT failure or hang.
          * */
         status = cpaCySymRemoveSession(instanceHandle, pSessionCtx);
@@ -2754,7 +2754,7 @@ void processCallback(void *pCallbackTag)
     /*check tag exists*/
     if (pCallbackTag == NULL)
     {
-        PRINT_ERR("CallBack Tag is a Null pointer!!\n");
+        PRINT_ERR("CallBack Tag is a Null pointer!\n");
         return;
     }
     /* response has been received */
@@ -4046,7 +4046,7 @@ CpaStatus checkForChachapolySupport(void)
     }
     if (0 == numCyInstances)
     {
-        PRINT_ERR("There are no Crypto Instances avaialble!\n");
+        PRINT_ERR("There are no Crypto Instances available!\n");
         return CPA_STATUS_FAIL;
     }
     cyInstances = qaeMemAlloc(sizeof(CpaInstanceHandle) * numCyInstances);

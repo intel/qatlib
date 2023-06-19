@@ -66,8 +66,8 @@
  *
  * @ingroup LacSwResponses
  *
- * Calculation of memory pools which contain infilght requests function
- * implementations. The memory pools which contain inflight requests will
+ * Calculation of memory pools which contain in-flight requests function
+ * implementations. The memory pools which contain in-flight requests will
  * be named as busy memory pools.
  *
  ***************************************************************************/
@@ -190,7 +190,7 @@ lac_memblk_bucket_t *LacSwResp_MemBlkBucketCreate(lac_mem_pool_hdr_t *pPoolID)
 /**
  *******************************************************************************
  * @ingroup LacSwResponses
- * This function frees the bucket with memblks containing inflight requests.
+ * This function frees the bucket with memblks containing in-flight requests.
  ******************************************************************************/
 STATIC
 void LacSwResp_MemBlkBucketDestroy(lac_memblk_bucket_t *pBucket)

@@ -1196,7 +1196,7 @@ CpaStatus dcDpPollNumOperationsRetries(perf_data_t *pPerfData,
 }
 
 /* If an error has occurred in-between the submissions loop,
- * wait for all inflight requests has been processed.
+ * wait for all in-flight requests has been processed.
  * Post this function, memory resources that are used by the
  * SAL library are de-allocated.
  */
@@ -1222,7 +1222,7 @@ CpaStatus waitForInflightRequestAfterError(perf_data_t *perfData)
 
     if (perfData->responses < perfData->submissions)
     {
-        PRINT_ERR("WARNING: Not all inflight request collected!! "
+        PRINT_ERR("WARNING: Not all in-flight requests collected! "
                   "Submissions: %u, Responses: %llu\n",
                   perfData->submissions,
                   (unsigned long long)perfData->responses);
@@ -2465,7 +2465,7 @@ CpaStatus sampleRemoveDcDpSession(CpaInstanceHandle dcInstance,
      * by incrementing the sleep time by twice the previous value
      * for each retry. Total sleep time would be 1.6 secs
      * for 15 number of retries which would be enough for all
-     * inflight requests to get processed.
+     * in-flight requests to get processed.
      */
     do
     {

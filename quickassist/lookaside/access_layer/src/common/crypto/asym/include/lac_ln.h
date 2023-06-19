@@ -55,7 +55,7 @@
  * even/odd combinations of the input data before choosing the flavour of the
  * QAT function.
  *
- * Finaly the input/output argument lists are constructed before calling the PKE
+ * Finally the input/output argument lists are constructed before calling the PKE
  * QAT Comms layer to create and send a request to the QAT.
  *
  * Buffer alignment, and padding up to a chosen size (whole number of quadwords

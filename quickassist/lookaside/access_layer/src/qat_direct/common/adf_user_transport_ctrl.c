@@ -205,7 +205,7 @@ STATIC CpaStatus adf_proxy_populate_bank_ring_info(icp_accel_dev_t *accel_dev)
     accel_dev->banks = bankHandler;
     adf_proxy_set_bank_default_info(accel_dev);
 
-    /* allocate ring inflight array ring put/get optimization */
+    /* allocate ring in-flight array ring put/get optimization */
     size = sizeof(*inflight) * (accel_dev->maxNumRingsPerBank >> 1) *
            numOfBanksPerDevice;
     inflight = ICP_MALLOC_GEN(size);
@@ -359,7 +359,7 @@ adf_populate_ring_info_internal(adf_dev_ring_handle_t *pRingHandle,
     }
     else if (ICP_RESP_TYPE_IRQ == resp)
     {
-        /* epoll rings are also polled, so we neeed to set both
+        /* epoll rings are also polled, so we need to set both
          * their polling and interrupt mask
          */
         pRingHandle->pollingMask = 1 << ring_rnum;
@@ -394,7 +394,7 @@ adf_populate_ring_info_internal(adf_dev_ring_handle_t *pRingHandle,
             ((accel_dev->maxNumRingsPerBank * pRingHandle->bank_num) >> 1) +
             (pRingHandle->ring_num - accel_dev->maxNumRingsPerBank / 2);
     }
-    /* Initialise the pRingHandle inflight */
+    /* Initialise the pRingHandle in-flight */
     pRingHandle->in_flight =
         ringInflights[accel_dev->accelId] + in_flight_index;
     *pRingHandle->in_flight = 0;
@@ -827,7 +827,7 @@ STATIC CpaStatus icp_adf_transCleanHandle(icp_comms_trans_handle trans_handle)
     pbanks = accel_dev->banks;
 
     /* update user process IRQ mask
-     * Everytime userspace ring gets a message it reads it from the ring
+     * Every time userspace ring gets a message it reads it from the ring
      * and as the last step needs to enable the IRQ for the ring so
      * the driver could get notifications that there is data on the ring.
      * So this is important to keep the IRQ mask up to date */
@@ -1225,7 +1225,7 @@ CpaStatus icp_sal_pollAllBanks(Cpa32U accelId, Cpa32U response_quota)
  * This will set the fd of the UIO device this instance
  * handler is using. If more than one transaction handler
  * are ever present, this will need to be refactored to
- * return the appropiate fd of the appropiate bank
+ * return the appropriate fd of the appropriate bank
  */
 CpaStatus icp_adf_transGetFdForHandle(icp_comms_trans_handle trans_hnd, int *fd)
 {

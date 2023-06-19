@@ -57,7 +57,7 @@
 * Include private header files
 ****************************************************************************
 */
-/* ADF incldues */
+/* ADF includes */
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
@@ -156,7 +156,7 @@ void LacPke_HdrWrite(icp_qat_fw_pke_request_t *pMsg,
  *                        pointer to a list of Booleans that indicate if
  *                        input data buffers passed to QAT are internally or
  *                        externally allocated. This information needs to
- *                        be tracked to ensure we use the corect virt2phys
+ *                        be tracked to ensure we use the correct virt2phys
  *                        function, values may be updated by this function.
  * @param[in/out] pInternalOutMemList
  *                        pointer to a list of Booleans that indicate if
@@ -652,7 +652,7 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
         /* clear the previous param info */
         LAC_OS_BZERO(&pReqData->paramInfo, sizeof(pReqData->paramInfo));
 
-        /* if the list is passed by the user, store it in prealocated memory */
+        /* if the list is passed by the user, store it in preallocated memory */
         if (NULL != pInArgSizeList)
         {
             memcpy(&pReqData->paramInfo.inArgSizeList,

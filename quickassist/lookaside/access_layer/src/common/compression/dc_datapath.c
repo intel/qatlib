@@ -974,7 +974,7 @@ STATIC CpaStatus dcCheckOpData(sal_compression_service_t *pService,
     if (CPA_TRUE == pOpData->integrityCrcCheck && NULL == pOpData->pCrcData)
     {
         LAC_INVALID_PARAM_LOG("Integrity CRC data structure "
-                              "not intialized in CpaDcOpData");
+                              "not initialized in CpaDcOpData");
         return CPA_STATUS_INVALID_PARAM;
     }
 

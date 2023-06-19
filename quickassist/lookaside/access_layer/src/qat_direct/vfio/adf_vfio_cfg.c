@@ -454,7 +454,7 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
     if (ICP_STRNCMP_CONST(pSection, "GENERAL") == 0)
     {
         /*
-         *  All general section paramaters are handled in
+         *  All general section parameters are handled in
          *  QATMGR_MSGTYPE_DEVICE_INFO message
          */
         if (accel_dev->accelId != c_accelId ||

@@ -117,7 +117,7 @@ CpaStatus dc_lz4_generate_header(const CpaFlatBuffer *dest_buff,
  *      Generate the LZ4 footer.
  *
  * @description
- *      This function generates tha LZ4 compression footer.
+ *      This function generates the LZ4 compression footer.
  *
  * @param[in]   dest_buff        Pointer to the destination buffer where
  *                               the LZ4 footer will be written to.

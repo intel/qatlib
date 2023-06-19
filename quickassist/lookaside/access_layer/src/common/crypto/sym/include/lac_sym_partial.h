@@ -79,7 +79,7 @@
  * proceed where they would get an incorrect digest, cipher result.
  *
  * Maintain a SpinLock for partials in flight per session. Try and acquire this
- * SpinLock. If it cant be acquired return an error straight away to the client
+ * SpinLock. If it can't be acquired return an error straight away to the client
  * as there is already a partial in flight. There is no blocking in the data
  * path for this.
  *

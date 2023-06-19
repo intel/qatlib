@@ -1163,7 +1163,7 @@ void LacPrime_StatsShow(CpaInstanceHandle instanceHandle)
     /* Parameter generation requests - PRIME stats */
     osalLog(OSAL_LOG_LVL_USER,
             OSAL_LOG_DEV_STDOUT,
-            BORDER " PRIME successfull requests:     %16llu " BORDER "\n" BORDER
+            BORDER " PRIME successful requests:      %16llu " BORDER "\n" BORDER
                    " PRIME failed requests:          %16llu " BORDER "\n" BORDER
                    " PRIME successfully completed:   %16llu " BORDER "\n" BORDER
                    " PRIME failed completion:        %16llu " BORDER "\n" BORDER

@@ -195,7 +195,7 @@ typedef enum _CpaDcChainOperations
     /**< 3 operations for chaining:
      * 1st operation is to perform compression on plain text
      * 2nd operation is to perform AEAD encryption compressed text
-     * 3rd operation is to perfom hash on compressed & encrypted text
+     * 3rd operation is to perform hash on compressed & encrypted text
      **< 3 entries in CpaDcChainSessionSetupData array:
      * 1st entry is for compression setup data
      * 2nd entry is for AEAD encryption setup data

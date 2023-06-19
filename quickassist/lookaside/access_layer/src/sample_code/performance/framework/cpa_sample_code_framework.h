@@ -172,7 +172,7 @@ typedef struct thread_creation_data_s
     /*flat buffer size to be tested*/
     stats_print_func_t *statsPrintFunc;
     /*pointer to function capable of printing our stat related to specific
-     * test varation*/
+     * test variation*/
     Cpa32U megaRowId;
     /* mega row id reference */
     CpaBoolean isUsedByMega;
@@ -570,7 +570,7 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
  * @param[in]   cyIaCore     : The Crypto Instances array that includes both sym
  *                             and asym instances.
  *
- * @param[in]   symOrasymIaCore : The Symmetric or Asymetric Crypto array.
+ * @param[in]   symOrasymIaCore : The Symmetric or Asymmetric Crypto array.
  *                             and asym instances.
  * @param[in]   numCyInstances  : size of cyIaCore array.
  *

@@ -1420,7 +1420,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 data + len,
                 size - len,
                 BORDER
-                " PRIME successfull requests:     %16llu " BORDER "\n" BORDER
+                " PRIME successful requests:      %16llu " BORDER "\n" BORDER
                 " PRIME failed requests:          %16llu " BORDER "\n" BORDER
                 " PRIME successfully completed:   %16llu " BORDER "\n" BORDER
                 " PRIME failed completion:        %16llu " BORDER "\n" BORDER

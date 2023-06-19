@@ -122,7 +122,7 @@ static const Cpa32U lacRsaKp2SizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
 */
 
 /*
- * This function performs synchronious version of the RSA Key Gen.
+ * This function performs synchronous version of the RSA Key Gen.
  */
 STATIC CpaStatus LacRsa_KeyGenSync(const CpaInstanceHandle instanceHandle,
                                    const CpaCyRsaKeyGenOpData *pKeyGenData,
@@ -130,7 +130,7 @@ STATIC CpaStatus LacRsa_KeyGenSync(const CpaInstanceHandle instanceHandle,
                                    CpaCyRsaPublicKey *pPublicKey);
 
 /*
- * This function is the synchronious callback function.
+ * This function is the synchronous callback function.
  */
 STATIC
 void LacRsa_KeyGenSyncCb(void *pCallbackTag,

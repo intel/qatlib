@@ -573,7 +573,7 @@ static int qat_mgr_get_device_capabilities(
     ret = adf_vf2pf_get_capabilities(&vfio_dev.pfvf);
     if (ret)
     {
-        qat_log(LOG_LEVEL_ERROR, "Cannot query device capabilites\n");
+        qat_log(LOG_LEVEL_ERROR, "Cannot query device capabilities\n");
         close_vfio_dev(&vfio_dev);
         device_data->group_fd = -1;
         return ret;
@@ -804,7 +804,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
              * qat_mgr_get_device_capabilities will open device, initialize
              * VF2PF communication, query capabilities and close device.
              *
-             * All VFs comming from same PF will have same capabilities, to save
+             * All VFs coming from same PF will have same capabilities, to save
              * time, after querying capabilities of given PF they can be cached
              * and reused by other VFs.
              *

@@ -128,7 +128,7 @@ osalHashSHA1Full(UINT8 *in, UINT8 *out, UINT32 len)
     UPDATE(SHA1)(&ctx, in, len);
     FINAL(SHA1)(out, &ctx);
     memcpy(out, &ctx, SHA_DIGEST_LENGTH);
-    /* Change output endianess for SHA1 algorithm */
+    /* Change output endianness for SHA1 algorithm */
     for (i = 0; i < (SHA_DIGEST_LENGTH >> 2); i++)
     {
         ((UINT32 *)(out))[i] = OSAL_HOST_TO_NW_32(((UINT32 *)(out))[i]);
@@ -175,7 +175,7 @@ osalHashSHA256Full(UINT8 *in, UINT8 *out, UINT32 len)
     FINAL(SHA256)(out, &ctx);
     memcpy(out, &ctx, SHA256_DIGEST_LENGTH);
 
-    /* Change output endianess for SHA256 algorithm */
+    /* Change output endianness for SHA256 algorithm */
     for (i = 0; i < (SHA256_DIGEST_LENGTH >> 2); i++)
     {
         ((UINT32 *)(out))[i] = OSAL_HOST_TO_NW_32(((UINT32 *)(out))[i]);
@@ -210,7 +210,7 @@ osalHashSHA384Full(UINT8 *in, UINT8 *out, UINT32 len)
     UPDATE(SHA384)(&ctx, in, len);
     FINAL(SHA384)(out, &ctx);
     memcpy(out, &ctx, SHA384_DIGEST_LENGTH);
-    /* Change output endianess for SHA1 algorithm */
+    /* Change output endianness for SHA1 algorithm */
     for (i = 0; i < (SHA384_DIGEST_LENGTH >> 3); i++)
     {
         ((UINT64 *)(out))[i] = OSAL_HOST_TO_NW_64(((UINT64 *)(out))[i]);
@@ -244,7 +244,7 @@ osalHashSHA512Full(UINT8 *in, UINT8 *out, UINT32 len)
     UPDATE(SHA512)(&ctx, in, len);
     FINAL(SHA512)(out, &ctx);
     memcpy(out, &ctx, SHA512_DIGEST_LENGTH);
-    /* Change output endianess for SHA512 algorithm */
+    /* Change output endianness for SHA512 algorithm */
     for (i = 0; i < (SHA512_DIGEST_LENGTH >> 3); i++)
     {
         ((UINT64 *)(out))[i] = OSAL_HOST_TO_NW_64(((UINT64 *)(out))[i]);

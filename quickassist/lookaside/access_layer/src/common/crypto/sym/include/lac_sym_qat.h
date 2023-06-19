@@ -83,7 +83,7 @@
  * - \ref LacMem "Memory" - Inline memory functions
  *
  * @lld_initialisation
- * This component is initialied during the LAC initialisation sequence. It
+ * This component is initialized during the LAC initialisation sequence. It
  * is called by the Symmetric Initialisation function.
  *
  * @lld_module_algorithms

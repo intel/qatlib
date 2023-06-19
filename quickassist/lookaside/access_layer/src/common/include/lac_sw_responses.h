@@ -75,7 +75,7 @@
  * @lld_overview
  *     This component is designed as a set of utility functions for the
  * generation of dummy responses and calculation of memory pools which contain
- * inflight requests. If the memory pools contain inflight requests, they
+ * in-flight requests. If the memory pools contain in-flight requests, they
  * will be named as busy memory pools.
  * @lld_dependencies
  *     These utilities rely on OSAL for locking mechanisms and memory
@@ -157,7 +157,7 @@ Cpa16U LacSwResp_GetNumPoolsBusy(void);
 /**
  *******************************************************************************
  * @ingroup LacSwResponses
- * This function searches the pke request memory pool to find all inflight
+ * This function searches the pke request memory pool to find all in-flight
  * requests and extracts the callback function from request data which will be
  * called to generate dummy responses.
  *
@@ -171,7 +171,7 @@ Cpa16U LacSwResp_GetNumPoolsBusy(void);
  *
  *
  * @retval CPA_STATUS_FAIL           The function failed to retrieve all the
- *                                   inflight requests in the memory pool.
+ *                                   in-flight requests in the memory pool.
  * @retval CPA_STATUS_SUCCESS        function executed successfully
  *
  ******************************************************************************/

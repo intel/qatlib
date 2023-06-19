@@ -515,7 +515,7 @@ void qatDumpBufferListInfo(compression_test_params_t *setup,
  * @ingroup sample_code
  *
  * @description
- *         compare the contents of two bufferlists upto the length of the
+ *         compare the contents of two bufferlists up to the length of the
  *         srcBufferList.
  *
  * @param[in]   ppSrc                   pointer to the source buffer list

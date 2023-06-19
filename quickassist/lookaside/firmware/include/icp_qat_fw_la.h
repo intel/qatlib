@@ -504,7 +504,7 @@ typedef struct icp_qat_fw_la_bulk_req_s
  * the case of partial processing. See the HLD for further details
  *
  *  + ====== + ------------------------- + ----------------------- +
- *  | Parial |       Prefix Addr         |       Hash State Sz     |
+ *  | Partial|       Prefix Addr         |       Hash State Sz     |
  *  | State  |                           |                         |
  *  + ====== + ------------------------- + ----------------------- +
  *  |  FULL  | Points to the prefix data | Prefix size as below.   |
@@ -562,7 +562,7 @@ typedef struct icp_qat_fw_la_bulk_req_s
  *                         is required
  * @param ciphIV           Cipher IV field contents
  * @param ciphcfg          Cipher/Auth Config offset type
- * @param partial          Inidicate if the packet is a partial part
+ * @param partial          Indicate if the packet is a partial part
  *
  *****************************************************************************/
 #define ICP_QAT_FW_LA_FLAGS_BUILD(zuc_proto,                                   \
@@ -1079,7 +1079,7 @@ typedef struct icp_qat_fw_cipher_cd_ctrl_hdr_s
     /**< LW 27 */
     uint8_t cipher_state_sz;
     /**< State size in quad words of the cipher algorithm used in this session.
-     * Set to zero if the algorithm doesnt provide any state */
+     * Set to zero if the algorithm doesn't provide any state */
 
     uint8_t cipher_key_sz;
     /**< Key size in quad words of the cipher algorithm used in this session */
@@ -1213,7 +1213,7 @@ typedef struct icp_qat_fw_cipher_auth_cd_ctrl_hdr_s
     /**< LW 27 */
     uint8_t cipher_state_sz;
     /**< State size in quad words of the cipher algorithm used in this session.
-     * Set to zero if the algorithm doesnt provide any state */
+     * Set to zero if the algorithm doesn't provide any state */
 
     uint8_t cipher_key_sz;
     /**< Key size in quad words of the cipher algorithm used in this session */

@@ -262,7 +262,7 @@ CpaStatus LacPrimeParameterCheck(CpaCyPrimeTestCbFunc pCb,
  *      Prime Test Callback Function
  *
  * @description
- *     Called by PKE QAT COMMS when a response to a prime message is recevied
+ *     Called by PKE QAT COMMS when a response to a prime message is received
  *     from the QAT. This function increments stats and frees resources where
  *     appropriate before calling the client's callback.
  *

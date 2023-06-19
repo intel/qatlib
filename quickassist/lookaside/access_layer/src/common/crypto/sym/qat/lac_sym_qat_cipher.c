@@ -488,11 +488,11 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         IS_KEY_DEP_NO,
         NULL,
     },
-    /* RESERVED#1 in order to alinged with unsupported Algo in API repo */
+    /* RESERVED#1 in order to align with unsupported Algo in API repo */
     {0},
-    /* RESERVED#2 in order to alinged with unsupported Algo in API repo */
+    /* RESERVED#2 in order to align with unsupported Algo in API repo */
     {0},
-    /* RESERVED#3 in order to alinged with unsupported Algo in API repo */
+    /* RESERVED#3 in order to align with unsupported Algo in API repo */
     {0},
 };
 
@@ -518,7 +518,7 @@ void LacSymQat_CipherCtrlBlockWrite(icp_qat_la_bulk_req_ftr_t *pMsg,
        in this case, and add padding. It makes no sense
        to force applications to provide such key length for couple reasons:
        1. It won't be possible to distinguish between AES 192 and 256 based
-          on key lenght only
+          on key length only
        2. Only some modes of AES will use UCS slice, then application will
           have to know which ones */
     if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == sliceType &&
@@ -736,7 +736,7 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
            in this case, and add padding. It makes no sense
            to force applications to provide such key length for couple reasons:
            1. It won't be possible to distinguish between AES 192 and 256 based
-              on key lenght only
+              on key length only
            2. Only some modes of AES will use UCS slice, then application will
               have to know which ones */
         if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == sliceType &&
@@ -1017,7 +1017,7 @@ inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
                 0,
                 totalBufSize - usedBufSize);
         }
-        /* In case of XTS mode using UCS slice always embedd IV.
+        /* In case of XTS mode using UCS slice always encrypt the embedded IV.
          * IV provided by user needs to be encrypted to calculate initial tweak,
          * use pCipherReqParams->u.cipher_IV_array as destination buffer for
          * tweak value */

@@ -380,7 +380,7 @@ CpaStatus hashFileSample(void)
         /* Perform Hash operation */
         status = hashPerformOp(cyInstHandle, sessionCtx);
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         /* Remove the session - session init has already succeeded */

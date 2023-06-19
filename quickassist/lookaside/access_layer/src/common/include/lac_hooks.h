@@ -69,7 +69,7 @@
  * @ingroup LacCommon
  *
  * Component Init/Shutdown functions. These are:
- *  - an init function which is called during the intialisation sequence,
+ *  - an init function which is called during the initialisation sequence,
  *  - a shutdown function which is called by the overall shutdown function,
  *
  ******************************************************************************/

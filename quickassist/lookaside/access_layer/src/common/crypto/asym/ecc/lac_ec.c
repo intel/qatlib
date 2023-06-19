@@ -46,7 +46,7 @@
  * @lld_start
  *
  * @lld_overview
- * This file implements Elliptic Curve api funcitons.
+ * This file implements Elliptic Curve api functions.
  * @lld_dependencies
  * - \ref LacAsymCommonQatComms "PKE QAT Comms" : For creating and sending
  * messages to the QAT
@@ -1280,7 +1280,7 @@ CpaStatus LacEcc_CommonPathUnoptimised(
         {
             /* In GF2 9QW and 4QW special cases h has already been
                 checked (and is known by MMP) and the size of k has already
-                been checked in getRange function so just need to chec
+                been checked in getRange function so just need to check
                 8QW case */
             Cpa32U bufferBits = LAC_BYTES_TO_BITS(LAC_EC_SIZE_QW9_IN_BYTES) - 1;
             if (bufferBits < requiredBits)

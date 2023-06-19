@@ -225,7 +225,7 @@ STATIC void LacSymHash_PrecompCbFunc(icp_qat_fw_la_cmd_id_t lacCmdId,
         }
     }
     /* Check if there are any more pending requests by testing for opsPending
-     * for 0. If there arent then we can signal to the user that we're done
+     * for 0. If there aren't then we can signal to the user that we're done
      */
     if (CPA_FALSE != osalAtomicDecAndTest(&(pOpStatus->opsPending)))
     {
@@ -419,7 +419,7 @@ CpaStatus LacSymHash_HmacPreComputes(CpaInstanceHandle instanceHandle,
      * one after another. As the structure size is a multiple of 8, if the
      * first one is aligned on an 8 byte boundary, so too will the second
      * structure. The pOpStatus structure is carved up just after these two
-     * structures and has no alignment constraints. Pointer arithemtic is
+     * structures and has no alignment constraints. Pointer arithmetic is
      * used to carve the memory up. */
     lac_sym_hash_precomp_op_data_t *pHmacIpadOpData =
         (lac_sym_hash_precomp_op_data_t *)pWorkingMemory;

@@ -166,7 +166,7 @@
 
 /* Number of responses we need to get before we update the head
  * in a Rx ring. NOTE: this needs to be smaller than
- * min ring size - 8 msg for NF threashold. */
+ * min ring size - 8 msg for NF threshold. */
 #define MIN_RESPONSES_PER_HEAD_WRITE 32
 
 /*
@@ -271,7 +271,7 @@
 #define adf_memcpy128 adf_memcpy32_128
 #endif
 
-/* modulo function that doesnt use slow divide operation */
+/* modulo function that doesn't use slow divide operation */
 static inline unsigned int modulo(unsigned int data, unsigned int shift)
 {
     unsigned int div = data >> shift;
@@ -279,7 +279,7 @@ static inline unsigned int modulo(unsigned int data, unsigned int shift)
     return data - mult;
 }
 
-/* Ring controler CSR Accessor Macros */
+/* Ring controller CSR Accessor Macros */
 /* CSR write macro */
 #define ICP_ADF_CSR_WR(csrAddr, csrOffset, val)                                \
     (void)((*((volatile Cpa32U *)(((Cpa8U *)csrAddr) + csrOffset)) = (val)))

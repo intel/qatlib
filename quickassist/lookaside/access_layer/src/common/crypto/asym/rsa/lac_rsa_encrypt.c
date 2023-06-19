@@ -109,7 +109,7 @@ static const Cpa32U lacRsaEncSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
 */
 
 /*
- * This function performs synchronious version of the RSA Encrypt.
+ * This function performs synchronous version of the RSA Encrypt.
  */
 STATIC CpaStatus LacRsa_EncryptSynch(const CpaInstanceHandle instanceHandle,
                                      const CpaCyRsaEncryptOpData *pEncryptData,
@@ -366,7 +366,7 @@ CpaStatus LacRsa_EncGetOpSizeAndCheck(const CpaInstanceHandle instanceHandle,
     LAC_CHECK_FLAT_BUFFER(&pEncryptData->pPublicKey->modulusN);
 #endif
     /* Check sizes. Operation size is the public key modulus length.
-     * Message and cipher buffers must be able to accomodate messages of
+     * Message and cipher buffers must be able to accommodate messages of
      * this length */
     *pOpSizeInBytes = LacPke_GetMinBytes(&(pEncryptData->pPublicKey->modulusN));
 #ifdef ICP_PARAM_CHECK

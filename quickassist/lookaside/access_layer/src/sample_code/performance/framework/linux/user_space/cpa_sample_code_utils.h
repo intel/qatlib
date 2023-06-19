@@ -152,7 +152,7 @@ extern int parseArg(int argc, char **argv, option_t *optArray, int numOpt);
         int ret = (fn);                                                        \
         if (ret != 0)                                                          \
         {                                                                      \
-            PRINT_ERR("pthread function failed with errro:%d\n", ret);         \
+            PRINT_ERR("pthread function failed with error:%d\n", ret);         \
         }                                                                      \
     } while (0)
 

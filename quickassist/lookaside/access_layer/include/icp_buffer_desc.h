@@ -85,7 +85,7 @@
 
 typedef Cpa64U icp_qat_addr_width_t;
 
-/* Alignement constraint of the buffer list. */
+/* Alignment constraint of the buffer list. */
 #define ICP_DESCRIPTOR_ALIGNMENT_BYTES 8
 
 /**
@@ -96,7 +96,7 @@ typedef Cpa64U icp_qat_addr_width_t;
  *
  * @description
  *      A QAT friendly buffer descriptor.
- *      All buffer descriptor described in this structure are physcial
+ *      All buffer descriptor described in this structure are physical
  *      and are 64 bit wide.
  *
  *      Updates in the CpaFlatBuffer should be also reflected in this
@@ -121,7 +121,7 @@ typedef struct icp_flat_buffer_desc_s
  *
  * @description
  *      A QAT friendly buffer descriptor.
- *      All buffer descriptor described in this structure are physcial
+ *      All buffer descriptor described in this structure are physical
  *      and are 64 bit wide.
  *
  *      Updates in the CpaBufferList should be also reflected in this structure

@@ -439,7 +439,7 @@ CpaStatus dsaGenG(CpaInstanceHandle instanceHandle,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, instanceHandle, pPerfData->numOperations);
@@ -534,7 +534,7 @@ CpaStatus dsaGenY(CpaInstanceHandle instanceHandle,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, instanceHandle, pPerfData->numOperations);
@@ -636,7 +636,7 @@ CpaStatus dsaGenRS(CpaInstanceHandle instanceHandle,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, instanceHandle, pPerfData->numOperations);
@@ -1250,7 +1250,7 @@ barrier:
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);
@@ -1693,7 +1693,7 @@ barrier:
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);
@@ -1735,7 +1735,7 @@ barrier:
  *      dsaPrintStats
  *
  * @description
- *     Print out the DSA perfomance
+ *     Print out the DSA performance
  *
  *****************************************************************************/
 CpaStatus dsaPrintStats(thread_creation_data_t *data)

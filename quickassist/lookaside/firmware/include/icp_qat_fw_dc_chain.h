@@ -134,7 +134,7 @@ typedef enum
  * @ingroup icp_qat_fw_dc_chain
  *
  * @description
- *     Define the chaining request discriptor header
+ *     Define the chaining request descriptor header
  *
  *****************************************************************************/
 typedef struct icp_qat_comp_chain_req_hdr_s

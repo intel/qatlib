@@ -513,7 +513,7 @@ CpaStatus icp_sal_find_new_devices(void);
  * @assumptions
  *      None
  * @sideEffects
- *      In case a device has beed stoped or restarted the application
+ *      In case a device has been stopped or restarted the application
  *      will get restarting/stop/shutdown events
  * @reentrant
  *      No

@@ -179,7 +179,7 @@ void qaeMemFreeNUMA(void **ptr)
 
     if (memInfo->mSize == 0 || memInfo->mAllocMemPtr == NULL)
     {
-        printk("Detected the corrupted data: memory leak!! \n");
+        printk("Detected the corrupted data: memory leak!\n");
         printk("Size: %d, memPtr: %p\n", memInfo->mSize, memInfo->mAllocMemPtr);
         return;
     }

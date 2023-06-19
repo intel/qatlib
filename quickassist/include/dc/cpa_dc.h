@@ -1301,7 +1301,7 @@ cpaDcResetSession(const CpaInstanceHandle dcInstance,
  *      This function will reset the internal xxHash state maintained within a
  *      session. This would be used in conjunction with the
  *      CpaDcSessionSetupData.accumulateXXHash flag being set to TRUE for this
- *      session. It will enable reseting (reinitialising) just the xxHash
+ *      session. It will enable resetting (reinitialising) just the xxHash
  *      calculation back to the state when the session was first initialised.
  *
  * @context
@@ -2298,7 +2298,7 @@ cpaDcNsDecompressData( CpaInstanceHandle dcInstance,
  *          - Content size = 0
  *          - Dictionary ID = 0
  *          - Header checksum = 1 byte representing the second byte of the
- *                              XXH32 of the frame decriptor field.
+ *                              XXH32 of the frame descriptor field.
  *
  *      The counter parameter will be set to the number of bytes added to the
  *      buffer. The pData will be not be changed.

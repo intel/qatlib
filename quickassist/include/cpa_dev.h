@@ -127,9 +127,9 @@ typedef struct _CpaDeviceInfo {
 	CpaBoolean dcEnabled;
     /**< Compression service enabled */
 	CpaBoolean cySymEnabled;
-    /**< Symetric crypto service enabled */
+    /**< Symmetric crypto service enabled */
 	CpaBoolean cyAsymEnabled;
-    /**< Asymetric crypto service enabled */
+    /**< Asymmetric crypto service enabled */
 	CpaBoolean inlineEnabled;
     /**< Inline service enabled */
 	Cpa32U deviceMemorySizeAvailable;
