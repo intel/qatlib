@@ -115,7 +115,7 @@
  * while there are requests in flight.
  *
  * <b>Reference Count</b>\n
- * - The perform funcion increments the reference count for the session.
+ * - The perform function increments the reference count for the session.
  * - The callback function decrements the reference count for the session.
  * - The Remove function checks the reference count to ensure that it is 0.
  *
@@ -294,14 +294,14 @@ typedef struct lac_session_desc_s
     /**< Cipher slice type to be used, set at init session time */
     Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< Cached AES XTS Forward key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * For CPM2.0 AES XTS key conversion need to be done in SW.
      * Because use can update session direction at any time,
      * also forward key needs to be cached
      */
     Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< AES XTS Reverse key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
-     * Reverse key always will be calcilated at session setup time and
+     * For CPM2.0 AES XTS key conversion need to be done in SW.
+     * Reverse key always will be calculated session setup time and
      * cached to be used when needed */
     Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< For AES XTS session need to store Key2 value in order to generate tweak
@@ -464,14 +464,14 @@ typedef struct lac_session_desc_d1_s
     /**< Cipher slice type to be used, set at init session time */
     Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< Cached AES XTS Forward key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * For CPM2.0 AES XTS key conversion need to be done in SW.
      * Because use can update session direction at any time,
      * also forward key needs to be cached
      */
     Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< AES XTS Reverse key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
-     * Reverse key always will be calcilated at session setup time and
+     * For CPM2.0 AES XTS key conversion need to be done in SW.
+     * Reverse key always will be calculated at session setup time and
      * cached to be used when needed */
     Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< For AES XTS session need to store Key2 value in order to generate tweak
@@ -603,14 +603,14 @@ typedef struct lac_session_desc_d2_s
     /**< Cipher slice type to be used, set at init session time */
     Cpa8U cipherAesXtsKey1Forward[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< Cached AES XTS Forward key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
+     * For CPM2.0 AES XTS key conversion need to be done in SW.
      * Because use can update session direction at any time,
      * also forward key needs to be cached
      */
     Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< AES XTS Reverse key
-     * For CPM2.0 AES XTS key convertion need to be done in SW.
-     * Reverse key always will be calcilated at session setup time and
+     * For CPM2.0 AES XTS key conversion need to be done in SW.
+     * Reverse key always will be caculated at session setup time and
      * cached to be used when needed */
     Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< For AES XTS session need to store Key2 value in order to generate tweak
@@ -647,7 +647,7 @@ typedef struct lac_session_desc_d2_s
     (sizeof(lac_session_desc_t) + LAC_64BYTE_ALIGNMENT + sizeof(LAC_ARCH_UINT))
 /**< @ingroup LacSym_Session
  * Size of the memory that the client has to allocate for a session. Extra
- * memory is needed to internally re-align the data. The pointer to the algined
+ * memory is needed to internally re-align the data. The pointer to the aligned
  * data is stored at the start of the user allocated memory hence the extra
  * space for an LAC_ARCH_UINT */
 
@@ -691,7 +691,7 @@ typedef struct lac_session_desc_d2_s
 *
 * @param[in] instanceHandle_in    Instance Handle
 * @param[in] pSymCb               callback function
-* @param[in] pSessionSetupData    pointer to the strucutre containing the setup
+* @param[in] pSessionSetupData    pointer to the structure containing the setup
 *data
 * @param[in] isDpSession          CPA_TRUE for a data plane session
 * @param[out] pSessionCtx         Pointer to session context

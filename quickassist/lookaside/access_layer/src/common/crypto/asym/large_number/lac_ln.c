@@ -260,7 +260,7 @@ Cpa32U LacGetBufferDataSizeInBytes(const CpaFlatBuffer *pBuffer)
 /**
  *******************************************************************************
  * @ingroup LacAsymLn
- *      Large Number Modular Exponentation internal callback function
+ *      Large Number Modular Exponentiation internal callback function
  ******************************************************************************/
 STATIC
 void LacLnModExpCallback(CpaStatus status,
@@ -345,7 +345,7 @@ CpaStatus LacLnModExpParameterCheck(const CpaCyGenFlatBufCbFunc pCb,
 /**
  ***************************************************************************
  * @ingroup LacAsymLn
- *      Large Number Modular Exponentation synchronous function
+ *      Large Number Modular Exponentiation synchronous function
  ***************************************************************************/
 STATIC CpaStatus LacLnModExpSyn(const CpaInstanceHandle instanceHandle,
                                 const CpaCyLnModExpOpData *pLnModExpOpData,
@@ -407,7 +407,7 @@ STATIC CpaStatus LacLnModExpSyn(const CpaInstanceHandle instanceHandle,
 /**
  *******************************************************************************
  * @ingroup LacAsymLn
- *      Large Number Modular Exponentation API function
+ *      Large Number Modular Exponentiation API function
  ******************************************************************************/
 CpaStatus cpaCyLnModExp(const CpaInstanceHandle instanceHandle_in,
                         const CpaCyGenFlatBufCbFunc pLnModExpCb,

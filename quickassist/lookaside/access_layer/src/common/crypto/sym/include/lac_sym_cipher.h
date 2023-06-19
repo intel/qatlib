@@ -82,14 +82,14 @@
  * and Triple-DES cipher algorithms, in ECB, CBC and CTR modes.  The ARC4 stream
  * cipher algorithm is also supported.  Data may be provided as a full packet,
  * or as a sequence of partial packets.  The result of the operation can be
- * written back to the source buffer (in-place) or to a seperate output buffer
+ * written back to the source buffer (in-place) or to a separate output buffer
  * (out-of-place).  Data must be encapsulated in ICP buffers.
  *
  * The cipher component is responsible for implementing the cipher-specific
  * functionality for registering and de-registering a session, for the perform
  * operation and for processing the QAT responses to cipher requests. Statistics
  * are maintained for cipher in the symmetric \ref CpaCySymStats64 "stats"
- * structure. This module has been seperated out into two. The cipher QAT module
+ * structure. This module has been separated out into two. The cipher QAT module
  * deals entirely with QAT data structures. The cipher module itself has minimal
  * exposure to the QAT data structures.
  *

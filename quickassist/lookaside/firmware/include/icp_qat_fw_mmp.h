@@ -68,7 +68,7 @@
  * @brief
  *      This file documents the external interfaces that the QAT FW running
  *      on the QAT Acceleration Engine provides to clients wanting to
- *      accelerate crypto assymetric applications
+ *      accelerate crypto asymmetric applications
  */
 
 #ifndef __ICP_QAT_FW_MMP__
@@ -87,10 +87,10 @@
  */
 #define ICP_QAT_FW_PKE_INPUT_COUNT_MAX 7
 /**< @ingroup icp_qat_fw_pke
- * Maximum number of input paramaters in all PKE request */
+ * Maximum number of input parameters in all PKE request */
 #define ICP_QAT_FW_PKE_OUTPUT_COUNT_MAX 5
 /**< @ingroup icp_qat_fw_pke
- * Maximum number of output paramaters in all PKE request */
+ * Maximum number of output parameters in all PKE request */
 
 /**
  * @ingroup icp_qat_fw_mmp

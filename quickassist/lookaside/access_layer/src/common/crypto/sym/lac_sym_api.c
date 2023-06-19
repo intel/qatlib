@@ -551,7 +551,7 @@ LacSymPerform_BufferParamCheck(const CpaBufferList *const pSrcBuffer,
         }
     }
 
-    /* check for partial packet suport for the session operation */
+    /* check for partial packet support for the session operation */
     if (CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType)
     {
         if (!(IS_PARTIAL_ON_SYM_OP_SUPPORTED(pSessionDesc->symOperation,
@@ -1068,7 +1068,7 @@ STATIC CpaStatus LacSym_Perform(const CpaInstanceHandle instanceHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /* check for partial packet suport for the session operation */
+        /* check for partial packet support for the session operation */
         if (CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType)
         {
             LacSym_PartialPacketStateUpdate(pOpData->packetType,

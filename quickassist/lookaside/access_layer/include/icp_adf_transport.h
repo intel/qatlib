@@ -167,7 +167,7 @@ CpaStatus icp_adf_getNumAvailDynInstance(icp_accel_dev_t *accel_dev,
  * Get a file descriptor for a particular transaction handle.
  * If more than one transaction handler
  * are ever present, this will need to be refactored to
- * return the appropiate fd of the appropiate bank.
+ * return the appropriate fd of the appropriate bank.
  *
  * Returns:
  *   CPA_STATUS_SUCCESS   on success

@@ -513,7 +513,7 @@ void startTimer()
                            VfId);
                     ackCount++;
                 }
-                printf("Total Ack Recived :%d \n", ackCount);
+                printf("Total acks received :%d \n", ackCount);
             }
             //	icp_reset_device((Cpa32U) accelId);
         }

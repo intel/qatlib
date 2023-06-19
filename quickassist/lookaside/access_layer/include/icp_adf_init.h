@@ -83,7 +83,7 @@ typedef enum icp_adf_ringInfoOperation_e
 } icp_adf_ringInfoOperation_t;
 
 /*
- * Ring generic serivce info private data
+ * Ring generic service info private data
  */
 typedef enum icp_adf_ringInfoService_e
 {

@@ -602,7 +602,7 @@ uint64_t qaeIOMMUVirtToPhys(uint64_t iova);
  * @description
  *      This function attaches a pci dev (VF) to an iommu domain.
  *      Applicable when IOMMU/SRIOV are enabled and after the driver bringup
- *      in Host is succesful.
+ *      in Host is successful.
  *
  * @param[in] dev, Device to be attached
  *
@@ -612,7 +612,7 @@ uint64_t qaeIOMMUVirtToPhys(uint64_t iova);
  *
  * @pre
  *      An iommu domain is created using qaeIOMMUInit. Driver bringup
- *      in Host is succesful.
+ *      in Host is successful.
  * @post
  *       device is attached
  *
@@ -632,7 +632,7 @@ int32_t qaeIOMMUAttachDev(void *dev);
  *
  * @pre
  *      An iommu domain is created using qaeIOMMUInit, Driver bringup
- *      in Host is succesful and dev is already
+ *      in Host is successful and dev is already
  *      attached using qaeIOMMUAttachDev
  * @post
  *      Device is detached

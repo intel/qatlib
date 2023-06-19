@@ -66,13 +66,13 @@
  * This file provides for Linux user space memory allocation. It uses
  * a driver that allocates the memory in kernel memory space (to ensure
  * physically contiguous memory) and maps it to
- * user space for use by the QuickAssist libaries and their users
+ * user space for use by the QuickAssist libraries and their users
  *
  ***************************************************************************/
 #include <linux/vfio.h>
 #include "qae_mem_utils_common.h"
 
-/* Check for process pid caching availibility */
+/* Check for process pid caching availability */
 #ifdef MADV_WIPEONFORK
 #define CACHE_PID
 #endif
@@ -489,7 +489,7 @@ static int filter_dma_ranges(int fd)
     if (!iommu_info)
     {
         CMD_ERROR(
-            "%s:%d Allocaton failed for iommu_info\n", __func__, __LINE__);
+            "%s:%d Allocation failed for iommu_info\n", __func__, __LINE__);
         return -1;
     }
 

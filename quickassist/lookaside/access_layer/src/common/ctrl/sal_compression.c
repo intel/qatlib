@@ -140,7 +140,7 @@ typedef struct dc_extended_features_s
 } dc_extd_ftrs_t;
 
 /*
- * Prints statistics for a compresion instance
+ * Prints statistics for a compression instance
  */
 STATIC int SalCtrl_CompresionDebug(void *private_data,
                                    char *data,

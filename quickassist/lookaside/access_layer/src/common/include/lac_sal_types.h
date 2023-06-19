@@ -262,7 +262,7 @@ typedef struct sal_service_debug_s
  * @param[in] pService         pointer to service instance
  * @param[in] service_type     service type to check againstx.
  *
- * @return CPA_STATUS_FAIL      Paramater is incorrect type
+ * @return CPA_STATUS_FAIL     Parameter is incorrect type
  *
  ******************************************************************************/
 #define SAL_CHECK_INSTANCE_TYPE(pService, service_type)                        \

@@ -250,7 +250,7 @@ CpaStatus icp_adf_userProxyInit(char const *const name)
     /* Allow the user to call init just once */
     if (init_ctr)
     {
-        ADF_ERROR("User proxy alreay initialized\n");
+        ADF_ERROR("User proxy already initialized\n");
         return status;
     }
     init_ctr = 1;

@@ -89,7 +89,7 @@ int adf_vf2pf_check_compat_version(struct adf_pfvf_dev_data *dev);
  *
  * @param[in] dev	Pointer to VF's pfvf data struct.
  *
- * @retval 0        Function executed succesfully.
+ * @retval 0        Function executed successfully.
  * @retval -EFAULT  Timed out waiting for PF response or received incorrect
  * response
  */
@@ -105,7 +105,7 @@ int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev);
  *
  * @param[in] dev	Pointer to VF's pfvf data struct.
  *
- * @retval 0        Function executed succesfully.
+ * @retval 0        Function executed successfully.
  * @retval -EFAULT  Timed out waiting for PF response or received incorrect
  * response
  */

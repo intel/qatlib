@@ -658,7 +658,7 @@ CpaStatus sampleCodeSemaphoreInit(sample_code_semaphore_t *semPtr,
 {
     CHECK_POINTER_AND_RETURN_FAIL_IF_NULL(semPtr);
     /*
-     *  Allocate memory for the sempahore object.
+     *  Allocate memory for the semaphore object.
      */
     *semPtr = qaeMemAlloc(sizeof(sem_t));
     if (!(*semPtr))

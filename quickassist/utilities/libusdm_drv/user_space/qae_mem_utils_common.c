@@ -561,7 +561,7 @@ void __qae_free_slab(const int fd, dev_mem_info_t *slab)
     del_slab_from_hash(slab);
 
     memcpy(&memInfo, slab, sizeof(dev_mem_info_t));
-    /* Need to disconnect from orignal chain */
+    /* Need to disconnect from original chain */
     ret = qae_munmap(memInfo.virt_addr, memInfo.size);
     if (ret)
     {

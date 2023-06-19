@@ -477,7 +477,7 @@ typedef struct _CpaCyEcGenericPointVerifyOpData {
  *****************************************************************************
  * @ingroup cpaCyEc
  *      EC Point Multiplication Operation Data for Edwards or
- *      Montgomery curves as specificied in RFC#7748.
+ *      Montgomery curves as specified in RFC#7748.
  *
  * @description
  *      This structure contains the operation data for the
@@ -516,7 +516,7 @@ typedef struct _CpaCyEcMontEdwdsPointMultiplyOpData {
     CpaFlatBuffer  k;
     /**< k scalar multiplier for the operation */
     CpaFlatBuffer  x;
-    /**< x value.  Used in scalar varable point multiplication operations.
+    /**< x value.  Used in scalar variable point multiplication operations.
      * Not required if the generator is True. Must be NULL if not required.
      * The size of the buffer MUST be 32B for 25519 curves and 64B for 448
      * curves */

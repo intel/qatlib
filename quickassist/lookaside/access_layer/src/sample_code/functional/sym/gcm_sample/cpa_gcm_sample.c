@@ -510,7 +510,7 @@ CpaStatus algChainSample(void)
         status = algChainPerformOpGCM(
             cyInstHandle, sessionCtx, GCM_ENCRYPT_DIRECTION);
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         /* Remove the session - session init has already succeeded */
@@ -574,7 +574,7 @@ CpaStatus algChainSample(void)
         status = algChainPerformOpGCM(
             cyInstHandle, sessionCtx, GCM_DECRYPT_DIRECTION);
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         /* Remove the session - session init has already succeeded */

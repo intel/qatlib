@@ -119,7 +119,7 @@ static void bigNumModAddFunc(BIGNUM *r,
 
 /******************************************************************************
  * @description
- *     This function performs modular substraction operation using OpenSSL
+ *     This function performs modular subtraction operation using OpenSSL
  *     BIGNUM.
  *
  *****************************************************************************/
@@ -196,7 +196,7 @@ CpaStatus bigNum(CpaBigNumOp bigNumOp,
                  CpaFlatBuffer *m_le)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    Cpa8U *r_be = NULL;      /* Pointer to reslut in big endian */
+    Cpa8U *r_be = NULL;      /* Pointer to result in big endian */
     Cpa8U *a_be = NULL;      /* Pointer to input in big endian */
     Cpa8U *b_be = NULL;      /* Pointer to input in big endian */
     Cpa8U *m_be = NULL;      /* Pointer to input in big endian */

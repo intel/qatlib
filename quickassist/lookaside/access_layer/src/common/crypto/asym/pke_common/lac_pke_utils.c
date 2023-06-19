@@ -290,7 +290,7 @@ CpaStatus LacPke_GetBitPos(const CpaFlatBuffer *pBuffer,
     Cpa32U bitPosition = 0;
     Cpa8U msByte = 0;
 
-    /* Set zero flag false initally */
+    /* Set zero flag false initially*/
     *pIsZero = CPA_FALSE;
     /* Find the first non-zero byte from end of buffer */
     numBytes = LacPke_GetMinBytes(pBuffer);

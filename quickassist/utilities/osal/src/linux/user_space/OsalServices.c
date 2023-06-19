@@ -216,16 +216,16 @@ void *osalMemAllocAtomic(UINT32 size)
 /*
  * MemAlloc with Alignment API:
  * Make sure memory is aligned to alignment ( passed as last parameter)
- * This function is maintained for backward compatibiltiy
+ * This function is maintained for backward compatibility
  * IDS team has requested not to touch this code, as this is in working
  condition.
- * another implementaion of this function can be found in API
+ * another implementation of this function can be found in API
  * "void * _OsalMemAllocAlligned(unsigned int size, unsigned int alignment)"
  *
- * return - Pointer to requested alligned memory.
+ * return - Pointer to requested aligned memory.
  * in - space  (unknown....why?)
       - size need to malloc
- *    - allignement required ( 4, 8....256)
+ *    - alignment required ( 4, 8....256)
  *
  */
 void *osalMemAllocAligned(UINT32 space, UINT32 size, UINT32 alignment)

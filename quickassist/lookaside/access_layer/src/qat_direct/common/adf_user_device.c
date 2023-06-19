@@ -68,7 +68,7 @@ STATIC adf_event_queue_t adf_event_queue[ADF_MAX_DEVICES] = {{0}};
 STATIC icp_accel_dev_t *accel_tbl[ADF_MAX_DEVICES] = {0};
 
 /*
- * Need to keep track of what device is curently in error
+ * Need to keep track of what device is currently in error
  */
 STATIC char accel_dev_error_stat[ADF_MAX_DEVICES] = {0};
 

@@ -186,7 +186,7 @@ The number of threads is controlled by the lower of:
     the number of cores
     the number of crypto instance
 
-Based on plaform default value for above parameters are configured in driver configuration file
+Based on platform default value for above parameters are configured in driver configuration file
 
 **IMIX is a mixture of packet sizes 40%-64Byte 20%-752Byte 35% 1504Byte
 5%-8892Byte. of the total submissions
@@ -276,7 +276,7 @@ Example:
 Note: getLatency and getOffloadCost are mutually exclusive i.e. Only one can be
 enabled for a particular invocation of cpa_sample_code application.
 The measurement should be performed with just one active sample code thread.
-i.e.NumberCyInstances and NumberDcInstances shoule be set to 1 in the driver
+i.e.NumberCyInstances and NumberDcInstances should be set to 1 in the driver
 configuration file under SSL section. Also only one device should be active at the
 time of measurement.
 Results may vary depending on platform settings like CPU energy savings, turbo boost, etc.

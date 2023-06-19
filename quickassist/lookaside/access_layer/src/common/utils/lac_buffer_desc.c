@@ -94,7 +94,7 @@
 /* Invalid physical address value */
 #define INVALID_PHYSICAL_ADDRESS 0
 
-/* Indicates what type of buffer writes need to be perfomed */
+/* Indicates what type of buffer writes need to be performed */
 typedef enum lac_buff_write_op_e
 {
     WRITE_NORMAL = 0,
@@ -222,7 +222,7 @@ LacBuffDesc_CommonBufferListDescWrite(const CpaBufferList *pUserBufferList,
 
 /* This function implements the buffer description writes for the traditional
  * APIs Zero length buffers are allowed, should be used for CHA-CHA-POLY and
- * GCM aglorithms */
+ * GCM algorithms */
 CpaStatus LacBuffDesc_BufferListDescWriteAndAllowZeroBuffer(
     const CpaBufferList *pUserBufferList,
     Cpa64U *pBufListAlignedPhyAddr,

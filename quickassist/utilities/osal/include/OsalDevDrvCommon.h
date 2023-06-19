@@ -73,8 +73,8 @@ extern "C" {
 #endif
 
 #include "OsalOsTypes.h"
-#pragma pack(push) /* Push the current alignement on the stack */
-#pragma pack(1)    /* Force alignement on 1 byte to support 32                 \
+#pragma pack(push) /* Push the current alignment on the stack */
+#pragma pack(1)    /* Force alignment on 1 byte to support 32                 \
                       bits user space on 64 bits kernels */
 /* Number of allocated pages for memory managements
  * For kernel which can allocate 4M, then value can be 512
@@ -95,7 +95,7 @@ extern "C" {
 /* magic used to identify double length
  * Need to bigger than 2 of ICP_NUM_PAGES_PER_ALLOC
  * The reason is that we will mmap 2*ICP_NUM_PAGES_PER_ALLOC
- * to achive page alignement, and this macro is used when
+ * to achieve page alignment, and this macro is used when
  * user really wants to mmap 2*ICP_NUM_PAGES_PER_ALLOC pages
  */
 #define ICP_MMAP_DOUBLE_NUM_PAGES 2048
@@ -155,7 +155,7 @@ typedef struct dev_iommu_info_s
     uint64_t iova;
     uint64_t size;
 } dev_iommu_info_t;
-#pragma pack(pop) /*Restore Previous alignement*/
+#pragma pack(pop) /* Restore Previous alignment */
 
 typedef struct user_proc_mem_list_s
 {

@@ -292,7 +292,7 @@ static CpaStatus updatePerformCipher(symmetric_test_params_t *setup,
     return status;
 }
 
-// Perfom for hash session
+// Perform for hash session
 static CpaStatus updatePerformHash(symmetric_test_params_t *setup,
                                    CpaCySymSessionCtx sessionCtx,
                                    CpaCySymSessionUpdateData *pSessionUpdate,
@@ -365,7 +365,7 @@ static CpaStatus updatePerformHash(symmetric_test_params_t *setup,
         }
         else
         {
-            PRINT_ERR("Update sesssion failed\n");
+            PRINT_ERR("Update session failed\n");
             status = CPA_STATUS_FAIL;
         }
     }

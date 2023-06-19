@@ -1701,7 +1701,7 @@ CpaStatus LacAlgChain_SessionInit(
      * create two content descriptors in the case we can support using SHRAM
      * constants and an optimised content descriptor. we have to do this in case
      * of partials.
-     * 64 byte content desciptor is used in the SHRAM case for AES-128-HMAC-SHA1
+     * 64 byte content descriptor is used in the SHRAM case for AES-128-HMAC-SHA1
      *-----------------------------------------------------------------------*/
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -1728,7 +1728,7 @@ CpaStatus LacAlgChain_SessionInit(
                                                &cipherOffsetInConstantsTable,
                                                &hashOffsetInConstantsTable);
 
-        /* for a certain combination of Algorthm Chaining we want to
+        /* for a certain combination of Algorithm Chaining we want to
            use an optimised cd block */
 
         if (pSessionDesc->symOperation == CPA_CY_SYM_OP_ALGORITHM_CHAINING &&

@@ -1442,7 +1442,7 @@ CpaStatus cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle_in,
                                LAC_ECDSA_SIGNS_NUM_OUT_ARGS,
                                dataOperationSizeBytes);
 
-        /* Set memory to extrenally allocated */
+        /* Set memory to externally allocated */
         LAC_EC_SET_LIST_PARAMS(
             internalMemInList, LAC_ECDSA_SIGNS_NUM_IN_ARGS, CPA_FALSE);
         LAC_EC_SET_LIST_PARAMS(

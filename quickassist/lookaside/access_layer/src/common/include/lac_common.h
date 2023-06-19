@@ -256,11 +256,11 @@ char *icpGetProcessName(void);
 
 #define SEPARATOR "+--------------------------------------------------+\n"
 /**< @ingroup LacCommon
- * seperator used for printing stats to standard output*/
+ * separator used for printing stats to standard output*/
 
 #define BORDER "|"
 /**< @ingroup LacCommon
- * seperator used for printing stats to standard output*/
+ * separator used for printing stats to standard output*/
 
 /**
 *****************************************************************************

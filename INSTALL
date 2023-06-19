@@ -145,7 +145,7 @@ Compilation and installation - quickstart instructions
         # Install qatlib-tests rpm
         sudo dnf install -y qatlib-tests
 
-        # cpa_sample_code requires a mimimum of 500MB to run its compression demo
+        # cpa_sample_code requires a minimum of 500MB to run its compression demo
         # To increase amount of locked memory for your user to 500MB:
         sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
         echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null
@@ -186,7 +186,7 @@ Compilation and installation - quickstart instructions
 
         # You can also follow these steps to try out a sample application:
 
-        # cpa_sample_code requires a mimimum of 500MB to run its compression demo
+        # cpa_sample_code requires a minimum of 500MB to run its compression demo
         # To increase the amount of locked memory for your user to 500MB:
         sudo cp /etc/security/limits.conf /etc/security/limits.conf.qatlib_bak
         echo `whoami` - memlock 500000  | sudo tee -a /etc/security/limits.conf > /dev/null

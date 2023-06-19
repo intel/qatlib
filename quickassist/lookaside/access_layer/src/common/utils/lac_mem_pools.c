@@ -270,7 +270,7 @@ CpaStatus Lac_MemPoolCreate(
     (lac_mem_pools[poolSearch])->blkAlignmentInBytes = blkAlignmentInBytes;
     (lac_mem_pools[poolSearch])->active = CPA_TRUE;
     osalAtomicSet(1, (OsalAtomic *)&((lac_mem_pools[poolSearch])->sync));
-    /* Set the Pool ID output paramter */
+    /* Set the Pool ID output parameter */
     *pPoolID = (LAC_ARCH_UINT)(lac_mem_pools[poolSearch]);
     /* Success */
     return CPA_STATUS_SUCCESS;

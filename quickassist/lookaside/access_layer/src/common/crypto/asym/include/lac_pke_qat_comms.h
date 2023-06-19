@@ -331,7 +331,7 @@ void LacPke_MsgCallback(void *pRespMsg);
  *
  * @retval CPA_STATUS_SUCCESS       Successfully polled a memory pool with data
  *                                  that generate dummy responses.
- * @retval CPA_STATUS_RETRY         There are no inflight requests in the
+ * @retval CPA_STATUS_RETRY         There are no in-flight requests in the
  *                                  memory pool associated with the instance
  *
  ***************************************************************************/
@@ -405,7 +405,7 @@ void LacPke_InitAsymRequest(Cpa8U *pData, CpaInstanceHandle instanceHandle);
  * @param[in] pInternalInMemList pointer to a list of Booleans that indicate if
  *                              input data buffers passed to QAT are internally
  *                              or externally allocated. This information needs
- *                              to be tracked to ensure we use the corect
+ *                              to be tracked to ensure we use the correct
  *                              virt2phys function.
  * @param[in] pInternalInMemList pointer to a list of Booleans that indicate if
  *                              output data buffers passed to QAT are internally
@@ -488,7 +488,7 @@ CpaStatus LacPke_SendRequest(lac_pke_request_handle_t *pRequestHandle,
  * @param[in] pInternalInMemList pointer to a list of Booleans that indicate if
  *                              input data buffers passed to QAT are internally
  *                              or externally allocated. This information needs
- *                              to be tracked to ensure we use the corect
+ *                              to be tracked to ensure we use the correct
  *                              virt2phys function.
  * @param[in] pInternalInMemList pointer to a list of Booleans that indicate if
  *                              output data buffers passed to QAT are internally

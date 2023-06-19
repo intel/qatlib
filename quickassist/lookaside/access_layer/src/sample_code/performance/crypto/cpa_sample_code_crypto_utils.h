@@ -755,7 +755,7 @@ typedef struct symmetric_test_params_s
     Cpa64U initialVerifyFailures;
     Cpa32U submissions;
     Cpa32U node;
-    /**< Variable to triger generating of random numbers for nested has inside
+    /**< Variable to trigger generating of random numbers for nested has inside
      * of setup function to avoid mismatch caused by using shared buffers
      * between threads.
      */
@@ -1320,7 +1320,7 @@ CpaStatus setupKeyGenHkdfTest(sync_mode_t syncMode,
                               Cpa32U numBuffers,
                               Cpa32U numLoops);
 /* The API version check does not guarantee if EC Mont Edwards is
- * suported by the driver. This function checks by making an API
+ * supported by the driver. This function checks by making an API
  * call to see if the status reports CPA_STATUS_UNSUPPORTED.
  */
 CpaBoolean isECMontEdwdsSupported(void);
@@ -1343,7 +1343,7 @@ CpaStatus setupEcMontEdwdsTest(sync_mode_t syncMode,
 
 #if CY_API_VERSION_AT_LEAST(3, 0)
 /* The API version check does not guarantee if EC Generic Curves are
- * suported by the driver. This function checks by making an API
+ * supported by the driver. This function checks by making an API
  * call to see if the status reports CPA_STATUS_UNSUPPORTED.
  */
 CpaBoolean isECGenericCurveSupported(void);

@@ -633,7 +633,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
 
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT_ERR("Error, failed to allcate ppPVverifier2, status: %d\n",
+        PRINT_ERR("Error, failed to allocate ppPVverifier2, status: %d\n",
                   status);
         ikeRsaMemFree(setup, &alice, &bob, pPrivateKey, pPublicKey);
         return status;

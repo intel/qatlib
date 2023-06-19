@@ -312,17 +312,17 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
 * @param[in] pLaCmdFlags                     request service specific flags
 * @param[out] pPrecomputeData                pointer to hash precomputes
 * @param[out] pPrecomputeDataOptimisedCd     pointer to hash setup block of
-*                                            optimised content discriptor
+*                                            optimised content descriptor
 * @param[in] pHwBlockBaseInDRAM              pointer to hash setup block base
 *                                            address in memory
 * @param[out] pHwBlockOffsetInDRAM           pointer to hash setup block offset
-*                                            in the content discriptor
+*                                            in the content descriptor
 * @param[in] pOptimisedHwBlockBaseInDRAM     pointer to hash setup block base
 *                                            address of optimised content
-*                                            discriptor
+*                                            descriptor
 * @param[out] pOptimisedHwBlockOffsetInDRAM  pointer to hash setup block
 *                                            offset in the optimised content
-*                                            discriptor
+*                                            descriptor
 *
 * @retval NONE
 *

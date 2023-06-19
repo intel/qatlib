@@ -628,7 +628,7 @@ CpaStatus LacPke_GetBitLen(const CpaFlatBuffer *pBuffer, Cpa32U *pBitLen);
  * @description
  *      Return the size of the biggest number in provided buffers where n
  *      specify buffer count. If NULL pointer was detected is skipped from
- *      comparision.
+ *      comparison.
  *
  * @param[in]  n                number of buffers to compare
  * @param[in]  ...              list of pointers to a flat buffers

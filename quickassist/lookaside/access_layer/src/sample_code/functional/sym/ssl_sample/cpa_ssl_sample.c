@@ -534,7 +534,7 @@ CpaStatus algChainSample(void)
         /* Perform algchaining operation */
         status = algChainPerformOp(cyInstHandle, sessionCtx, SSL_OUTBOUND_DIR);
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         /* Remove the session - session init has already succeeded */
@@ -592,7 +592,7 @@ CpaStatus algChainSample(void)
         /* Perform algchaining operation */
         status = algChainPerformOp(cyInstHandle, sessionCtx, SSL_INBOUND_DIR);
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         /* Remove the session - session init has already succeeded */

@@ -511,7 +511,7 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);
@@ -982,7 +982,7 @@ EXPORT_SYMBOL(rsaFreeDataMemory);
  * @description
  * This function frees all memory related to RSA key data. This function must be
  * called before rsaFreeDataMemory otherwise the pointers to the key data will
- * be lost and we wont be able to free the memory
+ * be lost and we won't be able to free the memory
  * ****************************************************************************/
 void rsaFreeKeyMemory(asym_test_params_t *setup,
                       CpaCyRsaPrivateKey *pPrivateKey[],
@@ -1626,7 +1626,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         if ((CPA_STATUS_SUCCESS == status) && (isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);

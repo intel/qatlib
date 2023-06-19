@@ -64,7 +64,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
                 "\nosalThreadCreate:"
-                "Failed to initialize Thread Attributes !!!\n");
+                "Failed to initialize Thread Attributes!\n");
 
         return OSAL_FAIL;
     }
@@ -81,7 +81,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
                     "\nosalThreadCreate:"
-                    "Failed to set inherit sched for thread!!!\n");
+                    "Failed to set inherit sched for thread!\n");
             pthread_attr_destroy(&attr);
             return OSAL_FAIL;
         }
@@ -92,7 +92,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
                     "\nosalThreadCreate:"
-                    "Failed to set scheduling policy for thread !!!\n");
+                    "Failed to set scheduling policy for thread!\n");
             pthread_attr_destroy(&attr);
             return OSAL_FAIL;
         }
@@ -106,7 +106,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
                     "\nosalThreadCreate:"
-                    "Failed to set the sched parameters atribute !!!\n");
+                    "Failed to set the sched parameters attribute!\n");
             pthread_attr_destroy(&attr);
             return OSAL_FAIL;
         }
@@ -131,7 +131,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
                     "\nosalThreadCreate:"
-                    "Failed to set inherit sched for thread!!!\n");
+                    "Failed to set inherit sched for thread!\n");
             pthread_attr_destroy(&attr);
             return OSAL_FAIL;
         }
@@ -141,7 +141,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
                     "\nosalThreadCreate:"
-                    "Failed to set scheduling policy for thread !!!\n");
+                    "Failed to set scheduling policy for thread!\n");
             pthread_attr_destroy(&attr);
             return OSAL_FAIL;
         }
@@ -157,7 +157,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
                 osalLog(OSAL_LOG_LVL_ERROR,
                         OSAL_LOG_DEV_STDOUT,
                         "\nosalThreadCreate:"
-                        "Failed to set the sched parameters atribute !!!\n");
+                        "Failed to set the sched parameters attribute!\n");
                 pthread_attr_destroy(&attr);
                 return OSAL_FAIL;
             }
@@ -172,7 +172,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
                 "\nosalThreadCreate:"
-                "Failed to set the dettachState attribute !!!\n");
+                "Failed to set the dettachState attribute!\n");
         pthread_attr_destroy(&attr);
         return OSAL_FAIL;
     }
@@ -181,7 +181,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadCreate(OsalThread *thread,
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "\nosalThreadCreate: Failed to set the attribute !!!\n");
+                "\nosalThreadCreate: Failed to set the attribute!\n");
         pthread_attr_destroy(&attr);
         return OSAL_FAIL;
     }
@@ -287,7 +287,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadStart(OsalThread *thread)
 
     osalLog(OSAL_LOG_LVL_DEBUG3,
             OSAL_LOG_DEV_STDOUT,
-            "\nosalThreadStart: Nothing to be done !!\n");
+            "\nosalThreadStart: Nothing to be done!\n");
 
     return OSAL_SUCCESS;
 }
@@ -329,7 +329,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadPrioritySet(OsalThread *thread,
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "osalThreadPrioritySet(): could not get sched param !!!\n");
+                "osalThreadPrioritySet(): could not get sched param!\n");
         return OSAL_FAIL;
     }
 
@@ -340,7 +340,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadPrioritySet(OsalThread *thread,
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "osalThreadPrioritySet(): Erroneous priority !!!\n");
+                "osalThreadPrioritySet(): Erroneous priority!\n");
         return OSAL_FAIL;
     }
 
@@ -385,7 +385,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadSetPolicyAndPriority(OsalThread *thread,
         osalLog(
             OSAL_LOG_LVL_ERROR,
             OSAL_LOG_DEV_STDOUT,
-            "osalThreadSetPolicyAndPriority(): invalid value for policy!!! \n");
+            "osalThreadSetPolicyAndPriority(): invalid value for policy!\n");
 
         return OSAL_FAIL;
     }
@@ -396,8 +396,8 @@ OSAL_PUBLIC OSAL_STATUS osalThreadSetPolicyAndPriority(OsalThread *thread,
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "osalThreadSetPolicyAndPriority(): could not get sched param "
-                "!!!\n");
+                "osalThreadSetPolicyAndPriority(): could not get sched param"
+                "!\n");
         return OSAL_FAIL;
     }
 
@@ -408,7 +408,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadSetPolicyAndPriority(OsalThread *thread,
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "osalThreadPrioritySet(): Errorneous priority !!!\n");
+                "osalThreadPrioritySet(): Erroneous priority!\n");
 
         return OSAL_FAIL;
     }
@@ -421,7 +421,7 @@ OSAL_PUBLIC OSAL_STATUS osalThreadSetPolicyAndPriority(OsalThread *thread,
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
                 "osalThreadSetPolicyAndPriority:"
-                "Policy and Priority Set operation failed!!! \n");
+                "Policy and Priority Set operation failed!\n");
         return OSAL_FAIL;
     }
 #endif

@@ -46,7 +46,7 @@
  * @lld_start
  *
  * @lld_overview
- * This file implements Elliptic Curve Montgomery and Edwards api funcitons.
+ * This file implements Elliptic Curve Montgomery and Edwards api functions.
  * @lld_dependencies
  * - \ref LacAsymCommonQatComms "PKE QAT Comms" : For creating and sending
  * messages to the QAT

@@ -104,7 +104,7 @@ typedef struct lac_sym_qat_hash_def_map_s
     CpaCySymHashAlgorithm hashAlgorithm;
     /* hash algorithm */
     lac_sym_qat_hash_defs_t hashDefs;
-    /* hash defintions pointers */
+    /* hash definitions pointers */
 } lac_sym_qat_hash_def_map_t;
 
 /*
@@ -282,7 +282,7 @@ STATIC lac_sym_qat_hash_alg_info_t sha3_512Info = {
 
 STATIC lac_sym_qat_hash_alg_info_t polyInfo = {LAC_HASH_POLY_DIGEST_SIZE,
                                                LAC_HASH_POLY_BLOCK_SIZE,
-                                               NULL, /* intial state */
+                                               NULL, /* initial state */
                                                LAC_HASH_POLY_STATE_SIZE};
 
 STATIC lac_sym_qat_hash_alg_info_t xcbcMacInfo = {
@@ -299,7 +299,7 @@ STATIC lac_sym_qat_hash_alg_info_t aesCmacInfo = {LAC_HASH_CMAC_128_DIGEST_SIZE,
 STATIC lac_sym_qat_hash_alg_info_t aesCcmInfo = {
     LAC_HASH_AES_CCM_DIGEST_SIZE,
     LAC_HASH_AES_CCM_BLOCK_SIZE,
-    NULL, /* intial state */
+    NULL, /* initial state */
     0     /* state size */
 };
 

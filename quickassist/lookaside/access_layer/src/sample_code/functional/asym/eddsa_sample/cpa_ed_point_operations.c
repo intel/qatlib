@@ -392,7 +392,7 @@ CpaStatus addPoints(Cpa8U *pPointAx,
     CpaStatus status = CPA_STATUS_FAIL;
     /* Field values buffers */
     CpaFlatBuffer d = {0}, p = {0};
-    /* Input/ Ouptut values buffers */
+    /* Input/ Output values buffers */
     CpaFlatBuffer Ax = {0}, Ay = {0}, Bx = {0}, By = {0}, Cx = {0}, Cy = {0};
     /* Extended point values buffers */
     CpaFlatBuffer X1 = {0}, Y1 = {0}, Z1 = {0}, T1 = {0};

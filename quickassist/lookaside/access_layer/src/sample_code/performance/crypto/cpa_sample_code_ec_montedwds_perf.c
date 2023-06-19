@@ -501,7 +501,7 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
     pPerfData->numOperations = (Cpa64U)setup->numBuffers * setup->numLoops;
     coo_init(pPerfData, pPerfData->numOperations);
 
-    /* Initilise semaphore used in callback */
+    /* Initialise semaphore used in callback */
     sampleCodeSemaphoreInit(&pPerfData->comp, 0);
 
     /* set the callback function if asynchronous mode is set */
@@ -645,7 +645,7 @@ static CpaStatus ecMontEdwdsPerform(ec_montedwds_test_params_t *setup)
         {
             if ((instanceInfo2->isPolled))
             {
-                /* Now need to wait for all the inflight Requests */
+                /* Now need to wait for all the in-flight Requests */
                 pollStatus = cyPollNumOperations(pPerfData,
                                                  setup->cyInstanceHandle,
                                                  pPerfData->numOperations);

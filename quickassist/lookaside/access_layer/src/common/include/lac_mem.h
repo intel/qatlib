@@ -431,7 +431,7 @@ static __inline CpaStatus LacMem_OsContigAlignMemAlloc(void **ppMemAddr,
  *   results in following entry:
  *     static const unsigned int highest_bit_of_lac_mem_blk_t = 3
  *
- *   CAUTION!!
+ *   CAUTION!
  *      Macro is prepared only for type names NOT-containing ANY
  *  special characters. Types as amongst others:
  *  - void *

@@ -68,7 +68,7 @@
  *
  * @ingroup LacSym
  *
- * Symetric Common consists of common statistics, buffer and partial packet
+ * Symmetric Common consists of common statistics, buffer and partial packet
  * functionality.
  *
  ***************************************************************************/
@@ -187,7 +187,7 @@ void LacSym_StatsReset(CpaInstanceHandle instanceHandle);
 /**
 *******************************************************************************
 * @ingroup LacSymStats
-*      Inrement a stat
+*      Increment a stat
 *
 * @description
 *      This function incrementes a stat for a specific engine.

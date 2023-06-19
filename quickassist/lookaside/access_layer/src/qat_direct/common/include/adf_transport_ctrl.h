@@ -191,7 +191,7 @@ CpaStatus adf_trans_initDynInstancePool(icp_accel_dev_t *accel_dev,
 CpaStatus adf_trans_destroyDynInstancePool(icp_accel_dev_t *accel_dev);
 
 /*
- * Get an availble dynamic instance from the dynamic instance pool
+ * Get an available dynamic instance from the dynamic instance pool
  */
 CpaStatus adf_trans_getDynInstance(icp_accel_dev_t *accel_dev,
                                    adf_service_type_t stype,
@@ -205,7 +205,7 @@ CpaStatus adf_trans_putDynInstance(icp_accel_dev_t *accel_dev,
                                    Cpa32U instance_id);
 
 /*
- * Get the number of the availeble dynamic instances
+ * Get the number of the available dynamic instances
  * in the dynamic instance pool
  */
 CpaStatus adf_trans_getNumAvailDynInstance(icp_accel_dev_t *accel_dev,

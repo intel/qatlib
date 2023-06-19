@@ -232,7 +232,7 @@ void LacSymQat_CipherXTSModeUpdateKeyLen(lac_session_desc_t *pSessionDesc,
  *      LacSymQat_CipherCtrlBlockInitialize()
  *
  * @description
- *      intialize the cipher control block with all zeros
+ *      initialize the cipher control block with all zeros
  *
  * @param[in]  pMsg                     Pointer to the common request message
  *

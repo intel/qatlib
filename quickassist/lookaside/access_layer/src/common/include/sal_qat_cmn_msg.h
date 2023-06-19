@@ -209,7 +209,7 @@ void SalQatMsg_CmnMidWrite(icp_qat_fw_la_bulk_req_t *pReq,
  *      icp_qat_fw_comn_req_hdr_cd_pars_t section of the Request Msg.
  *
  * @param[in]   pMsg            Pointer to 128B Request Msg buffer.
- * @param[in]   pContentDescInfo content descripter info.
+ * @param[in]   pContentDescInfo content descriptor info.
  *
  * @return
  *      none

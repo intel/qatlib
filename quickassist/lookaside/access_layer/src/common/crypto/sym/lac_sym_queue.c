@@ -164,7 +164,7 @@ CpaStatus LacSymQueue_RequestSend(const CpaInstanceHandle instanceHandle,
          */
         if (CPA_CY_SYM_PACKET_TYPE_FULL != pRequest->pOpData->packetType)
         {
-            /* Select blocking operations which this reqest will complete */
+            /* Select blocking operations which this request will complete */
             pSessionDesc->nonBlockingOpsInProgress = CPA_FALSE;
         }
 

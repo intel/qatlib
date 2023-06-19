@@ -1410,7 +1410,7 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     if (CPA_STATUS_SUCCESS == status)
     {
         /*
-        ** Now need to wait for all the inflight Requests.
+        ** Now need to wait for all the in-flight Requests.
         */
         status = cyDpPollNumOperations(
             pSymData, setup->cyInstanceHandle, pSymData->numOperations);
@@ -1705,7 +1705,7 @@ CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
     if (CPA_STATUS_SUCCESS == status)
     {
         /*
-        ** Now need to wait for all the inflight Requests.
+        ** Now need to wait for all the in-flight Requests.
         */
         status = cyDpPollNumOperations(
             pSymData, setup->cyInstanceHandle, pSymData->numOperations);

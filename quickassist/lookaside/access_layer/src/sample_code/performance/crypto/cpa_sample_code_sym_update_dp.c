@@ -336,7 +336,7 @@ static CpaStatus updatePerformCipherDp(
     return status;
 }
 
-// Perfom for hash session
+// Perform for hash session
 static CpaStatus updatePerformHashDp(symmetric_test_params_t *setup,
                                      CpaCySymSessionCtx sessionCtx,
                                      CpaCySymSessionUpdateData *pSessionUpdate,

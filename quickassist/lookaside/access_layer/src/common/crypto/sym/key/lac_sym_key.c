@@ -2430,9 +2430,9 @@ LacSymKey_CheckParamSslTls(const void *pKeyGenOpData,
         {
             /* Api max value */
             /* ICP_QAT_FW_LA_TLS_V1_1_SECRET_LEN_MAX needs to be multiplied
-             * by 4 in order to verifiy the 512 conditions. We did not change
+             * by 4 in order to verify the 512 conditions. We did not change
              * ICP_QAT_FW_LA_TLS_V1_1_SECRET_LEN_MAX as it represents
-             * the max value tha firmware can handle.
+             * the max value that firmware can handle.
              */
             maxSecretLen = ICP_QAT_FW_LA_TLS_V1_1_SECRET_LEN_MAX * 4;
         }

@@ -349,7 +349,7 @@ static __inline CpaStatus Mem_OsMemAlloc(void **ppMemAddr, Cpa32U sizeBytes)
  *
  * @param[out] ppMemAddr    address of pointer where address will be stored
  * @param[in] sizeBytes     the size of the memory to be allocated
- * @param[in] alignement    the alignment of the memory to be allocated
+ * @param[in] alignment    the alignment of the memory to be allocated
  *(non-zero)
  *
  * @retval CPA_STATUS_RESOURCE  Macro failed to allocate Memory
@@ -416,7 +416,7 @@ static __inline CpaStatus Mem_Alloc_Contig(void **ppMemAddr,
 /**
  *******************************************************************************
  * @ingroup sampleUtils
- *     Algined version of PHYS_CONTIG_ALLOC() macro
+ *     Aligned version of PHYS_CONTIG_ALLOC() macro
  *
  ******************************************************************************/
 #define PHYS_CONTIG_ALLOC_ALIGNED(ppMemAddr, sizeBytes, alignment)             \

@@ -1671,8 +1671,8 @@ osalHashSHA512Full(UINT8 *in, UINT8 *out, UINT32 len);
  *
  * @brief  Single block AES encrypt
  *
- * @param  key - pointer to symetric key.
- *         keyLenInBytes - key lenght
+ * @param  key - pointer to symmetric key.
+ *         keyLenInBytes - key length
  *         in - pointer to data to encrypt
  *         out - pointer to output buffer for encrypted text
  *         The in and out buffers need to be at least AES block size long
@@ -1692,7 +1692,7 @@ osalAESEncrypt(UINT8 *key, UINT32 keyLenInBytes, UINT8 *in, UINT8 *out);
  *
  * @brief  Converts AES forward key to reverse key
  *
- * @param  key - pointer to symetric key.
+ * @param  key - pointer to symmetric key.
  *         keyLenInBytes - key length
  *         out - pointer to output buffer for reversed key
  *         The in and out buffers need to be at least AES block size long
@@ -1743,7 +1743,7 @@ void osalCryptoInterfaceExit(void);
         * @brief  Function adds mapping from io virtual address
         *         to a physical address.
         *
-        * @param  in - Host phisical address.
+        * @param  in - Host physical address.
         *         in - IO virtual address.
         *         in - Memory size to be remapped obtained from
         *              osalIOMMUgetRemappingSize() function.

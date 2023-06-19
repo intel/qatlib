@@ -179,7 +179,7 @@ void LacSymQat_HashAlgLookupGet(CpaInstanceHandle instanceHandle,
 /**
 *******************************************************************************
 * @ingroup LacSymQatHashDefsLookup
-*      get hash defintions from lookup table.
+*      get hash definitions from lookup table.
 *
 * @description
 *      This function looks up the hash lookup array for a structure

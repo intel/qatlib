@@ -399,7 +399,7 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
         if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);
@@ -837,7 +837,7 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
         if ((CPA_STATUS_SUCCESS == status) && (isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pPerfData, setup->cyInstanceHandle, pPerfData->numOperations);
@@ -1358,7 +1358,7 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
     status = calcEcPoint(setup, &privateKey, pX, pY);
     if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT_ERR("calcEcPoint Failes with status %d\n", status);
+        PRINT_ERR("calcEcPoint fails with status %d\n", status);
         ECDSA_PERFORM_MEM_FREE();
         goto barrier;
     }
@@ -1626,7 +1626,7 @@ barrier:
         if ((instanceInfo->isPolled))
         {
             /*
-            ** Now need to wait for all the inflight Requests.
+            ** Now need to wait for all the in-flight Requests.
             */
             status = cyPollNumOperations(
                 pEcdsaData, setup->cyInstanceHandle, pEcdsaData->numOperations);

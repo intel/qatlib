@@ -455,7 +455,7 @@ CpaStatus qatAllocateCompressionFlatBuffers(
     }
     else
     {
-        /* For performance use cases additonal buffer size  is not required
+        /* For performance use cases additional buffer size  is not required
          * to be added to the cmp buffer, as there is no SW checks*/
         additionalSize = 0;
     }

@@ -681,7 +681,7 @@ typedef struct _CpaCySymSessionSetupData  {
     CpaCyPriority sessionPriority;
     /**< Priority of this session */
     CpaCySymOp symOperation;
-    /**< Operation to perfom */
+    /**< Operation to perform */
     CpaCySymCipherSetupData cipherSetupData;
     /**< Cipher Setup Data for the session. This member is ignored for the
      * CPA_CY_SYM_OP_HASH operation. */
@@ -1220,7 +1220,7 @@ cpaCySymSessionCtxGetSize(const CpaInstanceHandle instanceHandle,
  *      minimum memory size needed to support all possible setup data parameter 
  *      combinations. cpaCySymSessionCtxGetDynamicSize() will return the 
  *      minimum memory size needed to support the specific session setup 
- *      data parmeters provided. This size may be different for different setup
+ *      data parameters provided. This size may be different for different setup
  *      data parameters.
  *
  * @context

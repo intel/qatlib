@@ -878,7 +878,7 @@ CpaStatus sampleCodeTimeTGet(sample_code_time_t *pTime);
  *      sampleCodeSemaphoreInit
  *
  * @description
- *      initilises a semaphore type with start value
+ *      initialises a semaphore type with start value
  *
  *
  * @param[out] *semPtr, is the semaphore to be initialized

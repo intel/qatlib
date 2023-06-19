@@ -816,7 +816,7 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
         return NULL;
     }
 
-/* available size needs to substract current size and header */
+/* available size needs to subtract current size and header */
 /* As DMA remapping may add extra page, so we need to use alloc_size
    instead of the size in pMemInfo structure */
 #ifdef ICP_SRIOV

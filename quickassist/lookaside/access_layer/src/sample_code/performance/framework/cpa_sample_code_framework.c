@@ -185,7 +185,7 @@ Cpa32U coreLimit_g = 0;
  * before all threads are created*/
 /*this is a shared mutex between user space threads, if one thread locks this
  * all other threads wait until its released, which is done by calling the
- * cpa_sample_code_mutex_unlock ot cpa_sample_code_barrier_wait function*/
+ * cpa_sample_code_mutex_unlock or cpa_sample_code_barrier_wait function*/
 sample_code_thread_mutex_t threadControlMutex_g;
 
 /*this is the conditional variable that user space threads wait on to start, the
@@ -689,7 +689,7 @@ CpaStatus startThreads(void)
     {
         if (sampleCodeThreadStart(&threads_g[threadId]) != CPA_STATUS_SUCCESS)
         {
-            /* if we cant start one thread we kill all created threads
+            /* if we can't start one thread we kill all created threads
              * and return fail*/
             for (threadId = 0; threadId < numCreatedThreads_g; threadId++)
             {
@@ -706,7 +706,7 @@ CpaStatus startThreads(void)
                     qaeMemFree((void **)&perfStats_g[i]);
                 }
             }
-            PRINT_ERR("cant start threads\n");
+            PRINT_ERR("can't start threads\n");
             return CPA_STATUS_FAIL;
         }
     }
@@ -1105,7 +1105,7 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
  * threadoffset : The thread number to start with reprocessing.
  * cyIaCore     : The Crypto Instances array that includes both sym
  *                and asym instances.
- * symOrasymIaCore : The Symmetric or Asymetric Crypto array.
+ * symOrasymIaCore : The Symmetric or Asymmetric Crypto array.
  * numCyInstances : size of cyIaCore array.
  */
 void qatModifyCyThreadLogicalQaInstance(Cpa8U threadOffset,

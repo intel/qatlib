@@ -112,7 +112,7 @@ CpaStatus LacSymHash_Compute(CpaCySymHashAlgorithm hashAlgorithm,
      * Note: from SHA hashes appropriate endian swapping is required.
      * For sha1, sha224 and sha256 double words based swapping.
      * For sha384 and sha512 quad words swapping.
-     * No endianes swapping for md5 is required.
+     * No endianness swapping for md5 is required.
      */
     CpaStatus status = CPA_STATUS_FAIL;
     Cpa32U i = 0;

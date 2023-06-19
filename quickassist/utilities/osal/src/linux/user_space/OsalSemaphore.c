@@ -55,7 +55,7 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphoreInit(OsalSemaphore *sid,
     OSAL_LOCAL_ENSURE(
         sid, "osalSemaphoreInit():   Null semaphore pointer", OSAL_FAIL);
     /*
-     *  Allocate memory for the sempahore object.
+     *  Allocate memory for the semaphore object.
      */
     *sid = osalMemAlloc(sizeof(sem_t));
     if (!(*sid))
@@ -207,7 +207,7 @@ OSAL_PUBLIC OSAL_STATUS osalSemaphoreDestroy(OsalSemaphore *sid)
     OSAL_LOCAL_ENSURE(
         sid, "osalSemaphoreDestroy():   Null semaphore pointer", OSAL_FAIL);
     /*
-     * Destory the semaphore object.
+     * Destroy the semaphore object.
      */
     status = sem_destroy(*sid);
 

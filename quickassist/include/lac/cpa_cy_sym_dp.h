@@ -402,7 +402,7 @@ typedef struct _CpaCySymDpOpData {
  * @description
  *      This is the callback function prototype. The callback function is
  *      registered by the application using the @ref cpaCySymDpRegCbFunc
- *      function call, and called back on completion of asycnhronous
+ *      function call, and called back on completion of asynchronous
  *      requests made via calls to @ref cpaCySymDpEnqueueOp or @ref
  *      cpaCySymDpEnqueueOpBatch.
  *
@@ -454,7 +454,7 @@ typedef void (*CpaCySymDpCbFunc)(CpaCySymDpOpData *pOpData,
  * @description
  *      This function allows a completion callback function to be registered.
  *      The registered callback function is invoked on completion of
- *      asycnhronous requests made via calls to @ref cpaCySymDpEnqueueOp
+ *      asynchronous requests made via calls to @ref cpaCySymDpEnqueueOp
  *      or @ref cpaCySymDpEnqueueOpBatch.
  *
  *      If a callback function was previously registered, it is overwritten.
@@ -585,7 +585,7 @@ cpaCySymDpSessionCtxGetSize(const CpaInstanceHandle instanceHandle,
  *      minimum memory size needed to support all possible setup data parameter 
  *      combinations. cpaCySymDpSessionCtxGetDynamicSize() will return the 
  *      minimum memory size needed to support the specific session setup 
- *      data parmeters provided. This size may be different for different setup
+ *      data parameters provided. This size may be different for different setup
  *      data parameters.
  *
  * @context

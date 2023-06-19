@@ -305,7 +305,7 @@ typedef struct compression_test_params_s
     CpaBoolean useE2E;
     CpaDcOpData requestOps;
     /*pointer to function capable of printing our stat related to specific
-     * test varation
+     * test variation
      */
     compute_test_result_func_t passCriteria;
     /* Set this flag to CPA_TRUE to induce overflow and handle it

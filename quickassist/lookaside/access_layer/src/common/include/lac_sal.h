@@ -141,7 +141,7 @@ CpaStatus SalCtrl_ServiceCreate(sal_service_type_t service,
 *                              list: service or qat
 * @param[in]  device           The ADF accelerator handle for the device
 * @param[in]  function         The function pointer to call
-* @param[in/out] status_ret    If an error occured (i.e. status returned from
+* @param[in/out] status_ret    If an error occurred (i.e. status returned from
 *                              function is not _SUCCESS) then status_ret is
 *                              overwritten with status returned from function.
 *
@@ -281,7 +281,7 @@ CpaStatus SalCtrl_CryptoStart(icp_accel_dev_t *device, sal_service_t *service);
  * @ingroup SalCtrl
  * @description
  *      This function is used to stop an instance of crypto service.
- *  It checks for inflight messages to the FW. If no messages are pending
+ *  It checks for in-flight messages to the FW. If no messages are pending
  * it returns success. If messages are pending it returns retry.
  *
  * @context
@@ -381,7 +381,7 @@ CpaStatus SalCtrl_CryptoRestarting(icp_accel_dev_t *device,
 /*************************************************************************
  * @ingroup SalCtrl
  * @description
- *      This function is used to reinitailize an instance of crypto service.
+ *      This function is used to reinitialize an instance of crypto service.
  *  It reinitialzes resources allocated at initialisation - e.g. reinitializes
  *  the memory pools and ADF transport handles.
  *
@@ -486,7 +486,7 @@ CpaStatus SalCtrl_CompressionStart(icp_accel_dev_t *device,
  * @ingroup SalCtrl
  * @description
  *      This function is used to stop an instance of compression service.
- *  It checks for inflight messages to the FW. If no messages are pending
+ *  It checks for in-flight messages to the FW. If no messages are pending
  * it returns success. If messages are pending it returns retry.
  *
  * @context
@@ -568,7 +568,7 @@ CpaStatus SalCtrl_CompressionRestarting(icp_accel_dev_t *device,
 /*************************************************************************
  * @ingroup SalCtrl
  * @description
- *      This function is used to reinitailize an instance of compression
+ *      This function is used to reinitialize an instance of compression
  *  service. It reinitializes resources allocated at initialisation - e.g.
  *  initializes the memory pools and ADF transport handles.
  *
@@ -674,8 +674,8 @@ CpaBoolean SalCtrl_IsServiceSupported(icp_accel_dev_t *device,
 /**
  *******************************************************************************
  * @ingroup LacMemPool
- * This function searchs crypto memory pool of the whole device to find all
- * inflight requests and extract the callback functions from opaque data to
+ * This function searches crypto memory pool of the whole device to find all
+ * in-flight requests and extract the callback functions from opaque data to
  * generate dummy responses.
  *
  * @blocking

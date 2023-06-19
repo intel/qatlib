@@ -68,7 +68,7 @@
  * @brief
  *      This file documents the external interfaces that the QAT FW running
  *      on the QAT Acceleration Engine provides to clients wanting to
- *      accelerate crypto assymetric applications
+ *      accelerate crypto asymmetric applications
  */
 
 #ifndef __ICP_QAT_FW_MMP_IDS__

@@ -203,7 +203,7 @@ dcChainSession_CheckSessionType(const CpaDcChainSessionSetupData *pSessionData,
  * @description
  *      Check that all the parameters defined in the pSessionData are valid
  *
- * @param[in]       operation        Chaining opration
+ * @param[in]       operation        Chaining operation 
  * @param[in]       numSessions      Number of chaining sessions
  * @param[in]       pSessionData     Pointer to an array of
  *                                   CpaDcChainSessionSetupData
@@ -528,7 +528,7 @@ CpaStatus dcChainSession_PopulateSymSetupData(
  * @description
  *      Build symmetric crypto template for chaining operation
  *      it is called by dcChainSession_InitSymCrypto to construct
- *      cryto request descriptor
+ *      crypto request descriptor
  *
  * @param[in]       instanceHandle     Instance handle
  * @param[in]       pSessionCtx        Symmetric crypto session content
@@ -2220,7 +2220,7 @@ dcChainCallback_ProcessComp(dc_compression_cookie_t *pDcCookie,
  *
  * @description
  *      Process chaining result, it is called at dcCompression_ProcessCallback
- *      when repsonse type is chaining
+ *      when response type is chaining
  *
  * @param[in,out]   pRespMsg     Pointer to firmware response message
  *

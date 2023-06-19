@@ -421,7 +421,7 @@ CpaStatus symDpSample(void)
         /* Remove the session - session init has already succeeded */
         PRINT_DBG("cpaCySymDpRemoveSession\n");
 
-        /* Wait for inflight requests before removing session */
+        /* Wait for in-flight requests before removing session */
         symSessionWaitForInflightReq(sessionCtx);
 
         //<snippet name="removeSession">

@@ -124,11 +124,11 @@ typedef enum CpaCyKptKeyManagementStatus_t
     CPA_CY_KPT_SUCCESS = 0,
     /**< Generic success status for all KPT wrapping key handling functions*/
     CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_VFID,
-    /**< SWK count exceeds the configured maxmium value per VFID*/
+    /**< SWK count exceeds the configured maximum value per VFID*/
     CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_PASID,
-    /**< SWK count exceeds the configured maxmium value per PASID*/
+    /**< SWK count exceeds the configured maximum value per PASID*/
     CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED,
-    /**< SWK count exceeds the configured maxmium value when not scoped to
+    /**< SWK count exceeds the configured maximum value when not scoped to
     * VFID or PASID*/
     CPA_CY_KPT_SWK_FAIL_NOT_FOUND,
     /**< Unable to find SWK entry by handle */
@@ -303,7 +303,7 @@ typedef struct CpaCyKptRsaPrivateKeyRep1_t
  *      describing the RSA private key. The quintuple of p, q, dP, dQ, and qInv
  *      (explained below and in the spec) are required for the second
  *      representation. For KPT the parameters are Encrypted
- *      with the assoicated SWK as follows:
+ *      with the associated SWK as follows:
  *      Encrypt - AES-256-GCM (Key, AAD, Input)
  *      "||" - denotes concatenation
  *      Key = SWK
@@ -554,7 +554,7 @@ typedef struct CpaCyKptEcdsaSignRSOpData_t
   * @param[out] pDevCredential       Device Per-Part public key
   * @param[out] pKptStatus           One of the status codes denoted in the
   *                                  enumerate type CpaCyKptKeyManagementStatus
-  *              CPA_CY_KPT_SUCCESS  Device credentials retreived successfully
+  *              CPA_CY_KPT_SUCCESS  Device credentials retrieved successfully
   *              CPA_CY_KPT_FAILED   Operation failed
   *
   * @retval CPA_STATUS_SUCCESS       Function executed successfully.
@@ -610,11 +610,11 @@ typedef struct CpaCyKptEcdsaSignRSOpData_t
   *                                 enumerate type CpaCyKptKeyManagementStatus
   *   CPA_CY_KPT_SUCCESS  Key Loaded successfully
   *   CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_VFID
-  *       SWK count exceeds the configured maxmium value per VFID
+  *       SWK count exceeds the configured maximum value per VFID
   *   CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_PASID
-  *       SWK count exceeds the configured maxmium value per PASID
+  *       SWK count exceeds the configured maximum value per PASID
   *   CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED
-  *       SWK count exceeds the configured maxmium value when not scoped to
+  *       SWK count exceeds the configured maximum value when not scoped to
   *       VFID or PASID
   *   CPA_CY_KPT_FAILED   Operation failed due to unspecified reason
   *
