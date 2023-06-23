@@ -95,14 +95,7 @@
     (void)LAC_OSAL_LOG(level,                                                  \
                        OSAL_LOG_DEV_STDERR,                                    \
                        "%s() - : " log "\n",                                   \
-                       (LAC_ARCH_UINT) __func__,                               \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0)
+                       (LAC_ARCH_UINT) __func__)
 /**< @ingroup LacLog
  * Internal macro that accepts no parameters in the string to be logged */
 
@@ -111,13 +104,7 @@
                        OSAL_LOG_DEV_STDERR,                                    \
                        "%s() - : " log "\n",                                   \
                        (LAC_ARCH_UINT) __func__,                               \
-                       (int)param1,                                            \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0)
+                       (int)param1)
 /**< @ingroup LacLog
  * Internal macro that accepts 1 parameter in the string to be logged */
 
@@ -127,12 +114,7 @@
                        "%s() - : " log "\n",                                   \
                        (LAC_ARCH_UINT) __func__,                               \
                        (int)param1,                                            \
-                       (int)param2,                                            \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0)
+                       (int)param2)
 /**< @ingroup LacLog
  * Internal macro that accepts 2 parameters in the string to be logged */
 
@@ -143,11 +125,7 @@
                        (LAC_ARCH_UINT) __func__,                               \
                        (int)param1,                                            \
                        (int)param2,                                            \
-                       (int)param3,                                            \
-                       0,                                                      \
-                       0,                                                      \
-                       0,                                                      \
-                       0)
+                       (int)param3)
 /**< @ingroup LacLog
  * Internal macro that accepts 3 parameters in the string to be logged */
 
@@ -159,10 +137,7 @@
                        (int)param1,                                            \
                        (int)param2,                                            \
                        (int)param3,                                            \
-                       (int)param4,                                            \
-                       0,                                                      \
-                       0,                                                      \
-                       0)
+                       (int)param4)
 /**< @ingroup LacLog
  * Internal macro that accepts 4 parameters in the string to be logged */
 
@@ -175,9 +150,7 @@
                        (int)param2,                                            \
                        (int)param3,                                            \
                        (int)param4,                                            \
-                       (int)param5,                                            \
-                       0,                                                      \
-                       0)
+                       (int)param5)
 /**< @ingroup LacLog
  * Internal macro that accepts 5 parameters in the string to be logged */
 
@@ -192,8 +165,7 @@
                        (int)param3,                                            \
                        (int)param4,                                            \
                        (int)param5,                                            \
-                       (int)param6,                                            \
-                       0)
+                       (int)param6)
 /**< @ingroup LacLog
  * Internal macro that accepts 6 parameters in the string to be logged */
 
@@ -218,11 +190,7 @@
                               OSAL_LOG_DEV_STDERR,                             \
                               "%s() - : " log "\n",                            \
                               (char *)__func__,                                \
-                              (char *)param1,                                  \
-                              0,                                               \
-                              0,                                               \
-                              0,                                               \
-                              0)
+                              (char *)param1)
 
 /**< @ingroup LacLog
  * Internal macro that accepts 1 parameter in the string to be logged */
