@@ -1,6 +1,5 @@
-# Intel&reg; QATlib Security Policy
+# Security Policy
+Intel&reg; is committed to rapidly addressing security vulnerabilities affecting our customers and providing clear guidance on the solution, impact, severity and mitigation. 
 
-## Reporting a Security Vulnerability
-
-Visit https://intel.com/security for information on how to report a security vulnerability and the Intel Bug Bounty Program.
-Please do not report any security vulnerability as a regular issue in this github repository.
+## Reporting a Vulnerability
+Please report any security vulnerabilities in this project utilizing the guidelines [here](https://www.intel.com/content/www/us/en/security-center/vulnerability-handling-guidelines.html).
