@@ -26,7 +26,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
-| August 2023 | 010 | 23.08 | <br> - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. |
+| August 2023 | 010 | 23.08 | - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | February 2023 | 009 | 23.02 | - Added configuration option --enable-legacy-algorithms to use these insecure crypto algorithms and disabled them by default (AES-ECB, SHA-1, SHA2-224, SHA3-224, RSA512/1024/1536, DSA)<br>- Refactored code in quickassist/utilities/libusdm_drv<br>- Bugfixes<br>- Updated documentation with configuration and tuning information |
 | November 2022 | 008 | 22.07.2 | - Changed from yasm to nasm for assembly compilation<br> - Added configuration option to use C implementation of soft CRC implementation instead of asm<br>- Added support for pkg-config<br>- Added missing lock around accesses to some global data in qatmgr |
 | October 2022 | 007 | 22.07.1 | - Fix for QATE-86605 |
@@ -250,9 +250,32 @@ in this section.
 
 | Issue ID | Description |
 |-------------|------------|
+| QATE-90845 | [GEN - QAT service fails to start, issue #38](#qate-90845) |
+| QATE-93278 | [GEN - sample_code potential seg-fault, issue #46](#qate-93278) |
 | QATE-76846 | [GEN - Forking and re-initializing use-cases do not work](#qate-76846) |
 | QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
 | QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
+
+
+## QATE-90845
+| Title      |         GEN - QAT service fails to start, issue #38 |
+|----------|:-------------
+| Reference # | QATE-90845 |
+| Description | QAT service fails to start. The qat service may fail if the kernel driver's initialization is not fully finished when the service starts. See [issue 38](https://github.com/intel/qatlib/issues/38). |
+| Implication | The qatmgr may not detect any or all of the vfio devices. |
+| Resolution | Fixed in 23.08. The service waits until the kernel driver has completed initialization of all PFs before starting the service. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
+## QATE-93278
+| Title      |         GEN - sample_code potential seg-fault, issue #46     |
+|----------|:-------------
+| Reference # | QATE-93278 |
+| Description | cpa_dc_stateless_multi_op_checksum_sample.c missed checking the return value of a memory allocation. See [issue 46](https://github.com/intel/qatlib/issues/46). |
+| Implication | In a low memory system, if the memory allocation fails, the process could crash. |
+| Resolution | Fixed in qatlib 23.08. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
 
 ## QATE-76846
 | Title      |         GEN - Forking and re-initializing use-cases do not work     |
