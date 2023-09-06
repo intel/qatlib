@@ -138,7 +138,10 @@ OSAL_PUBLIC OSAL_STATUS osalMutexLock(OsalMutex *mutex, INT32 timeout)
         OSAL_MS_TO_TIMEVAL(timeout, &timeoutVal);
 
         /* Get the current timestamp */
-        osalTimeGet(&currTime);
+        if (OSAL_SUCCESS != osalTimeGet(&currTime))
+        {
+            return OSAL_FAIL;
+        }
 
         /* Add this to the timeout so that it gives absolute
          * timeout value... */

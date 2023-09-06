@@ -511,15 +511,9 @@ STATIC void dcCompHwBlockPopulateGen4(
                     ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_ABSENT;
             }
         }
-        else if (CPA_DC_LZ4S == pSessionDesc->compType)
-        {
-            hw_decomp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
-            hw_decomp_lower_csr.mmctrl = pSessionDesc->minMatch;
-        }
         else
         {
-            LAC_ENSURE(CPA_FALSE,
-                       "Algorithm not supported for Decompression\n");
+            LAC_ENSURE(CPA_FALSE, "Algo not supported for Decompression\n");
         }
 
         pCompConfig->upper_val = 0;
@@ -848,12 +842,8 @@ STATIC CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
             case CPA_DC_LZ4:
                 *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4_DECOMPRESS;
                 break;
-            case CPA_DC_LZ4S:
-                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4S_DECOMPRESS;
-                break;
             default:
-                LAC_ENSURE(CPA_FALSE,
-                           "Algorithm not supported for decompression\n");
+                LAC_ENSURE(CPA_FALSE, "Algo not supported for decompression\n");
                 status = CPA_STATUS_UNSUPPORTED;
                 break;
         }
@@ -1650,7 +1640,7 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateless pending requests */
         if (0 != pSessionDesc->pendingDpStatelessCbCount)
         {
-            LAC_LOG_ERROR1("There are %d stateless DP requests pending",
+            LAC_LOG_ERROR1("There are %lld stateless DP requests pending",
                            pSessionDesc->pendingDpStatelessCbCount);
             return CPA_STATUS_RETRY;
         }
@@ -1664,14 +1654,14 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateless pending requests */
         if (0 != numPendingStateless)
         {
-            LAC_LOG_ERROR1("There are %d stateless requests pending",
+            LAC_LOG_ERROR1("There are %lld stateless requests pending",
                            numPendingStateless);
             return CPA_STATUS_RETRY;
         }
         /* Check if there are stateful pending requests */
         if (0 != numPendingStateful)
         {
-            LAC_LOG_ERROR1("There are %d stateful requests pending",
+            LAC_LOG_ERROR1("There are %lld stateful requests pending",
                            numPendingStateful);
             return CPA_STATUS_RETRY;
         }
@@ -1773,7 +1763,7 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateless pending requests */
         if (0 != pSessionDesc->pendingDpStatelessCbCount)
         {
-            LAC_LOG_ERROR1("There are %d stateless DP requests pending",
+            LAC_LOG_ERROR1("There are %lld stateless DP requests pending",
                            pSessionDesc->pendingDpStatelessCbCount);
             return CPA_STATUS_RETRY;
         }
@@ -1788,7 +1778,7 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateless pending requests */
         if (0 != numPendingStateless)
         {
-            LAC_LOG_ERROR1("There are %d stateless requests pending",
+            LAC_LOG_ERROR1("There are %lld stateless requests pending",
                            numPendingStateless);
             status = CPA_STATUS_RETRY;
         }
@@ -1796,7 +1786,7 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateful pending requests */
         if (0 != numPendingStateful)
         {
-            LAC_LOG_ERROR1("There are %d stateful requests pending",
+            LAC_LOG_ERROR1("There are %lld stateful requests pending",
                            numPendingStateful);
             status = CPA_STATUS_RETRY;
         }

@@ -844,7 +844,7 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
         {
             osalLog(OSAL_LOG_LVL_ERROR,
                     OSAL_LOG_DEV_STDOUT,
-                    "Bad virtual address alignment %p %x %x\n",
+                    "Bad virtual address alignment %p %x %lu\n",
                     pMemInfo->virt_addr,
                     NUM_PAGES_PER_ALLOC,
                     PAGE_SIZE);
@@ -890,7 +890,7 @@ OSAL_PUBLIC void *osalMemAllocPage(UINT32 node, UINT64 *physAddr)
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "Memory file handle is not ready\n",
+                "Memory file handle %d is not ready\n",
                 fd);
         return NULL;
     }
@@ -900,8 +900,7 @@ OSAL_PUBLIC void *osalMemAllocPage(UINT32 node, UINT64 *physAddr)
     {
         osalLog(OSAL_LOG_LVL_ERROR,
                 OSAL_LOG_DEV_STDOUT,
-                "unable to allocate pMemInfo buffer\n",
-                fd);
+                "unable to allocate pMemInfo buffer\n");
 
         return NULL;
     }

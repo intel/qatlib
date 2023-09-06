@@ -231,6 +231,11 @@ volatile CpaBoolean dataIntegrity_g = CPA_FALSE;
 volatile CpaBoolean dataIntegrityVerify_g = CPA_FALSE;
 volatile CpaBoolean hwVerify_g = CPA_FALSE;
 volatile CpaBoolean keyCorrupt_g = CPA_FALSE;
+volatile CpaBoolean enableReadInstance_g = CPA_FALSE;
+
+/* DC chaining specific variable to enable S/W write chaining operation */
+volatile CpaBoolean swWrite_g = CPA_FALSE;
+
 int verboseOutput = 1;
 
 CpaStatus setDataIntegrity(CpaBoolean val)
@@ -302,6 +307,19 @@ CpaStatus setHwVerify(CpaBoolean val)
     }
     return CPA_STATUS_SUCCESS;
 }
+
+CpaStatus setSwWrite(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        swWrite_g = CPA_TRUE;
+    }
+    else
+    {
+        swWrite_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
 CpaStatus setKeyCorrupt(CpaBoolean val)
 {
     if (val != 0)
@@ -314,15 +332,31 @@ CpaStatus setKeyCorrupt(CpaBoolean val)
     }
     return CPA_STATUS_SUCCESS;
 }
+CpaStatus enableReadInstance(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        enableReadInstance_g = CPA_TRUE;
+    }
+    else
+    {
+        enableReadInstance_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
 
 EXPORT_SYMBOL(reliability_g);
 EXPORT_SYMBOL(setReliability);
 EXPORT_SYMBOL(setUseStaticPrime);
 EXPORT_SYMBOL(printReliability);
 EXPORT_SYMBOL(hwVerify_g);
+EXPORT_SYMBOL(swWrite_g);
 EXPORT_SYMBOL(setHwVerify);
+EXPORT_SYMBOL(setSwWrite);
 EXPORT_SYMBOL(setKeyCorrupt);
 EXPORT_SYMBOL(keyCorrupt_g);
+EXPORT_SYMBOL(enableReadInstance);
+EXPORT_SYMBOL(enableReadInstance_g);
 
 /*Global flag to enable sleep function that is used to slow down pulling for
  *request on thread RETRY e.g. concurrent performance measurements*/
@@ -425,10 +459,6 @@ CpaStatus printFineTune(void)
 
 CpaStatus enableCycleCount(void)
 {
-    /* fail if already enabled */
-    if (CPA_CC_DISABLE != iaCycleCount_g)
-        return CPA_STATUS_FAIL;
-
     iaCycleCount_g = CPA_CC_REQ_POLL_STAMP;
     return CPA_STATUS_SUCCESS;
 }
@@ -454,10 +484,10 @@ int getVerboseOutput(void)
 
 /*this function disables extra output from sample code such as: per thread and
  * per device performance.*/
-void setVerboseOutput(int a)
+CpaStatus setVerboseOutput(int a)
 {
     verboseOutput = a;
-    return;
+    return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(iaCycleCount_g);
 EXPORT_SYMBOL(getVerboseOutput);
@@ -787,6 +817,7 @@ CpaStatus waitForThreadCompletion(void)
             else
             {
                 PRINT_ERR("Unable to print stats for thread variation %d\n", i);
+                status = CPA_STATUS_FAIL;
             }
             if (NULL != perfStats_g[i])
             {
@@ -902,6 +933,8 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
 
     Cpa32U qaLogicalInstance = startingQaLogicalInstanceOffset;
     Cpa32U totalNumberOfThreads = 0;
+    Cpa32U numOfInsToUse = 1;
+
     /*this is the total number of threads to create of the current setup and
      * depends on either how many cores are on the SUT or how many the user
      * wants to use*/
@@ -909,6 +942,9 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
     performance_func_t functionPtr = NULL;
     Cpa32U nProcessorsOnline = 0;
     sample_code_thread_attr_t *threadAttr = NULL;
+
+    if (enableReadInstance_g)
+        numOfInsToUse = 2;
 
     /*1st we check that we still have room to store details of the threads to
      * be created*/
@@ -938,7 +974,7 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
     /*calculate the number of threads to be setup*/
     if (numLogicalIaCoresToUse != USE_ALL_CORES)
     {
-        totalNumberOfThreads = numLogicalIaCoresToUse;
+        totalNumberOfThreads = numLogicalIaCoresToUse / numOfInsToUse;
     }
     else
     {
@@ -1021,6 +1057,11 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
                 testSetupData_g[testTypeCount_g].packetSize;
             singleThreadData_g[numCreatedThreads_g].logicalQaInstance =
                 qaLogicalInstance;
+            if (enableReadInstance_g)
+            {
+                singleThreadData_g[numCreatedThreads_g].logicalQaReadInstance =
+                    qaLogicalInstance + 1;
+            }
             singleThreadData_g[numCreatedThreads_g].threadID =
                 numCreatedThreads_g;
             singleThreadData_g[numCreatedThreads_g].passCriteria = NULL;
@@ -1082,7 +1123,7 @@ CpaStatus createPerfomanceThreads(Cpa32U numLogicalIaCoresToUse,
                 return CPA_STATUS_FAIL;
             }
         }
-        qaLogicalInstance++;
+        qaLogicalInstance = qaLogicalInstance + numOfInsToUse;
         /*wrap around qaLogicalInstance if we have used all that was intended
          * to use
          * WARNING this framework is not aware of the number of QA instances
@@ -1831,7 +1872,7 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
             if (isSymAsymConf == CPA_TRUE)
             {
                 if (CPA_STATUS_SUCCESS !=
-                    getAsymInstanceMapping(&nSymInstances))
+                    getAsymInstanceMapping(&nAsymInstances))
                 {
                     PRINT_ERR("Could not get Crypto Instance mapping\n");
                     return CPA_STATUS_FAIL;

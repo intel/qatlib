@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 
-%global libqat_soversion  3
+%global libqat_soversion  4
 %global libusdm_soversion 0
 Name:             @PACKAGE@
 Version:          @VERSION@
@@ -103,6 +103,7 @@ exit 0
 %attr(0754,-,qat) %{_bindir}/cpa_sample_code
 %attr(0754,-,qat) %{_bindir}/dc_dp_sample
 %attr(0754,-,qat) %{_bindir}/dc_stateless_sample
+%attr(0754,-,qat) %{_bindir}/chaining_sample
 %attr(0754,-,qat) %{_bindir}/dc_stateless_multi_op_sample
 %attr(0754,-,qat) %{_bindir}/algchaining_sample
 %attr(0754,-,qat) %{_bindir}/ccm_sample
@@ -130,6 +131,10 @@ exit 0
 %{_mandir}/man8/qat_init.sh.8*
 
 %changelog
+* Fri Aug 18 2023 Michal Ferenc <michal1x.ferenc@intel.com> - 23.08.0-1
+- Add the chaining_sample to tests package.
+- Update to qatlib 23.08.0
+
 * Mon Jan 23 2023 Fiona Trahe <fiona.trahe@intel.com> - 23.02.0-1
 - Update to qatlib 23.02.0
 

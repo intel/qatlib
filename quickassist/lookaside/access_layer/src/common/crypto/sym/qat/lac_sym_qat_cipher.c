@@ -290,8 +290,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_NULL,
         ICP_QAT_HW_CIPHER_ECB_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -299,9 +299,9 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_ARC4,
         ICP_QAT_HW_CIPHER_ECB_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -313,8 +313,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
          * at session registration, it is instead reversed on-the-fly by
          * setting the KEY_CONVERT bit here
          */
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_YES,
         key_size_aes,
     },
@@ -326,8 +326,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
          * at session registration, it is instead reversed on-the-fly by
          * setting the KEY_CONVERT bit here
          */
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_YES,
         key_size_aes,
     },
@@ -339,11 +339,11 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
          * at session registration, it is instead reversed on-the-fly by
          * setting the KEY_CONVERT bit here
          */
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt
          * Overriding default values previously set for AES
          */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_YES,
         key_size_aes,
     },
@@ -355,11 +355,11 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
          * at session registration, it is instead reversed on-the-fly by
          * setting the KEY_CONVERT bit here
          */
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt
          * Overriding default values previously set for AES
          */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_YES,
         key_size_aes,
     },
@@ -371,11 +371,11 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
          * at session registration, it is instead reversed on-the-fly by
          * setting the KEY_CONVERT bit here
          */
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt
          * Overriding default values previously set for AES
          */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_YES,
         key_size_aes,
     },
@@ -383,8 +383,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_DES,
         ICP_QAT_HW_CIPHER_ECB_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -392,8 +392,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_DES,
         ICP_QAT_HW_CIPHER_CBC_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -401,8 +401,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_3DES,
         ICP_QAT_HW_CIPHER_ECB_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -410,8 +410,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_3DES,
         ICP_QAT_HW_CIPHER_CBC_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -419,11 +419,11 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_3DES,
         ICP_QAT_HW_CIPHER_CTR_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt
          * Overriding default values previously set for AES
          */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -431,9 +431,9 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_KASUMI,
         ICP_QAT_HW_CIPHER_F8_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -442,8 +442,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         /* The KEY_CONVERT bit has to be set for Snow_3G operation */
         ICP_QAT_HW_CIPHER_ALGO_SNOW_3G_UEA2,
         ICP_QAT_HW_CIPHER_ECB_MODE,
-        {ICP_QAT_HW_CIPHER_KEY_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_KEY_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -451,9 +451,9 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_AES128,
         ICP_QAT_HW_CIPHER_F8_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         /* Streaming ciphers are a special case. Decrypt = encrypt */
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT},
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
         IS_KEY_DEP_YES,
         key_size_f8,
     },
@@ -465,8 +465,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
          * at session registration, it is instead reversed on-the-fly by
          * setting the KEY_CONVERT bit here
          */
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_YES,
         key_size_xts,
     },
@@ -474,8 +474,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3,
         ICP_QAT_HW_CIPHER_ECB_MODE,
-        {ICP_QAT_HW_CIPHER_KEY_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_KEY_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
@@ -483,17 +483,17 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_CHACHA20_POLY1305,
         ICP_QAT_HW_CIPHER_CTR_MODE,
-        {ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT},
-        {ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT},
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_NO,
         NULL,
     },
     /* RESERVED#1 in order to align with unsupported Algo in API repo */
-    {0},
+    { 0 },
     /* RESERVED#2 in order to align with unsupported Algo in API repo */
-    {0},
+    { 0 },
     /* RESERVED#3 in order to align with unsupported Algo in API repo */
-    {0},
+    { 0 },
 };
 
 /*****************************************************************************

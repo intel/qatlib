@@ -86,6 +86,29 @@
 #define DC_NUM_RX_RINGS (1)
 #define DC_NUM_COMPRESSION_LEVELS (CPA_DC_L12)
 
+/* Type to access extended features bit fields */
+typedef struct dc_extended_features_s
+{
+    unsigned is_cnv : 1; /* Bit<0> */
+    unsigned padding : 7;
+    unsigned is_cnvnr : 1; /* Bit<8> */
+    unsigned padding1 : 7;
+    unsigned is_chain_compress_then_hash : 1;                  /* Bit<16> */
+    unsigned is_chain_compress_then_encrypt : 1;               /* Bit<17> */
+    unsigned is_chain_compress_then_hash_encrypt : 1;          /* Bit<18> */
+    unsigned is_chain_compress_then_encrypt_hash : 1;          /* Bit<19> */
+    unsigned is_chain_compress_then_aead : 1;                  /* Bit<20> */
+    unsigned is_chain_hash_then_compress : 1;                  /* Bit<21> */
+    unsigned is_chain_hash_verify_then_decompress : 1;         /* Bit<22> */
+    unsigned is_chain_decrypt_then_decompress : 1;             /* Bit<23> */
+    unsigned is_chain_hash_verify_decrypt_then_decompress : 1; /* Bit<24> */
+    unsigned is_chain_decrypt_hash_verify_then_decompress : 1; /* Bit<25> */
+    unsigned is_chain_aead_then_decompress : 1;                /* Bit<26> */
+    unsigned is_chain_decompress_then_hash_verify : 1;         /* Bit<27> */
+    unsigned is_chain_compress_then_aead_then_hash : 1;        /* Bit<28> */
+    unsigned reserved : 3;
+} dc_extd_ftrs_t;
+
 /**
  *****************************************************************************
  * @ingroup SalCtrl

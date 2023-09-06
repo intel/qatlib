@@ -269,6 +269,7 @@ CpaStatus LacAlgChain_SessionUpdate(
 *                          parameters. The client code allocates the memory for
 *                          this structure. This component takes ownership of
 *                          the memory until it is returned in the callback.
+* @param[in] pCookie       Pointer to the cookie for this crypto bulk request
 *
 * @param[in] pSrcBuffer        Source Buffer List
 * @param[out] pDstBuffer       Destination Buffer List
@@ -286,6 +287,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                               lac_session_desc_t *pSessionDesc,
                               void *pCallbackTag,
                               const CpaCySymOpData *pOpData,
+                              lac_sym_bulk_cookie_t *pCookie,
                               const CpaBufferList *pSrcBuffer,
                               CpaBufferList *pDstBuffer,
                               CpaBoolean *pVerifyResult);

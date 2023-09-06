@@ -63,7 +63,7 @@
 #define QATMGR_MSGTYPE_NUM_DEVICES 3
 #define QATMGR_MSGTYPE_DEVICE_INFO 4
 #define QATMGR_MSGTYPE_DEVICE_ID 5
-#define QATMGR_MSGTYPE_SECTION_INFO 6
+#define QATMGR_MSGTYPE_RESERVED 6
 #define QATMGR_MSGTYPE_INSTANCE_INFO 7
 #define QATMGR_MSGTYPE_INSTANCE_NAME 8
 #define QATMGR_MSGTYPE_VFIO_FILE 9
@@ -74,6 +74,8 @@
 #define DEVICE_NAME_SIZE 64
 #define MAX_INSTANCES 16
 #define MAX_SERVICES 4
+#define RPS_PER_4XXX_VF 4
+#define INSTANCES_PER_DEVICE RPS_PER_4XXX_VF
 #define BIT(n) (1 << n)
 #ifndef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -86,7 +88,9 @@ enum serv_type
     SERV_TYPE_DC = BIT(0),
     SERV_TYPE_SYM = BIT(1),
     SERV_TYPE_ASYM = BIT(2),
-    SERV_TYPE_CY = (BIT(1) + BIT(2)),
+    SERV_TYPE_CY = (SERV_TYPE_SYM + SERV_TYPE_ASYM),
+    SERV_TYPE_SYM_DC = (SERV_TYPE_SYM + SERV_TYPE_DC),
+    SERV_TYPE_ASYM_DC = (SERV_TYPE_ASYM + SERV_TYPE_DC),
 };
 
 struct qatmgr_msg_hdr
@@ -103,7 +107,6 @@ struct qatmgr_msg_req
     union {
         /* QATMGR_MSGTYPE_SECTION_PUT */
         /* QATMGR_MSGTYPE_NUM_DEVICES */
-        /* QATMGR_MSTYPEQ_SECTION_INFO */
         /* No data */
 
         /* QATMGR_MSYPE_SECTION_GET */
@@ -175,18 +178,13 @@ struct qatmgr_msg_rsp
             uint16_t services;
             uint16_t pkg_id;
             uint16_t node_id;
+            uint16_t num_cy_instances;
+            uint16_t num_dc_instances;
             char device_name[DEVICE_NAME_SIZE];
         } device_info;
 
         /* QATMGR_MSGTYPE_DEVICE_ID */
         char device_id[QATMGR_MAX_STRLEN];
-
-        /* QATMGR_MSGTYPE_SECTION_INFO */
-        struct
-        {
-            uint16_t num_cy_instances;
-            uint16_t num_dc_instances;
-        } section_info;
 
         /* QATMGR_MSGTYPE_INSTANCE_INFO */
         struct
@@ -196,6 +194,8 @@ struct qatmgr_msg_rsp
                 {
                     struct ring_info sym;
                     struct ring_info asym;
+                    /* for CYxIsPolled */
+                    int is_polled;
                 } cy;
                 struct ring_info dc;
             };
@@ -209,13 +209,7 @@ struct qatmgr_section_data
     char base_name[QATMGR_MAX_STRLEN];
     pthread_t assigned_tid;
     int num_devices;
-    int num_cy_inst;
-    int num_sym_inst;
-    int num_asym_inst;
-    int num_dc_inst;
     struct qatmgr_device_data *device_data;
-    struct qatmgr_instance_data *dc_instance_data;
-    struct qatmgr_cy_instance_data *cy_instance_data;
 };
 
 struct qatmgr_device_data
@@ -234,6 +228,13 @@ struct qatmgr_device_data
     int device_type;
     uint16_t pci_id;
     uint16_t services;
+    /* This includes all cy insts whether asym-only, sym-only ro sym+asym */
+    int num_cy_inst;
+    int num_sym_inst;
+    int num_asym_inst;
+    int num_dc_inst;
+    struct qatmgr_instance_data *dc_instance_data;
+    struct qatmgr_cy_instance_data *cy_instance_data;
 };
 
 struct qatmgr_instance_data

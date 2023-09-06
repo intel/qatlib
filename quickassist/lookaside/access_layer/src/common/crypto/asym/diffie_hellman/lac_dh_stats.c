@@ -88,6 +88,7 @@
 */
 
 /* Number of Diffie Helman statistics */
+#ifdef QAT_LEGACY_ALGORITHMS
 #define LAC_DH_NUM_STATS (sizeof(CpaCyDhStats64) / sizeof(Cpa64U))
 
 /*
@@ -262,3 +263,44 @@ void LacDh_StatsShow(CpaInstanceHandle instanceHandle)
             dhStats.numDhPhase2KeyGenCompleted,
             dhStats.numDhPhase2KeyGenCompletedErrors);
 }
+#else
+CpaStatus LacDh_StatsInit(CpaInstanceHandle instanceHandle)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+void LacDh_StatsFree(CpaInstanceHandle instanceHandle)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+}
+
+void LacDh_StatsReset(CpaInstanceHandle instanceHandle)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+}
+
+CpaStatus cpaCyDhQueryStats(CpaInstanceHandle instanceHandle_in,
+                            CpaCyDhStats *pDhStats)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaCyDhQueryStats64(const CpaInstanceHandle instanceHandle_in,
+                              CpaCyDhStats64 *pDhStats)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+void LacDh_StatsInc(Cpa32U offset, CpaInstanceHandle instanceHandle)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+}
+
+void LacDh_StatsShow(CpaInstanceHandle instanceHandle)
+{
+    LAC_LOG_DEBUG("DH algorithm is not supported\n");
+}
+#endif

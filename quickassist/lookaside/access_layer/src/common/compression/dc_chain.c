@@ -78,7 +78,6 @@
  */
 #ifndef ICP_DC_ONLY
 #include "cpa.h"
-#include "cpa_dc.h"
 
 #include "icp_qat_fw.h"
 #include "icp_qat_fw_comp.h"
@@ -89,12 +88,10 @@
  * Include private header files
  *******************************************************************************
  */
-#include "dc_session.h"
 #include "dc_chain.h"
 #include "dc_datapath.h"
 #include "dc_stats.h"
 #include "lac_mem_pools.h"
-#include "sal_types_compression.h"
 #include "lac_buffer_desc.h"
 #include "sal_service_state.h"
 #include "sal_qat_cmn_msg.h"
@@ -107,53 +104,40 @@
 #include "lac_sym_alg_chain.h"
 #include "lac_sym_auth_enc.h"
 
+
 static const dc_chain_cmd_tbl_t dc_chain_cmd_table[] = {
-    /* link0: additional=1(cipher)|dir=2(decrypt)|type=1(crypto)
-     * link1: additional=0(rsvd)|dir=1(decomp)|type=0(comp)
-     */
-    {0x121, 0x10, 0x0, ICP_QAT_FW_CHAINING_CMD_DECRYPT_DECOMPRESS},
-    /* link0: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
-     * link1: additional=0(rsvd)|dir=1(decomp)|type=0(comp)
-     */
-    {0x201, 0x010, 0x0, ICP_QAT_FW_CHAINING_CMD_HASH_DECOMPRESS},
     /* link0: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
      * link1: additional=0(static)|dir=0(compression)|type=0(comp)
      */
-    {0x201, 0x0, 0x0, ICP_QAT_FW_CHAINING_CMD_HASH_STATIC_COMP},
+    { 0x201,
+      0x0,
+      0x0,
+      ICP_QAT_FW_CHAINING_CMD_HASH_STATIC_COMP,
+      ICP_QAT_FW_CHAINING_20_CMD_HASH_COMPRESS },
     /* link0: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
      * link1: additional=2(dynamic )|dir=0(compression)|type=0(comp)
      */
-    {0x201, 0x200, 0x0, ICP_QAT_FW_CHAINING_CMD_HASH_DYNAMIC_COMP},
-    /* link0: additional=0(rsvd)|dir=1(decomp)|type=0(comp)
-     * link1: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
-     */
-    {0x010, 0x201, 0x0, ICP_QAT_FW_CHAINING_CMD_DECOMPRESS_HASH},
-    /* link0: additional=0(static)|dir=0(compression)|type=0(comp)
-     * link1: additional=1(cipher)|dir=1(encrypt)|type=1(crypto)
-     */
-    {0x0, 0x111, 0x0, ICP_QAT_FW_CHAINING_CMD_STATIC_COMP_ENCRYPT},
-    /* link0: additional=0(static)|dir=0(compression)|type=0(comp)
-     * link1: additional=1(cipher)|dir=1(encrypt)|type=1(crypto)
-     * link2: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
-     */
-    {0x0, 0x111, 0x201, ICP_QAT_FW_CHAINING_CMD_STATIC_COMP_ENCRYPT_HASH},
-    /* link0: additional=0(static)|dir=0(compression)|type=0(comp)
-     * link1: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
-     */
-    {0x0, 0x201, 0x0, ICP_QAT_FW_CHAINING_CMD_STATIC_COMP_HASH},
+    { 0x201,
+      0x200,
+      0x0,
+      ICP_QAT_FW_CHAINING_CMD_HASH_DYNAMIC_COMP,
+      ICP_QAT_FW_CHAINING_20_CMD_HASH_COMPRESS },
     /* link0: additional=2(dynamic)|dir=0(compression)|type=0(comp)
-     * link1: additional=1(cipher)|dir=1(encrypt)|type=1(crypto)
+     * link1: additional=3(algChain)|dir=1(encrypt)|type=1(crypto)
      */
-    {0x200, 0x111, 0x0, ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_ENCRYT},
-    /* link0: additional=2(dynamic)|dir=0(compression)|type=0(comp)
-     * link1: additional=1(cipher )|dir=1(encrypt)|type=1(crypto)
-     * link2: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
+    { 0x200,
+      0x311,
+      0x0,
+      ICP_QAT_FW_NO_CHAINING,
+      ICP_QAT_FW_CHAINING_20_CMD_COMPRESS_ENCRYPT },
+    /* link0: additional=3(algChain)|dir=2(decrypt)|type=1(crypto)
+     * link1: additional=0(rsvd)|dir=1(decomp)|type=0(comp)
      */
-    {0x200, 0x111, 0x201, ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_ENCRYPT_HASH},
-    /* link0: additional=2(dynamic)|dir=0(compression)|type=0(comp)
-     * link1: additional=2(hash)|dir=0(rsvd)|type=1(crypto)
-     */
-    {0x200, 0x201, 0x0, ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_HASH},
+    { 0x321,
+      0x10,
+      0x0,
+      ICP_QAT_FW_NO_CHAINING,
+      ICP_QAT_FW_CHAINING_20_CMD_DECRYPT_DECOMPRESS },
 };
 
 #ifdef ICP_PARAM_CHECK
@@ -203,7 +187,7 @@ dcChainSession_CheckSessionType(const CpaDcChainSessionSetupData *pSessionData,
  * @description
  *      Check that all the parameters defined in the pSessionData are valid
  *
- * @param[in]       operation        Chaining operation 
+ * @param[in]       operation        Chaining operation
  * @param[in]       numSessions      Number of chaining sessions
  * @param[in]       pSessionData     Pointer to an array of
  *                                   CpaDcChainSessionSetupData
@@ -211,6 +195,7 @@ dcChainSession_CheckSessionType(const CpaDcChainSessionSetupData *pSessionData,
  *                                   entries in the array.
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported operation passed in
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
  *
  *****************************************************************************/
@@ -220,7 +205,7 @@ dcChainSession_CheckSessionData(CpaDcChainOperations operation,
                                 const CpaDcChainSessionSetupData *pSessionData)
 {
     Cpa32U i;
-    CpaCySymHashSetupData hashSetupData;
+    CpaCySymHashSetupData const *pHashSetupData;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
     LAC_CHECK_STATEMENT_LOG(numSessions != NUM_OF_SESSION_SUPPORT,
@@ -242,8 +227,22 @@ dcChainSession_CheckSessionData(CpaDcChainOperations operation,
                 "%s",
                 "Wrong session operation for chaining");
             break;
+        case CPA_DC_CHAIN_COMPRESS_THEN_HASH:
+        case CPA_DC_CHAIN_COMPRESS_THEN_ENCRYPT:
+        case CPA_DC_CHAIN_COMPRESS_THEN_HASH_ENCRYPT:
+        case CPA_DC_CHAIN_COMPRESS_THEN_ENCRYPT_HASH:
+        case CPA_DC_CHAIN_COMPRESS_THEN_AEAD:
+        case CPA_DC_CHAIN_HASH_VERIFY_THEN_DECOMPRESS:
+        case CPA_DC_CHAIN_DECRYPT_THEN_DECOMPRESS:
+        case CPA_DC_CHAIN_HASH_VERIFY_DECRYPT_THEN_DECOMPRESS:
+        case CPA_DC_CHAIN_DECRYPT_HASH_VERIFY_THEN_DECOMPRESS:
+        case CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS:
+        case CPA_DC_CHAIN_DECOMPRESS_THEN_HASH_VERIFY:
+        case CPA_DC_CHAIN_COMPRESS_THEN_AEAD_THEN_HASH:
+            LAC_LOG_ERROR1("Chaining operation 0x%x not supported", operation);
+            return CPA_STATUS_UNSUPPORTED;
         default:
-            LAC_INVALID_PARAM_LOG1("Unsupported operation %x\n", operation);
+            LAC_INVALID_PARAM_LOG1("Invalid operation 0x%x\n", operation);
             return CPA_STATUS_INVALID_PARAM;
     }
 
@@ -266,21 +265,20 @@ dcChainSession_CheckSessionData(CpaDcChainOperations operation,
                 pSessionData[i].pCySetupData->digestIsAppended == CPA_TRUE,
                 "%s",
                 "Chaining does not support appended digest in hash operation");
-            hashSetupData = pSessionData[i].pCySetupData->hashSetupData;
-            LAC_CHECK_STATEMENT_LOG(hashSetupData.hashMode ==
+            pHashSetupData = &(pSessionData[i].pCySetupData->hashSetupData);
+            LAC_CHECK_STATEMENT_LOG(pHashSetupData->hashMode ==
                                         CPA_CY_SYM_HASH_MODE_NESTED,
                                     "%s",
                                     "Chaining does not support nested hash");
             switch (pSessionData[i].pCySetupData->symOperation)
             {
                 case CPA_CY_SYM_OP_HASH:
-                    hashSetupData = pSessionData[i].pCySetupData->hashSetupData;
                     /* Support SHA1, SHA224 and SHA256 */
                     LAC_CHECK_STATEMENT_LOG(
-                        hashSetupData.hashAlgorithm != CPA_CY_SYM_HASH_SHA1 &&
-                            hashSetupData.hashAlgorithm !=
+                        pHashSetupData->hashAlgorithm != CPA_CY_SYM_HASH_SHA1 &&
+                            pHashSetupData->hashAlgorithm !=
                                 CPA_CY_SYM_HASH_SHA224 &&
-                            hashSetupData.hashAlgorithm !=
+                            pHashSetupData->hashAlgorithm !=
                                 CPA_CY_SYM_HASH_SHA256,
                         "%s",
                         "Only algorithms SHA1, SHA224, SHA256 are supported");
@@ -293,12 +291,172 @@ dcChainSession_CheckSessionData(CpaDcChainOperations operation,
     }
     return CPA_STATUS_SUCCESS;
 }
-#endif
 
-STATIC void dcChainSession_HashPrecomputeCb(void *callbackTag)
+/**
+ *****************************************************************************
+ * @ingroup Dc_Chaining
+ *      Initialization for chaining sessions
+ *
+ * @description
+ *      Check for supported Sym Crypto operations as part of DC Chain
+ *
+ * @param[in]    pCySessDesc         Session descriptor for Sym Crypto
+ *                                   operation.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid Sym Crypto parameter
+ *
+ *****************************************************************************/
+STATIC CpaStatus
+dcChainSession_CheckCySessDesc(const lac_session_desc_t *pCySessDesc)
 {
-    return;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    LAC_CHECK_NULL_PARAM(pCySessDesc);
+
+    /* Restrict DC Chain Sym Crypto operations to supported/validated
+     * combinations when used as part of a chain operation */
+    if (CPA_CY_SYM_OP_HASH != pCySessDesc->symOperation)
+    {
+        LAC_INVALID_PARAM_LOG("symOperation");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if ((CPA_CY_SYM_HASH_MODE_PLAIN != pCySessDesc->hashMode) &&
+             (CPA_CY_SYM_HASH_MODE_AUTH != pCySessDesc->hashMode))
+    {
+        LAC_INVALID_PARAM_LOG("hashMode");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (CPA_FALSE != pCySessDesc->isAuthEncryptOp)
+    {
+        LAC_INVALID_PARAM_LOG("isAuthEncryptOp");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (CPA_CY_SYM_HASH_SHA1 != pCySessDesc->hashAlgorithm &&
+             CPA_CY_SYM_HASH_SHA224 != pCySessDesc->hashAlgorithm &&
+             CPA_CY_SYM_HASH_SHA256 != pCySessDesc->hashAlgorithm)
+    {
+        LAC_INVALID_PARAM_LOG("hashAlgorithm");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (ICP_QAT_FW_LA_CMD_AUTH != pCySessDesc->laCmdId)
+    {
+        LAC_INVALID_PARAM_LOG("laCmdId");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (CPA_FALSE != pCySessDesc->isCipher)
+    {
+        LAC_INVALID_PARAM_LOG("isCipher");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (CPA_TRUE != pCySessDesc->isAuth)
+    {
+        LAC_INVALID_PARAM_LOG("isAuth");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    return status;
 }
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_Chaining
+ *      Initialization for chaining sessions
+ *
+ * @description
+ *      Check for supported Compression operations as part of DC Chain
+ *
+ * @param[in]    pDcSessDesc         Session descriptor for Compression
+ *                                   operation.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid Compression parameter
+ *
+ *****************************************************************************/
+STATIC CpaStatus
+dcChainSession_CheckDcSessDesc(const dc_session_desc_t *pDcSessDesc)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    LAC_CHECK_NULL_PARAM(pDcSessDesc);
+
+    /* Restrict DC Chain Compression operations to supported/validated
+     * combinations when used as part of a chain operation */
+    if (CPA_DC_STATELESS != pDcSessDesc->sessState)
+    {
+        LAC_INVALID_PARAM_LOG("sessState");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (CPA_DC_DIR_COMPRESS != pDcSessDesc->sessDirection)
+    {
+        LAC_INVALID_PARAM_LOG("sessDirection");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else if (CPA_DC_HT_PRECOMP == pDcSessDesc->huffType)
+    {
+        LAC_INVALID_PARAM_LOG("huffType");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    return status;
+}
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_Chaining
+ *      Initialization for chaining sessions
+ *
+ * @description
+ *      Check for supported Compression operations as part of DC Chain
+ *
+ * @param[in]    pDcSessDesc         Session descriptor for Compression
+ *                                   operation.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid Compression parameter
+ *
+ *****************************************************************************/
+STATIC CpaStatus
+dcChainSession_CheckChainSessDesc(const dc_chain_session_head_t *pChainSessDesc,
+                                  const CpaDcChainOperations operation,
+                                  const Cpa8U numSessions)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa8U *pTemp;
+
+    LAC_CHECK_NULL_PARAM(pChainSessDesc);
+
+    LAC_CHECK_STATEMENT_LOG(numSessions != NUM_OF_SESSION_SUPPORT,
+                            "%s",
+                            "Wrong number of sessions "
+                            "for a chaining operation");
+
+    /* Restrict DC Chain Compression operations to supported/validated
+     * combinations when used as part of a chain operation */
+    if (CPA_DC_CHAIN_HASH_THEN_COMPRESS != operation)
+    {
+        LAC_INVALID_PARAM_LOG("operation");
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+
+    pTemp = (Cpa8U *)pChainSessDesc + sizeof(dc_chain_session_head_t);
+    if (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_SYMMETRIC_CRYPTO)
+    {
+        LAC_INVALID_PARAM_LOG1("Chain Entry[0] type = %u",
+                               DC_CHAIN_TYPE_GET(pTemp));
+        status = CPA_STATUS_INVALID_PARAM;
+    }
+    else
+    {
+        pTemp += (LAC_SYM_SESSION_SIZE + sizeof(CpaDcChainSessionType));
+        if (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_COMPRESS_DECOMPRESS)
+        {
+            LAC_INVALID_PARAM_LOG1("Chain Entry[1] type = %u",
+                                   DC_CHAIN_TYPE_GET(pTemp));
+            status = CPA_STATUS_INVALID_PARAM;
+        }
+    }
+    return status;
+}
+#endif
 
 /**
  *****************************************************************************
@@ -369,450 +527,6 @@ CpaStatus cpaDcChainGetSessionSize(CpaInstanceHandle dcInstance,
 /**
  *****************************************************************************
  * @ingroup Dc_Chaining
- *      Populate symmetric crypto setup data for chaining operation
- *
- * @description
- *      Populate symmetric crypto setup data for chaining operation
- *      it is called by dcChainSession_InitSymCrypto to initialize
- *      the crypto session setup data.
- *
- * @param[in]       instanceHandle     Instance handle
- * @param[in]       pSessionCtx        Symmetric crypto session content
- * @param[out]      pSessionSetupData  Symmetric crypto session setup data
- * @param[out]      proto              Prototype defines for firmware
- * @param[out]      chainOrder         Symmetric crypto algorithm chaining order
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-CpaStatus dcChainSession_PopulateSymSetupData(
-    CpaInstanceHandle instanceHandle,
-    CpaCySymSessionCtx pSessionCtx,
-    CpaCySymSessionSetupData *pSessionSetupData,
-    Cpa16U *proto,
-    CpaCySymAlgChainOrder *chainOrder)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    lac_session_desc_t *pSessionDesc = NULL;
-    CpaPhysicalAddr physAddress = 0;
-    CpaPhysicalAddr physAddressAligned = 0;
-    const CpaCySymHashSetupData *pHashData;
-
-    sal_compression_service_t *pService =
-        (sal_compression_service_t *)instanceHandle;
-
-    /* Re-align the session structure to 64 byte alignment */
-    physAddress = LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-        pService->generic_service_info, (Cpa8U *)pSessionCtx + sizeof(void *));
-    if (0 == physAddress)
-    {
-        LAC_LOG_ERROR("Unable to get the physical address of the session\n");
-        return CPA_STATUS_FAIL;
-    }
-    physAddressAligned =
-        LAC_ALIGN_POW2_ROUNDUP(physAddress, LAC_64BYTE_ALIGNMENT);
-    pSessionDesc =
-        (lac_session_desc_t *)((Cpa8U *)pSessionCtx + sizeof(void *) +
-                               (physAddressAligned - physAddress));
-
-    *((LAC_ARCH_UINT *)pSessionCtx) = (LAC_ARCH_UINT)pSessionDesc;
-
-    LAC_OS_BZERO(pSessionDesc, sizeof(lac_session_desc_t));
-
-    /* Setup content descriptor info structure.
-     * The assumption is that content descriptor is the first field in
-     * in the session descriptor
-     */
-    pSessionDesc->contentDescInfo.pData = (Cpa8U *)pSessionDesc;
-    pSessionDesc->contentDescInfo.hardwareSetupBlockPhys = physAddressAligned;
-
-    pSessionDesc->contentDescOptimisedInfo.pData =
-        ((Cpa8U *)pSessionDesc + LAC_SYM_QAT_CONTENT_DESC_MAX_SIZE);
-    pSessionDesc->contentDescOptimisedInfo.hardwareSetupBlockPhys =
-        (physAddressAligned + LAC_SYM_QAT_CONTENT_DESC_MAX_SIZE);
-
-    /* Set the Common Session Information */
-    pSessionDesc->symOperation = pSessionSetupData->symOperation;
-    pHashData = &(pSessionSetupData->hashSetupData);
-
-    /* Populate session data */
-    pSessionDesc->pRequestQueueHead = NULL;
-    pSessionDesc->pRequestQueueTail = NULL;
-    pSessionDesc->nonBlockingOpsInProgress = CPA_TRUE;
-    pSessionDesc->pInstance = instanceHandle;
-    pSessionDesc->digestIsAppended = pSessionSetupData->digestIsAppended;
-    pSessionDesc->digestVerify = pSessionSetupData->verifyDigest;
-
-    /* Reset the pending callback counter */
-    osalAtomicSet(0, &pSessionDesc->u.pendingCbCount);
-    pSessionDesc->u.pendingDpCbCount = 0;
-    pSessionDesc->accessReaders = 0;
-
-    /* Partial state must be set to CPA_CY_SYM_PACKET_TYPE_FULL,
-     * to indicate that next packet expected on the session is a
-     * full packet or the start of a
-     * partial packet.
-     */
-    pSessionDesc->partialState = CPA_CY_SYM_PACKET_TYPE_FULL;
-
-    pSessionDesc->symOperation = pSessionSetupData->symOperation;
-
-    switch (pSessionDesc->symOperation)
-    {
-        case CPA_CY_SYM_OP_HASH:
-            pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_AUTH;
-            pSessionDesc->isCipher = CPA_FALSE;
-            pSessionDesc->isAuth = CPA_TRUE;
-            pSessionDesc->isAuthEncryptOp = CPA_FALSE;
-            break;
-        default:
-            LAC_INVALID_PARAM_LOG("invalid symOperation");
-            return CPA_STATUS_INVALID_PARAM;
-    }
-
-    pSessionDesc->hashResultSize = pHashData->digestResultLenInBytes;
-    pSessionDesc->hashMode = pHashData->hashMode;
-    pSessionDesc->hashAlgorithm = pHashData->hashAlgorithm;
-
-    /* Set the QAT hash mode */
-    if ((CPA_CY_SYM_HASH_MODE_PLAIN == pHashData->hashMode) ||
-        (CPA_CY_SYM_HASH_MODE_AUTH == pHashData->hashMode &&
-         CPA_CY_SYM_HASH_AES_CBC_MAC == pHashData->hashAlgorithm))
-    {
-        pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE0;
-    }
-    else if (CPA_CY_SYM_HASH_MODE_AUTH == pHashData->hashMode)
-    {
-        if (IS_HMAC_ALG(pHashData->hashAlgorithm))
-        {
-            /* SHA3_256 HMAC do not support precompute, force MODE2
-             * for AUTH
-             */
-            if (CPA_CY_SYM_HASH_SHA3_256 == pHashData->hashAlgorithm)
-            {
-                pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE2;
-            }
-            else
-            {
-                /* HMAC Hash mode is determined by the config value */
-                pSessionDesc->qatHashMode =
-                    pService->pDcChainService->qatHmacMode;
-            }
-        }
-        else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pHashData->hashAlgorithm)
-        {
-            pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE0;
-        }
-        else
-        {
-            LAC_INVALID_PARAM_LOG("invalid hashAlgorithm");
-            return CPA_STATUS_INVALID_PARAM;
-        }
-    }
-    else
-    {
-        LAC_INVALID_PARAM_LOG("invalid hashMode");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
-    return status;
-}
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
- *      Build symmetric crypto template for chaining operation
- *
- * @description
- *      Build symmetric crypto template for chaining operation
- *      it is called by dcChainSession_InitSymCrypto to construct
- *      crypto request descriptor
- *
- * @param[in]       instanceHandle     Instance handle
- * @param[in]       pSessionCtx        Symmetric crypto session content
- * @param[in]       pSessionSetupData  Symmetric crypto session setup data
- * @param[in]       proto              Protocol defines for firmware
- * @param[in]       chainOrder         Symmetric crypto algorithm chaining order
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-CpaStatus dcChainSession_BuildSymTemplate(
-    CpaInstanceHandle instanceHandle,
-    CpaCySymSessionCtx pSessionCtx,
-    CpaCySymSessionSetupData *pSessionSetupData,
-    Cpa16U proto,
-    CpaCySymAlgChainOrder chainOrder)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    sal_qat_content_desc_info_t *pCdInfo = NULL;
-    sal_compression_service_t *pService =
-        (sal_compression_service_t *)instanceHandle;
-    Cpa8U *pHwBlockBaseInDRAM = NULL;
-    Cpa32U hwBlockOffsetInDRAM = 0;
-    Cpa8U cipherOffsetInConstantsTable = 0;
-    Cpa8U hashOffsetInConstantsTable = 0;
-    icp_qat_fw_serv_specif_flags laCmdFlags = 0;
-    icp_qat_fw_comn_flags cmnRequestFlags = 0;
-    icp_qat_fw_comn_req_t *pMsg = NULL;
-    icp_qat_fw_comn_req_t *pMsgS = NULL;
-    const CpaCySymHashSetupData *pHashData;
-    lac_sym_qat_hash_precompute_info_t precomputeData = {0};
-    lac_sym_qat_hash_precompute_info_t precomputeDataOptimisedCd = {0};
-
-    lac_session_desc_t *pSessionDesc =
-        LAC_SYM_SESSION_DESC_FROM_CTX_GET(pSessionCtx);
-    pHashData = &(pSessionSetupData->hashSetupData);
-
-    pSessionDesc->useOptimisedContentDesc = CPA_FALSE;
-
-    pSessionDesc->useSymConstantsTable =
-        LacSymQat_UseSymConstantsTable(pSessionDesc,
-                                       &cipherOffsetInConstantsTable,
-                                       &hashOffsetInConstantsTable);
-
-    /* Setup some convenience pointers */
-    pCdInfo = &(pSessionDesc->contentDescInfo);
-    pHwBlockBaseInDRAM = (Cpa8U *)pCdInfo->pData;
-    hwBlockOffsetInDRAM = 0;
-
-    /*
-     * Build the header flags with the default settings for this session.
-     */
-    cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
-        QAT_COMN_CD_FLD_TYPE_64BIT_ADR, LAC_SYM_DEFAULT_QAT_PTR_TYPE);
-
-    LacSymQat_LaSetDefaultFlags(&laCmdFlags, pSessionDesc->symOperation);
-
-    switch (pSessionDesc->symOperation)
-    {
-        case CPA_CY_SYM_OP_HASH:
-            LacAlgChain_HashCDBuild(pHashData,
-                                    instanceHandle,
-                                    pSessionDesc,
-                                    ICP_QAT_FW_SLICE_DRAM_WR,
-                                    hashOffsetInConstantsTable,
-                                    &cmnRequestFlags,
-                                    &laCmdFlags,
-                                    &precomputeData,
-                                    &precomputeDataOptimisedCd,
-                                    pHwBlockBaseInDRAM,
-                                    &hwBlockOffsetInDRAM,
-                                    NULL,
-                                    NULL);
-            break;
-        default:
-            LAC_LOG_ERROR("Invalid symmetric operation\n");
-            return CPA_STATUS_INVALID_PARAM;
-    }
-
-    if (pSessionDesc->isAuth)
-    {
-        lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo =
-            &(pSessionDesc->hashStateBufferInfo);
-
-        /* Set up fields in both the cd_ctrl and reqParams which describe
-         * the ReqParams block */
-        LacSymQat_HashSetupReqParamsMetaData(&(pSessionDesc->reqCacheFtr),
-                                             instanceHandle,
-                                             pHashData,
-                                             CPA_TRUE,
-                                             pSessionDesc->qatHashMode,
-                                             pSessionDesc->digestVerify);
-
-        if (pSessionDesc->useSymConstantsTable)
-        {
-            /* Need to set up for SHRAM Constants Table use also */
-            LacSymQat_HashSetupReqParamsMetaData(
-                &(pSessionDesc->shramReqCacheFtr),
-                instanceHandle,
-                pHashData,
-                CPA_TRUE,
-                pSessionDesc->qatHashMode,
-                pSessionDesc->digestVerify);
-        }
-
-        /* Populate the hash state prefix buffer info structure
-         * (part of user allocated session memory & the
-         * buffer itself. For CCM/GCM the buffer is stored in the
-         * cookie and is not initialised here) */
-        if (CPA_FALSE == pSessionDesc->isAuthEncryptOp)
-        {
-            LAC_CHECK_64_BYTE_ALIGNMENT(
-                &(pSessionDesc->hashStatePrefixBuffer[0]));
-            status = LacHash_StatePrefixAadBufferInit(
-                &(pService->generic_service_info),
-                pHashData,
-                &(pSessionDesc->reqCacheFtr),
-                pSessionDesc->qatHashMode,
-                pSessionDesc->hashStatePrefixBuffer,
-                pHashStateBufferInfo);
-            /* SHRAM Constants Table not used for Auth-Enc */
-            LAC_CHECK_STATUS_LOG(status, "%s", "populate hash state failed");
-        }
-
-        if (IS_HASH_MODE_1(pSessionDesc->qatHashMode))
-        {
-            LAC_CHECK_64_BYTE_ALIGNMENT(
-                &(pSessionDesc->hashStatePrefixBuffer[0]));
-
-            /* Block messages until precompute is completed */
-            pSessionDesc->nonBlockingOpsInProgress = CPA_FALSE;
-            status = LacHash_PrecomputeDataCreate(
-                instanceHandle,
-                (CpaCySymSessionSetupData *)pSessionSetupData,
-                dcChainSession_HashPrecomputeCb,
-                pSessionDesc,
-                pSessionDesc->hashStatePrefixBuffer,
-                precomputeData.pState1,
-                precomputeData.pState2);
-            LAC_CHECK_STATUS_LOG(
-                status, "%s", "LacHash_PrecomputeDataCreate failed");
-        }
-        else if (pHashData->hashAlgorithm == CPA_CY_SYM_HASH_AES_CBC_MAC)
-        {
-            LAC_OS_BZERO(precomputeData.pState2, precomputeData.state2Size);
-            memcpy(precomputeData.pState2,
-                   pHashData->authModeSetupData.authKey,
-                   pHashData->authModeSetupData.authKeyLenInBytes);
-        }
-
-        if (pSessionDesc->digestVerify)
-        {
-
-            ICP_QAT_FW_LA_CMP_AUTH_SET(laCmdFlags, ICP_QAT_FW_LA_CMP_AUTH_RES);
-            ICP_QAT_FW_LA_RET_AUTH_SET(laCmdFlags,
-                                       ICP_QAT_FW_LA_NO_RET_AUTH_RES);
-        }
-        else
-        {
-
-            ICP_QAT_FW_LA_RET_AUTH_SET(laCmdFlags, ICP_QAT_FW_LA_RET_AUTH_RES);
-            ICP_QAT_FW_LA_CMP_AUTH_SET(laCmdFlags,
-                                       ICP_QAT_FW_LA_NO_CMP_AUTH_RES);
-        }
-    }
-
-    /* Configure the ContentDescriptor field
-     * in the request if not done already
-     */
-    pCdInfo->hwBlkSzQuadWords = LAC_BYTES_TO_QUADWORDS(hwBlockOffsetInDRAM);
-    pMsg = (icp_qat_fw_comn_req_t *)&(pSessionDesc->reqCacheHdr);
-    SalQatMsg_ContentDescHdrWrite((icp_qat_fw_comn_req_t *)pMsg, pCdInfo);
-
-    pMsgS = (icp_qat_fw_comn_req_t *)&(pSessionDesc->shramReqCacheHdr);
-
-    /* Configure the common header */
-    ICP_QAT_FW_LA_PROTO_SET(laCmdFlags, proto);
-
-    /* Set Append flag, if digest is appended */
-    if (pSessionDesc->digestIsAppended)
-    {
-        ICP_QAT_FW_LA_DIGEST_IN_BUFFER_SET(laCmdFlags,
-                                           ICP_QAT_FW_LA_DIGEST_IN_BUFFER);
-    }
-    else
-    {
-        ICP_QAT_FW_LA_DIGEST_IN_BUFFER_SET(laCmdFlags,
-                                           ICP_QAT_FW_LA_NO_DIGEST_IN_BUFFER);
-    }
-
-    SalQatMsg_CmnHdrWrite((icp_qat_fw_comn_req_t *)pMsg,
-                          ICP_QAT_FW_COMN_REQ_CPM_FW_LA,
-                          pSessionDesc->laCmdId,
-                          cmnRequestFlags,
-                          laCmdFlags,
-                          0);
-
-    /* Need to duplicate if SHRAM Constants Table used */
-    if (pSessionDesc->useSymConstantsTable)
-    {
-        ICP_QAT_FW_LA_CIPH_AUTH_CFG_OFFSET_FLAG_SET(
-            laCmdFlags, ICP_QAT_FW_CIPH_AUTH_CFG_OFFSET_IN_SHRAM_CP);
-
-        SalQatMsg_CmnHdrWrite((icp_qat_fw_comn_req_t *)pMsgS,
-                              ICP_QAT_FW_COMN_REQ_CPM_FW_LA,
-                              pSessionDesc->laCmdId,
-                              cmnRequestFlags,
-                              laCmdFlags,
-                              0);
-    }
-    return status;
-}
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
- *      Initialize symmetric session for chaining
- *
- * @description
- *      Initialize symmetric session for chaining, it is called by
- *      dcChainInitSessions to initialize crypto request and construct
- *      crypto request descriptor
- *
- * @param[in]       instanceHandle     Instance handle derived from discovery
- *                                     functions.
- * @param[in,out]   pSessionCtx        Symmetric crypto session content
- * @param[in,out]   pSessionSetupData  Symmetric crypto session setup data
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-STATIC CpaStatus
-dcChainSession_InitSymCrypto(CpaInstanceHandle instanceHandle,
-                             CpaCySymSessionCtx pSessionCtx,
-                             CpaCySymSessionSetupData *pSessionSetupData)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    Cpa16U proto = ICP_QAT_FW_LA_NO_PROTO;
-    CpaCySymAlgChainOrder chainOrder = 0;
-
-    status = dcChainSession_PopulateSymSetupData(
-        instanceHandle, pSessionCtx, pSessionSetupData, &proto, &chainOrder);
-    LAC_CHECK_STATUS(status);
-
-    return dcChainSession_BuildSymTemplate(
-        instanceHandle, pSessionCtx, pSessionSetupData, proto, chainOrder);
-}
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
- *      Initialize data compression session for chaining
- *
- * @description
- *      Initialize compression session for chaining, it is called by
- *      dcChainInitSessions to setup compression request data and
- *      construct compression request descriptor
- *
- * @param[in]       dcInstance      Instance handle derived from discovery
- *                                  functions.
- * @param[in,out]   pSessionHandle  Pointer to a session handle.
- * @param[in,out]   pSessionData    Pointer to an array of
- *                                  CpaDcChainSessionSetupData structures.
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-STATIC CpaStatus dcChainSession_InitComp(CpaInstanceHandle dcInstance,
-                                         CpaDcSessionHandle pSessionHandle,
-                                         CpaDcSessionSetupData *pSessionData)
-
-{
-    return dcInitSession(dcInstance, pSessionHandle, pSessionData, NULL, NULL);
-}
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
  *      Generate command ID
  *
  * @description
@@ -830,7 +544,8 @@ STATIC CpaStatus dcChainSession_InitComp(CpaInstanceHandle dcInstance,
  *
  *****************************************************************************/
 STATIC CpaStatus
-dcChainSession_GenerateCmd(CpaDcChainSessionSetupData *pSessionData,
+dcChainSession_GenerateCmd(CpaInstanceHandle dcInstance,
+                           CpaDcChainSessionSetupData *pSessionData,
                            Cpa8U numSessions,
                            icp_qat_comp_chain_cmd_id_t *cmd)
 {
@@ -840,6 +555,8 @@ dcChainSession_GenerateCmd(CpaDcChainSessionSetupData *pSessionData,
     CpaDcHuffType huffType;
     CpaCySymOp cyOpType = CPA_CY_SYM_OP_NONE;
     Cpa32U i, numOfCmds;
+    sal_compression_service_t *pService =
+        (sal_compression_service_t *)dcInstance;
 
     for (i = 0; i < numSessions; i++)
     {
@@ -872,8 +589,25 @@ dcChainSession_GenerateCmd(CpaDcChainSessionSetupData *pSessionData,
             (key[1] == dc_chain_cmd_table[i].link1_key) &&
             (key[2] == dc_chain_cmd_table[i].link2_key))
         {
-            *cmd = dc_chain_cmd_table[i].cmd_id;
-            return CPA_STATUS_SUCCESS;
+            /* Use legacy chaining command id for Gen2 devices */
+            if (!pService->generic_service_info.isGen4)
+            {
+                *cmd = dc_chain_cmd_table[i].cmd_id;
+            }
+            else
+            {
+                *cmd = dc_chain_cmd_table[i].cmd_20_id;
+            }
+
+            /* Check if chaining is supported for the found operation */
+            if (ICP_QAT_FW_NO_CHAINING == *cmd)
+            {
+                return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                return CPA_STATUS_SUCCESS;
+            }
         }
     }
     return CPA_STATUS_FAIL;
@@ -915,6 +649,10 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
     icp_qat_comp_chain_cmd_id_t chainCmd;
     Cpa8U *pTemp;
     Cpa32U i;
+    CpaBoolean cyInitialized = CPA_FALSE;
+    lac_session_desc_t *pCySessDesc = NULL;
+    sal_compression_service_t *pService =
+        (sal_compression_service_t *)dcInstance;
 
     pSessHead = (dc_chain_session_head_t *)pSessionHandle;
     pTemp = (Cpa8U *)pSessionHandle + sizeof(dc_chain_session_head_t);
@@ -925,11 +663,28 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
             *(CpaDcChainSessionType *)pTemp = CPA_DC_CHAIN_COMPRESS_DECOMPRESS;
             pTemp += sizeof(CpaDcChainSessionType);
 
-            status = dcChainSession_InitComp(dcInstance,
-                                             (CpaDcSessionHandle)pTemp,
-                                             pSessionData[i].pDcSetupData);
-            LAC_CHECK_STATUS_LOG(
-                status, "%s", "Init compression session failure\n");
+            status = dcInitSession(
+                dcInstance,
+                (CpaDcSessionHandle)pTemp,
+                (CpaDcSessionSetupData *)pSessionData[i].pDcSetupData,
+                NULL,
+                NULL);
+
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                if (CPA_TRUE == cyInitialized)
+                {
+                    /* For crypto, destroy spinlock and mutex */
+                    pCySessDesc = pSessHead->pCySessionDesc;
+#ifdef ICP_PARAM_CHECK
+                    LAC_CHECK_NULL_PARAM(pCySessDesc);
+#endif
+                    LAC_SPINLOCK_DESTROY(&pCySessDesc->requestQueueLock);
+                    LAC_DESTROY_MUTEX(&pCySessDesc->accessLock);
+                }
+                LAC_LOG_ERROR("Init compression session failure\n");
+                return status;
+            }
             pSessHead->pDcSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pTemp);
             pTemp += DC_COMP_SESSION_SIZE;
         }
@@ -938,14 +693,18 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
             *(CpaDcChainSessionType *)pTemp = CPA_DC_CHAIN_SYMMETRIC_CRYPTO;
             pTemp += sizeof(CpaDcChainSessionType);
 
-            status = dcChainSession_InitSymCrypto(dcInstance,
-                                                  (CpaCySymSessionCtx)pTemp,
-                                                  pSessionData[i].pCySetupData);
+            status = LacSym_InitSession(
+                dcInstance,
+                NULL,
+                (CpaCySymSessionSetupData *)pSessionData[i].pCySetupData,
+                CPA_FALSE,
+                (CpaCySymSessionCtx)pTemp);
             LAC_CHECK_STATUS_LOG(
                 status, "%s", "Init symmectric session failure\n");
             pSessHead->pCySessionDesc =
                 LAC_SYM_SESSION_DESC_FROM_CTX_GET(pTemp);
             pTemp += LAC_SYM_SESSION_SIZE;
+            cyInitialized = CPA_TRUE;
         }
     }
     pSessHead->pdcChainCb = ((void *)NULL != (void *)callbackFn)
@@ -954,15 +713,47 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
 
     osalAtomicSet(0, &pSessHead->pendingChainCbCount);
     /*Fill the pre-build header*/
-    pSessHead->comn_hdr.numLinks = numSessions;
-    status = dcChainSession_GenerateCmd(pSessionData, numSessions, &chainCmd);
-    LAC_CHECK_STATUS_LOG(status, "%s", "generate chained command failure\n");
-    /*Fill chaining request descriptor header*/
-    pSessHead->comn_hdr.service_cmd_id = chainCmd;
-    pSessHead->comn_hdr.service_type = ICP_QAT_FW_COMN_REQ_CPM_FW_COMP_CHAIN;
-    pSessHead->comn_hdr.hdr_flags =
-        ICP_QAT_FW_COMN_HDR_FLAGS_BUILD(ICP_QAT_FW_COMN_REQ_FLAG_SET);
-    pSessHead->comn_hdr.resrvd1 = 0;
+    status = dcChainSession_GenerateCmd(
+        dcInstance, pSessionData, numSessions, &chainCmd);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        status = cpaDcChainRemoveSession(dcInstance, pSessionHandle);
+        LAC_LOG_ERROR("generate chained command failure\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    /* Store number of links in the chain */
+    pSessHead->numLinks = numSessions;
+    if (!pService->generic_service_info.isGen4)
+    {
+        /* Fill chaining request descriptor header */
+        pSessHead->hdr.comn_hdr.service_cmd_id = chainCmd;
+        pSessHead->hdr.comn_hdr.service_type =
+            ICP_QAT_FW_COMN_REQ_CPM_FW_COMP_CHAIN;
+        pSessHead->hdr.comn_hdr.hdr_flags =
+            ICP_QAT_FW_COMN_HDR_FLAGS_BUILD(ICP_QAT_FW_COMN_REQ_FLAG_SET);
+        pSessHead->hdr.comn_hdr.resrvd1 = 0;
+        pSessHead->hdr.comn_hdr.numLinks = numSessions;
+    }
+    else
+    {
+        /* Fill chaining request descriptor header */
+        pSessHead->hdr.comn_hdr2.service_cmd_id = chainCmd;
+        pSessHead->hdr.comn_hdr2.service_type =
+            ICP_QAT_FW_COMN_REQ_CPM_FW_COMP_CHAIN;
+        pSessHead->hdr.comn_hdr2.hdr_flags =
+            ICP_QAT_FW_COMN_HDR_FLAGS_BUILD(ICP_QAT_FW_COMN_REQ_FLAG_SET);
+        pSessHead->hdr.comn_hdr2.resrvd1 = 0;
+        pSessHead->hdr.comn_hdr2.serv_specif_flags =
+            ICP_QAT_FW_COMP_CHAIN_REQ_FLAGS_BUILD(
+                ICP_QAT_FW_COMP_CHAIN_NO_APPEND_CRC,
+                ICP_QAT_FW_COMP_CHAIN_NO_VERIFY,
+                ICP_QAT_FW_COMP_CHAIN_NO_DERIVE_KEY,
+                ICP_QAT_FW_COMP_CHAIN_NO_CRC64_CTX);
+        pSessHead->hdr.comn_hdr2.comn_req_flags = 0;
+        pSessHead->hdr.comn_hdr2.extended_serv_specif_flags = 0;
+    }
+
     return status;
 }
 
@@ -1017,7 +808,7 @@ CpaStatus cpaDcChainRemoveSession(const CpaInstanceHandle dcInstance,
     dc_chain_session_head_t *pSessHead = NULL;
     Cpa64U numPendingRequest = 0;
     sal_compression_service_t *pService = NULL;
-    dc_session_desc_t *pDcSessDesc = NULL;
+    lac_session_desc_t *pCySessDesc = NULL;
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pSessionHandle);
 #endif
@@ -1050,21 +841,18 @@ CpaStatus cpaDcChainRemoveSession(const CpaInstanceHandle dcInstance,
     /* Check if there are  pending requests */
     if (0 != numPendingRequest)
     {
-        LAC_LOG_ERROR1("There are %d chaining requests pending",
+        LAC_LOG_ERROR1("There are %lld chaining requests pending",
                        numPendingRequest);
         status = CPA_STATUS_RETRY;
     }
 
-    /* Destroy updateLock in case of stateless DC */
-    pDcSessDesc = pSessHead->pDcSessionDesc;
+    /* For crypto, destroy spinlock and mutex */
+    pCySessDesc = pSessHead->pCySessionDesc;
 #ifdef ICP_PARAM_CHECK
-    LAC_CHECK_NULL_PARAM(pDcSessDesc);
+    LAC_CHECK_NULL_PARAM(pCySessDesc);
 #endif
-
-    if (pDcSessDesc->sessState == CPA_DC_STATELESS)
-    {
-        LAC_SPINLOCK_DESTROY(&(pDcSessDesc->updateLock));
-    }
+    LAC_SPINLOCK_DESTROY(&pCySessDesc->requestQueueLock);
+    LAC_DESTROY_MUTEX(&pCySessDesc->accessLock);
 
     return status;
 }
@@ -1111,13 +899,13 @@ CpaStatus cpaDcChainResetSession(const CpaInstanceHandle dcInstance,
     /* Check if there are stateless pending requests */
     if (0 != numPendingRequest)
     {
-        LAC_LOG_ERROR1("There are %d chaining requests pending",
+        LAC_LOG_ERROR1("There are %lld chaining requests pending",
                        numPendingRequest);
         return CPA_STATUS_RETRY;
     }
 
     pTemp = (Cpa8U *)pSessionHandle + sizeof(dc_chain_session_head_t);
-    for (i = 0; i < pSessHead->comn_hdr.numLinks; i++)
+    for (i = 0; i < pSessHead->numLinks; i++)
     {
         if (DC_CHAIN_TYPE_GET(pTemp) == CPA_DC_CHAIN_SYMMETRIC_CRYPTO)
         {
@@ -1137,183 +925,6 @@ CpaStatus cpaDcChainResetSession(const CpaInstanceHandle dcInstance,
     pDcDescriptor->cumulativeConsumedBytes = 0;
 
     return status;
-}
-
-/**
- * ************************************************************************
- * @ingroup Dc_Chaining
- *     Create data compression request for chaining request
- *
- * @param[out]   pCookie             Compression cookie
- * @param[in]    pService            Compression service
- * @param[in]    pSessionDesc        Compression session descriptor
- * @param[in]    pSessionHandle      Compression session handle
- * @param[in]    pSrcBuff            Source buffer for compression
- * @param[in]    pDestBuff           Destination buffer for comprssion
- * @param[in]    pResults            Chaining result
- * @param[in]    flushFlag           Flush flag
- * @param[in]    compressAndVerify   Compress and verify flag
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- * *************************************************************************/
-STATIC CpaStatus
-dcChainOp_CreateCompRequest(dc_compression_cookie_t *pCookie,
-                            sal_compression_service_t *pService,
-                            dc_session_desc_t *pSessionDesc,
-                            CpaDcSessionHandle pSessionHandle,
-                            CpaBufferList *pSrcBuff,
-                            CpaBufferList *pDestBuff,
-                            CpaDcChainRqResults *pResults,
-                            CpaDcFlush flushFlag,
-                            dc_cnv_mode_t cnvMode)
-{
-    icp_qat_fw_comp_req_t *pMsg = NULL;
-    icp_qat_fw_comp_req_params_t *pCompReqParams = NULL;
-    Cpa64U srcAddrPhys = 0, dstAddrPhys = 0;
-    Cpa64U srcTotalDataLenInBytes = 0, dstTotalDataLenInBytes = 0;
-    dc_request_dir_t compDecomp;
-    Cpa32U rpCmdFlags = 0;
-    Cpa8U sop = ICP_QAT_FW_COMP_SOP;
-    Cpa8U eop = ICP_QAT_FW_COMP_EOP;
-    Cpa8U bFinal = ICP_QAT_FW_COMP_NOT_BFINAL;
-    Cpa8U cnvDecompReq = ICP_QAT_FW_COMP_NO_CNV;
-    Cpa8U cnvRecovery = ICP_QAT_FW_COMP_NO_CNV_RECOVERY;
-    Cpa8U cnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    icp_qat_fw_comp_req_t *pReqCache = NULL;
-
-    if (CPA_DC_DIR_COMPRESS == pSessionDesc->sessDirection)
-        compDecomp = DC_COMPRESSION_REQUEST;
-    else
-        compDecomp = DC_DECOMPRESSION_REQUEST;
-
-    /* Write the buffer descriptors */
-    status = LacBuffDesc_BufferListDescWriteAndGetSize(
-        pSrcBuff,
-        &srcAddrPhys,
-        CPA_FALSE,
-        &srcTotalDataLenInBytes,
-        &(pService->generic_service_info));
-    LAC_CHECK_STATUS(status);
-
-    status = LacBuffDesc_BufferListDescWriteAndGetSize(
-        pDestBuff,
-        &dstAddrPhys,
-        CPA_FALSE,
-        &dstTotalDataLenInBytes,
-        &(pService->generic_service_info));
-    LAC_CHECK_STATUS(status);
-
-    /* Populate the compression cookie */
-    pCookie->dcInstance = pService;
-    pCookie->pSessionHandle = pSessionHandle;
-    pCookie->callbackTag = NULL;
-    pCookie->pSessionDesc = pSessionDesc;
-    pCookie->flushFlag = flushFlag;
-    pCookie->pResults = NULL;
-    pCookie->compDecomp = compDecomp;
-
-    /* The firmware expects the length in bytes for source and destination to be
-     * Cpa32U parameters. However the total data length could be bigger as
-     * allocated by the user. To align compression service implementation,
-     * cast the values to Cpa32U here
-     */
-    pCookie->srcTotalDataLenInBytes = (Cpa32U)srcTotalDataLenInBytes;
-#ifndef ICP_DC_DYN_NOT_SUPPORTED
-    if ((DC_COMPRESSION_REQUEST == compDecomp) &&
-        (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType))
-    {
-        if (pService->minInterBuffSizeInBytes < (Cpa32U)dstTotalDataLenInBytes)
-        {
-            pCookie->dstTotalDataLenInBytes =
-                (Cpa32U)(pService->minInterBuffSizeInBytes);
-        }
-        else
-        {
-            pCookie->dstTotalDataLenInBytes = (Cpa32U)dstTotalDataLenInBytes;
-        }
-    }
-    else
-#endif
-    {
-        pCookie->dstTotalDataLenInBytes = (Cpa32U)dstTotalDataLenInBytes;
-    }
-
-    pMsg = (icp_qat_fw_comp_req_t *)&pCookie->request;
-    if (DC_COMPRESSION_REQUEST == compDecomp)
-    {
-        pReqCache = &(pSessionDesc->reqCacheComp);
-    }
-    else
-    {
-        pReqCache = &(pSessionDesc->reqCacheDecomp);
-    }
-
-    /* Fills the msg from the template cached in the session descriptor */
-    osalMemCopy((void *)pMsg,
-                (void *)(pReqCache),
-                LAC_QAT_DC_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES);
-
-    if (DC_REQUEST_FIRST == pSessionDesc->requestType)
-    {
-        pMsg->comp_pars.crc.legacy.initial_adler = 1;
-        pMsg->comp_pars.crc.legacy.initial_crc32 = 0;
-    }
-    else if (CPA_DC_STATELESS == pSessionDesc->sessState)
-    {
-        pMsg->comp_pars.crc.legacy.initial_adler = pResults->adler32;
-        pMsg->comp_pars.crc.legacy.initial_crc32 = pResults->crc32;
-    }
-
-    pCompReqParams = &(pMsg->comp_pars);
-    /* Populate compression request parameters
-     * (LW 14 - 15)
-     */
-    pCompReqParams->comp_len = pCookie->srcTotalDataLenInBytes;
-    pCompReqParams->out_buffer_sz = pCookie->dstTotalDataLenInBytes;
-
-    if (CPA_DC_FLUSH_FINAL == flushFlag)
-    {
-        bFinal = ICP_QAT_FW_COMP_BFINAL;
-    }
-
-    switch (cnvMode)
-    {
-        case DC_CNVNR:
-            cnvRecovery = ICP_QAT_FW_COMP_CNV_RECOVERY;
-        /* Fall through is intended here, because for CNVNR
-         * cnvDecompReq also needs to be set
-         */
-        case DC_CNV:
-            cnvDecompReq = ICP_QAT_FW_COMP_CNV;
-            break;
-        /* default is DC_NO_CNV */
-        default:
-            cnvDecompReq = ICP_QAT_FW_COMP_NO_CNV;
-            cnvRecovery = ICP_QAT_FW_COMP_NO_CNV_RECOVERY;
-            break;
-    }
-
-    rpCmdFlags = ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(
-        sop, eop, bFinal, cnvDecompReq, cnvRecovery, cnvErrorInjection, 0);
-
-    pMsg->comp_pars.req_par_flags = rpCmdFlags;
-
-    /* Populates the QAT common request middle part of the message
-     * (LW 6 to 11)
-     */
-    SalQatMsg_CmnMidWrite((icp_qat_fw_la_bulk_req_t *)pMsg,
-                          pCookie,
-                          DC_DEFAULT_QAT_PTR_TYPE,
-                          srcAddrPhys,
-                          dstAddrPhys,
-                          0,
-                          0);
-
-    return CPA_STATUS_SUCCESS;
 }
 
 /**
@@ -1351,14 +962,20 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
         (sal_compression_service_t *)dcInstance;
     sal_dc_chain_service_t *pChainService = pDcService->pDcChainService;
     CpaDcOpData *pDcOpData;
+    dc_request_dir_t compDecomp;
+    CpaDcRqResults dcResults = {0};
     Cpa64U rspDescPhyAddr = 0;
     dc_cnv_mode_t cnvMode;
     Cpa8U asbFlag = ICP_QAT_FW_COMP_CHAIN_NO_ASB;
     Cpa8U cnvFlag = ICP_QAT_FW_COMP_CHAIN_NO_CNV;
     Cpa8U cnvnrFlag = ICP_QAT_FW_COMP_CHAIN_NO_CNV_RECOVERY;
     void *pDcLinkRsp = NULL;
-    icp_qat_fw_comp_chain_req_t *pChainReq = &pChainCookie->request;
+    icp_qat_fw_comp_chain_req_t *pChainReq = NULL;
+    icp_qat_fw_chain_stor2_req_t *pChainStor2Req = NULL;
+    icp_qat_fw_comp_req_t *pMsg = NULL;
 
+    pDcSessDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+    LAC_CHECK_NULL_PARAM(pDcSessDesc);
     pDcOpData = pDcOp;
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pDcOpData);
@@ -1370,9 +987,12 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
         pDcOpData->flushFlag == CPA_DC_FLUSH_NONE,
         "%s",
         "CPA_DC_FLUSH_NONE flag not supported for compression.\n");
+
+    if (CPA_STATUS_SUCCESS != dcChainSession_CheckDcSessDesc(pDcSessDesc))
+    {
+        return CPA_STATUS_INVALID_PARAM;
+    }
 #endif
-    pDcSessDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
-    LAC_CHECK_NULL_PARAM(pDcSessDesc);
 
     if (pDcOpData->compressAndVerifyAndRecover)
         cnvMode = DC_CNVNR;
@@ -1381,32 +1001,49 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
     else
         cnvMode = DC_NO_CNV;
 
+    if (CPA_DC_DIR_COMPRESS == pDcSessDesc->sessDirection)
+        compDecomp = DC_COMPRESSION_REQUEST;
+    else
+        compDecomp = DC_DECOMPRESSION_REQUEST;
+
     if (CPA_FALSE == pDcOpData->compressAndVerify)
     {
         LAC_UNSUPPORTED_PARAM_LOG(
             "Data compression without verification not allowed");
         return CPA_STATUS_UNSUPPORTED;
     }
-    status = dcChainOp_CreateCompRequest(pDcCookie,
-                                         pDcService,
-                                         pDcSessDesc,
-                                         pSessionHandle,
-                                         pSrcBuff,
-                                         pDestBuff,
-                                         pResults,
-                                         pDcOpData->flushFlag,
-                                         cnvMode);
+
+    /* Add DC Chaining info to the compression cookie */
+    pDcCookie->dcChain.isDcChaining = CPA_TRUE;
+
+    /* This is the common DC function to create the requests for
+     * compression or decompression. It creates the DC request
+     * message but does not send it. */
+    status = dcCreateRequest(pDcCookie,
+                             pDcService,
+                             pDcSessDesc,
+                             pSessionHandle,
+                             pSrcBuff,
+                             pDestBuff,
+                             &dcResults,
+                             pDcOpData->flushFlag,
+                             pDcOpData,
+                             NULL,
+                             compDecomp,
+                             cnvMode);
+    pDcCookie->pResults = NULL;
+
+    /* If this is not a DC_REQUEST_FIRST then for DC Chaining we must
+     * re-seed both adler32 and crc32 with the previous checksums */
+    pMsg = (icp_qat_fw_comp_req_t *)&pDcCookie->request;
+    if ((DC_REQUEST_FIRST != pDcSessDesc->requestType) &&
+        (CPA_DC_STATELESS == pDcSessDesc->sessState))
+    {
+        pMsg->comp_pars.crc.legacy.initial_adler = pResults->adler32;
+        pMsg->comp_pars.crc.legacy.initial_crc32 = pResults->crc32;
+    }
 
     LAC_CHECK_STATUS(status);
-    if (pDcOpData->compressAndVerifyAndRecover)
-    {
-        cnvnrFlag = ICP_QAT_FW_COMP_CHAIN_CNV_RECOVERY;
-    }
-
-    if (pDcOpData->compressAndVerify)
-    {
-        cnvFlag = ICP_QAT_FW_COMP_CHAIN_CNV;
-    }
 
     pDcLinkRsp = Lac_MemPoolEntryAlloc(pChainService->dc_chain_serv_resp_pool);
     if (NULL == pDcLinkRsp)
@@ -1420,216 +1057,58 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
 
     rspDescPhyAddr = (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
         pDcService->generic_service_info, pDcLinkRsp);
-    pChainReq->compReqAddr = (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-        pDcService->generic_service_info, &pDcCookie->request);
-    pChainReq->compRespAddr = rspDescPhyAddr;
     pChainCookie->pDcRspAddr = pDcLinkRsp;
     pChainCookie->pDcCookieAddr = pDcCookie;
 
-    switch (pDcSessDesc->autoSelectBestHuffmanTree)
+    if (!pDcService->generic_service_info.isGen4)
     {
-        case CPA_DC_ASB_DISABLED:
-            break;
-        case CPA_DC_ASB_STATIC_DYNAMIC:
-        case CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_STORED_HDRS:
-        case CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS:
-            asbFlag = ICP_QAT_FW_COMP_CHAIN_ASB;
-            break;
-        default:
-            break;
-    }
+        pChainReq = (icp_qat_fw_comp_chain_req_t *)&pChainCookie->request;
+        pChainReq->compReqAddr =
+            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                pDcService->generic_service_info, &pDcCookie->request);
+        pChainReq->compRespAddr = rspDescPhyAddr;
 
-    /* Fill extend flag */
-    pChainReq->extendFlags |= ICP_QAT_FW_COMP_CHAIN_REQ_EXTEND_FLAGS_BUILD(
-        cnvFlag,
-        asbFlag,
-        ICP_QAT_FW_COMP_CHAIN_NO_CBC,
-        ICP_QAT_FW_COMP_CHAIN_NO_XTS,
-        ICP_QAT_FW_COMP_CHAIN_NO_CCM,
-        cnvnrFlag);
+        if (pDcOpData->compressAndVerifyAndRecover)
+        {
+            cnvnrFlag = ICP_QAT_FW_COMP_CHAIN_CNV_RECOVERY;
+        }
 
-    return status;
-}
+        if (pDcOpData->compressAndVerify)
+        {
+            cnvFlag = ICP_QAT_FW_COMP_CHAIN_CNV;
+        }
 
-/**
- * ************************************************************************
- * @ingroup Dc_Chaining
- *     Create symmetric crypto request for chaining request
- *
- * @param[in]    instanceHandle      Instance handle
- * @param[in]    pSessionDesc        Chaining session descriptor
- * @param[in]    pOpData             Symmetric crypto operation data
- * @param[out]   pCookie             Symmetric crypto cookie
- * @param[in]    pSrcBuffer          Source buffer for crypto
- * @param[in]    pDestBuffer         Destination buffer for crypto
- * @param[in]    pVerifyResult       Hash verify result
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- * *************************************************************************/
-STATIC CpaStatus
-dcChainOp_CreateSymCryptoRequest(const CpaInstanceHandle instanceHandle,
-                                 lac_session_desc_t *pSessionDesc,
-                                 CpaCySymOpData *pOpData,
-                                 lac_sym_bulk_cookie_t *pCookie,
-                                 const CpaBufferList *pSrcBuffer,
-                                 CpaBufferList *pDstBuffer,
-                                 CpaBoolean *pVerifyResult)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    sal_compression_service_t *pService =
-        (sal_compression_service_t *)instanceHandle;
-    icp_qat_fw_la_bulk_req_t *pMsg = NULL;
-    Cpa8U *pMsgDummy = NULL;
-    Cpa8U *pCacheDummyHdr = NULL;
-    Cpa8U *pCacheDummyFtr = NULL;
-    Cpa32U qatPacketType = 0;
-    Cpa8U *pDigestResult = NULL;
-    Cpa64U srcAddrPhys = 0;
-    Cpa64U dstAddrPhys = 0;
-    icp_qat_fw_la_cmd_id_t laCmdId;
-    Cpa32U authOffsetInBytes = 0;
-    Cpa32U authLenInBytes = 0;
-    lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo = NULL;
-#ifdef ICP_PARAM_CHECK
-    Cpa64U srcPktSize = 0;
-#endif
-    LAC_ENSURE_NOT_NULL(pSessionDesc);
-    LAC_ENSURE_NOT_NULL(pOpData);
-    LAC_ENSURE_NOT_NULL(pSrcBuffer);
-    LAC_ENSURE_NOT_NULL(pDstBuffer);
-    LAC_ENSURE_NOT_NULL(pVerifyResult);
+        switch (pDcSessDesc->autoSelectBestHuffmanTree)
+        {
+            case CPA_DC_ASB_DISABLED:
+                break;
+            case CPA_DC_ASB_STATIC_DYNAMIC:
+            case CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_STORED_HDRS:
+            case CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS:
+            case CPA_DC_ASB_ENABLED:
+                asbFlag = ICP_QAT_FW_COMP_CHAIN_ASB;
+                break;
+            default:
+                break;
+        }
 
-    /* Set the command id */
-    laCmdId = pSessionDesc->laCmdId;
-    /* Write the buffer descriptors */
-    status = LacBuffDesc_BufferListDescWrite((CpaBufferList *)pSrcBuffer,
-                                             &srcAddrPhys,
-                                             CPA_FALSE,
-                                             &(pService->generic_service_info));
-    LAC_CHECK_STATUS_LOG(
-        status, "%s", "Unable to write source buffer descriptors");
-
-    /* For out of place operations */
-    if (pSrcBuffer != pDstBuffer)
-    {
-        status =
-            LacBuffDesc_BufferListDescWrite(pDstBuffer,
-                                            &dstAddrPhys,
-                                            CPA_FALSE,
-                                            &(pService->generic_service_info));
-        LAC_CHECK_STATUS_LOG(
-            status, "%s", "Unable to write destination buffer descriptors");
-    }
-#ifdef ICP_PARAM_CHECK
-    LAC_ASSERT_NOT_NULL(pCookie);
-#endif
-    /* Populate the cookie */
-    pCookie->pCallbackTag = NULL;
-    pCookie->sessionCtx = pOpData->sessionCtx;
-    pCookie->pOpData = (const CpaCySymOpData *)pOpData;
-    pCookie->pDstBuffer = pDstBuffer;
-    pCookie->updateSessionIvOnSend = CPA_FALSE;
-    pCookie->updateUserIvOnRecieve = CPA_FALSE;
-    pCookie->updateKeySizeOnRecieve = CPA_FALSE;
-    pCookie->pNext = NULL;
-    pCookie->instanceHandle = pService;
-
-    /* Get the QAT packet type for LAC */
-    LacSymQat_packetTypeGet(
-        pOpData->packetType, pSessionDesc->partialState, &qatPacketType);
-
-    /*
-     * Now create the request.
-     * Start by populating it from the cache in the session descriptor.
-     */
-    pMsg = &(pCookie->qatMsg);
-    pMsgDummy = (Cpa8U *)pMsg;
-
-    /* Normally, we want to use the SHRAM constant Table if possible
-     * for best performance (less DRAM accesses incurred by QAT). But
-     * we cannot use it for partial-packet hash operations. This is why
-     * we build 2 versions of the message template at sessionInit,
-     * one for SHRAM constant Table usage and the other (default) for
-     * Content Descriptor h/w setup data in DRAM. And we chose between
-     * them here on a per-request basis, when we know the packet type
-     */
-    if ((!pSessionDesc->useSymConstantsTable) ||
-        (pSessionDesc->isAuth &&
-         (CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType)))
-    {
-        pCacheDummyHdr = (Cpa8U *)&(pSessionDesc->reqCacheHdr);
-        pCacheDummyFtr = (Cpa8U *)&(pSessionDesc->reqCacheFtr);
+        /* Fill extend flag */
+        pChainReq->extendFlags |= ICP_QAT_FW_COMP_CHAIN_REQ_EXTEND_FLAGS_BUILD(
+            cnvFlag,
+            asbFlag,
+            ICP_QAT_FW_COMP_CHAIN_NO_CBC,
+            ICP_QAT_FW_COMP_CHAIN_NO_XTS,
+            ICP_QAT_FW_COMP_CHAIN_NO_CCM,
+            cnvnrFlag);
     }
     else
     {
-        pCacheDummyHdr = (Cpa8U *)&(pSessionDesc->shramReqCacheHdr);
-        pCacheDummyFtr = (Cpa8U *)&(pSessionDesc->shramReqCacheFtr);
+        pChainStor2Req = (icp_qat_fw_chain_stor2_req_t *)&pChainCookie->request;
+        pChainStor2Req->compReqAddr =
+            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                pDcService->generic_service_info, &pDcCookie->request);
+        pChainStor2Req->compRespAddr = rspDescPhyAddr;
     }
-    osalMemCopy(pMsgDummy,
-                pCacheDummyHdr,
-                (LAC_LONG_WORD_IN_BYTES * LAC_SIZE_OF_CACHE_HDR_IN_LW));
-    osalMemCopy(pMsgDummy +
-                    (LAC_LONG_WORD_IN_BYTES * LAC_START_OF_CACHE_FTR_IN_LW),
-                pCacheDummyFtr,
-                (LAC_LONG_WORD_IN_BYTES * LAC_SIZE_OF_CACHE_FTR_IN_LW));
-    /*
-     * Populate the comn_mid section
-     */
-    SalQatMsg_CmnMidWrite(pMsg,
-                          pCookie,
-                          LAC_SYM_DEFAULT_QAT_PTR_TYPE,
-                          srcAddrPhys,
-                          dstAddrPhys,
-                          0,
-                          0);
-
-    /*
-     * Populate the serv_specif_flags field of the Request header
-     * Some of the flags are set up here.
-     * Others are set up later when the RequestParams are set up.
-     */
-    LacSymQat_LaPacketCommandFlagSet(qatPacketType,
-                                     laCmdId,
-                                     pSessionDesc->cipherAlgorithm,
-                                     &pMsg->comn_hdr.serv_specif_flags,
-                                     pOpData->ivLenInBytes);
-
-    /* Set up HashRequestParams part of Request */
-    authOffsetInBytes = pOpData->hashStartSrcOffsetInBytes;
-    authLenInBytes = pOpData->messageLenToHashInBytes;
-    pHashStateBufferInfo = &(pSessionDesc->hashStateBufferInfo);
-    pDigestResult = pOpData->pDigestResult;
-
-#ifdef ICP_PARAM_CHECK
-    LacBuffDesc_BufferListTotalSizeGet(pSrcBuffer, &srcPktSize);
-    status = LacHash_PerformParamCheck(
-        instanceHandle, pSessionDesc, pOpData, srcPktSize, pVerifyResult);
-    LAC_CHECK_STATUS(status);
-    if (CPA_TRUE == pSessionDesc->digestIsAppended)
-    {
-        /* Check if the destination buffer can handle the digest
-         * if digestIsAppend is true
-         */
-        LAC_CHECK_STATEMENT(srcPktSize < (authOffsetInBytes + authLenInBytes +
-                                          pSessionDesc->hashResultSize));
-    }
-#endif
-    /* Populate the hash request parameters */
-    status = LacSymQat_HashRequestParamsPopulate(
-        pMsg,
-        authOffsetInBytes,
-        authLenInBytes,
-        &(pService->generic_service_info),
-        pHashStateBufferInfo,
-        qatPacketType,
-        pSessionDesc->hashResultSize,
-        pSessionDesc->digestVerify,
-        pSessionDesc->digestIsAppended ? NULL : pDigestResult,
-        pSessionDesc->hashAlgorithm,
-        NULL);
 
     return status;
 }
@@ -1677,7 +1156,8 @@ STATIC CpaStatus dcChainPrepare_SymRequest(CpaInstanceHandle dcInstance,
     lac_session_desc_t *pCySessDesc = NULL;
     void *pCyLinkRsp = NULL;
     Cpa64U rspDescPhyAddr = 0;
-    icp_qat_fw_comp_chain_req_t *pChainReq = &pChainCookie->request;
+    icp_qat_fw_comp_chain_req_t *pChainReq = NULL;
+    icp_qat_fw_chain_stor2_req_t *pChainStor2Req = NULL;
     pCySessDesc = LAC_SYM_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
     LAC_CHECK_NULL_PARAM(pCySymOp);
     LAC_CHECK_NULL_PARAM(pResults);
@@ -1686,16 +1166,40 @@ STATIC CpaStatus dcChainPrepare_SymRequest(CpaInstanceHandle dcInstance,
         (pCySymOp->packetType == CPA_CY_SYM_PACKET_TYPE_PARTIAL ||
          pCySymOp->packetType == CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL),
         "%s",
-        "Packet type not supported for crypto operation.\n");
+        "Sym Partial packet not supported in dc-chain operation.\n");
+
+    if ((!pCySessDesc->digestIsAppended) &&
+        ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pCySessDesc->symOperation) ||
+         (CPA_CY_SYM_OP_HASH == pCySessDesc->symOperation)))
+    {
+        /* Check that pDigestResult is not NULL */
+        LAC_CHECK_NULL_PARAM(pCySymOp->pDigestResult);
+    }
+
+    if (CPA_STATUS_SUCCESS != dcChainSession_CheckCySessDesc(pCySessDesc))
+    {
+        return CPA_STATUS_INVALID_PARAM;
+    }
 #endif
     pCySymOp->sessionCtx = pSessionHandle;
-    status = dcChainOp_CreateSymCryptoRequest(dcInstance,
-                                              pCySessDesc,
-                                              pCySymOp,
-                                              pCyCookie,
-                                              pSrcBuff,
-                                              pDestBuff,
-                                              &pResults->verifyResult);
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Add DC Chaining info to the CY cookie */
+        pCyCookie->dcChain.isDcChaining = CPA_TRUE;
+
+        /* This is the common CY function to create the requests for
+         * crypto operations. It creates the crypto request
+         * message but does not send it for DC chained requests. */
+        status = LacAlgChain_Perform(dcInstance,
+                                     pCySessDesc,
+                                     NULL,
+                                     pCySymOp,
+                                     pCyCookie,
+                                     pSrcBuff,
+                                     pDestBuff,
+                                     &pResults->verifyResult);
+    }
     LAC_CHECK_STATUS(status);
 
     pCyLinkRsp = Lac_MemPoolEntryAlloc(pChainService->dc_chain_serv_resp_pool);
@@ -1710,12 +1214,25 @@ STATIC CpaStatus dcChainPrepare_SymRequest(CpaInstanceHandle dcInstance,
 
     rspDescPhyAddr = (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
         pDcService->generic_service_info, pCyLinkRsp);
-    pChainReq->symCryptoReqAddr =
-        (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-            pDcService->generic_service_info, &pCyCookie->qatMsg);
-    pChainReq->symCryptoRespAddr = rspDescPhyAddr;
     pChainCookie->pCyRspAddr = pCyLinkRsp;
     pChainCookie->pCyCookieAddr = pCyCookie;
+
+    if (!pDcService->generic_service_info.isGen4)
+    {
+        pChainReq = (icp_qat_fw_comp_chain_req_t *)&pChainCookie->request;
+        pChainReq->symCryptoReqAddr =
+            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                pDcService->generic_service_info, &pCyCookie->qatMsg);
+        pChainReq->symCryptoRespAddr = rspDescPhyAddr;
+    }
+    else
+    {
+        pChainStor2Req = (icp_qat_fw_chain_stor2_req_t *)&pChainCookie->request;
+        pChainStor2Req->symCryptoReqAddr =
+            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                pDcService->generic_service_info, &pCyCookie->qatMsg);
+        pChainStor2Req->symCryptoRespAddr = rspDescPhyAddr;
+    }
 
     return status;
 }
@@ -1782,6 +1299,7 @@ CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
     lac_sym_bulk_cookie_t *pCyCookie = NULL;
     /* Request for chaining (compression + crypto) */
     icp_qat_fw_comp_chain_req_t *pChainReq = NULL;
+    icp_qat_fw_chain_stor2_req_t *pChainStor2Req = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa8U *pTemp;
     Cpa32U i;
@@ -1808,13 +1326,27 @@ CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
     pChainCookie->callbackTag = callbackTag;
 
     /* Build chaining common header */
-    pChainReq = &pChainCookie->request;
-    LAC_OS_BZERO(pChainReq, sizeof(icp_qat_fw_comp_chain_req_t));
-    osalMemCopy((void *)pChainReq,
-                (void *)(&pSessHead->comn_hdr),
-                sizeof(icp_qat_comp_chain_req_hdr_t));
-    /* Save cookie pointer into request descriptor */
-    LAC_MEM_SHARED_WRITE_FROM_PTR(pChainReq->opaque_data, pChainCookie);
+    if (!pDcService->generic_service_info.isGen4)
+    {
+        pChainReq = (icp_qat_fw_comp_chain_req_t *)&pChainCookie->request;
+        LAC_OS_BZERO(pChainReq, sizeof(icp_qat_fw_comp_chain_req_t));
+        osalMemCopy((void *)pChainReq,
+                    (void *)(&pSessHead->hdr.comn_hdr),
+                    sizeof(icp_qat_comp_chain_req_hdr_t));
+        /* Save cookie pointer into request descriptor */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(pChainReq->opaque_data, pChainCookie);
+    }
+    else
+    {
+        pChainStor2Req = (icp_qat_fw_chain_stor2_req_t *)&pChainCookie->request;
+        LAC_OS_BZERO(pChainStor2Req, sizeof(icp_qat_fw_chain_stor2_req_t));
+
+        /* Populates the QAT common request header part of the message
+         * (LW 0 to 1) */
+        osalMemCopy((void *)(&pChainStor2Req->comn_hdr),
+                    (void *)(&pSessHead->hdr.comn_hdr2),
+                    sizeof(icp_qat_fw_comn_req_hdr_t));
+    }
 
     osalAtomicInc(&(pSessHead->pendingChainCbCount));
     pTemp = (Cpa8U *)pSessionHandle + sizeof(dc_chain_session_head_t);
@@ -1864,6 +1396,7 @@ CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
                 status = CPA_STATUS_RETRY;
                 goto out_err;
             }
+            /* Using InPlace buffer for sym operations. */
             status = dcChainPrepare_SymRequest(dcInstance,
                                                pChainCookie,
                                                pTemp,
@@ -1871,7 +1404,7 @@ CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
                                                pChainOpData[i].pCySymOp,
                                                i,
                                                pSrcBuff,
-                                               pDestBuff,
+                                               pSrcBuff,
                                                pResults);
             if (CPA_STATUS_SUCCESS != status)
                 goto out_err;
@@ -1886,9 +1419,23 @@ CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
         goto out_err;
     }
 
+    if (pDcService->generic_service_info.isGen4)
+    {
+        /* Populates the QAT common request middle part of the message
+         * (LW 6 to 13) */
+        SalQatMsg_CmnMidWrite(
+            (icp_qat_fw_la_bulk_req_t *)&pChainCookie->request,
+            pChainCookie,
+            DC_DEFAULT_QAT_PTR_TYPE,
+            (Cpa64U)NULL,
+            (Cpa64U)NULL,
+            0,
+            0);
+    }
+
     /*Put message on the ring*/
     status = SalQatMsg_transPutMsg(pDcService->trans_handle_compression_tx,
-                                   (void *)pChainReq,
+                                   (void *)&pChainCookie->request,
                                    LAC_QAT_DC_REQ_SZ_LW,
                                    LAC_LOG_MSG_DC,
                                    NULL);
@@ -1956,8 +1503,15 @@ CpaStatus cpaDcChainPerformOp(CpaInstanceHandle dcInstance,
     LAC_CHECK_NULL_PARAM(pSrcBuff);
     LAC_CHECK_NULL_PARAM(pDestBuff);
     LAC_CHECK_NULL_PARAM(insHandle);
+    LAC_CHECK_NULL_PARAM(pResults);
     SAL_CHECK_ADDR_TRANS_SETUP(insHandle);
     SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    if (CPA_STATUS_SUCCESS !=
+        dcChainSession_CheckChainSessDesc(
+            (dc_chain_session_head_t *)pSessionHandle, operation, numOpDatas))
+    {
+        return CPA_STATUS_INVALID_PARAM;
+    }
 #endif
     pService = (sal_compression_service_t *)insHandle;
     if (NULL == pService->pDcChainService)

@@ -581,9 +581,9 @@ CpaStatus LacSymHash_AesECBPreCompute(CpaInstanceHandle instanceHandle,
 *
 * @description
 *      This function registers the precompute callback handler function, which
-*      is different to the default one used by symmetric. Content descriptors 
-*      are preallocted for the hmac precomputes as they are constant for these
-*      operations.
+*      is different to the default one used by symmetric. Content descriptors
+*      are pre-allocated for the hmac precomputes as they are constant for
+*      these operations.
 *
 * @retval CPA_STATUS_SUCCESS       Success
 * @retval CPA_STATUS_RESOURCE      Error allocating memory

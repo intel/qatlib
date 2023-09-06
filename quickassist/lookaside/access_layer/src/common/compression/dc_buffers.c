@@ -210,7 +210,6 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
     CpaInstanceHandle insHandle = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-#ifdef ICP_PARAM_CHECK
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
         insHandle = dcGetFirstHandle();
@@ -220,6 +219,7 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
         insHandle = dcInstance;
     }
 
+#ifdef ICP_PARAM_CHECK
     LAC_CHECK_INSTANCE_HANDLE(insHandle);
     LAC_CHECK_NULL_PARAM(outputSize);
     /* Ensure this is a compression instance */

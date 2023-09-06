@@ -185,8 +185,7 @@ CpaStatus qatFreeCompressionLists(compression_test_params_t *setup,
 #ifdef SC_CHAINING_ENABLED
 /*free the array of chaining source and destination CpaBufferLists
  * free the array of chainging results*/
-CpaStatus qatFreeDcChainLists(void **chainResultArray,
-                              CpaDcChainOpData **chainOpDataArray)
+CpaStatus qatFreeDcChainLists(void **chainResultArray, void **chainOpDataArray)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaStatus retStatus = CPA_STATUS_SUCCESS;
@@ -200,7 +199,7 @@ CpaStatus qatFreeDcChainLists(void **chainResultArray,
             retStatus = CPA_STATUS_FAIL;
         }
 
-        status = FreeArrayOfStructures((void **)chainOpDataArray);
+        status = FreeArrayOfStructures(chainOpDataArray);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("could not free chainOpDataArray");
@@ -282,16 +281,23 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
  * allocate the array of results*/
 CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
                                   void **chainResultArray,
-                                  CpaDcChainOpData **chainOpDataArray)
+                                  void **chainOpDataArray)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U chainResultLen = 0;
+    Cpa32U chainOpDataLen = 0;
 
     if (setup->legacyChainRequest)
+    {
         chainResultLen = sizeof(CpaDcChainRqResults);
+        chainOpDataLen = sizeof(CpaDcChainOpData);
+    }
 #ifdef SC_CHAINING_EXT_ENABLED
     else
+    {
         chainResultLen = sizeof(CpaDcChainRqVResults);
+        chainOpDataLen = sizeof(CpaDcChainSubOpData2);
+    }
 #endif
 
     if (NULL != chainResultArray)
@@ -308,9 +314,9 @@ CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
         if (CPA_STATUS_SUCCESS == status)
         {
             status =
-                AllocArrayOfStructures((void **)chainOpDataArray,
+                AllocArrayOfStructures(chainOpDataArray,
                                        setup->numLists * setup->numSessions,
-                                       sizeof(CpaDcChainOpData));
+                                       chainOpDataLen);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("could not allocate chainOpDataArray\n");
@@ -651,7 +657,6 @@ CpaStatus qatCompressionSessionInit(
     Cpa32U numberOfBuffersPerList = ONE_BUFFER_DC;
     Cpa8U compressionSessionInitialize = 0;
     Cpa8U decompressionSessionInitialize = 0;
-
     /*
      *  Required session initialization matrix:
      *  | Dir  | Rel | Required session |
@@ -682,7 +687,6 @@ CpaStatus qatCompressionSessionInit(
         default:
             break;
     }
-
     // cpaScInitDcSession(...)
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -799,6 +803,11 @@ CpaStatus qatCompressionSessionTeardown(
     {
         status = cpaDcRemoveSession(setup->dcInstanceHandle,
                                     *pDecompressSessionHandle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaDcRemoveSession returned status %d\n", status);
+            retStatus = CPA_STATUS_FAIL;
+        }
         qaeMemFreeNUMA((void **)&(*pDecompressSessionHandle));
         if (NULL != *pDecompressSessionHandle)
         {

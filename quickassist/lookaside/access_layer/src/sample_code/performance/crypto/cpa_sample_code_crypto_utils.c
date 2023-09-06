@@ -2587,6 +2587,11 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
             */
             status = cyPollNumOperations(
                 pPerfData, instanceHandle, pPerfData->numOperations);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("cyPollNumOperations failed, status = %d\n", status);
+                return CPA_STATUS_FAIL;
+            }
         }
         sampleCodeSemaphoreDestroy(&pPerfData->comp);
         qaeMemFree((void **)&pPerfData);
@@ -3239,7 +3244,15 @@ void printCipherAlg(CpaCySymCipherSetupData cipherSetupData)
             break;
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
         case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-            PRINT("ZUC-EEA3");
+            if (cipherSetupData.cipherKeyLenInBytes == KEY_SIZE_256_IN_BYTES)
+            {
+                PRINT("ZUC256-");
+            }
+            else
+            {
+                PRINT("ZUC-");
+            }
+            PRINT("EEA3");
             break;
         case CPA_CY_SYM_CIPHER_SM4_ECB:
             PRINT("SM4-ECB");
@@ -3314,14 +3327,44 @@ void printHashAlg(CpaCySymHashSetupData hashSetupData)
             PRINT("SNOW3G-UIA2");
             break;
         case CPA_CY_SYM_HASH_AES_CMAC:
-            PRINT("AES-CMAC");
+            if (hashSetupData.authModeSetupData.authKeyLenInBytes ==
+                KEY_SIZE_256_IN_BYTES)
+            {
+                PRINT("AES256-CMAC");
+            }
+            else
+            {
+                PRINT("AES-CMAC");
+            }
             break;
         case CPA_CY_SYM_HASH_AES_GMAC:
             PRINT("AES-GMAC");
             break;
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
         case CPA_CY_SYM_HASH_ZUC_EIA3:
-            PRINT("ZUC-EIA3");
+            if (hashSetupData.authModeSetupData.authKeyLenInBytes ==
+                    KEY_SIZE_256_IN_BYTES &&
+                hashSetupData.digestResultLenInBytes == 4)
+            {
+                PRINT("ZUC256-32-");
+            }
+            else if (hashSetupData.authModeSetupData.authKeyLenInBytes ==
+                         KEY_SIZE_256_IN_BYTES &&
+                     hashSetupData.digestResultLenInBytes == 8)
+            {
+                PRINT("ZUC256-64-");
+            }
+            else if (hashSetupData.authModeSetupData.authKeyLenInBytes ==
+                         KEY_SIZE_256_IN_BYTES &&
+                     hashSetupData.digestResultLenInBytes == 16)
+            {
+                PRINT("ZUC256-128-");
+            }
+            else
+            {
+                PRINT("ZUC-");
+            }
+            PRINT("EIA3");
             break;
 #elif CPA_CY_API_VERSION_NUM_MINOR >= 8
         case CPA_CY_SYM_HASH_AES_CBC_MAC:
@@ -3763,7 +3806,7 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                                       symTestSetup->setupData.cipherSetupData
                                           .cipherAlgorithm)) == CPA_FALSE))
             {
-                PRINT("\nUn supported Cipher ");
+                PRINT("\nUnsupported Cipher ");
                 printCipherAlg(symTestSetup->setupData.cipherSetupData);
                 return CPA_FALSE;
             }
@@ -3775,7 +3818,7 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                      symTestSetup->setupData.hashSetupData.hashAlgorithm)) ==
                  CPA_FALSE))
             {
-                PRINT("\nUn supported Hash ");
+                PRINT("\nUnsupported Hash ");
                 printHashAlg(symTestSetup->setupData.hashSetupData);
                 return CPA_FALSE;
             }
@@ -3786,7 +3829,7 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                                       symTestSetup->setupData.cipherSetupData
                                           .cipherAlgorithm)) == CPA_FALSE))
             {
-                PRINT("\nUn supported AlgChain ");
+                PRINT("\nUnsupported AlgChain ");
                 printCipherAlg(symTestSetup->setupData.cipherSetupData);
                 return CPA_FALSE;
             }
@@ -3796,13 +3839,13 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                      symTestSetup->setupData.hashSetupData.hashAlgorithm)) ==
                  CPA_FALSE))
             {
-                PRINT("\nUn supported AlgChain ");
+                PRINT("\nUnsupported AlgChain ");
                 printHashAlg(symTestSetup->setupData.hashSetupData);
                 return CPA_FALSE;
             }
             break;
         default:
-            PRINT_ERR("\nUn supported Sym operation: %d\n",
+            PRINT_ERR("\nUnsupported Sym operation: %d\n",
                       symTestSetup->setupData.symOperation);
             return CPA_FALSE;
     }
@@ -3936,6 +3979,10 @@ CpaStatus getCySymQueryCapabilities(CpaCySymCapabilitiesInfo *pCap)
     if (nSymInstances == 0)
     {
         status = cpaCyGetInstances(1, &instanceHandle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
     }
 
     if (instanceHandle == NULL)

@@ -1197,6 +1197,14 @@ CpaStatus LacEc_GetRange(Cpa32U size, Cpa32U *pMax)
 
     LAC_ASSERT_NOT_NULL(pMax);
 
+#ifndef QAT_LEGACY_ALGORITHMS
+    if (LAC_EC_SIZE_QW4_IN_BYTES > size)
+    {
+        LAC_LOG("ECC algorithm is not supported for curve lengths less than "
+                "256 bits\n");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+#endif
     if (LAC_EC_SIZE_QW4_IN_BYTES >= size)
     {
         size = LAC_EC_SIZE_QW4_IN_BYTES;

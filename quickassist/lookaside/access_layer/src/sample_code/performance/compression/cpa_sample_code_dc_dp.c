@@ -1289,7 +1289,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     srcFlatBuffArray = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaPhysFlatBuffer *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaPhysFlatBuffer)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == srcFlatBuffArray)
     {
@@ -1298,7 +1298,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     dstFlatBuffArray = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaPhysFlatBuffer *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaPhysFlatBuffer)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == dstFlatBuffArray)
     {
@@ -1308,7 +1308,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     cmpFlatBuffArray = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaPhysFlatBuffer *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaPhysFlatBuffer)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == cmpFlatBuffArray)
     {
@@ -1319,7 +1319,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     compressionOpData = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaDcDpOpData *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaDcDpOpData)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == compressionOpData)
     {
@@ -1331,7 +1331,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     decompressionOpData = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaDcDpOpData *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaDcDpOpData)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == decompressionOpData)
     {
@@ -1572,53 +1572,59 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
         }
         fileDataPtr = NULL;
     }
-
-    setup->setupData.sessDirection = CPA_DC_DIR_COMBINED;
-
-    /* Get Size for DC Session */
-    status = cpaDcDpGetSessionSize(
-        setup->dcInstanceHandle, &(setup->setupData), &sessionSize);
-    if (CPA_STATUS_SUCCESS != status)
     {
-        PRINT_ERR("cpaDcGetSessionSize() returned %d status.\n", status);
-        return CPA_STATUS_FAIL;
-    }
+        /*LZ4S doesn't support COMBINED sessDirection*/
+        if (setup->setupData.compType != CPA_DC_LZ4S)
+        {
+            setup->setupData.sessDirection = CPA_DC_DIR_COMBINED;
+        }
 
-    /* Allocate Memory for DC Session */
-    pSessionHandle = (CpaDcSessionHandle)qaeMemAllocNUMA(
-        (sessionSize), nodeId, BYTE_ALIGNMENT_64);
-    if (NULL == pSessionHandle)
-    {
-        PRINT_ERR("Unable to allocate Memory for Session Handle\n");
-        freeBuffersDp(srcFlatBuffArray, numFiles, setup);
-        freeBuffersDp(dstFlatBuffArray, numFiles, setup);
-        freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
-        freeOpDataDp(compressionOpData, numFiles, setup);
-        freeOpDataDp(decompressionOpData, numFiles, setup);
+        /* Get Size for DC Session */
+        status = cpaDcDpGetSessionSize(
+            setup->dcInstanceHandle, &(setup->setupData), &sessionSize);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaDcGetSessionSize() returned %d status.\n", status);
+            return CPA_STATUS_FAIL;
+        }
 
-        return CPA_STATUS_FAIL;
-    }
-    /* Setup and init Session */
-    status = cpaDcDpInitSession(
-        setup->dcInstanceHandle, pSessionHandle, &(setup->setupData));
+        /* Allocate Memory for DC Session */
+        pSessionHandle = (CpaDcSessionHandle)qaeMemAllocNUMA(
+            (sessionSize), nodeId, BYTE_ALIGNMENT_64);
+        if (NULL == pSessionHandle)
+        {
+            PRINT_ERR("Unable to allocate Memory for Session Handle\n");
+            freeBuffersDp(srcFlatBuffArray, numFiles, setup);
+            freeBuffersDp(dstFlatBuffArray, numFiles, setup);
+            freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
+            freeOpDataDp(compressionOpData, numFiles, setup);
+            freeOpDataDp(decompressionOpData, numFiles, setup);
+
+            return CPA_STATUS_FAIL;
+        }
+        /* Setup and init Session */
+        status = cpaDcDpInitSession(
+            setup->dcInstanceHandle, pSessionHandle, &(setup->setupData));
 #ifdef LATENCY_CODE
-    if ((latency_enable) && (latency_debug))
-    {
-        PRINT(
-            "%s: cpaDcDpInitSession() returns=%d\n", __FUNCTION__, (int)status);
-    }
+        if ((latency_enable) && (latency_debug))
+        {
+            PRINT("%s: cpaDcDpInitSession() returns=%d\n",
+                  __FUNCTION__,
+                  (int)status);
+        }
 #endif
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        PRINT_ERR("Problem in session creation: status = %d \n", status);
-        qaeMemFreeNUMA((void **)&pSessionHandle);
-        freeBuffersDp(srcFlatBuffArray, numFiles, setup);
-        freeBuffersDp(dstFlatBuffArray, numFiles, setup);
-        freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
-        freeOpDataDp(compressionOpData, numFiles, setup);
-        freeOpDataDp(decompressionOpData, numFiles, setup);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Problem in session creation: status = %d \n", status);
+            qaeMemFreeNUMA((void **)&pSessionHandle);
+            freeBuffersDp(srcFlatBuffArray, numFiles, setup);
+            freeBuffersDp(dstFlatBuffArray, numFiles, setup);
+            freeBuffersDp(cmpFlatBuffArray, numFiles, setup);
+            freeOpDataDp(compressionOpData, numFiles, setup);
+            freeOpDataDp(decompressionOpData, numFiles, setup);
 
-        return CPA_STATUS_FAIL;
+            return CPA_STATUS_FAIL;
+        }
     }
 
 /*CnV Error Injection */
@@ -1762,6 +1768,7 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
                         decompressionOpData[i][j],
                         setup->dcInstanceHandle,
                         CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
+
             }
         }
 
@@ -1796,17 +1803,18 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     dcDpSetBytesProducedAndConsumed(compressionOpData, perfData, setup);
 
 exit:
-    if (CPA_STATUS_SUCCESS != status)
     {
-        removeStatus =
-            sampleRemoveDcDpSession(setup->dcInstanceHandle, pSessionHandle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            removeStatus = sampleRemoveDcDpSession(setup->dcInstanceHandle,
+                                                   pSessionHandle);
+        }
+        if (CPA_STATUS_SUCCESS != removeStatus)
+        {
+            PRINT_ERR("Unable to remove compression session\n");
+        }
+        qaeMemFreeNUMA((void **)&pSessionHandle);
     }
-    if (CPA_STATUS_SUCCESS != removeStatus)
-    {
-        PRINT_ERR("Unable to remove compression session\n");
-    }
-    qaeMemFreeNUMA((void **)&pSessionHandle);
-
     /* Free allocated src, dst & cmp memory */
     freeBuffersDp(srcFlatBuffArray, numFiles, setup);
     freeBuffersDp(dstFlatBuffArray, numFiles, setup);
@@ -1978,6 +1986,11 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         icp_sal_DcPutFileDescriptor(dcSetup.dcInstanceHandle, fd);
         testSetup->performanceStats->threadReturnStatus =
             CPA_STATUS_UNSUPPORTED;
+        /*set the print function that can be used to print
+         * statistics at the end of the test
+         * */
+        testSetup->statsPrintFunc =
+            (stats_print_func_t)stopDcServicesFromPrintStats;
         sampleCodeThreadExit();
     }
 #endif

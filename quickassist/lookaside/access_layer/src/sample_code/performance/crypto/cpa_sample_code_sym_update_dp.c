@@ -182,6 +182,10 @@ static CpaStatus performOpAndVerifyDp(CpaInstanceHandle cyInstHandle,
     {
         status =
             cyDpPollRemainingOperations(setup->performanceStats, cyInstHandle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cyDpPollRemainingOperations: failed\n");
+        }
     }
 
     do

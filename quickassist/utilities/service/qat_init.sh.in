@@ -67,7 +67,7 @@ QAT_4XXX_DEVICE_NAME="4xxx"
 QAT_4XXX_DRIVER_NAME="qat_4xxx"
 PF_NAMES="$QAT_4XXX_DEVICE_NAME"
 VF_DEVICE_IDS="$QAT_4XXX_DEVICE_PCI_ID_VM $QAT_401XX_DEVICE_PCI_ID_VM"
-SERVICES_LIST="sym;asym dc"
+SERVICES_LIST="sym asym sym;asym dc sym;dc asym;dc dcc"
 SERVICES_ENABLED="NONE"
 SERVICES_ENABLED_FOUND="FALSE"
 SYSTEMD_FILE="@systemdsystemunitdir@/qat.service"
@@ -86,6 +86,37 @@ check_config() {
             SERVICES_ENABLED_FOUND="TRUE"
             break
         fi
+    done
+}
+
+get_module_state() {
+    echo `cat /proc/modules | grep "^$QAT_4XXX_DRIVER_NAME" | cut -d' ' -f5`
+}
+
+check_driver() {
+    # check if is running on VM (no PFs)
+    if [ -z "$(lspci | grep ${QAT_4XXX_DEVICE_PCI_ID#0x})" ]; then
+        echo "lspci : $(lspci | grep $QAT_4XXX_DEVICE_PCI_ID)"
+        return
+    fi
+    # qat driver needs 0.2s per PF, so for 8S machine it needs ~ 6.4 s
+    # TIMEOUT = TIMEOUT_CNT * ATTEMPT_INTERVAL so there is a 20s
+    TIMEOUT_CNT=40
+    ATTEMPT_INTERVAL=0.5
+    ATTEMPT_CNT=0
+    CURRENT_STATE=$(get_module_state)
+
+    while [ "$CURRENT_STATE" != "Live" ]
+    do
+        if [ $ATTEMPT_CNT -ge $TIMEOUT_CNT ]; then
+            TIMEOUT=`echo $ATTEMPT_CNT*$ATTEMPT_INTERVAL | bc`
+            echo "QAT driver is still not present after ${TIMEOUT}s. Aborting qat_init"
+            exit 1
+        fi
+        ATTEMPT_CNT=`expr $ATTEMPT_CNT + 1`
+        sleep $ATTEMPT_INTERVAL
+        CURRENT_STATE=$(get_module_state)
+
     done
 }
 
@@ -297,6 +328,7 @@ enable_sriov() {
 }
 
 check_config
+check_driver
 sysfs_config
 enable_sriov
 wait

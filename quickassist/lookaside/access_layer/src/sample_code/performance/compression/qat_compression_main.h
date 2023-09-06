@@ -212,8 +212,7 @@ CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
  *
  *     @retval CPA_STATUS_FAIL      some of the memory could not be freed
  ****************************************************************************/
-CpaStatus qatFreeDcChainLists(void **chainResultArray,
-                              CpaDcChainOpData **chainOpDataArray);
+CpaStatus qatFreeDcChainLists(void **chainResultArray, void **chainOpDataArray);
 
 #endif
 /**
@@ -271,7 +270,7 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
  ****************************************************************************/
 CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
                                   void **chainResultArray,
-                                  CpaDcChainOpData **chainOpDataArray);
+                                  void **chainOpDataArray);
 #endif
 
 /**

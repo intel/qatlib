@@ -280,10 +280,10 @@ STATIC lac_sym_qat_hash_alg_info_t sha3_512Info = {
     sha3_512InitialState,
     LAC_HASH_SHA3_512_STATE_SIZE};
 
-STATIC lac_sym_qat_hash_alg_info_t polyInfo = {LAC_HASH_POLY_DIGEST_SIZE,
-                                               LAC_HASH_POLY_BLOCK_SIZE,
-                                               NULL, /* initial state */
-                                               LAC_HASH_POLY_STATE_SIZE};
+STATIC lac_sym_qat_hash_alg_info_t polyInfo = { LAC_HASH_POLY_DIGEST_SIZE,
+                                                LAC_HASH_POLY_BLOCK_SIZE,
+                                                NULL, /* initial state */
+                                                LAC_HASH_POLY_STATE_SIZE };
 
 STATIC lac_sym_qat_hash_alg_info_t xcbcMacInfo = {
     LAC_HASH_XCBC_MAC_128_DIGEST_SIZE,
@@ -291,10 +291,12 @@ STATIC lac_sym_qat_hash_alg_info_t xcbcMacInfo = {
     aesXcbcKeySeed,
     LAC_SYM_QAT_XCBC_STATE_SIZE};
 
-STATIC lac_sym_qat_hash_alg_info_t aesCmacInfo = {LAC_HASH_CMAC_128_DIGEST_SIZE,
-                                                  LAC_HASH_CMAC_BLOCK_SIZE,
-                                                  aesCmacKeySeed,
-                                                  LAC_SYM_QAT_CMAC_STATE_SIZE};
+STATIC lac_sym_qat_hash_alg_info_t aesCmacInfo = {
+    LAC_HASH_CMAC_128_DIGEST_SIZE,
+    LAC_HASH_CMAC_BLOCK_SIZE,
+    aesCmacKeySeed,
+    LAC_SYM_QAT_CMAC_STATE_SIZE
+};
 
 STATIC lac_sym_qat_hash_alg_info_t aesCcmInfo = {
     LAC_HASH_AES_CCM_DIGEST_SIZE,

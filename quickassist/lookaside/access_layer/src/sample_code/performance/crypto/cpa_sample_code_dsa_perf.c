@@ -1610,6 +1610,9 @@ barrier:
     /* exiting the function if any failure occurs in previous steps*/
     if (CPA_STATUS_SUCCESS != status)
     {
+#ifdef POLL_INLINE
+        qaeMemFree((void **)&instanceInfo2);
+#endif
         return status;
     }
     /* get a timestamp before submitting any requests. After submitting

@@ -900,7 +900,11 @@ CpaStatus getCorpusFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
         fclose(corpusFilePtr);
         return CPA_STATUS_FAIL;
     }
-    *ppSrcBuff = qaeMemAlloc(lSize);
+    /* To avoid negative values */
+    if (lSize >= 0)
+    {
+        *ppSrcBuff = qaeMemAlloc(lSize);
+    }
 
     if (*ppSrcBuff == NULL)
     {
@@ -984,7 +988,10 @@ CpaStatus getCompressedFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
         fclose(corpusFilePtr);
         return CPA_STATUS_FAIL;
     }
-    *ppSrcBuff = qaeMemAlloc(lSize);
+    if (lSize >= 0)
+    {
+        *ppSrcBuff = qaeMemAlloc(lSize);
+    }
 
     if (*ppSrcBuff == NULL)
     {
@@ -1105,7 +1112,7 @@ static int sampleCodeEventPoll(CpaInstanceHandle instanceHandle,
         return -1;
     }
     event.data.fd = fd;
-    event.events = EPOLLIN;
+    event.events = EPOLLIN | EPOLLET;
     if (-1 == epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event))
     {
         PRINT_ERR("Error adding fd to epoll: %d\n", errno);

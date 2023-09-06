@@ -69,10 +69,10 @@ CpaStatus adf_io_getNumDevices(unsigned int *num_devices)
     return CPA_STATUS_SUCCESS;
 }
 
-static CpaStatus cfg_getGeneralValue(const Cpa32U accelId,
-                                     const char *pParamName,
-                                     char *pParamValue,
-                                     struct qatmgr_msg_rsp *rsp)
+static CpaStatus cfg_getValueFromDeviceInfo(const Cpa32U accelId,
+                                            const char *pParamName,
+                                            char *pParamValue,
+                                            struct qatmgr_msg_rsp *rsp)
 {
     ICP_CHECK_FOR_NULL_PARAM(pParamName);
     ICP_CHECK_FOR_NULL_PARAM(pParamValue);
@@ -171,6 +171,24 @@ static CpaStatus cfg_getGeneralValue(const Cpa32U accelId,
     if (!ICP_STRNCMP_CONST(pParamName, "Firmware_MmpVer"))
     {
         sprintf(pParamValue, "N/A");
+        return CPA_STATUS_SUCCESS;
+    }
+
+    if (!ICP_STRNCMP_CONST(pParamName, "NumberCyInstances"))
+    {
+        snprintf(pParamValue,
+                 ADF_CFG_MAX_VAL_LEN_IN_BYTES,
+                 "%u",
+                 rsp->device_info.num_cy_instances);
+        return CPA_STATUS_SUCCESS;
+    }
+
+    if (!ICP_STRNCMP_CONST(pParamName, "NumberDcInstances"))
+    {
+        snprintf(pParamValue,
+                 ADF_CFG_MAX_VAL_LEN_IN_BYTES,
+                 "%u",
+                 rsp->device_info.num_dc_instances);
         return CPA_STATUS_SUCCESS;
     }
 
@@ -315,7 +333,7 @@ static CpaStatus cfg_getCyInstanceValue(const Cpa32U accelId,
         snprintf(pParamValue,
                  ADF_CFG_MAX_VAL_LEN_IN_BYTES,
                  "%u",
-                 rsp->instance_info.cy.sym.is_polled);
+                 rsp->instance_info.cy.is_polled);
         return CPA_STATUS_SUCCESS;
     }
 
@@ -401,36 +419,6 @@ static CpaStatus cfg_getCyInstanceValue(const Cpa32U accelId,
     return CPA_STATUS_FAIL;
 }
 
-static CpaStatus cfg_getNumInstances(const char *pParamName,
-                                     char *pParamValue,
-                                     struct qatmgr_msg_rsp *rsp)
-{
-    ICP_CHECK_FOR_NULL_PARAM(pParamName);
-    ICP_CHECK_FOR_NULL_PARAM(pParamValue);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
-
-    if (!ICP_STRNCMP_CONST(pParamName, "NumberCyInstances"))
-    {
-        snprintf(pParamValue,
-                 ADF_CFG_MAX_VAL_LEN_IN_BYTES,
-                 "%u",
-                 rsp->section_info.num_cy_instances);
-        return CPA_STATUS_SUCCESS;
-    }
-
-    if (!ICP_STRNCMP_CONST(pParamName, "NumberDcInstances"))
-    {
-        snprintf(pParamValue,
-                 ADF_CFG_MAX_VAL_LEN_IN_BYTES,
-                 "%u",
-                 rsp->section_info.num_dc_instances);
-        return CPA_STATUS_SUCCESS;
-    }
-
-    ADF_ERROR("Unsupported config parameter %s\n", pParamName);
-    return CPA_STATUS_FAIL;
-}
-
 CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
                                   const char *pSection,
                                   const char *pParamName,
@@ -451,11 +439,14 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
     ICP_CHECK_FOR_NULL_PARAM(pParamName);
     ICP_CHECK_FOR_NULL_PARAM(pParamValue);
 
-    if (ICP_STRNCMP_CONST(pSection, "GENERAL") == 0)
+    // NOTE: this should improve performance due to cashing also number of
+    // instances
+    if (ICP_STRNCMP_CONST(pSection, "GENERAL") == 0 ||
+        !ICP_STRNCMP_CONST_NO_NULL(pParamName, "Number"))
     {
         /*
-         *  All general section parameters are handled in
-         *  QATMGR_MSGTYPE_DEVICE_INFO message
+         *  All general section parameters and number of instances
+         *  are handled in QATMGR_MSGTYPE_DEVICE_INFO message
          */
         if (accel_dev->accelId != c_accelId ||
             rsp.hdr.type != QATMGR_MSGTYPE_DEVICE_INFO)
@@ -469,7 +460,7 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
             }
         }
         c_accelId = accel_dev->accelId;
-        return cfg_getGeneralValue(
+        return cfg_getValueFromDeviceInfo(
             accel_dev->accelId, pParamName, pParamValue, &rsp);
     }
 
@@ -513,20 +504,6 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
         else
             return cfg_getCyInstanceValue(
                 accel_dev->accelId, pParamName, pParamValue, &rsp);
-    }
-
-    if (!ICP_STRNCMP_CONST_NO_NULL(pParamName, "Number"))
-    {
-        if (rsp.hdr.type != QATMGR_MSGTYPE_SECTION_INFO)
-        {
-            if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_INFO))
-            {
-                ADF_ERROR("Failed to get SECTION_INFO response from qatmgr\n");
-                rsp.hdr.type = 0;
-                return CPA_STATUS_FAIL;
-            }
-        }
-        return cfg_getNumInstances(pParamName, pParamValue, &rsp);
     }
 
     ADF_ERROR("Unsupported config parameter %s\n", pParamName);

@@ -233,6 +233,19 @@ typedef enum
 
 #define OSAL_OS_UMOD64_32(dividend, divisor) (dividend % divisor);
 
+#define OSAL_PID pid_t
+#ifndef osalGetPid
+#define osalGetPid getpid
+#endif
+
+#ifndef osalStrtoul
+#define osalStrtoul strtoull
+#endif
+
+#ifndef osalStrsep
+#define osalStrsep strsep
+#endif
+
 #ifdef __cplusplus
 }
 #endif

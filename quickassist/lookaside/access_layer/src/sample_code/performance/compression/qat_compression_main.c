@@ -354,7 +354,6 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     tmpSetup = (compression_test_params_t *)(testSetup->setupPtr);
     testSetup->passCriteria = tmpSetup->passCriteria;
     dcSetup.passCriteria = tmpSetup->passCriteria;
-
     /* update the setup structure with setup parameters */
     memcpy(&dcSetup.requestOps, &tmpSetup->requestOps, sizeof(CpaDcOpData));
     dcSetup.useStatefulLite = tmpSetup->useStatefulLite;
@@ -459,6 +458,13 @@ void dcPerformance(single_thread_test_data_t *testSetup)
             allocateAndSetArrayOfPacketSizes(&(dcSetup.packetSizeInBytesArray),
                                              dcSetup.bufferSize,
                                              dcSetup.numLists);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("%s::%d allocateAndSetArrayOfPacketSizes failed",
+                      __func__,
+                      __LINE__);
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
+        }
     }
     /*check if dynamic compression is supported*/
     status = cpaDcQueryCapabilities(dcSetup.dcInstanceHandle, &capabilities);

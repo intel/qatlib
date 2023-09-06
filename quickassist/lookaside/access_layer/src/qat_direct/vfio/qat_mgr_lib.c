@@ -73,7 +73,8 @@ static int num_section_data = 0;
 
 
 static pthread_mutex_t section_data_mutex;
-
+/* message name within array should lives at index determined by it's
+ * message define from qat_mgr.h */
 static const char *qatmgr_msgtype_str[] = {
     "QATMGR_MSGTYPE_UNKNOWN",       /* string for unknown msg*/
     "QATMGR_MSGTYPE_SECTION_GET",   /* string for get section msg*/
@@ -81,7 +82,7 @@ static const char *qatmgr_msgtype_str[] = {
     "QATMGR_MSGTYPE_NUM_DEVICES",   /* string for num devices msg*/
     "QATMGR_MSGTYPE_DEVICE_INFO",   /* string for device info msg*/
     "QATMGR_MSGTYPE_DEVICE_ID",     /* string for device id msg*/
-    "QATMGR_MSGTYPE_SECTION_INFO",  /* string for section info msg*/
+    "QATMGR_MSGTYPE_RESERVED",      /* string for reserved msg*/
     "QATMGR_MSGTYPE_INSTANCE_INFO", /* string for instance info msg*/
     "QATMGR_MSGTYPE_INSTANCE_NAME", /* string for instance name msg*/
     "QATMGR_MSGTYPE_VFIO_FILE",     /* string for vfio file path msg*/
@@ -196,20 +197,42 @@ int destroy_section_data_mutex()
 
 void qat_mgr_cleanup_cfg(void)
 {
-    int i;
+    /*
+        Allocated memory:
+        section data[num_section_data - 1]
+        section_data[i].device_data[section_data[i].num_devices - 1]
+        section_data[i].device_data[j].xx_instance_data
+    */
+    struct qatmgr_section_data *section;
+    struct qatmgr_device_data *device;
+    int i, j;
 
     if (section_data)
     {
-        for (i = 0; i < num_section_data; i++)
+        section = section_data;
+        for (i = 0; i < num_section_data; i++, section++)
         {
+            device = section->device_data;
+            for (j = 0; j < section->num_devices; j++, device++)
+            {
+                if (!device)
+                    continue;
+
+                if (device->dc_instance_data)
+                {
+                    free(device->dc_instance_data);
+                    device->dc_instance_data = NULL;
+                }
+
+                if (device->cy_instance_data)
+                {
+                    free(device->cy_instance_data);
+                    device->cy_instance_data = NULL;
+                }
+            }
+
             free(section_data[i].device_data);
             section_data[i].device_data = NULL;
-
-            free(section_data[i].dc_instance_data);
-            section_data[i].dc_instance_data = NULL;
-
-            free(section_data[i].cy_instance_data);
-            section_data[i].cy_instance_data = NULL;
         }
 
         free(section_data);
@@ -587,12 +610,48 @@ static int qat_mgr_get_device_capabilities(
     return 0;
 }
 
+/*
+    Calculate bank number for different device configurations.
+    Note, this depends on corresponding mapping done by kernel driver.
+*/
+static int calculate_bank_number(struct qatmgr_device_data *device,
+                                 enum serv_type instance_service,
+                                 int inst_idx)
+{
+    switch (device->services)
+    {
+        case SERV_TYPE_CY:
+            if (instance_service == SERV_TYPE_ASYM)
+                return (inst_idx % device->num_cy_inst) * 2;
+            else
+                return (inst_idx % device->num_cy_inst) * 2 + 1;
+        case SERV_TYPE_SYM:
+            return inst_idx % device->num_sym_inst;
+        case SERV_TYPE_ASYM:
+            return inst_idx % device->num_asym_inst;
+        case SERV_TYPE_DC:
+            return inst_idx % device->num_dc_inst;
+        case SERV_TYPE_ASYM_DC:
+            if (instance_service == SERV_TYPE_ASYM)
+                return (inst_idx % device->num_asym_inst) * 2 + 1;
+            else
+                return (inst_idx % device->num_dc_inst) * 2;
+        case SERV_TYPE_SYM_DC:
+            if (instance_service == SERV_TYPE_SYM)
+                return (inst_idx % device->num_sym_inst) * 2 + 1;
+            else
+                return (inst_idx % device->num_dc_inst) * 2;
+        default:
+            return inst_idx % INSTANCES_PER_DEVICE;
+    }
+}
+
 int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                        const int num_vf_devices,
                        int policy,
                        int static_cfg)
 {
-    int i, j;
+    int i, j, k;
     struct qatmgr_section_data *section;
     struct qatmgr_instance_data *dc_inst;
     struct qatmgr_cy_instance_data *cy_inst;
@@ -611,6 +670,9 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     bool compatible;
     int ret;
     struct pf_capabilities *cached_capabilities;
+    int section_num_sym_inst = 0;
+    int section_num_asym_inst = 0;
+    int section_num_dc_inst = 0;
 
     if (!num_vf_devices)
         return -EINVAL;
@@ -714,6 +776,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     if (!section_data)
     {
         qat_log(LOG_LEVEL_ERROR, "Malloc failed for section data\n");
+        num_section_data = 0;
         qat_mgr_cleanup_cfg();
         return -EAGAIN;
     }
@@ -754,10 +817,9 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             return -EAGAIN;
         }
 
-        section->num_cy_inst = 0;
-        section->num_sym_inst = 0;
-        section->num_asym_inst = 0;
-        section->num_dc_inst = 0;
+        section_num_sym_inst = 0;
+        section_num_asym_inst = 0;
+        section_num_dc_inst = 0;
 
         device_data = section->device_data;
         for (j = 0; j < num_vfs_this_section; j++, device_data++, vf_idx++)
@@ -869,114 +931,185 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             device_data->device_type = qat_device_type(devid);
             device_data->pci_id = devid;
 
+            /*  1 device has 4 RPs = 4 logical instances.
+             *  Available device configurations:
+             *   - all sym
+             *   - all asym
+             *   - all dc
+             *   - asym, dc (2/2 instances)
+             *   - sym, dc (2/2 instances)
+             *   - cy (2 sym/2 asym)
+             */
             device_data->services = 0;
-            if ((device_data->accel_capabilities &
-                 ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC) &&
-                (device_data->accel_capabilities &
-                     ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC &&
-                 !(device_data->accel_capabilities &
-                   ICP_ACCEL_CAPABILITIES_COMPRESSION)))
+            if (device_data->accel_capabilities &
+                ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC)
             {
-                qat_log(LOG_LEVEL_INFO, "Detected CY instance\n");
-                device_data->services |= SERV_TYPE_CY;
-                section->num_sym_inst = 2;
-                section->num_asym_inst = 2;
-                section->num_cy_inst = 2;
+                device_data->services |= SERV_TYPE_SYM;
             }
 
             if (device_data->accel_capabilities &
-                    ICP_ACCEL_CAPABILITIES_COMPRESSION &&
-                !((device_data->accel_capabilities &
-                   ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC) ||
-                  (device_data->accel_capabilities &
-                   ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)))
+                ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)
             {
-                qat_log(LOG_LEVEL_INFO, "Detected DC instance\n");
+                device_data->services |= SERV_TYPE_ASYM;
+            }
+
+            if (device_data->accel_capabilities &
+                ICP_ACCEL_CAPABILITIES_COMPRESSION)
+            {
                 device_data->services |= SERV_TYPE_DC;
-                section->num_dc_inst = 4;
             }
-        }
 
-
-        if (section->num_dc_inst)
-        {
-            /* Create and populate instance data */
-            section->dc_instance_data = calloc(
-                section->num_dc_inst,
-                num_vfs_this_section * sizeof(struct qatmgr_instance_data));
-            if (!section->dc_instance_data)
+            /*  populate configuration for a device
+             *   first determine num instances per device
+             */
+            switch (device_data->services)
             {
-                qat_log(LOG_LEVEL_ERROR,
-                        "Malloc failed for dc instance data\n");
-                qat_mgr_cleanup_cfg();
-                return -EAGAIN;
+                case SERV_TYPE_CY: {
+                    qat_log(LOG_LEVEL_INFO, "Detected CY configuration\n");
+                    device_data->num_sym_inst = INSTANCES_PER_DEVICE / 2;
+                    device_data->num_asym_inst = INSTANCES_PER_DEVICE / 2;
+                    device_data->num_cy_inst = INSTANCES_PER_DEVICE / 2;
+                }
+                break;
+
+                case SERV_TYPE_SYM: {
+                    qat_log(LOG_LEVEL_INFO, "Detected SYM configuration\n");
+                    device_data->num_sym_inst = INSTANCES_PER_DEVICE;
+                    device_data->num_cy_inst =
+                        INSTANCES_PER_DEVICE; /* for SAL */
+                }
+                break;
+
+                case SERV_TYPE_ASYM: {
+                    qat_log(LOG_LEVEL_INFO, "Detected ASYM configuration\n");
+                    device_data->num_asym_inst = INSTANCES_PER_DEVICE;
+                    device_data->num_cy_inst =
+                        INSTANCES_PER_DEVICE; /* for SAL */
+                }
+                break;
+
+                case SERV_TYPE_DC: {
+                    qat_log(LOG_LEVEL_INFO, "Detected DC configuration\n");
+                    device_data->num_dc_inst = INSTANCES_PER_DEVICE;
+                }
+                break;
+
+                case SERV_TYPE_ASYM_DC: {
+                    qat_log(LOG_LEVEL_INFO, "Detected ASYM DC configuration\n");
+                    device_data->num_dc_inst = INSTANCES_PER_DEVICE / 2;
+                    device_data->num_asym_inst = INSTANCES_PER_DEVICE / 2;
+                    device_data->num_cy_inst =
+                        INSTANCES_PER_DEVICE / 2; /* for SAL */
+                }
+                break;
+
+                case SERV_TYPE_SYM_DC: {
+                    qat_log(LOG_LEVEL_INFO, "Detected SYM DC configuration\n");
+                    device_data->num_dc_inst = INSTANCES_PER_DEVICE / 2;
+                    device_data->num_sym_inst = INSTANCES_PER_DEVICE / 2;
+                    device_data->num_cy_inst =
+                        INSTANCES_PER_DEVICE / 2; /* for SAL */
+                }
+                break;
+
+                default: {
+                    qat_log(LOG_LEVEL_ERROR,
+                            "Detected unknown configuration\n");
+                    return -1;
+                }
             }
 
-            dc_inst = section->dc_instance_data;
-            for (j = 0; j < section->num_dc_inst * num_vfs_this_section;
-                 j++, dc_inst++)
+            if (device_data->num_dc_inst)
             {
-                snprintf(dc_inst->name, sizeof(dc_inst->name), "dc%d", j);
-                dc_inst->accelid = j / section->num_dc_inst;
-                dc_inst->service_type = SERV_TYPE_DC;
-
-                devid = dev_list[dc_inst->accelid].devid;
-                    dc_inst->bank_number = (j % section->num_dc_inst);
-                    dc_inst->ring_tx = 0;
-                    dc_inst->ring_rx = 1;
-                dc_inst->is_polled = 1;
-                dc_inst->num_concurrent_requests = 512;
-                dc_inst->core_affinity = core;
-                core = (core + 1) % num_procs;
+                /* Create instance data */
+                device_data->dc_instance_data =
+                    calloc(device_data->num_dc_inst,
+                           sizeof(struct qatmgr_instance_data));
+                if (!device_data->dc_instance_data)
+                {
+                    qat_log(LOG_LEVEL_ERROR,
+                            "Malloc failed for dc instance data\n");
+                    qat_mgr_cleanup_cfg();
+                    return -EAGAIN;
+                }
             }
-        }
 
-        if (section->num_cy_inst)
-        {
-            section->cy_instance_data = calloc(
-                section->num_cy_inst,
-                num_vfs_this_section * sizeof(struct qatmgr_cy_instance_data));
-            if (!section->cy_instance_data)
+            /* SYM and ASYM are stored inside CY instance data */
+            if (device_data->num_cy_inst)
             {
-                qat_log(LOG_LEVEL_ERROR,
-                        "Malloc failed for cy instance data\n");
-                qat_mgr_cleanup_cfg();
-                return -EAGAIN;
+                device_data->cy_instance_data =
+                    calloc(device_data->num_cy_inst,
+                           sizeof(struct qatmgr_cy_instance_data));
+                if (!device_data->cy_instance_data)
+                {
+                    qat_log(LOG_LEVEL_ERROR,
+                            "Malloc failed for cy instance data\n");
+                    qat_mgr_cleanup_cfg();
+                    return -EAGAIN;
+                }
             }
 
-            cy_inst = section->cy_instance_data;
-            for (j = 0; j < section->num_cy_inst * num_vfs_this_section;
-                 j++, cy_inst++)
+            /* populate instance data */
+            cy_inst = device_data->cy_instance_data;
+            for (k = 0; k < device_data->num_asym_inst; k++, cy_inst++)
             {
                 snprintf(cy_inst->asym.name,
                          sizeof(cy_inst->asym.name),
                          "asym%d",
-                         j);
-                cy_inst->asym.accelid = j / section->num_cy_inst;
+                         section_num_asym_inst++);
+                cy_inst->asym.accelid = device_data->accelid;
                 cy_inst->asym.service_type = SERV_TYPE_ASYM;
 
-                devid = dev_list[cy_inst->asym.accelid].devid;
+                devid = dev_list[vf_idx].devid;
 
-                    cy_inst->asym.bank_number = (j % section->num_cy_inst) * 2;
+                    cy_inst->asym.bank_number = calculate_bank_number(
+                        device_data, cy_inst->asym.service_type, k);
                     cy_inst->asym.ring_tx = 0;
                     cy_inst->asym.ring_rx = 1;
                 cy_inst->asym.is_polled = 1;
                 cy_inst->asym.num_concurrent_requests = 64;
                 cy_inst->asym.core_affinity = core;
                 core = (core + 1) % num_procs;
+            }
 
-                snprintf(
-                    cy_inst->sym.name, sizeof(cy_inst->sym.name), "sym%d", j);
-                cy_inst->sym.accelid = j / section->num_cy_inst;
+            cy_inst = device_data->cy_instance_data;
+            for (k = 0; k < device_data->num_sym_inst; k++, cy_inst++)
+            {
+                snprintf(cy_inst->sym.name,
+                         sizeof(cy_inst->sym.name),
+                         "sym%d",
+                         section_num_sym_inst++);
+                cy_inst->sym.accelid = device_data->accelid;
                 cy_inst->sym.service_type = SERV_TYPE_SYM;
 
-                    cy_inst->sym.bank_number =
-                        (j % section->num_cy_inst) * 2 + 1;
+                    cy_inst->sym.bank_number = calculate_bank_number(
+                        device_data, cy_inst->sym.service_type, k);
                     cy_inst->sym.ring_tx = 0;
                     cy_inst->sym.ring_rx = 1;
                 cy_inst->sym.is_polled = 1;
                 cy_inst->sym.num_concurrent_requests = 512;
                 cy_inst->sym.core_affinity = core;
+                core = (core + 1) % num_procs;
+            }
+
+            dc_inst = device_data->dc_instance_data;
+            for (k = 0; k < device_data->num_dc_inst; k++, dc_inst++)
+            {
+                snprintf(dc_inst->name,
+                         sizeof(dc_inst->name),
+                         "dc%d",
+                         section_num_dc_inst++);
+                dc_inst->accelid = device_data->accelid;
+                dc_inst->service_type = SERV_TYPE_DC;
+
+                devid = dev_list[vf_idx].devid;
+                    dc_inst->bank_number = calculate_bank_number(
+                        device_data, dc_inst->service_type, k);
+                    dc_inst->ring_tx = 0;
+                    dc_inst->ring_rx = 1;
+                dc_inst->is_polled = 1;
+                dc_inst->num_concurrent_requests = 512;
+                dc_inst->core_affinity = core;
                 core = (core + 1) % num_procs;
             }
         }
@@ -1080,6 +1213,7 @@ bool qat_mgr_is_dev_available()
                 break;
             }
         }
+        closedir(sysdevice_dir);
     }
     closedir(devvfio_dir);
 
@@ -1241,6 +1375,10 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
     rsp->device_info.pkg_id = section->device_data[device_num].accelid;
     rsp->device_info.node_id = section->device_data[device_num].node;
     rsp->device_info.device_pci_id = section->device_data[device_num].pci_id;
+    rsp->device_info.num_cy_instances =
+        section->device_data[device_num].num_cy_inst;
+    rsp->device_info.num_dc_instances =
+        section->device_data[device_num].num_dc_inst;
     build_msg_header(rsp, QATMGR_MSGTYPE_DEVICE_INFO, sizeof(rsp->device_info));
 
     dump_message(rsp, "Response");
@@ -1351,48 +1489,16 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     return 0;
 }
 
-static int handle_get_section_info(struct qatmgr_msg_req *req,
-                                   struct qatmgr_msg_rsp *rsp,
-                                   int index)
-{
-    struct qatmgr_section_data *section;
-
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
-
-    if (req->hdr.len != sizeof(req->hdr))
-    {
-        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
-        err_msg(rsp, "Inconsistent length");
-        return -1;
-    }
-
-    dump_message(req, "Request");
-
-    if (index < 0 || index >= num_section_data)
-    {
-        qat_log(LOG_LEVEL_ERROR, "Bad index\n");
-        err_msg(rsp, "Invalid index");
-        return -1;
-    }
-    section = section_data + index;
-
-    rsp->section_info.num_cy_instances = section->num_cy_inst;
-    rsp->section_info.num_dc_instances = section->num_dc_inst;
-    build_msg_header(
-        rsp, QATMGR_MSGTYPE_SECTION_INFO, sizeof(rsp->section_info));
-
-    dump_message(rsp, "Response");
-    return 0;
-}
-
 static int handle_get_instance_name(struct qatmgr_msg_req *req,
                                     struct qatmgr_msg_rsp *rsp,
                                     int index)
 {
     struct qatmgr_section_data *section;
+    struct qatmgr_device_data *device;
     int instance_type;
     int instance_num;
+    int device_num;
+    char *inst_name;
 
     ICP_CHECK_FOR_NULL_PARAM(req);
     ICP_CHECK_FOR_NULL_PARAM(rsp);
@@ -1416,10 +1522,23 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
 
     instance_type = req->inst.type;
     instance_num = req->inst.num;
+    device_num = req->inst.device_num;
+
+    device = section->device_data + device_num;
+
+    if (device_num >= section->num_devices)
+    {
+        qat_log(LOG_LEVEL_ERROR,
+                "Invalid device number %d for section %d\n",
+                device_num,
+                index);
+        err_msg(rsp, "Invalid device number");
+        return -1;
+    }
 
     if (instance_type == SERV_TYPE_DC)
     {
-        if (instance_num >= section->num_dc_inst)
+        if (instance_num >= device->num_dc_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad dc instance number %d for section %d\n",
@@ -1428,15 +1547,16 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid DC instance number");
             return -1;
         }
-        ICP_STRLCPY(
-            rsp->name, section->dc_instance_data->name, sizeof(rsp->name));
+        ICP_STRLCPY(rsp->name,
+                    device->dc_instance_data[instance_num].name,
+                    sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
                          ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1);
     }
     else if (instance_type == SERV_TYPE_CY)
     {
-        if (instance_num >= section->num_cy_inst)
+        if (instance_num >= device->num_cy_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy instance number %d for section %d\n",
@@ -1445,15 +1565,25 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid CY instance number");
             return -1;
         }
-        ICP_STRLCPY(
-            rsp->name, section->cy_instance_data->sym.name, sizeof(rsp->name));
+        /* CYxname SAL string param limitation, for CY only and SYM only
+         * cpaCyInstanceGetInfo2 will get same instance names */
+        if (device->services == SERV_TYPE_ASYM ||
+            device->services == SERV_TYPE_ASYM_DC)
+        {
+            inst_name = device->cy_instance_data[instance_num].asym.name;
+        }
+        else
+        {
+            inst_name = device->cy_instance_data[instance_num].sym.name;
+        }
+        ICP_STRLCPY(rsp->name, inst_name, sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
                          ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1);
     }
     else if (instance_type == SERV_TYPE_SYM)
     {
-        if (instance_num >= section->num_sym_inst)
+        if (instance_num >= device->num_sym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.sym instance number %d for section %d\n",
@@ -1462,15 +1592,16 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid SYM instance number");
             return -1;
         }
-        ICP_STRLCPY(
-            rsp->name, section->cy_instance_data->sym.name, sizeof(rsp->name));
+        ICP_STRLCPY(rsp->name,
+                    device->cy_instance_data[instance_num].sym.name,
+                    sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
                          ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1);
     }
     else if (instance_type == SERV_TYPE_ASYM)
     {
-        if (instance_num >= section->num_asym_inst)
+        if (instance_num >= device->num_asym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.asym instance number %d for section %d\n",
@@ -1479,8 +1610,9 @@ static int handle_get_instance_name(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid ASYM instance number");
             return -1;
         }
-        ICP_STRLCPY(
-            rsp->name, section->cy_instance_data->asym.name, sizeof(rsp->name));
+        ICP_STRLCPY(rsp->name,
+                    device->cy_instance_data[instance_num].asym.name,
+                    sizeof(rsp->name));
         build_msg_header(rsp,
                          QATMGR_MSGTYPE_INSTANCE_NAME,
                          ICP_ARRAY_STRLEN_SANITIZE(rsp->name) + 1);
@@ -1501,6 +1633,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
                                     int index)
 {
     struct qatmgr_section_data *section;
+    struct qatmgr_device_data *device;
     struct qatmgr_instance_data *instance_data;
     struct qatmgr_cy_instance_data *cy_instance_data;
     int instance_type;
@@ -1531,6 +1664,8 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     instance_num = req->inst.num;
     device_num = req->inst.device_num;
 
+    device = section->device_data + device_num;
+
     if (device_num >= section->num_devices)
     {
         qat_log(LOG_LEVEL_ERROR,
@@ -1543,7 +1678,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
 
     if (instance_type == SERV_TYPE_DC)
     {
-        if (instance_num >= section->num_dc_inst)
+        if (instance_num >= device->num_dc_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad dc instance number %d for section %d\n",
@@ -1552,8 +1687,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid DC instance number");
             return -1;
         }
-        instance_data = section->dc_instance_data + instance_num +
-                        device_num * section->num_dc_inst;
+        instance_data = device->dc_instance_data + instance_num;
         rsp->instance_info.dc.accelid = instance_data->accelid;
         rsp->instance_info.dc.bank_number = instance_data->bank_number;
         rsp->instance_info.dc.is_polled = instance_data->is_polled;
@@ -1568,7 +1702,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_CY)
     {
-        if (instance_num >= section->num_cy_inst)
+        if (instance_num >= device->num_cy_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy instance number %d for section %d\n",
@@ -1577,9 +1711,19 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid CY instance number");
             return -1;
         }
-        cy_instance_data = section->cy_instance_data + instance_num +
-                           device_num * section->num_cy_inst;
+        cy_instance_data = device->cy_instance_data + instance_num;
         instance_data = &cy_instance_data->sym;
+        /* for CyxIsPooled CY only and SYM only this param is taken from sym
+         * instance but for ASMy only from asym */
+        if (device->services == SERV_TYPE_ASYM ||
+            device->services == SERV_TYPE_ASYM_DC)
+        {
+            rsp->instance_info.cy.is_polled = cy_instance_data->asym.is_polled;
+        }
+        else
+        {
+            rsp->instance_info.cy.is_polled = cy_instance_data->sym.is_polled;
+        }
         rsp->instance_info.cy.sym.accelid = instance_data->accelid;
         rsp->instance_info.cy.sym.bank_number = instance_data->bank_number;
         rsp->instance_info.cy.sym.is_polled = instance_data->is_polled;
@@ -1603,7 +1747,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_SYM)
     {
-        if (instance_num >= section->num_sym_inst)
+        if (instance_num >= device->num_sym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.sym instance number %d for section %d\n",
@@ -1612,8 +1756,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid SYM instance number");
             return -1;
         }
-        cy_instance_data = section->cy_instance_data + instance_num +
-                           device_num * section->num_cy_inst;
+        cy_instance_data = device->cy_instance_data + instance_num;
         instance_data = &cy_instance_data->sym;
         rsp->instance_info.cy.sym.accelid = instance_data->accelid;
         rsp->instance_info.cy.sym.bank_number = instance_data->bank_number;
@@ -1628,7 +1771,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     }
     else if (instance_type == SERV_TYPE_ASYM)
     {
-        if (instance_num >= section_data[index].num_asym_inst)
+        if (instance_num >= device->num_asym_inst)
         {
             qat_log(LOG_LEVEL_ERROR,
                     "Bad cy.asym instance number %d for section %d\n",
@@ -1637,8 +1780,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
             err_msg(rsp, "Invalid ASYM instance number");
             return -1;
         }
-        cy_instance_data = section->cy_instance_data + instance_num +
-                           device_num * section->num_cy_inst;
+        cy_instance_data = device->cy_instance_data + instance_num;
         instance_data = &cy_instance_data->asym;
         rsp->instance_info.cy.asym.accelid = instance_data->accelid;
         rsp->instance_info.cy.asym.bank_number = instance_data->bank_number;
@@ -1897,8 +2039,6 @@ int handle_message(struct qatmgr_msg_req *req,
             return handle_get_device_info(req, rsp, *index);
         case QATMGR_MSGTYPE_DEVICE_ID:
             return handle_get_device_id(req, rsp, *index);
-        case QATMGR_MSGTYPE_SECTION_INFO:
-            return handle_get_section_info(req, rsp, *index);
         case QATMGR_MSGTYPE_INSTANCE_INFO:
             return handle_get_instance_info(req, rsp, *index);
         case QATMGR_MSGTYPE_INSTANCE_NAME:

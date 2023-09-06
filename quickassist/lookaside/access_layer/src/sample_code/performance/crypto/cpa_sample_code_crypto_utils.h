@@ -265,8 +265,11 @@ extern CpaBoolean timeStampInLoop;
              setup->performanceStats->startCyclesTimestamp) -                  \
             setup->performanceStats->totalBusyLoopCycles;                      \
     }                                                                          \
-    do_div(setup->performanceStats->offloadCycles,                             \
-           (setup->performanceStats->responses));                              \
+    if (setup->performanceStats->responses > 0)                                \
+    {                                                                          \
+        do_div(setup->performanceStats->offloadCycles,                         \
+               (setup->performanceStats->responses));                          \
+    }                                                                          \
     PRINT("Offload cycles %llu\n", setup->performanceStats->offloadCycles);
 
 /**
@@ -429,6 +432,7 @@ typedef enum ec_gen_step_s
 #define BUFFER_SIZE_304 (304)
 #define BUFFER_SIZE_320 (320)
 #define BUFFER_SIZE_512 (512)
+#define BUFFER_SIZE_700 (700)
 #define BUFFER_SIZE_752 (752)
 #define BUFFER_SIZE_768 (768)
 #define BUFFER_SIZE_1024 (1024)

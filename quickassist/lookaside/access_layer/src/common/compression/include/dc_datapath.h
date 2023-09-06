@@ -74,6 +74,10 @@
 #ifndef DC_DATAPATH_H_
 #define DC_DATAPATH_H_
 
+#include "cpa_dc.h"
+#include "dc_session.h"
+#include "sal_types_compression.h"
+
 #define LAC_QAT_DC_REQ_SZ_LW 32
 #define LAC_QAT_DC_RESP_SZ_LW 8
 
@@ -163,6 +167,13 @@
 #define DC_DEFAULT_CRC 0x0
 #define DC_DEFAULT_ADLER32 0x1
 
+/* DC Chain info in compression cookie */
+typedef struct dc_chain_info_s
+{
+    CpaBoolean isDcChaining;
+    /* True if this request is part of a DC Chain operation */
+} dc_chain_info_t;
+
 /**
 *******************************************************************************
 * @ingroup cpaDc Data Compression
@@ -237,6 +248,8 @@ typedef struct dc_compression_cookie_s
     /**< Type of checksum */
     dc_integrity_crc_fw_t dataIntegrityCrcs;
     /**< Data integrity table */
+    dc_chain_info_t dcChain;
+    /**< DC Chain info if DC used as part of a DC Chain operation. */
 } dc_compression_cookie_t;
 
 /**
@@ -273,5 +286,48 @@ typedef enum dc_cnv_mode_s
     DC_CNVNR,
     /* CNV = CPA_TRUE, CNVNR = CPA_TRUE */
 } dc_cnv_mode_t;
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Create the requests for compression or decompression
+ *
+ * @description
+ *      Create the requests for compression or decompression. This function
+ *      will update the cookie will all required information.
+ *
+ * @param[out]  pCookie             Pointer to the compression cookie
+ * @param[in]   pService            Pointer to the compression service
+ * @param[in]   pSessionDesc        Pointer to the session descriptor
+ * @param[in]   pSessionHandle      Session handle
+ * @param[in]   pSrcBuff            Pointer to data buffer for compression
+ * @param[in]   pDestBuff           Pointer to buffer space for data after
+ *                                  compression
+ * @param[in]   pResults            Pointer to results structure
+ * @param[in]   flushFlag           Indicates the type of flush to be
+ *                                  performed
+ * @param[in]   pOpData             Pointer to request information structure
+ *                                  holding parameters for cpaDcCompress2
+ *                                  and CpaDcDecompressData2
+ * @param[in]   callbackTag         Pointer to the callback tag
+ * @param[in]   compDecomp          Direction of the operation
+ * @param[in]   cnvMode             CNV Mode
+ *
+ * @retval CPA_STATUS_SUCCESS       Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in
+ *
+ *****************************************************************************/
+CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
+                          sal_compression_service_t *pService,
+                          dc_session_desc_t *pSessionDesc,
+                          CpaDcSessionHandle pSessionHandle,
+                          CpaBufferList *pSrcBuff,
+                          CpaBufferList *pDestBuff,
+                          CpaDcRqResults *pResults,
+                          CpaDcFlush flushFlag,
+                          CpaDcOpData *pOpData,
+                          void *callbackTag,
+                          dc_request_dir_t compDecomp,
+                          dc_cnv_mode_t cnvMode);
 
 #endif /* DC_DATAPATH_H_ */

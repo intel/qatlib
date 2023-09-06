@@ -608,7 +608,11 @@ CpaStatus dcStatelessSample(void)
          */
         if (cap.autoSelectBestHuffmanTree)
         {
+#if DC_API_VERSION_AT_LEAST(3, 1)
+            sd.autoSelectBestHuffmanTree = CPA_DC_ASB_ENABLED;
+#else
             sd.autoSelectBestHuffmanTree = CPA_DC_ASB_STATIC_DYNAMIC;
+#endif
         }
         else
         {

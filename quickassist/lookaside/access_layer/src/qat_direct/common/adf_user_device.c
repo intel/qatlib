@@ -901,8 +901,8 @@ CpaStatus icp_adf_getAccelDevByCapabilities(Cpa32U capabilitiesMask,
 
 /*
  * icp_adf_getAllAccelDevByCapabilities
- * Returns table of accel devices that are started and implement
- * the capabilities specified in capabilitiesMask.
+ * Returns table of accel devices that are started and that implement
+ * at least one of the capabilities specified in capabilitiesMask.
  */
 CpaStatus icp_adf_getAllAccelDevByCapabilities(Cpa32U capabilitiesMask,
                                                icp_accel_dev_t **pAccel_devs,

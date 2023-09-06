@@ -196,6 +196,12 @@ CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
         {
             status =
                 qatSymPerform(setup_sym, encryptOpData, srcBufferListArray);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR(
+                    "qatSymPerform for encryptOpData returned status %d\n",
+                    status);
+            }
         }
 
         else if (setup_sym->setupData.cipherSetupData.cipherDirection ==
@@ -215,6 +221,12 @@ CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
                 setup_sym->numLoops = numLoops;
                 status =
                     qatSymPerform(setup_sym, decryptOpData, srcBufferListArray);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR(
+                        "qatSymPerform for decryptOpData returned status %d\n",
+                        status);
+                }
             }
         }
 
@@ -257,15 +269,13 @@ CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
     }
 
     // SYMMETRIC
-    status = qatSymFreeOpData(setup_sym, encryptOpData);
-    if (CPA_STATUS_SUCCESS != status)
+    if (CPA_STATUS_SUCCESS != qatSymFreeOpData(setup_sym, encryptOpData))
     {
         PRINT_ERR("could not free pIv and auth memory in encryptOpData ");
         status = CPA_STATUS_FAIL;
     }
 
-    status = qatSymFreeOpData(setup_sym, decryptOpData);
-    if (CPA_STATUS_SUCCESS != status)
+    if (CPA_STATUS_SUCCESS != qatSymFreeOpData(setup_sym, decryptOpData))
     {
         PRINT_ERR("could not free pIv and auth memory in decryptOpData ");
         status = CPA_STATUS_FAIL;

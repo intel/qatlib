@@ -280,6 +280,11 @@ CpaStatus primeSample(void)
     /* Start Cryptographic component */
     PRINT_DBG("cpaCyStartInstance\n");
     status = cpaCyStartInstance(cyInstHandle);
+    if (status != CPA_STATUS_SUCCESS)
+    {
+        PRINT_ERR("cpaCyStartInstance() failed. (status = %d)\n", status);
+        return status;
+    }
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -287,6 +292,13 @@ CpaStatus primeSample(void)
          * Set the address translation function for the instance
          */
         status = cpaCySetAddressTranslation(cyInstHandle, sampleVirtToPhys);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            PRINT_ERR("cpaCySetAddressTranslation() failed. (status = %d)\n",
+                      status);
+            cpaCyStopInstance(cyInstHandle);
+            return status;
+        }
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -299,6 +311,13 @@ CpaStatus primeSample(void)
 
         /** Perform Primality test operations */
         status = primePerformOp(cyInstHandle);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            PRINT_ERR("primePerformOp() failed. (status = %d)\n", status);
+            sampleCyStopPolling();
+            cpaCyStopInstance(cyInstHandle);
+            return status;
+        }
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -308,6 +327,9 @@ CpaStatus primeSample(void)
         if (status != CPA_STATUS_SUCCESS)
         {
             PRINT_ERR("cpaCyPrimeQueryStats() failed. (status = %d)\n", status);
+            sampleCyStopPolling();
+            cpaCyStopInstance(cyInstHandle);
+            return status;
         }
         PRINT_DBG("Number of prime test requests: %llu\n",
                   (unsigned long long)primeStats.numPrimeTestRequests);
@@ -320,6 +342,11 @@ CpaStatus primeSample(void)
     PRINT_DBG("cpaCyStopInstance\n");
     status = cpaCyStopInstance(cyInstHandle);
 
+    if (status != CPA_STATUS_SUCCESS)
+    {
+        PRINT_ERR("cpaCyStopInstance() failed. (status = %d)\n", status);
+        return status;
+    }
     if (CPA_STATUS_SUCCESS == status)
     {
         PRINT_DBG("Sample code ran successfully\n");

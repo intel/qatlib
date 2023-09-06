@@ -125,6 +125,7 @@
  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
  * @retval CPA_STATUS_INVALID_PARAM Size is invalid.  In this case, pMax will
  *                                  be set to size
+ * @retval CPA_STATUS_UNSUPPORTED   Size is unsupported/deprecated.
  *
  *****************************************************************************/
 CpaStatus LacEc_GetRange(Cpa32U size, Cpa32U *pMax);

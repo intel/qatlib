@@ -482,8 +482,11 @@ CpaStatus dhPhase1(CpaCyDhPhase1KeyGenOpData **pCpaDhOpDataP1,
             (setup->performanceStats->endCyclesTimestamp -
              setup->performanceStats->startCyclesTimestamp) -
             setup->performanceStats->totalBusyLoopCycles;
-        do_div(setup->performanceStats->offloadCycles,
-               setup->performanceStats->responses);
+        if (setup->performanceStats->responses > 0)
+        {
+            do_div(setup->performanceStats->offloadCycles,
+                   setup->performanceStats->responses);
+        }
     }
     coo_average(setup->performanceStats);
     coo_deinit(setup->performanceStats);

@@ -122,11 +122,11 @@ typedef Cpa64U CpaCyKptHandle;
 typedef enum CpaCyKptKeyManagementStatus_t
 {
     CPA_CY_KPT_SUCCESS = 0,
-    /**< Generic success status for all KPT wrapping key handling functions*/
+    /**< Generic success status for all KPT wrapping key handling functions */
     CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_VFID,
-    /**< SWK count exceeds the configured maximum value per VFID*/
+    /**< SWK count exceeds the configured maximum value per VFID */
     CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_PASID,
-    /**< SWK count exceeds the configured maximum value per PASID*/
+    /**< SWK count exceeds the configured maximum value per PASID */
     CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED,
     /**< SWK count exceeds the configured maximum value when not scoped to
     * VFID or PASID*/

@@ -198,6 +198,7 @@ typedef struct single_thread_test_data_s
     Cpa32U packetSize;
     /*flat buffer size to be tested*/
     Cpa32U logicalQaInstance;
+    Cpa32U logicalQaReadInstance;
     /*the logicalQaInstance for the thread to use*/
     stats_print_func_t statsPrintFunc;
     /*pointer to function capable of printing our status related to specific
@@ -223,9 +224,29 @@ extern volatile CpaBoolean error_flag_g;
 extern volatile CpaBoolean dataIntegrity_g;
 extern volatile CpaBoolean dataIntegrityVerify_g;
 extern volatile CpaBoolean hwVerify_g;
+extern volatile CpaBoolean swWrite_g;
 extern volatile CpaBoolean keyCorrupt_g;
+extern volatile CpaBoolean enableReadInstance_g;
 CpaStatus setReliability(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
+#ifdef SC_CHAINING_EXT_ENABLED
+typedef struct g_chaining_crc_params_s
+{
+    CpaBoolean setDcCrcParams;
+    CpaBoolean setCyCrcParams;
+    CpaCrcControlData dcSessionCrcControlData;
+    CpaCrcControlData cySessionCrcControlData;
+} g_chaining_crc_params_t;
+extern g_chaining_crc_params_t gDcCyCrcParams;
+CpaStatus setDcCrcParams(Cpa32U crcPolyIndex,
+                    Cpa32U crcInitialValue,
+                    Cpa32U crcPolyReflect,
+                    Cpa32U crcXor);
+CpaStatus setCyCrcParams(Cpa32U crcPolyIndex,
+                    Cpa32U crcInitialValue,
+                    Cpa32U crcPolyReflect,
+                    Cpa32U crcXor);
+#endif
 
 CpaStatus printReliability(void);
 
@@ -237,7 +258,7 @@ CpaStatus set_cy_slv(Cpa32U arg);
 CpaStatus set_dc_slv(Cpa32U arg);
 CpaStatus set_rsa_slv(Cpa32U arg);
 CpaStatus set_buffer_count(Cpa32U arg);
-void setVerboseOutput(int a);
+CpaStatus setVerboseOutput(int a);
 int getVerboseOutput(void);
 CpaStatus initPerfStats(Cpa32U testTypeIndex, Cpa32U numberOfThreads);
 CpaStatus printPerfStats(Cpa32U testTypeNumber, Cpa32U threadNumber);

@@ -130,6 +130,7 @@
 #include "lac_sync.h"
 #include "lac_sym_qat.h"
 #include "icp_sal_versions.h"
+#include "dc_chain.h"
 
 #define MAX_CY_RX_RINGS 2
 #define TH_CY_RX_0 0
@@ -142,6 +143,15 @@
 #ifdef KERNEL_SPACE
 #define ASYM_NOT_SUPPORTED
 #endif
+
+CpaStatus Lac_GetCyInstancesByType(
+    const CpaAccelerationServiceType accelerationServiceType,
+    Cpa16U numInstances,
+    CpaInstanceHandle *pInstances);
+
+CpaStatus Lac_GetCyNumInstancesByType(
+    const CpaAccelerationServiceType accelerationServiceType,
+    Cpa16U *pNumInstances);
 
 STATIC CpaInstanceHandle Lac_CryptoGetFirstHandle(void)
 {
@@ -1763,9 +1773,11 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
     /* Clear Key stats and allocate memory of SSL and TLS labels
         These labels are initialised to standard values */
 
+#ifdef QAT_LEGACY_ALGORITHMS
     /* Init DH stats */
     status = LacDh_Init(pCryptoService);
     LAC_CHECK_STATUS_ASYM_INIT(status);
+#endif
 
 #ifdef QAT_LEGACY_ALGORITHMS
     /* Init Dsa stats */
@@ -2665,10 +2677,11 @@ void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
         pCapInfo->primeSupported = CPA_FALSE;
         pCapInfo->ecEdMontSupported = CPA_FALSE;
 #else
-        pCapInfo->dhSupported = CPA_TRUE;
 #ifdef QAT_LEGACY_ALGORITHMS
+        pCapInfo->dhSupported = CPA_TRUE;
         pCapInfo->dsaSupported = CPA_TRUE;
 #else
+        pCapInfo->dhSupported = CPA_FALSE;
         pCapInfo->dsaSupported = CPA_FALSE;
 #endif
         pCapInfo->rsaSupported = CPA_TRUE;
@@ -2687,6 +2700,101 @@ void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
     pCapInfo->drbgSupported = CPA_FALSE;
     pCapInfo->nrbgSupported = CPA_FALSE;
     pCapInfo->randSupported = CPA_FALSE;
+}
+
+CpaStatus SalCtrl_CySymQueryCapabilities(sal_service_t *pGenericService,
+                                         CpaCySymCapabilitiesInfo *pCapInfo)
+{
+    LAC_CHECK_NULL_PARAM(pGenericService);
+    LAC_CHECK_NULL_PARAM(pCapInfo);
+
+    osalMemSet(pCapInfo, '\0', sizeof(CpaCySymCapabilitiesInfo));
+    /* An asym crypto instance does not support sym service */
+    if (SAL_SERVICE_TYPE_CRYPTO_ASYM == pGenericService->type)
+    {
+        return CPA_STATUS_SUCCESS;
+    }
+
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CIPHER)
+    {
+#ifdef QAT_LEGACY_ALGORITHMS
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_ECB);
+#endif
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_NULL);
+
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CBC);
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CTR);
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_XTS);
+    }
+
+    /* Report hashes supported if capability supports authentication. This
+     * is also used for a compression instance (DC Chaining) to determine if
+     * DC Chaining supports hash operations.
+     */
+    if (pGenericService->capabilitiesMask &
+        ICP_ACCEL_CAPABILITIES_AUTHENTICATION)
+    {
+#ifdef QAT_LEGACY_ALGORITHMS
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA1);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA224);
+#endif
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA256);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA384);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA512);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_XCBC);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CMAC);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CBC_MAC);
+    }
+
+    if ((pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CIPHER) &&
+        (pGenericService->capabilitiesMask &
+         ICP_ACCEL_CAPABILITIES_AUTHENTICATION))
+    {
+        /* When one of the following cipher algorithms is used, the elements of
+         * the CpaCySymHashAlgorithm enum MUST be used to set up the related
+         * CpaCySymHashSetupData structure in the session context.
+         *    CPA_CY_SYM_CIPHER_AES_CCM
+         *    CPA_CY_SYM_CIPHER_AES_GCM
+         */
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CCM);
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_GCM);
+
+        /* When one of the following hash algorithms is used, the elements of
+         * the CpaCySymCipherAlgorithm enum MUST be used to set up the related
+         * CpaCySymCipherSetupData structure in the session context.
+         *    CPA_CY_SYM_HASH_AES_CCM
+         *    CPA_CY_SYM_HASH_AES_GCM
+         *    CPA_CY_SYM_HASH_AES_GMAC
+         */
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CCM);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_GCM);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_GMAC);
+    }
+
+
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3)
+    {
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
+    }
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CHACHA_POLY)
+    {
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_POLY);
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_CHACHA);
+    }
+
+    pCapInfo->partialPacketSupported = CPA_TRUE;
+
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SHA3_EXT)
+    {
+#ifdef QAT_LEGACY_ALGORITHMS
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_224);
+#endif
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_384);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_512);
+    }
+
+    return CPA_STATUS_SUCCESS;
 }
 
 /**
@@ -2884,89 +2992,7 @@ CpaStatus cpaCyInstanceSetNotificationCb(
  *****************************************************************************/
 CpaStatus cpaCyGetNumInstances(Cpa16U *pNumInstances)
 {
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    icp_accel_dev_t **pAdfInsts = NULL;
-    icp_accel_dev_t *dev_addr = NULL;
-    sal_t *base_addr = NULL;
-    sal_list_t *list_temp = NULL;
-    Cpa16U num_accel_dev = 0;
-    Cpa16U num_inst = 0;
-    Cpa16U i = 0;
-
-    LAC_CHECK_NULL_PARAM(pNumInstances);
-
-    /* Get the number of accel_dev in the system */
-    status = icp_adf_getNumInstances(&num_accel_dev);
-    LAC_CHECK_STATUS(status);
-
-    /* Allocate memory to store addr of accel_devs */
-    pAdfInsts = osalMemAlloc(num_accel_dev * sizeof(icp_accel_dev_t *));
-    if (NULL == pAdfInsts)
-    {
-        LAC_LOG_ERROR("Failed to allocate dev instance memory");
-        return CPA_STATUS_RESOURCE;
-    }
-    num_accel_dev = 0;
-    /* Get ADF to return all accel_devs that support either
-     * symmetric or asymmetric crypto */
-    status = icp_adf_getAllAccelDevByCapabilities(
-        (ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC |
-         ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC),
-        pAdfInsts,
-        &num_accel_dev);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("No support for crypto\n");
-        *pNumInstances = 0;
-        osalMemFree(pAdfInsts);
-        return status;
-    }
-
-    for (i = 0; i < num_accel_dev; i++)
-    {
-        dev_addr = (icp_accel_dev_t *)pAdfInsts[i];
-        if (NULL == dev_addr || NULL == dev_addr->pSalHandle)
-        {
-            continue;
-        }
-
-        base_addr = dev_addr->pSalHandle;
-        list_temp = base_addr->crypto_services;
-        while (NULL != list_temp)
-        {
-            num_inst++;
-            list_temp = SalList_next(list_temp);
-        }
-        list_temp = base_addr->asym_services;
-        while (NULL != list_temp)
-        {
-            num_inst++;
-            list_temp = SalList_next(list_temp);
-        }
-        list_temp = base_addr->sym_services;
-        while (NULL != list_temp)
-        {
-            num_inst++;
-            list_temp = SalList_next(list_temp);
-        }
-    }
-    *pNumInstances = num_inst;
-    osalMemFree(pAdfInsts);
-
-#ifdef ICP_TRACE
-    if (NULL != pNumInstances)
-    {
-        LAC_LOG2("Called with params (0x%lx[%d])\n",
-                 (LAC_ARCH_UINT)pNumInstances,
-                 *pNumInstances);
-    }
-    else
-    {
-        LAC_LOG1("Called with params (0x%lx)\n", (LAC_ARCH_UINT)pNumInstances);
-    }
-#endif
-
-    return status;
+    return Lac_GetCyNumInstancesByType(CPA_ACC_SVC_TYPE_CRYPTO, pNumInstances);
 }
 
 /**
@@ -2976,120 +3002,8 @@ CpaStatus cpaCyGetNumInstances(Cpa16U *pNumInstances)
 CpaStatus cpaCyGetInstances(Cpa16U numInstances,
                             CpaInstanceHandle *pCyInstances)
 {
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    icp_accel_dev_t **pAdfInsts = NULL;
-    icp_accel_dev_t *dev_addr = NULL;
-    sal_t *base_addr = NULL;
-    sal_list_t *list_temp = NULL;
-    Cpa16U num_accel_dev = 0;
-    Cpa16U num_allocated_instances = 0;
-    Cpa16U index = 0;
-    Cpa16U i = 0;
-
-#ifdef ICP_TRACE
-    LAC_LOG2("Called with params (%d, 0x%lx)\n",
-             numInstances,
-             (LAC_ARCH_UINT)pCyInstances);
-#endif
-
-    LAC_CHECK_NULL_PARAM(pCyInstances);
-    if (0 == numInstances)
-    {
-        LAC_INVALID_PARAM_LOG("NumInstances is 0");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
-    /* Get the number of crypto instances */
-    status = cpaCyGetNumInstances(&num_allocated_instances);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        return status;
-    }
-
-    if (numInstances > num_allocated_instances)
-    {
-        LAC_LOG_ERROR1("Only %d crypto instances available",
-                       num_allocated_instances);
-        return CPA_STATUS_RESOURCE;
-    }
-
-    /* Get the number of accel devices in the system */
-    status = icp_adf_getNumInstances(&num_accel_dev);
-    LAC_CHECK_STATUS(status);
-
-    /* Allocate memory to store addr of accel_devs */
-    pAdfInsts = osalMemAlloc(num_accel_dev * sizeof(icp_accel_dev_t *));
-    if (NULL == pAdfInsts)
-    {
-        LAC_LOG_ERROR("Failed to allocate dev instance memory");
-        return CPA_STATUS_RESOURCE;
-    }
-
-    num_accel_dev = 0;
-    /* Get ADF to return all accel_devs that support either
-     * symmetric or asymmetric crypto */
-    status = icp_adf_getAllAccelDevByCapabilities(
-        (ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC |
-         ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC),
-        pAdfInsts,
-        &num_accel_dev);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("No support for crypto\n");
-        osalMemFree(pAdfInsts);
-        return status;
-    }
-
-    for (i = 0; i < num_accel_dev; i++)
-    {
-        dev_addr = (icp_accel_dev_t *)pAdfInsts[i];
-        /* Note dev_addr cannot be NULL here as numInstances = 0
-         * is not valid and if dev_addr = NULL then index = 0 (which
-         * is less than numInstances and status is set to _RESOURCE
-         * above
-         */
-        base_addr = dev_addr->pSalHandle;
-        if (NULL == base_addr)
-        {
-            continue;
-        }
-        list_temp = base_addr->crypto_services;
-        while (NULL != list_temp)
-        {
-            if (index > (numInstances - 1))
-            {
-                break;
-            }
-            pCyInstances[index] = SalList_getObject(list_temp);
-            list_temp = SalList_next(list_temp);
-            index++;
-        }
-        list_temp = base_addr->asym_services;
-        while (NULL != list_temp)
-        {
-            if (index > (numInstances - 1))
-            {
-                break;
-            }
-            pCyInstances[index] = SalList_getObject(list_temp);
-            list_temp = SalList_next(list_temp);
-            index++;
-        }
-        list_temp = base_addr->sym_services;
-        while (NULL != list_temp)
-        {
-            if (index > (numInstances - 1))
-            {
-                break;
-            }
-            pCyInstances[index] = SalList_getObject(list_temp);
-            list_temp = SalList_next(list_temp);
-            index++;
-        }
-    }
-    osalMemFree(pAdfInsts);
-
-    return status;
+    return Lac_GetCyInstancesByType(
+        CPA_ACC_SVC_TYPE_CRYPTO, numInstances, pCyInstances);
 }
 
 /**
@@ -3335,8 +3249,6 @@ CpaStatus cpaCyQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
 CpaStatus cpaCySymQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
                                     CpaCySymCapabilitiesInfo *pCapInfo)
 {
-    sal_crypto_service_t *pCryptoService = NULL;
-    sal_service_t *pGenericService = NULL;
     CpaInstanceHandle instanceHandle = NULL;
 
 #ifdef ICP_TRACE
@@ -3363,93 +3275,9 @@ CpaStatus cpaCySymQueryCapabilities(const CpaInstanceHandle instanceHandle_in,
                             (SAL_SERVICE_TYPE_CRYPTO |
                              SAL_SERVICE_TYPE_CRYPTO_ASYM |
                              SAL_SERVICE_TYPE_CRYPTO_SYM));
-    LAC_CHECK_NULL_PARAM(pCapInfo);
 
-    pCryptoService = (sal_crypto_service_t *)instanceHandle;
-    pGenericService = &(pCryptoService->generic_service_info);
-
-    osalMemSet(pCapInfo, '\0', sizeof(CpaCySymCapabilitiesInfo));
-    /* An asym crypto instance does not support sym service */
-    if (SAL_SERVICE_TYPE_CRYPTO_ASYM == pGenericService->type)
-    {
-        return CPA_STATUS_SUCCESS;
-    }
-
-    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CIPHER)
-    {
-#ifdef QAT_LEGACY_ALGORITHMS
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_ECB);
-#endif
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_NULL);
-        
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CBC);
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CTR);
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_XTS);
-    }
-
-    if (pGenericService->capabilitiesMask &
-        ICP_ACCEL_CAPABILITIES_AUTHENTICATION)
-    {
-#ifdef QAT_LEGACY_ALGORITHMS
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA1);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA224);
-#endif
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA256);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA384);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA512);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_XCBC);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CMAC);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CBC_MAC);
-    }
-
-    if ((pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CIPHER) &&
-        (pGenericService->capabilitiesMask &
-         ICP_ACCEL_CAPABILITIES_AUTHENTICATION))
-    {
-        /* When one of the following cipher algorithms is used, the elements of
-         * the CpaCySymHashAlgorithm enum MUST be used to set up the related
-         * CpaCySymHashSetupData structure in the session context.
-         *    CPA_CY_SYM_CIPHER_AES_CCM
-         *    CPA_CY_SYM_CIPHER_AES_GCM
-         */
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CCM);
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_GCM);
-
-        /* When one of the following hash algorithms is used, the elements of
-         * the CpaCySymCipherAlgorithm enum MUST be used to set up the related
-         * CpaCySymCipherSetupData structure in the session context.
-         *    CPA_CY_SYM_HASH_AES_CCM
-         *    CPA_CY_SYM_HASH_AES_GCM
-         *    CPA_CY_SYM_HASH_AES_GMAC
-         */
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CCM);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_GCM);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_GMAC);
-    }
-
-
-    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3)
-    {
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
-    }
-    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CHACHA_POLY)
-    {
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_POLY);
-        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_CHACHA);
-    }
-
-    pCapInfo->partialPacketSupported = CPA_TRUE;
-
-    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SHA3_EXT)
-    {
-#ifdef QAT_LEGACY_ALGORITHMS
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_224);
-#endif
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_384);
-        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_512);
-    }
-    return CPA_STATUS_SUCCESS;
+    return SalCtrl_CySymQueryCapabilities((sal_service_t *)instanceHandle,
+                                          pCapInfo);
 }
 
 /**

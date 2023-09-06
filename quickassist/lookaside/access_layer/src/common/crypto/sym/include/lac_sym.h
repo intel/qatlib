@@ -77,7 +77,7 @@
  * The symmetric component demuliplexes the following crypto operations to
  * the appropriate sub-components: cipher, hash, algorithm chaining and
  * authentication encryption. It is a common layer between the above
- * mentioned components where common resources are allocated and parameter 
+ * mentioned components where common resources are allocated and parameter
  * checks are done. The operation specific resource allocation and parameter
  * checks are done in the sub-component itself.
  *
@@ -186,6 +186,13 @@
 #define LAC_START_OF_CACHE_FTR_IN_LW 26
 /**< Starting LW of reqCache/shramReqCache Footer */
 
+/* DC Chain info in symmetric crypto cookie */
+typedef struct cy_chain_info_s
+{
+    CpaBoolean isDcChaining;
+    /* True if this request is part of a DC Chain operation */
+} cy_chain_info_t;
+
 /**
  *******************************************************************************
  * @ingroup LacSym
@@ -236,6 +243,8 @@ typedef struct lac_sym_bulk_cookie_s
     /**< Pointer to destination buffer to hold the data output */
     struct lac_sym_bulk_cookie_s *pNext;
     /**< Pointer to next node in linked list (if request is queued) */
+    cy_chain_info_t dcChain;
+    /**< DC Chain info if CY used as part of a DC Chain operation. */
 } lac_sym_bulk_cookie_t;
 
 /**

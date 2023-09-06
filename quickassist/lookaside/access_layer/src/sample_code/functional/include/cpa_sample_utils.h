@@ -369,6 +369,7 @@ static __inline CpaStatus Mem_Alloc_Contig(void **ppMemAddr,
     *ppMemAddr = qaeMemAllocNUMA(sizeBytes, 0, alignment);
     if (NULL == *ppMemAddr)
     {
+        PRINT_ERR("Memory allocation Failed");
         return CPA_STATUS_RESOURCE;
     }
     return CPA_STATUS_SUCCESS;
