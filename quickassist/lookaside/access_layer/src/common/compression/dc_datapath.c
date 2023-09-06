@@ -89,14 +89,12 @@
 * Include private header files
 *******************************************************************************
 */
-#include "dc_session.h"
 #include "dc_datapath.h"
 #include "sal_statistics.h"
 #include "lac_common.h"
 #include "lac_mem.h"
 #include "lac_mem_pools.h"
 #include "lac_log.h"
-#include "sal_types_compression.h"
 #include "dc_stats.h"
 #include "lac_buffer_desc.h"
 #include "lac_sal.h"
@@ -393,22 +391,22 @@ STATIC void dcHandleIntegrityChecksumsGen4(dc_compression_cookie_t *pCookie,
     if (CPA_TRUE == integrityErrorOccurred)
     {
         LAC_LOG_ERROR("CRC Data integrity failure detected.");
-        LAC_LOG_ERROR_PARAMS("\tsoftware input  buffer CRC64 = 0x%016lx",
+        LAC_LOG_ERROR_PARAMS("\tsoftware input  buffer CRC64 = 0x%016llx",
                              swCrc64I);
 
-        LAC_LOG_ERROR_PARAMS("\tsoftware output buffer CRC64 = 0x%016lx",
+        LAC_LOG_ERROR_PARAMS("\tsoftware output buffer CRC64 = 0x%016llx",
                              swCrc64O);
 
-        LAC_LOG_ERROR_PARAMS("\tinternal compression input CRC64 = 0x%016lx",
+        LAC_LOG_ERROR_PARAMS("\tinternal compression input CRC64 = 0x%016llx",
                              crc_internal->iCrc64Cpr);
-        LAC_LOG_ERROR_PARAMS("\tinternal compression output CRC64 = 0x%016lx",
+        LAC_LOG_ERROR_PARAMS("\tinternal compression output CRC64 = 0x%016llx",
                              crc_internal->oCrc64Cpr);
 
         /* Report extra CRCs for dynamic compression */
         if (DC_DYNAMIC_TYPE == blockType)
         {
             LAC_LOG_ERROR_PARAMS(
-                "\tinternal translator output CRC64 = 0x%016lx",
+                "\tinternal translator output CRC64 = 0x%016llx",
                 crc_internal->oCrc64Xlt);
         }
 
@@ -1239,18 +1237,18 @@ STATIC void dcCompRequestParamsPopulate(
  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in
  *
  *****************************************************************************/
-STATIC CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
-                                 sal_compression_service_t *pService,
-                                 dc_session_desc_t *pSessionDesc,
-                                 CpaDcSessionHandle pSessionHandle,
-                                 CpaBufferList *pSrcBuff,
-                                 CpaBufferList *pDestBuff,
-                                 CpaDcRqResults *pResults,
-                                 CpaDcFlush flushFlag,
-                                 CpaDcOpData *pOpData,
-                                 void *callbackTag,
-                                 dc_request_dir_t compDecomp,
-                                 dc_cnv_mode_t cnvMode)
+CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
+                          sal_compression_service_t *pService,
+                          dc_session_desc_t *pSessionDesc,
+                          CpaDcSessionHandle pSessionHandle,
+                          CpaBufferList *pSrcBuff,
+                          CpaBufferList *pDestBuff,
+                          CpaDcRqResults *pResults,
+                          CpaDcFlush flushFlag,
+                          CpaDcOpData *pOpData,
+                          void *callbackTag,
+                          dc_request_dir_t compDecomp,
+                          dc_cnv_mode_t cnvMode)
 {
     icp_qat_fw_comp_req_t *pMsg = NULL;
     icp_qat_fw_comp_req_params_t *pCompReqParams = NULL;
@@ -1816,6 +1814,9 @@ STATIC CpaStatus dcCompDecompData(sal_compression_service_t *pService,
 
     if (CPA_STATUS_SUCCESS == status)
     {
+        /* Initialize the isDcChaining cookie parameter */
+        pCookie->dcChain.isDcChaining = CPA_FALSE;
+
         status = dcCreateRequest(pCookie,
                                  pService,
                                  pSessionDesc,

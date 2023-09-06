@@ -95,9 +95,6 @@
 #include "qae_mem_hugepage_utils.h"
 #include "qae_mem_utils_common.h"
 
-/* Maximum supported alignment is 4M. */
-#define QAE_MAX_PHYS_ALIGN (0x400000ULL)
-
 /* Current cached memory size. */
 size_t g_cache_size = 0;
 /* Maximum cached memory size, 8 Mb by default */
@@ -732,11 +729,19 @@ void *__qae_alloc_addr(size_t size,
 
     const size_t phys_align_unit = phys_alignment_byte / UNIT_SIZE;
     const size_t reserved = div_round_up(sizeof(block_ctrl_t), UNIT_SIZE);
-    /* calculate units needed */
-    const size_t requested_pages = div_round_up(size, UNIT_SIZE) + reserved;
+    size_t requested_pages;
 
     if (0 != __qae_open())
         return NULL;
+
+    /* Calculate units needed */
+    /* First make sure the requested_pages calculation can’t overflow */
+    {
+        size_t max_size = (size_t)(-1);
+        if ((max_size - reserved - UNIT_SIZE) < size)
+            return NULL;
+    }
+    requested_pages = div_round_up(size, UNIT_SIZE) + reserved;
 
     if (requested_pages > QAE_NUM_PAGES_PER_ALLOC * QAE_PAGE_SIZE / UNIT_SIZE ||
         phys_alignment_byte >= QAE_NUM_PAGES_PER_ALLOC * QAE_PAGE_SIZE)
@@ -837,7 +842,7 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
 
     if (size > QAE_MAX_ALLOC_SIZE)
     {
-        CMD_ERROR("%s:%d Size cannot exceed 4M \n", __func__, __LINE__);
+        CMD_ERROR("%s:%d Size cannot exceed 64M \n", __func__, __LINE__);
         return NULL;
     }
 

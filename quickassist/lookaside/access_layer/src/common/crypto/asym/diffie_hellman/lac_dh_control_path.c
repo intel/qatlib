@@ -115,6 +115,7 @@
  *
  *****************************************************************************/
 
+#ifdef QAT_LEGACY_ALGORITHMS
 CpaStatus LacDh_Init(CpaInstanceHandle instanceHandle)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -127,3 +128,10 @@ CpaStatus LacDh_Init(CpaInstanceHandle instanceHandle)
 
     return status;
 } /* LacDh_Init */
+#else
+CpaStatus LacDh_Init(CpaInstanceHandle instanceHandle)
+{
+    LAC_LOG("DH algorithm is not supported\n");
+    return CPA_STATUS_UNSUPPORTED;
+}
+#endif

@@ -283,13 +283,17 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
          * size for a Deflate compression operation with DC_API_VERSION >= 2.5
          */
 #if DC_API_VERSION_AT_LEAST(2, 5)
-        status = cpaDcDeflateCompressBound(
-            dcInstHandle, sd.huffType, bufferSize, &bufferSize);
-        if (CPA_STATUS_SUCCESS != status)
+        if (CPA_STATUS_SUCCESS == status)
         {
-            PRINT_ERR("cpaDcDeflateCompressBound API failed. (status = %d)\n",
-                      status);
-            return CPA_STATUS_FAIL;
+            status = cpaDcDeflateCompressBound(
+                dcInstHandle, sd.huffType, bufferSize, &bufferSize);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR(
+                    "cpaDcDeflateCompressBound API failed. (status = %d)\n",
+                    status);
+                return CPA_STATUS_FAIL;
+            }
         }
 #endif
 
@@ -306,9 +310,12 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
             bufferListDstArray2[bufferNum].pBuffers->dataLenInBytes =
                 bufferSize;
         }
-        memcpy(bufferListSrcArray[bufferNum].pBuffers->pData,
-               sampleData + (bufferNum * bufferSize),
-               bufferSize);
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            memcpy(bufferListSrcArray[bufferNum].pBuffers->pData,
+                   sampleData + (bufferNum * bufferSize),
+                   bufferSize);
+        }
     }
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -659,7 +666,11 @@ CpaStatus dcStatelessSample(void)
          */
         if (cap.autoSelectBestHuffmanTree)
         {
+#if DC_API_VERSION_AT_LEAST(3, 1)
+            sd.autoSelectBestHuffmanTree = CPA_DC_ASB_ENABLED;
+#else
             sd.autoSelectBestHuffmanTree = CPA_DC_ASB_STATIC_DYNAMIC;
+#endif
         }
         else
         {

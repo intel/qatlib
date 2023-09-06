@@ -99,6 +99,7 @@
 #include "sal_string_parse.h"
 #include "lac_sym.h"
 
+
 /*
  * @ingroup Dc_Chaining
  *     Frees resources (memory and transhandles) if allocated
@@ -180,9 +181,9 @@ CpaStatus dcChainServiceInit(sal_compression_service_t *pCompService,
     pChainService->dc_chain_serv_resp_pool = LAC_MEM_POOL_INIT_POOL_ID;
     pChainService->pLacHashLookupDefs = NULL;
 
-    status = Sal_StringParsing("Dc",
+    status = Sal_StringParsing(SAL_CFG_DC,
                                pCompService->generic_service_info.instance,
-                               "SymPool",
+                               SAL_CFG_SYM_POOL,
                                temp_string);
     LAC_CHECK_STATUS(status);
 
@@ -198,9 +199,9 @@ CpaStatus dcChainServiceInit(sal_compression_service_t *pCompService,
     /* Enable only ICP_QAT_HW_AUTH_MODE1 mode for hash operation */
     pChainService->qatHmacMode = ICP_QAT_HW_AUTH_MODE1;
 
-    status = Sal_StringParsing("Dc",
+    status = Sal_StringParsing(SAL_CFG_DC,
                                pCompService->generic_service_info.instance,
-                               "ChainCookiePool",
+                               SAL_CFG_CHAIN_COOKIE_POOL,
                                temp_string);
     LAC_CHECK_STATUS_DC_CHAIN_INIT(status);
 
@@ -215,9 +216,9 @@ CpaStatus dcChainServiceInit(sal_compression_service_t *pCompService,
 
     rspSize = LAC_QAT_DC_RESP_SZ_LW * LAC_LONG_WORD_IN_BYTES;
 
-    status = Sal_StringParsing("Dc",
+    status = Sal_StringParsing(SAL_CFG_DC,
                                pCompService->generic_service_info.instance,
-                               "ChainDescPool",
+                               SAL_CFG_CHAIN_DESC_POOL,
                                temp_string);
     LAC_CHECK_STATUS_DC_CHAIN_INIT(status);
 

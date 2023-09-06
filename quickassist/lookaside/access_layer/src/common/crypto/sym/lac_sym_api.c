@@ -224,6 +224,7 @@ STATIC CpaStatus
 LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
                          const CpaCySymSessionSetupData *pSessionSetupData)
 {
+    CpaStatus status = CPA_STATUS_SUCCESS;
     /* initialize convenient pointers to cipher and hash contexts */
     const CpaCySymCipherSetupData *const pCipherSetupData =
         (const CpaCySymCipherSetupData *)&pSessionSetupData->cipherSetupData;
@@ -232,7 +233,8 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
 
     CpaCySymCapabilitiesInfo capInfo;
     CpaCyCapabilitiesInfo cyCapInfo;
-    cpaCySymQueryCapabilities(instanceHandle, &capInfo);
+    status = SalCtrl_CySymQueryCapabilities(instanceHandle, &capInfo);
+    LAC_CHECK_STATUS(status);
     SalCtrl_CyQueryCapabilities(instanceHandle, &cyCapInfo);
 
     /* Ensure cipher algorithm is correct and supported */
@@ -874,7 +876,7 @@ CpaStatus cpaCySymRemoveSession(const CpaInstanceHandle instanceHandle_in,
     /* If there are pending requests */
     if (0 != numPendingRequests)
     {
-        LAC_LOG1("There are %d requests pending", numPendingRequests);
+        LAC_LOG1("There are %lld requests pending", numPendingRequests);
         status = CPA_STATUS_RETRY;
         if (CPA_TRUE == pSessionDesc->isDPSession)
         {
@@ -1062,6 +1064,7 @@ STATIC CpaStatus LacSym_Perform(const CpaInstanceHandle instanceHandle,
                                  pSessionDesc,
                                  callbackTag,
                                  pOpData,
+                                 NULL,
                                  pSrcBuffer,
                                  pDstBuffer,
                                  pVerifyResult);

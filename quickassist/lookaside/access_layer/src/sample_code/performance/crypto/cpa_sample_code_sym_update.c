@@ -835,6 +835,7 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
         return status;
     }
     qaeMemFree((void **)&instanceInfo2);

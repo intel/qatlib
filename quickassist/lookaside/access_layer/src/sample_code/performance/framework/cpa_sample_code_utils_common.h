@@ -158,8 +158,10 @@ typedef struct perf_data_s
     volatile Cpa64U responses;
     /*store number of submissions*/
     Cpa32U submissions;
+    volatile CpaBoolean readDone;
     Cpa64U retries;
     Cpa32U pollRetries;
+    Cpa32S currentThroughput;
     Cpa64U nextPoll;
     perf_cycles_t startCyclesTimestamp; /* start TS before perform */
     perf_cycles_t midCyclesTimestamp;   /* start TS before perform */
@@ -168,11 +170,11 @@ typedef struct perf_data_s
     /*rate variables*/
     Cpa32U sleepTime;
     Cpa32U compRate;
-    Cpa32S currentThroughput;
     sample_code_semaphore_t comp;
     Cpa64U numOperations;
     /*flag to indicate rings were full at least once during session*/
     Cpa32U averagePacketSizeInBytes;
+    Cpa32U numBuffers;
     sample_code_thread_mutex_t mutex;
     CpaStatus threadReturnStatus;
     /* Collect additional status from the result data
@@ -219,7 +221,6 @@ typedef struct perf_data_s
     perf_cycles_t aveLatency;
     perf_cycles_t maxLatency;
     CpaFlatBuffer *expectedResults;
-    Cpa32U numBuffers;
     Cpa64U preTestRecoveryCount;
     Cpa64U postTestRecoveryCount;
 } perf_data_t;

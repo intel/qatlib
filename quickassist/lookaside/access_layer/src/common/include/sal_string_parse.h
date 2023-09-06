@@ -108,6 +108,8 @@
 #define SAL_CFG_ASYM_KPT_MEM_ARRAY_POOL "AsymKptMemArrayPool"
 #define SAL_CFG_ASYM_KPT_UNWRAP_CTX_MEM_POOL "AsymKptUnWrapCtxMemPool"
 #define SAL_CFG_SYM_POOL "SymPool"
+#define SAL_CFG_CHAIN_COOKIE_POOL "ChainCookiePool"
+#define SAL_CFG_CHAIN_DESC_POOL "ChainDescPool"
 
 /**
 *******************************************************************************

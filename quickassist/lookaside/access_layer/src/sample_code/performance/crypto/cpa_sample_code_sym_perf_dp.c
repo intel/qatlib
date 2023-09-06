@@ -2308,6 +2308,11 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
         icp_sal_CyPutFileDescriptor(symTestSetup.cyInstanceHandle, fd);
         symTestSetup.performanceStats->threadReturnStatus =
             CPA_STATUS_UNSUPPORTED;
+        /* Stop Cy Service function should be called after all threads
+         * complete their execution. This function will be called from
+         * WaitForThreadCompletion().*/
+        testSetup->statsPrintFunc =
+            (stats_print_func_t)stopCyServicesFromCallback;
         sampleCodeThreadExit();
     }
 #endif

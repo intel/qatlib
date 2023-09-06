@@ -144,7 +144,7 @@ typedef struct _OptCurveParams
     Cpa32U dataOperationSizeBytes;
     Cpa32U functionRS;
     const Cpa8U *p;
-    const Cpa8U *r;
+    const Cpa8U *n;
     const Cpa8U *a;
     const Cpa8U *b;
 } OptCurveParams;
@@ -489,20 +489,21 @@ LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
 
     OptCurveParams curves[] = {
         /* P256 */
-        {.dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_256_BITS),
-         .functionRS = PKE_ECDSA_SIGN_RS_P256,
-         .p = nist_p256_p,
-         .r = nist_p256_r,
-         .a = nist_p256_a,
-         .b = nist_p256_b},
+        { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_256_BITS),
+          .functionRS = PKE_ECDSA_SIGN_RS_P256,
+          .p = nist_p256_p,
+          .n = nist_p256_n,
+          .a = nist_p256_a,
+          .b = nist_p256_b },
 
         /* P384 */
-        {.dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
-         .functionRS = PKE_ECDSA_SIGN_RS_P384,
-         .p = nist_p384_p,
-         .r = nist_p384_r,
-         .a = nist_p384_a,
-         .b = nist_p384_b}};
+        { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
+          .functionRS = PKE_ECDSA_SIGN_RS_P384,
+          .p = nist_p384_p,
+          .n = nist_p384_n,
+          .a = nist_p384_a,
+          .b = nist_p384_b }
+    };
 
     *function = 0;
 
@@ -517,7 +518,7 @@ LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
             continue;
 
         res = LacPke_CompareFlatAndPtr(
-            pN, curves[i].r, curves[i].dataOperationSizeBytes);
+            pN, curves[i].n, curves[i].dataOperationSizeBytes);
         if (!res)
             continue;
         res = LacPke_CompareFlatAndPtr(

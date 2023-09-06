@@ -2014,6 +2014,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     if (instanceInfo == NULL)
     {
         PRINT_ERR("Failed to allocate memory for instanceInfo");
+        qaeMemFree((void **)&cyInstances);
         return;
     }
     memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));

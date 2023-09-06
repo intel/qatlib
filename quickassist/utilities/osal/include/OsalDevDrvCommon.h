@@ -74,7 +74,7 @@ extern "C" {
 
 #include "OsalOsTypes.h"
 #pragma pack(push) /* Push the current alignment on the stack */
-#pragma pack(1)    /* Force alignment on 1 byte to support 32                 \
+#pragma pack(1)    /* Force alignment on 1 byte to support 32                  \
                       bits user space on 64 bits kernels */
 /* Number of allocated pages for memory managements
  * For kernel which can allocate 4M, then value can be 512

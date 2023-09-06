@@ -2040,7 +2040,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
     }
 #ifdef ICP_TRACE
     LAC_LOG7("Called with params (0x%lx -> 0x%1x, 0x%lx, 0x%lx, 0x%lx, "
-             "0x%lx, 0x%lx, 0x%1x ",
+             "0x%lx, 0x%lx ",
              (LAC_ARCH_UINT)instanceHandle,
              (LAC_ARCH_UINT)usedInstanceHandle,
              (LAC_ARCH_UINT)pCb,

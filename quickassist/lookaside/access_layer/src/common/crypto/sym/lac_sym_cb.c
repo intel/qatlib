@@ -531,10 +531,10 @@ CpaStatus LacSymCb_PendingReqsDequeue(lac_session_desc_t *pSessionDesc)
 
         /*
          * Now we'll attempt to send the message directly to QAT. We'll keep
-         * looking until it succeeds (or at least a very high number of retries),
-         * as the failure only happens when the ring is full, and this is only
-         * a temporary situation. After a few retries, space will become
-         * available, allowing the putMsg to succeed.
+         * looking until it succeeds (or at least a very high number of
+         * retries), as the failure only happens when the ring is full,
+         * and this is only a temporary situation. After a few retries,
+         * space will become available, allowing the putMsg to succeed.
          */
         retries = 0;
         do

@@ -77,6 +77,7 @@
 #ifndef LAC_SAL_H
 #define LAC_SAL_H
 #include "cpa_cy_im.h"
+#include "cpa_cy_sym.h"
 /**
 *******************************************************************************
 * @ingroup SalCtrl
@@ -428,6 +429,29 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
  *************************************************************************/
 void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
                                  CpaCyCapabilitiesInfo *pCapInfo);
+
+/*************************************************************************
+ * @ingroup SalCtrl
+ * @description
+ *      This function sets the capability info of crypto sym instances.
+ *
+ * @context
+ *    This function is called from the cpaCySymQueryCapabilities API and
+ *    other internal functions.
+ *
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ *
+ * @param[in] pGenericService    A sal_service_t* type
+ * @param[in] pCapInfo           A CpaCyCapabilitiesInfo* type
+ *
+ *************************************************************************/
+CpaStatus SalCtrl_CySymQueryCapabilities(sal_service_t *pGenericService,
+                                         CpaCySymCapabilitiesInfo *pCapInfo);
 #endif
 
 /*************************************************************************

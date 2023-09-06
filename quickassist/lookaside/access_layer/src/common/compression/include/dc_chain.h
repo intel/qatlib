@@ -95,6 +95,8 @@ typedef struct dc_chain_cmd_tbl_s
     /**< Session type key for third session in chaining */
     icp_qat_comp_chain_cmd_id_t cmd_id;
     /**< Chaining operation */
+    icp_qat_comp_chain_20_cmd_id_t cmd_20_id;
+    /**< Chaining 2.0 operation */
 } dc_chain_cmd_tbl_t;
 
 typedef struct dc_chain_cookie_s
@@ -121,7 +123,13 @@ typedef struct dc_chain_cookie_s
 
 typedef struct dc_chain_session_head_s
 {
-    icp_qat_comp_chain_req_hdr_t comn_hdr;
+    union {
+        icp_qat_comp_chain_req_hdr_t comn_hdr;
+        /**< Compression chaining header for Gen2 */
+        icp_qat_fw_comn_req_hdr_t comn_hdr2;
+        /**< Compression chaining header for non Gen2 */
+    } hdr;
+    Cpa16U numLinks;
     dc_session_desc_t *pDcSessionDesc;
     lac_session_desc_t *pCySessionDesc;
     CpaDcCallbackFn pdcChainCb;
@@ -129,58 +137,6 @@ typedef struct dc_chain_session_head_s
     OsalAtomic pendingChainCbCount;
     /**< Keeps track of number of pending requests on stateless session */
 } dc_chain_session_head_t;
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
- *      Populate symmetric crypto setup data for chaining operation
- *
- * @description
- *      Populate symmetric crypto setup data for chaining operation
- *
- * @param[in]       instanceHandle     Instance handle
- * @param[in]       pSessionCtx        Symmetric crypto session context
- * @param[out]      pSessionSetupData  Symmetric crypto session setup data
- * @param[out]      proto              Protocol define for firmware
- * @param[out]      chainOrder         Symmetric crypto algorithm chaining order
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-CpaStatus dcChainSession_PopulateSymSetupData(
-    CpaInstanceHandle instanceHandle,
-    CpaCySymSessionCtx pSessionCtx,
-    CpaCySymSessionSetupData *pSessionSetupData,
-    Cpa16U *proto,
-    CpaCySymAlgChainOrder *chainOrder);
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
- *      Build symmetric crypto template for chaining operation
- *
- * @description
- *      Build symmetric crypto template for chaining operation
- *
- * @param[in]       instanceHandle     Instance handle
- * @param[in]       pSessionCtx        Symmetric crypto session content
- * @param[in]       pSessionSetupData  Symmetric crypto session setup data
- * @param[in]       proto              Protocol define for firmware
- * @param[in]       chainOrder         Symmetric crypto algorithm chaining order
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-CpaStatus dcChainSession_BuildSymTemplate(
-    CpaInstanceHandle instanceHandle,
-    CpaCySymSessionCtx pSessionCtx,
-    CpaCySymSessionSetupData *pSessionSetupData,
-    Cpa16U proto,
-    CpaCySymAlgChainOrder chainOrder);
 
 /**
  *****************************************************************************

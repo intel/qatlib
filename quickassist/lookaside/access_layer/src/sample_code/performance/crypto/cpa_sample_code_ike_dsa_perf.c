@@ -1171,6 +1171,7 @@ CpaStatus dsaZSetup(CpaFlatBuffer **ppPublicValues,
         (*ppVerifyOpData2[i]).Z.dataLenInBytes = dsaZ[i].dataLenInBytes;
     }
 
+    qaeMemFree((void **)&dsaZ);
     return CPA_STATUS_SUCCESS;
 }
 
@@ -1480,8 +1481,9 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
     /*number of responses equals the number of QA APIs we have chained together
      * multiplied by the number of buffers and how many times we have looped
      * over the buffers */
-    setup->performanceStats->numOperations =
-        NUMBER_OF_CHAINED_OPS * setup->numBuffers * setup->numLoops;
+    setup->performanceStats->numOperations = NUMBER_OF_CHAINED_OPS *
+                                             (Cpa64U)setup->numBuffers *
+                                             (Cpa64U)setup->numLoops;
     setup->performanceStats->averagePacketSizeInBytes = setup->pLenInBytes;
     setup->performanceStats->responses = 0;
     /* Completion used in callback */

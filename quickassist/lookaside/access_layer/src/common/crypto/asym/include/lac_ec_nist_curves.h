@@ -66,13 +66,13 @@
 #define NIST_GFP_GX_256_BIT_POS 255
 #define NIST_GFP_GY_256_BIT_POS 255
 
-extern const Cpa8U nist_p256_p[];
-extern const Cpa8U nist_p256_a[];
-extern const Cpa8U nist_p256_b[];
-extern const Cpa8U nist_p256_r[];
-extern const Cpa8U nist_p256_h[];
-extern const Cpa8U nist_p256_gX[];
-extern const Cpa8U nist_p256_gY[];
+extern Cpa8U nist_p256_p[];
+extern Cpa8U nist_p256_a[];
+extern Cpa8U nist_p256_b[];
+extern Cpa8U nist_p256_n[];
+extern Cpa8U nist_p256_h[];
+extern Cpa8U nist_p256_gX[];
+extern Cpa8U nist_p256_gY[];
 
 /*********** NIST PRIME 384 CURVE ****************/
 #define NIST_GFP_P_384_BIT_POS 384
@@ -82,13 +82,13 @@ extern const Cpa8U nist_p256_gY[];
 #define NIST_GFP_GX_384_BIT_POS 384
 #define NIST_GFP_GY_384_BIT_POS 382
 
-extern const Cpa8U nist_p384_p[];
-extern const Cpa8U nist_p384_a[];
-extern const Cpa8U nist_p384_b[];
-extern const Cpa8U nist_p384_r[];
-extern const Cpa8U nist_p384_h[];
-extern const Cpa8U nist_p384_gX[];
-extern const Cpa8U nist_p384_gY[];
+extern Cpa8U nist_p384_p[];
+extern Cpa8U nist_p384_a[];
+extern Cpa8U nist_p384_b[];
+extern Cpa8U nist_p384_n[];
+extern Cpa8U nist_p384_h[];
+extern Cpa8U nist_p384_gX[];
+extern Cpa8U nist_p384_gY[];
 
 /*********** NIST PRIME 521 CURVE ****************/
 #define NIST_GFP_Q_521_BIT_POS 520
@@ -97,10 +97,10 @@ extern const Cpa8U nist_p384_gY[];
 #define NIST_GFP_H_521_BIT_POS 0
 #define NIST_GFP_R_521_BIT_POS 520
 
-extern const Cpa8U nist_p521_q[];
-extern const Cpa8U nist_p521_a[];
-extern const Cpa8U nist_p521_b[];
-extern const Cpa8U nist_p521_r[];
+extern Cpa8U nist_p521_q[];
+extern Cpa8U nist_p521_a[];
+extern Cpa8U nist_p521_b[];
+extern Cpa8U nist_p521_r[];
 
 /*********** NIST 163 KOBLITZ  AND BINARY CURVES ****************/
 #define NIST_GF2_Q_163_BIT_POS 163

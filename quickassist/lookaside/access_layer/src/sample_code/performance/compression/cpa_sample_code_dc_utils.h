@@ -128,6 +128,7 @@ extern volatile CpaBoolean LZ4BlockIndependence_g;
 #endif
 
 void dcPerformCallback(void *pCallbackTag, CpaStatus status);
+void dcReadPerformCallback(void *pCallbackTag, CpaStatus status);
 
 /* corpus Data structure */
 extern CpaBoolean useZlib_g;
@@ -145,6 +146,13 @@ CpaStatus disableZeroByteRequest(void);
 
 #define CPA_CRC64_POLYNOMIAL1 0x42F0E1EBA9EA3693ULL
 #define CPA_CRC64_POLYNOMIAL2 0x9A6C9329AC4BC9B5ULL
+
+#define CPA_CRC64_XOROUT_0 0x0ULL
+#define CPA_CRC64_XOROUT_1 0xFFFFFFFFFFFFFFFFULL
+#define CPA_CRC64_XOROUT_2 0x9465776698231213ULL
+
+#define CPA_CRC64_INITIAL_VALUE_0 0x0ULL
+#define CPA_CRC64_INITIAL_VALUE_1 0x6386926455673254ULL
 
 #define CHECK_AND_STOPDCSERVICES()                                             \
     if (dc_service_started_g == CPA_TRUE)                                      \

@@ -451,7 +451,7 @@ OSAL_PUBLIC OSAL_STATUS osalSleep(UINT32 milliseconds)
 {
     struct timespec resTime, remTime;
     INT32 status;
-    UINT16 mil_rem;
+    UINT32 mil_rem;
 
     /* Divide by number of millisec per second */
     resTime.tv_sec = milliseconds / OSAL_THOUSAND;

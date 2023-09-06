@@ -164,6 +164,7 @@ typedef enum
  *  the delta to be subtracted from the exponent when testing for
  *  g2 type operation */
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /* Maps between operation sizes and PKE function ids */
 static const Cpa32U lacDHSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_768_BITS, PKE_DH_768},
@@ -884,3 +885,26 @@ void LacDh_ProcessPhase2Cb(CpaStatus status,
     /* invoke the user callback */
     pCb(pCallbackTag, status, pOpData, pOctetStringSecretKey);
 }
+#else
+CpaStatus cpaCyDhKeyGenPhase1(
+    const CpaInstanceHandle instanceHandle_in,
+    const CpaCyGenFlatBufCbFunc pDhPhase1Cb,
+    void *pCallbackTag,
+    const CpaCyDhPhase1KeyGenOpData *pPhase1KeyGenData,
+    CpaFlatBuffer *pLocalOctetStringPV)
+{
+    LAC_LOG("DH algorithm is not supported\n");
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaCyDhKeyGenPhase2Secret(
+    const CpaInstanceHandle instanceHandle_in,
+    const CpaCyGenFlatBufCbFunc pDhPhase2Cb,
+    void *pCallbackTag,
+    const CpaCyDhPhase2SecretKeyGenOpData *pPhase2SecretKeyGenData,
+    CpaFlatBuffer *pOctetStringSecretKey)
+{
+    LAC_LOG("DH algorithm is not supported\n");
+    return CPA_STATUS_UNSUPPORTED;
+}
+#endif

@@ -247,7 +247,6 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             size_tx = strnlen(req->name, sizeof(req->name) - 1) + 1;
             break;
         case QATMGR_MSGTYPE_NUM_DEVICES:
-        case QATMGR_MSGTYPE_SECTION_INFO:
             size_tx = 0;
             break;
         case QATMGR_MSGTYPE_DEVICE_INFO:
@@ -339,9 +338,6 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             break;
         case QATMGR_MSGTYPE_DEVICE_ID:
             size_rx = strnlen(rsp->device_id, sizeof(rsp->device_id));
-            break;
-        case QATMGR_MSGTYPE_SECTION_INFO:
-            size_rx = sizeof(rsp->section_info);
             break;
         case QATMGR_MSGTYPE_INSTANCE_INFO:
             size_rx = sizeof(rsp->instance_info);

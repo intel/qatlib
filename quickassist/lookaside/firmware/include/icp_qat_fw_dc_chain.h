@@ -73,6 +73,35 @@
 #ifndef __ICP_QAT_FW_DC_CHAIN_H__
 #define __ICP_QAT_FW_DC_CHAIN_H__
 
+#define ICP_QAT_FW_COMP_CHAIN_REQ_FLAGS_BUILD(                          \
+    append_crc, verify, derive_key, crc_ctx)\
+    (((append_crc & ICP_QAT_FW_COMP_CHAIN_APPEND_CRC_MASK)                     \
+      << ICP_QAT_FW_COMP_CHAIN_APPEND_CRC_BITPOS) |                            \
+     ((verify & ICP_QAT_FW_COMP_CHAIN_VERIFY_MASK)                             \
+      << ICP_QAT_FW_COMP_CHAIN_VERIFY_BITPOS) |                                \
+    ((derive_key & ICP_QAT_FW_COMP_CHAIN_DERIVE_KEY_MASK)                      \
+      << ICP_QAT_FW_COMP_CHAIN_DERIVE_KEY_BITPOS) |                            \
+     ((crc_ctx & ICP_QAT_FW_COMP_CHAIN_CRC64_CTX_MASK)                         \
+      << ICP_QAT_FW_COMP_CHAIN_CRC64_CTX_BITPOS))
+
+#define ICP_QAT_FW_COMP_CHAIN_APPEND_CRC 1
+#define ICP_QAT_FW_COMP_CHAIN_NO_APPEND_CRC 0
+#define ICP_QAT_FW_COMP_CHAIN_VERIFY 1
+#define ICP_QAT_FW_COMP_CHAIN_NO_VERIFY 0
+#define ICP_QAT_FW_COMP_CHAIN_DERIVE_KEY 1
+#define ICP_QAT_FW_COMP_CHAIN_NO_DERIVE_KEY 0
+#define ICP_QAT_FW_COMP_CHAIN_CRC64_CTX 1
+#define ICP_QAT_FW_COMP_CHAIN_NO_CRC64_CTX 0
+
+#define ICP_QAT_FW_COMP_CHAIN_APPEND_CRC_MASK 0x1
+#define ICP_QAT_FW_COMP_CHAIN_APPEND_CRC_BITPOS 0
+#define ICP_QAT_FW_COMP_CHAIN_VERIFY_MASK 0x1
+#define ICP_QAT_FW_COMP_CHAIN_VERIFY_BITPOS 1
+#define ICP_QAT_FW_COMP_CHAIN_DERIVE_KEY_MASK 0x1
+#define ICP_QAT_FW_COMP_CHAIN_DERIVE_KEY_BITPOS 2
+#define ICP_QAT_FW_COMP_CHAIN_CRC64_CTX_MASK 0x1
+#define ICP_QAT_FW_COMP_CHAIN_CRC64_CTX_BITPOS 3
+
 #define ICP_QAT_FW_COMP_CHAIN_REQ_EXTEND_FLAGS_BUILD(                          \
     cnv, asb, cbc, xts, ccm, cnvnr)                                            \
     (((cnv & ICP_QAT_FW_COMP_CHAIN_CNV_MASK)                                   \
@@ -115,19 +144,20 @@
 #define DC_CHAIN_MAX_LINK 0x3
 typedef enum
 {
-    ICP_QAT_FW_NO_CHAINING,
-    ICP_QAT_FW_CHAINING_CMD_DECRYPT_DECOMPRESS,
-    ICP_QAT_FW_CHAINING_CMD_HASH_DECOMPRESS,
-    ICP_QAT_FW_CHAINING_CMD_HASH_STATIC_COMP,
-    ICP_QAT_FW_CHAINING_CMD_HASH_DYNAMIC_COMP,
-    ICP_QAT_FW_CHAINING_CMD_DECOMPRESS_HASH,
-    ICP_QAT_FW_CHAINING_CMD_STATIC_COMP_ENCRYPT,
-    ICP_QAT_FW_CHAINING_CMD_STATIC_COMP_ENCRYPT_HASH,
-    ICP_QAT_FW_CHAINING_CMD_STATIC_COMP_HASH,
-    ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_ENCRYT,
-    ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_ENCRYPT_HASH,
-    ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_HASH,
+    ICP_QAT_FW_NO_CHAINING = 0,
+    ICP_QAT_FW_CHAINING_CMD_DECRYPT_DECOMPRESS = 1,
+    ICP_QAT_FW_CHAINING_CMD_DYNAMIC_COMP_ENCRYT = 2,
+    ICP_QAT_FW_CHAINING_CMD_HASH_STATIC_COMP = 3,
+    ICP_QAT_FW_CHAINING_CMD_HASH_DYNAMIC_COMP = 4
 } icp_qat_comp_chain_cmd_id_t;
+
+typedef enum
+{
+    ICP_QAT_FW_NO_CHAINING_20 = 0,
+    ICP_QAT_FW_CHAINING_20_CMD_DECRYPT_DECOMPRESS = 1,
+    ICP_QAT_FW_CHAINING_20_CMD_COMPRESS_ENCRYPT = 2,
+    ICP_QAT_FW_CHAINING_20_CMD_HASH_COMPRESS = 3
+} icp_qat_comp_chain_20_cmd_id_t;
 
 /**
  *****************************************************************************
@@ -191,6 +221,51 @@ typedef struct icp_qat_fw_comp_chain_req_s
     /* Physical address for symmetric crypto response */
     Cpa32U resrvd3[8];
 } icp_qat_fw_comp_chain_req_t;
+
+/**
+ ***************************************************************************
+ * @ingroup icp_qat_fw_dc_chain
+ *      Request data for chaining Stor2 QAT messages
+ *
+ * @description
+ *      This structure defines the request data for chaining QAT messages. This
+ * is used to store data which is known when the message is sent and which we
+ * wish to retrieve when the response message is processed.
+ **************************************************************************/
+typedef struct icp_qat_fw_chain_stor2_req_s
+{
+    /**< LWs 0-1 */
+    icp_qat_fw_comn_req_hdr_t comn_hdr;
+    /**< Common request header - for Service Command Id,
+     * use service-specific Chain Command Id.
+     * Service Specific Flags - use Chain Command Flags */
+
+    /**< LWs 2-5 */
+    icp_qat_fw_comn_req_hdr_cd_pars_t cd_pars;
+    /**< Common Request content descriptor field which points either to a
+     * content descriptor
+     * parameter block or contains the service-specific data itself. */
+
+    /**< LWs 6-13 */
+    icp_qat_fw_comn_req_mid_t comn_mid;
+    /**< Common request middle section */
+
+    /**< LWs 14-15 */
+    Cpa32U resrvd3[2];
+
+    /**< LWs 16-23 */
+    Cpa64U compReqAddr;
+    /* Physical address for compression request */
+    Cpa64U compRespAddr;
+    /* Physical address for compression response */
+    Cpa64U symCryptoReqAddr;
+    /* Physical address for symmetric crypto request */
+    Cpa64U symCryptoRespAddr;
+    /* Physical address for symmetric crypto response */
+
+    /**< LWs 24-31 */
+    Cpa32U resrvd4[8];
+} icp_qat_fw_chain_stor2_req_t;
 
 /**
  *****************************************************************************

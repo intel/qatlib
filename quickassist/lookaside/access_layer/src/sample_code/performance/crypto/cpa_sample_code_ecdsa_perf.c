@@ -1233,15 +1233,15 @@ CpaStatus ecdsaPerform(ecdsa_test_params_t *setup)
                 (Cpa8U)((instanceInfo->physInstId.busAddress & 0xFF) >> 3),
                 (Cpa8U)(instanceInfo->physInstId.busAddress & 7));
             sampleCodeBarrier();
-            status = CPA_STATUS_SUCCESS;
-            goto barrier;
+            qaeMemFree((void **)&instanceInfo);
+            return CPA_STATUS_SUCCESS;
         }
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyQueryCapabilities failed!\n");
             sampleCodeBarrier();
-            status = CPA_STATUS_FAIL;
-            goto barrier;
+            qaeMemFree((void **)&instanceInfo);
+            return status;
         }
     }
 #endif
@@ -1785,6 +1785,7 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     if (instanceInfo == NULL)
     {
         PRINT_ERR("Failed to allocate memory for instanceInfo");
+        qaeMemFree((void **)&cyInstances);
         return;
     }
     memset(instanceInfo, 0, sizeof(CpaInstanceInfo2));

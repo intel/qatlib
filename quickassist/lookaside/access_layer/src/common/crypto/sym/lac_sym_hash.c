@@ -89,7 +89,9 @@
 
 #include "lac_common.h"
 #include "lac_mem.h"
+#include "lac_sal_types.h"
 #include "lac_sym.h"
+#include "lac_sal.h"
 #include "lac_session.h"
 #include "lac_sym_hash.h"
 #include "lac_log.h"
@@ -462,7 +464,7 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    cpaCySymQueryCapabilities(instanceHandle, &capInfo);
+    SalCtrl_CySymQueryCapabilities(instanceHandle, &capInfo);
     if (!CPA_BITMAP_BIT_TEST(capInfo.hashes, pHashSetupData->hashAlgorithm) &&
         pHashSetupData->hashAlgorithm != CPA_CY_SYM_HASH_AES_CBC_MAC)
     {

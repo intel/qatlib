@@ -1465,6 +1465,7 @@ CpaStatus LacAlgChain_SessionInit(
     icp_qat_fw_comn_flags cmnRequestFlags = 0;
     icp_qat_fw_comn_req_t *pMsg = NULL;
     icp_qat_fw_comn_req_t *pMsgS = NULL;
+    icp_qat_fw_slice_t nextSlice = ICP_QAT_FW_SLICE_NULL;
     const CpaCySymCipherSetupData *pCipherData;
     const CpaCySymHashSetupData *pHashData;
     Cpa16U proto = ICP_QAT_FW_LA_NO_PROTO; /* no CCM/GCM/Snow3G */
@@ -1701,7 +1702,8 @@ CpaStatus LacAlgChain_SessionInit(
      * create two content descriptors in the case we can support using SHRAM
      * constants and an optimised content descriptor. we have to do this in case
      * of partials.
-     * 64 byte content descriptor is used in the SHRAM case for AES-128-HMAC-SHA1
+     * 64 byte content descriptor is used in the SHRAM case for
+     * AES-128-HMAC-SHA1
      *-----------------------------------------------------------------------*/
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -1778,10 +1780,19 @@ CpaStatus LacAlgChain_SessionInit(
             }
             break;
             case CPA_CY_SYM_OP_HASH:
+                /* Use ICP_QAT_FW_SLICE_DRAM_WR if this is a Crypto HASH as part
+                 * of a DC Chaining (Compression) operation on Gen2 devices
+                 */
+                if ((SAL_SERVICE_TYPE_COMPRESSION ==
+                     pService->generic_service_info.type) &&
+                    !pService->generic_service_info.isGen4)
+                {
+                    nextSlice = ICP_QAT_FW_SLICE_DRAM_WR;
+                }
                 LacAlgChain_HashCDBuild(pHashData,
                                         instanceHandle,
                                         pSessionDesc,
-                                        ICP_QAT_FW_SLICE_NULL,
+                                        nextSlice,
                                         hashOffsetInConstantsTable,
                                         &pSessionDesc->cmnRequestFlags,
                                         &pSessionDesc->laCmdFlags,
@@ -2052,6 +2063,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                               lac_session_desc_t *pSessionDesc,
                               void *pCallbackTag,
                               const CpaCySymOpData *pOpData,
+                              lac_sym_bulk_cookie_t *pCookie,
                               const CpaBufferList *pSrcBuffer,
                               CpaBufferList *pDstBuffer,
                               CpaBoolean *pVerifyResult)
@@ -2059,7 +2071,6 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_crypto_service_t *pService = (sal_crypto_service_t *)instanceHandle;
     Cpa32U capabilitiesMask = pService->generic_service_info.capabilitiesMask;
-    lac_sym_bulk_cookie_t *pCookie = NULL;
     lac_sym_cookie_t *pSymCookie = NULL;
     icp_qat_fw_la_bulk_req_t *pMsg = NULL;
     Cpa8U *pMsgDummy = NULL;
@@ -2076,6 +2087,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
     Cpa32U hwBlockOffsetInDRAM = 0;
     Cpa32U sizeInBytes = 0;
     icp_qat_fw_cipher_cd_ctrl_hdr_t *pSpcCdCtrlHdr = NULL;
+    CpaBoolean isDcChaining = CPA_FALSE;
     CpaCySymCipherAlgorithm cipher;
     CpaCySymHashAlgorithm hash;
     Cpa8U paddingLen = 0;
@@ -2097,6 +2109,12 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
 
     cipher = pSessionDesc->cipherAlgorithm;
     hash = pSessionDesc->hashAlgorithm;
+
+    /* pCookie will already be allocated for DC Chaining requests */
+    if (NULL != pCookie)
+    {
+        isDcChaining = pCookie->dcChain.isDcChaining;
+    }
 
     if (CPA_CY_SYM_HASH_AES_GMAC == hash)
     {
@@ -2243,8 +2261,11 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
         }
     }
 
-    /* allocate cookie (used by callback function) */
-    if (CPA_STATUS_SUCCESS == status)
+    /* Allocate cookie (used by callback function).
+     * If calling from DC Chaining then cookie should already be
+     * allocated.
+     */
+    if ((CPA_STATUS_SUCCESS == status) && (NULL == pCookie))
     {
         do
         {
@@ -2267,13 +2288,19 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             else
             {
                 pCookie = &(pSymCookie->u.bulkCookie);
+
+                /* Initialize cookie isDcChaining field. This function uses
+                 * a local variable for isDcChaining but other places may use
+                 * the cookie so it needs to be correctly initialized.
+                 */
+                pCookie->dcChain.isDcChaining = CPA_FALSE;
             }
         } while ((void *)CPA_STATUS_RETRY == pSymCookie);
     }
 
-    if (NULL == pCookie)
+    if ((CPA_STATUS_SUCCESS == status) && (NULL == pCookie))
     {
-        status = CPA_STATUS_INVALID_PARAM;
+        status = CPA_STATUS_RESOURCE;
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -2818,24 +2845,34 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
         }
     }
 
-    /* Increase pending callbacks before unlocking session */
-    if (CPA_STATUS_SUCCESS == status)
+    /* DC Chaining has its own callback count so skip */
+    if (CPA_FALSE == isDcChaining)
     {
-        osalAtomicInc(&(pSessionDesc->u.pendingCbCount));
+        /* Increase pending callbacks before unlocking session */
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            osalAtomicInc(&(pSessionDesc->u.pendingCbCount));
+        }
     }
+
     LacAlgChain_UnlockSessionReader(pSessionDesc);
 
-    /*
-     * send the message to the QAT
-     */
-    if (CPA_STATUS_SUCCESS == status)
+    /* Send message now if this is not a DC Chaining operation */
+    if (CPA_FALSE == isDcChaining)
     {
-        status = LacSymQueue_RequestSend(instanceHandle, pCookie, pSessionDesc);
-
-        if (CPA_STATUS_SUCCESS != status)
+        /*
+         * send the message to the QAT
+         */
+        if (CPA_STATUS_SUCCESS == status)
         {
-            /* Decrease pending callback counter on send fail. */
-            osalAtomicDec(&(pSessionDesc->u.pendingCbCount));
+            status =
+                LacSymQueue_RequestSend(instanceHandle, pCookie, pSessionDesc);
+
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                /* Decrease pending callback counter on send fail. */
+                osalAtomicDec(&(pSessionDesc->u.pendingCbCount));
+            }
         }
     }
     /* Case that will catch all error status's for this function */

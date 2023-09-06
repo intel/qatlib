@@ -266,9 +266,11 @@ quickassist/lookaside/access_layer/src/sample_code/functional/asym/eddsa_sample/
 quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c
 quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/chaining_sample/cpa_chaining_sample.c
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/chaining_sample/cpa_chaining_sample_input.h
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/chaining_sample/cpa_chaining_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample.c
 quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample_user.c
-quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/paper4
 quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_multi_op_checksum_sample/cpa_dc_stateless_multi_op_checksum_sample.c
 quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_sample.c

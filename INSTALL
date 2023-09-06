@@ -1,7 +1,7 @@
 ===============================================================================
 
 
-February 2023
+August 2023
 ===============================================================================
 
 
@@ -33,7 +33,7 @@ Licensing
 
 This product is released under the BSD-3-Clause License.
 
-Files within this project have various inbound licences, listed below:
+Files within this project have various inbound licenses, listed below:
         - Dual BSD/GPLv2 License
         - BSD License
 
@@ -46,6 +46,12 @@ level folder.
 For Dual BSD/GPLv2 please see the file headers of the relevant files.
 
 ===============================================================================
+
+QATlib User's Guide
+===================
+
+Web-based documentation for QATlib and related components is available at:
+    https://intel.github.io/quickassist/qatlib/index.html
 
 
 Using the QATlib package
@@ -88,7 +94,8 @@ Check System Prerequisites
         intel_qat
         qat_4xxx
         They should load by default if using any of the following:
-         * Linux kernel v5.11+ (This is for crypto, for compression use v5.17+)
+         * Linux kernel v5.11+ (This is for crypto, for compression use v5.17+,
+         for sym-only asym-only, sym;dc and asym;dc use v6.6+, for dcc use v6.7+)
          * Fedora 34+ (for compression use 36+)
          * RHEL 8.4+ (for compression use 9.0+)
      * each PF device must be bound to the 4xxx driver
@@ -113,6 +120,7 @@ Check System Prerequisites
          * sudo vi /etc/default/grub
          * to GRUB_CMDLINE_LINUX add "intel_iommu=on"
          * sudo grub2-mkconfig -o /etc/grub2-efi.cfg
+         * sudo shutdown -r now
 
 
 ===============================================================================
@@ -328,6 +336,9 @@ Compilation and installation - detailed instructions
             Run just one compress/decompress operation:
             ./dc_stateless_sample
 
+            Run just one chaining hash then compress operation:
+            ./chaining_sample
+
     ----------------------------------------------------------------------------
 
     6) Remove the libraries and cleanup
@@ -351,7 +362,7 @@ Compilation and installation - detailed instructions
 
     7) Configuration and tuning
 
-        There are parameters which can be tweaked to optimise for an
+        There are parameters which can be tweaked to optimize for an
         application's workload which might work in two modes:
         managed (when qat service is enabled) and standalone (without service)
 
@@ -379,15 +390,40 @@ Compilation and installation - detailed instructions
                 every odd-numbered PF has dc. I.e. PF0, PF2 ... support crypto
                 and PF1, PF3 ... support data compression.
 
+            ServicesEnabled=sym
+                All PFs, and so all VFs, have sym only.
+
+            ServicesEnabled=asym
+                All PFs, and so all VFs, have asym only.
+
             ServicesEnabled=sym;asym
                 All PFs, and so all VFs, have sym;asym only.
 
             ServicesEnabled=dc
                 All PFs, and so all VFs, have dc only.
 
+            ServicesEnabled=sym;dc
+                All PFs, and so all VFs, have sym;dc only.
+
+            ServicesEnabled=asym;dc
+                All PFs, and so all VFs, have asym;dc only.
+
+            ServicesEnabled=dcc
+                All PFs, and so all VFs, have dc instances enabled for chaining
+                operations (hash then compress) only.
+
+                Note:  Throughput is lower than dc.  Only use this setting when
+                chaining is needed.
+
+
         The following examples are based on a one-socket QAT 4xxx platform
-        with 4 PFs, each PF has 16 VFs. Each VF enabled for dc has 4 instances,
-        each VF enabled for sym;asym has 2 sym instances and 2 asym instances.
+        with 4 PFs, each PF has 16 VFs. Each VF enabled for sym, asym, dc
+        has 4 instances. Each VF enabled for mixed services like sym;asym,
+        sym;dc, asym;dc has 2 instances of each type, so sym;asym has 2 cy
+        instances (note that cy instance is and sym and asym together), sym;dc
+        has 2 sym instances and 2 dc instances, asym;dc has 2 asym instances
+        and 2 dc instances.
+
         An instance is an abstraction used on the APIs to identify a unique path
         to the hardware. In a multi-threaded process, typically at least one
         instance is needed per thread.
@@ -407,17 +443,56 @@ Compilation and installation - detailed instructions
                 The maximum number of processes is 32. 16 VFs * 4 PFs / POLICY.
                 N sockets will have 32 * N.
 
+            Scalability and flexibility for crypto symmetric or asymmetric
+                plus compression.
+                POLICY=1. ServicesEnabled sym;dc or asym;dc. Each process will be
+                allocated 1 VF, with sym;dc or asym;dc. So each will have
+                2 sym or asym instances and 2 dc instances.
+                The maximum number of processes is 64. 16 VFs * 4 PFs / POLICY.
+                N sockets will have 64 * N.
+
             Crypto-only scalability
                 POLICY=1. ServicesEnabled=sym;asym. All VFs have sym;asym.
                 Each process will be allocated 1 VF so will have 2 sym instances
                 and 2 asym instances.
                 The maximum number of processes is 64. 16 VFs * 4 PFs.
                 N sockets will have 64 * N.
+                Note:  This configuration also provides optimized-throughput for
+                asym.
 
-            Compression-only scalability:
-                POLICY=1. ServicesEnabled=dc. All VFs have dc. Each process 
+            Crypto-only optimized-throughput
+                POLICY=0. ServicesEnabled=sym;asym. All VFs have sym;asym.
+                Each process will be allocated 1 VF per PF which will have 2 sym
+                instances and 2 asym instances, so each process will have
+                (2 * number of PFs) of each instance type.
+                The maximum number of processes is 16.
+
+            Sym-only optimized-throughput
+                POLICY=0. ServicesEnabled=sym. All VFs have sym.
+                Each process will be allocated 1 VF per PF which will have
+                4 sym instances, so each process will have
+                (4 * number of PFs) instances.
+                The maximum number of processes is 16.
+
+            Compression-only scalability
+                POLICY=1. ServicesEnabled=dc. All VFs have dc. Each process
                 will be allocated 1 VF so will have 4 dc instances.
-                The maximum number of processes is 64. Same as for sym;asym
+                The maximum number of processes is 64.  16 VFs * 4 PFs.
+                N sockets will have 64 * N.
+
+            Compression-only optimized-throughput
+                POLICY=0. ServicesEnabled=dc. All VFs have dc.
+                Each process will be allocated 1 VF per PF which will have
+                4 dc instances, so each process will have
+                (4 * number of PFs) instances.
+                The maximum number of processes is 16.
+
+            Compression chaining scalability:
+                POLICY=1. ServicesEnabled=dcc. All VFs have dc with sym
+                capabilities but only for chaining operations. Each process
+                will be allocated 1 VF so will have 4 dc instances.
+                The maximum number of processes is 64. 16 VFs * 4 PFs.
+                N sockets will have 64 * N.
 
         STANDALONE MODE
 
@@ -446,6 +521,32 @@ Compilation and installation - detailed instructions
         then neither ServicesEnabled nor POLICY should be set in
         /etc/sysconfig/qat, else it will not be deterministic which instances
         a process receives.
+
+        RUNNING IN A VIRTUAL MACHINE / GUEST
+
+        When passing VFs to a guest, the BDFs on the guest should facilitate qatlib
+        recognizing whether VFs are from the same PF or not.
+        So the libvirt XML file should specify that VFs from the same host
+        (same domain + bus) are assigned to a common (domain + bus) on the guest,
+        which is different to the (domain + bus) used for VFs from other PFs.
+
+        e.g. if VF on host 0000:6b:00.1 maps to <xxxx:xx>:00.1 on guest
+                            then  0000:6b:00.6 should map to <xxxx:xx>:00.6
+                            and   0000:7a:00.3 should map to <yyyy:yy>:00.3
+
+        The first VF, mapped to function='0x0', should also set multifunction='on'.
+
+        Sufficient VFs should be passed from the host to the guest to satisfy the
+        type of services and number of processes needed by the guest. See here for
+        more information on host configuration:
+        https://intel.github.io/quickassist/qatlib/configuration.html#
+
+        If using the default kernel configuration, at least 2 VFs are needed per
+        process so that the process has both CY and DC instances.
+        Set either POLICY=0 or POLICY=2 (or 4, 6, ...) in /etc/sysconfig/qat on
+        the guest and restart qatmgr.
+
+
 
         SCRIPT TO VIEW QAT PF/VF SERVICE CONFIG
 

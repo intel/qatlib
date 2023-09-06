@@ -169,6 +169,7 @@ void setDcPollingThreadsInterval(long interval)
 }
 EXPORT_SYMBOL(setDcPollingThreadsInterval);
 
+
 /*********** Call Back Function **************/
 void dcPerformCallback(void *pCallbackTag, CpaStatus status)
 {
@@ -1773,6 +1774,13 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
                 PRINT("SHA1 Stateless Static Compression Chaining\n");
             }
             else if (chainSetup->symSetupData.hashSetupData.hashAlgorithm ==
+                         CPA_CY_SYM_HASH_SHA224 &&
+                     chainSetup->setupData.sessState == CPA_DC_STATELESS &&
+                     chainSetup->setupData.huffType == CPA_DC_HT_STATIC)
+            {
+                PRINT("SHA2-224 Stateless Static Compression Chaining\n");
+            }
+            else if (chainSetup->symSetupData.hashSetupData.hashAlgorithm ==
                          CPA_CY_SYM_HASH_SHA256 &&
                      chainSetup->setupData.sessState == CPA_DC_STATELESS &&
                      chainSetup->setupData.huffType == CPA_DC_HT_STATIC)
@@ -1785,6 +1793,13 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
                      chainSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
             {
                 PRINT("SHA1 Stateless Dynamic Compression Chaining\n");
+            }
+            else if (chainSetup->symSetupData.hashSetupData.hashAlgorithm ==
+                         CPA_CY_SYM_HASH_SHA224 &&
+                     chainSetup->setupData.sessState == CPA_DC_STATELESS &&
+                     chainSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
+            {
+                PRINT("SHA2-224 Stateless Dynamic Compression Chaining\n");
             }
             else if (chainSetup->symSetupData.hashSetupData.hashAlgorithm ==
                          CPA_CY_SYM_HASH_SHA256 &&

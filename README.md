@@ -26,6 +26,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| August 2023 | 010 | 23.08 | <br> - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. |
 | February 2023 | 009 | 23.02 | - Added configuration option --enable-legacy-algorithms to use these insecure crypto algorithms and disabled them by default (AES-ECB, SHA-1, SHA2-224, SHA3-224, RSA512/1024/1536, DSA)<br>- Refactored code in quickassist/utilities/libusdm_drv<br>- Bugfixes<br>- Updated documentation with configuration and tuning information |
 | November 2022 | 008 | 22.07.2 | - Changed from yasm to nasm for assembly compilation<br> - Added configuration option to use C implementation of soft CRC implementation instead of asm<br>- Added support for pkg-config<br>- Added missing lock around accesses to some global data in qatmgr |
 | October 2022 | 007 | 22.07.1 | - Fix for QATE-86605 |
@@ -70,7 +71,7 @@ The following services are available in qatlib via the QuickAssist API:
   * MGF1
 * Asymmetric (Public Key) Cryptography
   * Modular exponentiation and modular inversion up to 8192 bits
-  * Diffie-Hellman (DH) key generation phase 1 and 2 up to 8192 bits
+  * [Diffie-Hellman (DH)](#insecure-algorithms) key generation phase 1 and 2 up to 8192 bits
   * [RSA](#insecure-algorithms) key generation, encryption/decryption and digital signature
     generation/verification up to 8192 bits
   * [DSA](#insecure-algorithms) parameter generation and digital signature generation/verification
@@ -82,6 +83,8 @@ The following services are available in qatlib via the QuickAssist API:
   * Compress and Verify (CnV)
   * Compress and Verify and Recover (CnVnR)
   * End-to-end (E2E) integrity check
+* Compression Chaining (Deflate only)
+  * Hash then compress
 
 This package includes:
 * libqat: user space library for QAT devices exposed via the vfio kernel driver
@@ -97,6 +100,8 @@ The following algorithms are considered insecure and are disabled by default.
 * SHA3-224
 * RSA512/1024/1536
 * DSA
+* Diffie-Helman
+* Elliptic Curve Cryptography algorithms with less 256 bits
 
 To enable these algorithms, use the following configuration option:
    * `--enable-legacy-algorithms`
@@ -122,25 +127,25 @@ The following features are not currently supported:
 * Dynamic instances
 * Intel® Key Protection Technology (KPT)
 * Event driven polling
-* More than 16 processes per end point
+* More than 16 processes per end point (16 is the maximum)
 * accumulateXXHash when combined with autoSelectBestHuffmanTree
 * accumulateXXHash in Decompression or Combined sessions
 * integrityCrcCheck for Compression direction requests
 
-
 ## Environmental Assumptions
 
 The following assumptions are made concerning the deployment environment:
-* Users within the same processing domain must be trusted.
-* The Intel® QAT device should not be exposed (via the "user space direct"
-  deployment model) to untrusted users.
+* Users within the same processing domain must be trusted, i.e.: on the same
+  host or within the same virtual machine, users must trust each other.
+* The library can be used by unprivileged users if those users are included in
+  the 'qat' group.
 * DRAM is considered to be inside the trust boundary. The typical memory
   protection schemes provided by the Intel architecture processor and memory
   controller, and by the operating system, prevent unauthorized access to these
   memory regions.
 * A QuickAssist kernel driver for the supported device is installed, which has
-  discovered and initialised the device, exposing the VFs. This driver is
-  included in the Linux kernel, see [INSTALL](INSTALL) for information about which kernel 
+  discovered and initialized the device, exposing the VFs. This driver is
+  included in the Linux kernel, see [INSTALL](INSTALL) for information about which kernel
   to use.
 * The library can be used by unprivileged users if that user is included in
   the 'qat' group.
@@ -174,7 +179,9 @@ where: \<Component\> is one of the following:
 | QATE-3241  | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.](#qate-3241) |
 | QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
-| QATE-76698 | [GEN- Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
+| QATE-76698 | [GEN - Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
+| QATE-94286 | [CY - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
+| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup](#qate-94369) |
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -211,11 +218,31 @@ where: \<Component\> is one of the following:
 | Title      |         GEN - Multi-process applications running in guest will fail when running with default Policy settings.     |
 |----------|:-------------
 | Reference # | QATE-76698 |
-| Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system. In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
+| Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system.  In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
 | Implication | Multi-process applications running in guest OS will fail with default Policy settings. |
-| Resolution | When passing VFs to a guest, the libvirt XML file should specify that all VFs from a given PF (i.e. with the same host domain + bus) are assigned to a common bus on the guest. The first VF, mapped to function='0x0', should also set `multifunction='on'`. Also, if n processes are needed in the guest, then n VFs from each PF should be passed to the guest, to ensure all guest processes have both compression and crypto instances. In addition, on either host or guest, don’t use POLICY=1 as it will only allocate 1 instance. At least 2 instances are needed so a process has both CY and DC instances. Set either POLICY=0 or POLICY=2 (or 4, 6, ...) in `/etc/sysconfig/qat` and restart qatmgr. |
+| Resolution | If more than 1 process is needed in a guest OS, set POLICY=n (where n>0) in /etc/sysconfig/qat and restart qatmgr. The process will then receive n VFs. See RUNNING IN A VIRTUAL MACHINE / GUEST section of INSTALL for details. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
+
+## QATE-94286
+| Title      |       GEN - Compression services not detected when crypto-capable VFs are also added to VM.        |
+|----------|:-------------
+| Reference # | QATE-94286 |
+| Description | When configuring a system with different services on different QAT end-points, e.g. asym;sym on one and dc on another, and exposing only one of those Virtual Function (VF) types to the Virtual Machine (VM), the application works as expected. However, when VFs of more than one type are passed to the same VM, the application may only recognize one service-type, e.g. it may detect crypto instances, but not compression instances. There is an assumption that all VFs provide the same services if they come from the same PF. However, detecting which PF they come from is based on domain+bus, which is not always a valid assumption on a VM. |
+| Implication | This issue prevents the detection of compression services in a virtualized environment when the default kernel configuration is used, and crypto and dc VFs are passed to the VM, potentially impacting the proper functioning of the system. |
+| Resolution | When passing VFs to a guest, the BDFs on the guest should facilitate qatlib recognizing whether VFs are from the same PF or not. See RUNNING IN A VIRTUAL MACHINE / GUEST section of INSTALL for details. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
+## QATE-94369
+| Title      |       GEN - SELinux Preventing QAT Service Startup        |
+|----------|:-------------
+| Reference # | QATE-94286 |
+| Description | The qat service fails to start due to SELinux preventing the qat_init.sh script and qatmgr from accessing resources. The issue occurs when the system is running with SELinux enabled, causing insufficient permissions for the qat_init.sh script and qatmgr to function correctly. |
+| Implication | This issue affects the proper functioning of the qat service on systems with SELinux enabled, potentially preventing QAT virtual functions (VFs) from functioning. |
+| Resolution | None available. |
+| Affected OS | Linux |
+| Driver/Module | QAT Linux Upstream - User |
 
 ## Resolved Issues
 Resolved issues relating to the Intel® QAT software are described
@@ -223,16 +250,16 @@ in this section.
 
 | Issue ID | Description |
 |-------------|------------|
-| QATE-76846 | [GEN - Forking and re-initialising use-cases do not work](#qate-76846) |
+| QATE-76846 | [GEN - Forking and re-initializing use-cases do not work](#qate-76846) |
 | QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
 | QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
 
 ## QATE-76846
-| Title      |         GEN - Forking and re-initialising use-cases do not work     |
+| Title      |         GEN - Forking and re-initializing use-cases do not work     |
 |----------|:-------------
 | Reference # | QATE-76846 |
-| Description | Forking and re-initialising use-cases do not work:<br>-icp_sal_userStart()/icp_sal_userStop()/icp_sal_userStart() in single process<br>-icp_sal_userStart()/fork()/icp_sal_userStart() in child.<br> This is the usecase in openssh + QAT_Engine. |
-| Implication | The process will have undefined behaviour in these use-cases. |
+| Description | Forking and re-initializing use-cases do not work:<br>-icp_sal_userStart()/icp_sal_userStop()/icp_sal_userStart() in single process<br>-icp_sal_userStart()/fork()/icp_sal_userStart() in child.<br> This is the use case in openssh + QAT_Engine. |
+| Implication | The process will have undefined behavior in these use-cases. |
 | Resolution | This issue is resolved with the 21.08 release. If using release prior to this release and using these flows, call qaeMemDestroy() immediately after icp_sal_userStop() to prevent this issue. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |

@@ -96,8 +96,11 @@
 #include "qae_mem_user_utils.h"
 #include "qae_page_table_common.h"
 #include "qae_mem_hugepage_utils.h"
-/* Maximum supported allocation is 4M. */
-#define QAE_MAX_ALLOC_SIZE (0x400000ULL)
+
+/* Maximum supported alignment is 4M. */
+#define QAE_MAX_PHYS_ALIGN (0x400000ULL)
+/* Maximum supported allocation is 64M. */
+#define QAE_MAX_ALLOC_SIZE (0x4000000ULL)
 
 typedef struct
 {
@@ -105,6 +108,12 @@ typedef struct
     dev_mem_info_t *tail;
 } slab_list_t;
 
+/* User space page table for fast virtual to physical address translation */
+extern page_table_t g_page_table;
+extern const uint64_t __qae_bitmask[65];
+extern int g_fd;
+
+#ifndef ICP_THREAD_SPECIFIC_USDM
 extern int g_strict_node;
 /* Current cached memory size. */
 extern size_t g_cache_size;
@@ -112,14 +121,9 @@ extern size_t g_cache_size;
 extern size_t g_max_cache;
 /* The maximum number we allow to search for available size */
 extern size_t g_max_lookup_num;
-/* User space page table for fast virtual to physical address translation */
-extern page_table_t g_page_table;
-
-extern int g_fd;
 
 /* User space hash for fast slab searching */
 extern slab_list_t g_slab_list[PAGE_SIZE];
-extern const uint64_t __qae_bitmask[65];
 
 #ifndef ICP_WITHOUT_THREAD
 extern pthread_mutex_t mutex;
@@ -133,6 +137,25 @@ extern dev_mem_info_t *__qae_pUserLargeMemListHead;
 extern dev_mem_info_t *__qae_pUserLargeMemListTail;
 
 extern uint32_t numaAllocations_g;
+#else
+typedef struct
+{
+    dev_mem_info_t *pUserCacheHead;
+    dev_mem_info_t *pUserCacheTail;
+    dev_mem_info_t *pUserMemListHead;
+    dev_mem_info_t *pUserMemListTail;
+    dev_mem_info_t *pUserLargeMemListHead;
+    dev_mem_info_t *pUserLargeMemListTail;
+    size_t g_cache_size;
+    size_t g_max_cache;
+    size_t g_max_lookup_num;
+    slab_list_t g_slab_list[PAGE_SIZE];
+    int g_strict_node;
+    uint32_t numaAllocations_g;
+    uint32_t thd_process_id;
+} qae_mem_info_t;
+#endif
+
 extern uint32_t normalAllocations_g;
 
 extern free_page_table_fptr_t free_page_table_fptr;
@@ -146,13 +169,21 @@ API_LOCAL
 bool __qae_mem_free(block_ctrl_t *block_ctrl, void *block, bool secure_free);
 
 API_LOCAL
+void __qae_finish_free_slab(const int fd, dev_mem_info_t *slab);
+
+API_LOCAL
+void *__qae_alloc_addr(size_t size,
+                       const int node,
+                       const size_t phys_alignment_byte);
+#ifndef ICP_THREAD_SPECIFIC_USDM
+API_LOCAL
+void __qae_ResetControl(void);
+
+API_LOCAL
 dev_mem_info_t *__qae_userMemLookupBySize(size_t size,
                                           int node,
                                           void **block,
                                           const size_t align);
-
-API_LOCAL
-void __qae_finish_free_slab(const int fd, dev_mem_info_t *slab);
 
 API_LOCAL
 void __qae_free_slab(const int fd, dev_mem_info_t *slab);
@@ -163,9 +194,6 @@ dev_mem_info_t *__qae_find_slab(const int fd,
                                 const int node,
                                 void **addr,
                                 const size_t align);
-API_LOCAL
-void __qae_ResetControl(void);
-
 API_LOCAL
 int __qae_open(void);
 
@@ -179,16 +207,45 @@ API_LOCAL
 int __qae_free_special(void);
 
 API_LOCAL
-void *__qae_alloc_addr(size_t size,
-                       const int node,
-                       const size_t phys_alignment_byte);
+dev_mem_info_t *__qae_alloc_slab(const int fd,
+                                 const size_t size,
+                                 const uint32_t alignment,
+                                 const int node,
+                                 enum slabType type);
+#else
+API_LOCAL
+dev_mem_info_t *__qae_userMemLookupBySize(size_t size,
+                                          int node,
+                                          void **block,
+                                          const size_t align,
+                                          qae_mem_info_t *tls_ptr);
+
+API_LOCAL
+void __qae_free_slab(const int fd,
+                     dev_mem_info_t *slab,
+                     qae_mem_info_t *tls_ptr);
+
+API_LOCAL
+dev_mem_info_t *__qae_find_slab(const int fd,
+                                const size_t size,
+                                const int node,
+                                void **addr,
+                                const size_t align,
+                                qae_mem_info_t *tls_ptr);
+API_LOCAL
+void __qae_destroyList(const int fd, dev_mem_info_t *pList, void *thread_key);
+
+API_LOCAL
+void __qae_reset_cache(const int fd, void *thread_key);
 
 API_LOCAL
 dev_mem_info_t *__qae_alloc_slab(const int fd,
                                  const size_t size,
                                  const uint32_t alignment,
                                  const int node,
-                                 enum slabType type);
+                                 enum slabType type,
+                                 qae_mem_info_t *tls_ptr);
+#endif
 
 API_LOCAL
 void __qae_free_addr(void **p_va, bool secure_free);
@@ -205,7 +262,7 @@ static inline size_t round_up(const size_t n, const size_t s)
 {
     return ((n + s - 1) / s) * s;
 }
-
+#ifndef ICP_THREAD_SPECIFIC_USDM
 static inline void add_slab_to_hash(dev_mem_info_t *slab)
 {
     const size_t key = get_key(slab->phy_addr);
@@ -236,7 +293,45 @@ static inline dev_mem_info_t *find_slab_in_hash(void *virt_addr)
 
     return NULL;
 }
+#else
+static inline void add_slab_to_hash(dev_mem_info_t *slab,
+                                    qae_mem_info_t *tls_ptr)
+{
+    const size_t key = get_key(slab->phy_addr);
 
+    ADD_ELEMENT_TO_HEAD_LIST(slab,
+                             tls_ptr->g_slab_list[key].head,
+                             tls_ptr->g_slab_list[key].tail,
+                             _user_hash);
+}
+static inline void del_slab_from_hash(dev_mem_info_t *slab,
+                                      qae_mem_info_t *tls_ptr)
+{
+    const size_t key = get_key(slab->phy_addr);
+
+    REMOVE_ELEMENT_FROM_LIST(slab,
+                             tls_ptr->g_slab_list[key].head,
+                             tls_ptr->g_slab_list[key].tail,
+                             _user_hash);
+}
+
+static inline dev_mem_info_t *find_slab_in_hash(void *virt_addr,
+                                                qae_mem_info_t *tls_ptr)
+{
+    const size_t key = load_key_fptr(&g_page_table, virt_addr);
+    dev_mem_info_t *slab = tls_ptr->g_slab_list[key].head;
+
+    while (slab)
+    {
+        uintptr_t offs = (uintptr_t)virt_addr - (uintptr_t)slab->virt_addr;
+        if (offs < slab->size)
+            return slab;
+        slab = slab->pNext_user_hash;
+    }
+
+    return NULL;
+}
+#endif
 /* mem_ctzll function
  * input: a 64-bit bitmap window
  * output: number of contiguous 0s from least significant bit position
@@ -331,6 +426,7 @@ static inline void set_bitmap(uint64_t *bitmap, const size_t index, size_t len)
     bitmap[qword] |= __qae_bitmask[len];
 }
 
+#ifndef ICP_THREAD_SPECIFIC_USDM
 static inline void *init_slab_and_alloc(block_ctrl_t *slab,
                                         const size_t size,
                                         const size_t phys_align_unit)
@@ -383,6 +479,63 @@ static inline dev_mem_info_t *pop_slab(const int node)
     }
     return NULL;
 }
+#else
+static inline void *init_slab_and_alloc(block_ctrl_t *slab,
+                                        const size_t size,
+                                        const size_t phys_align_unit,
+                                        qae_mem_info_t *tls_ptr)
+{
+    const size_t last = slab->mem_info.size / CHUNK_SIZE;
+    dev_mem_info_t *p_ctrl_blk = &slab->mem_info;
+    const size_t reserved = div_round_up(sizeof(block_ctrl_t), UNIT_SIZE);
+    void *virt_addr = NULL;
+
+    /* initialise the bitmap to 1 for reserved blocks */
+    set_bitmap(slab->bitmap, 0, reserved);
+    /* make a barrier to stop search at the end of the bitmap */
+    slab->bitmap[last] = QWORD_ALL_ONE;
+
+    virt_addr = __qae_mem_alloc(slab, size, phys_align_unit);
+    if (NULL != virt_addr)
+    {
+        ADD_ELEMENT_TO_HEAD_LIST(p_ctrl_blk,
+                                 tls_ptr->pUserMemListHead,
+                                 tls_ptr->pUserMemListTail,
+                                 _user);
+    }
+    return virt_addr;
+}
+
+static inline int push_slab(dev_mem_info_t *slab, qae_mem_info_t *tls_ptr)
+{
+    if (tls_ptr->g_cache_size + slab->size <= tls_ptr->g_max_cache)
+    {
+        tls_ptr->g_cache_size += slab->size;
+        ADD_ELEMENT_TO_HEAD_LIST(
+            slab, tls_ptr->pUserCacheHead, tls_ptr->pUserCacheTail, _user);
+        return 0;
+    }
+    return -ENOMEM;
+}
+
+static inline dev_mem_info_t *pop_slab(const int node, qae_mem_info_t *tls_ptr)
+{
+    dev_mem_info_t *slab = NULL;
+
+    for (slab = tls_ptr->pUserCacheHead; slab != NULL; slab = slab->pNext_user)
+    {
+        if (node != NUMA_ANY_NODE)
+            if (tls_ptr->g_strict_node && (node != slab->nodeId))
+                continue;
+
+        tls_ptr->g_cache_size -= slab->size;
+        REMOVE_ELEMENT_FROM_LIST(
+            slab, tls_ptr->pUserCacheHead, tls_ptr->pUserCacheTail, _user);
+        return slab;
+    }
+    return NULL;
+}
+#endif
 
 #ifndef CACHE_PID
 static inline int check_pid(void)
