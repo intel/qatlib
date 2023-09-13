@@ -180,6 +180,7 @@ where: \<Component\> is one of the following:
 | QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
 | QATE-76698 | [GEN - Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
+| QATE-93844 | [DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.](#qate-93844) |
 | QATE-94286 | [CY - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
 | QATE-94369 | [GEN - SELinux Preventing QAT Service Startup](#qate-94369) |
 
@@ -223,6 +224,16 @@ where: \<Component\> is one of the following:
 | Resolution | If more than 1 process is needed in a guest OS, set POLICY=n (where n>0) in /etc/sysconfig/qat and restart qatmgr. The process will then receive n VFs. See RUNNING IN A VIRTUAL MACHINE / GUEST section of INSTALL for details. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
+
+## QATE-93844
+| Title      |        DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.     |
+|----------|:-------------
+| Reference # | QATE-93844 |
+| Description | CompressBound API (cpaDcLZ4SCompressBound()) is intended to return the maximum size of the output buffer. However, this API is not returning the correct value, which can lead to a lz4s buffer overflow. |
+| Implication | Applications may experience buffer overflows even when using the output of compressBound API to allocate output buffers. |
+| Resolution | Applications should handle overflow errors. This issue will be addressed in a future release. |
+| Affected OS | Linux |
+| Driver/Module | QAT IA - Compression |
 
 ## QATE-94286
 | Title      |       GEN - Compression services not detected when crypto-capable VFs are also added to VM.        |
