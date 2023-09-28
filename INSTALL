@@ -227,6 +227,7 @@ Compilation and installation - detailed instructions
             gcc
             make
             autotools (automake, autoconf, libtool)
+            pkg-config
             systemd-devel
             nasm
         Note: If nasm compiler is unavailable see
