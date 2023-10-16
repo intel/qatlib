@@ -126,7 +126,7 @@ libcrc_SOURCES_DIR = quickassist/lookaside/access_layer/src/common/compression/
 %.lo:
 	@echo "  CCAS     $(libcrc_SOURCES_DIR)$@"
 	@$(LIBTOOL) --mode=compile --quiet \
-	nasm -f elf64 -D LINUX -X gnu $(libcrc_SOURCES_DIR)$(@:.lo=.S) -I$(libcrc_SOURCES_DIR) -o $@ -prefer-non-pic
+	nasm -f elf64 -D LINUX -X gnu $(top_srcdir)/$(libcrc_SOURCES_DIR)$(@:.lo=.S) -I$(top_srcdir)/$(libcrc_SOURCES_DIR) -o $@ -prefer-non-pic
 endif
 
 lib_LTLIBRARIES += lib@LIBQATNAME@.la
