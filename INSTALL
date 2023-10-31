@@ -73,11 +73,13 @@ Check System Prerequisites
         4xxx  : Use "lspci -d 8086:4940" to check Physical Function (PF)
                 devices are present.
         401xx : Use "lspci -d 8086:4942" to check PF devices are present.
+        402xx : Use "lspci -d 8086:4944" to check PF devices are present.
         Note: Later, after "systemctl start qat" or "make install" steps, the
         corresponding Virtual Function devices will also be visible and bound
         to the vfio-pci driver.
         4xxx  : Use "lspci -d 8086:4941" to check VF devices have been created.
         401xx : Use "lspci -d 8086:4943" to check VF devices have been created.
+        402xx : Use "lspci -d 8086:4945" to check VF devices have been created.
      * firmware must be available
         Check that these files exist:
         /lib/firmware/qat_4xxx.bin or /lib/firmware/qat_4xxx.bin.xz
@@ -573,7 +575,7 @@ Compilation and installation - detailed instructions
                 continue
             fi
 
-            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ]; then
+            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ] && [ "$did" != "0x4945" ]; then
                 continue
             fi
 

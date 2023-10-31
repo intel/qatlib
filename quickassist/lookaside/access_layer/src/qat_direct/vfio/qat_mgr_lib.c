@@ -58,6 +58,7 @@
 #define INTEL_VENDOR_ID 0x8086
 #define QAT_4XXXVF_DEVICE_ID 0x4941
 #define QAT_401XXVF_DEVICE_ID 0x4943
+#define QAT_402XXVF_DEVICE_ID 0x4945
 
 
 #define IOMMUGROUP_DEV_DIR "/sys/kernel/iommu_groups/%s/devices/"
@@ -142,6 +143,7 @@ static int is_qat_device(int device_id)
     switch(device_id) {
     case QAT_4XXXVF_DEVICE_ID:
     case QAT_401XXVF_DEVICE_ID:
+    case QAT_402XXVF_DEVICE_ID:
         return 1;
     default:
         return 0;
@@ -154,6 +156,7 @@ static int qat_device_type(int device_id)
     switch (device_id) {
     case QAT_4XXXVF_DEVICE_ID:
     case QAT_401XXVF_DEVICE_ID:
+    case QAT_402XXVF_DEVICE_ID:
         return DEVICE_4XXXVF;
     default:
         return 0;
@@ -168,6 +171,8 @@ static char *qat_device_name(int device_id)
         return "4xxxvf";
     case QAT_401XXVF_DEVICE_ID:
         return "401xxvf";
+    case QAT_402XXVF_DEVICE_ID:
+        return "402xxvf";
     default:
         return "unknown";
     }
