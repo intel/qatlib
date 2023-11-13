@@ -1087,6 +1087,7 @@ static void ikeDsaMemFree(dsa_test_params_t *setup,
     do                                                                         \
     {                                                                          \
         qaeMemFreeNUMA((void **)&dsaZ[i].pData);                               \
+        qaeMemFree((void **)&dsaZ);                                            \
     } while (0)
 
 /******************************************************************************

@@ -91,6 +91,7 @@
 */
 #include "dc_session.h"
 #include "dc_datapath.h"
+#include "dc_ns_datapath.h"
 #include "lac_common.h"
 #include "lac_mem.h"
 #include "lac_mem_pools.h"
@@ -122,31 +123,71 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
 {
     sal_compression_service_t *pService = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
+    CpaDcSessionDir sessDirection;
+    CpaDcHuffType huffType;
 
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pOpData->dcInstance);
-    LAC_CHECK_NULL_PARAM(pOpData->pSessionHandle);
 
     /* Ensure this is a compression instance */
     SAL_CHECK_INSTANCE_TYPE(pOpData->dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
 
     pService = (sal_compression_service_t *)(pOpData->dcInstance);
 
-    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
-    if (NULL == pSessionDesc)
+    /* Allow either only session or only NS setup data. One of these objects
+     * must be present, and the other must be NULL. */
+    if (!pOpData->pSessionHandle == !pOpData->pSetupData)
     {
-        LAC_INVALID_PARAM_LOG("Session handle not as expected");
+        LAC_INVALID_PARAM_LOG("Application must select either a session or NS "
+                              "setup data");
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    if (CPA_FALSE == pSessionDesc->isDcDp)
+    if (pOpData->pSessionHandle)
     {
-        LAC_INVALID_PARAM_LOG("The session type should be data plane");
-        return CPA_STATUS_INVALID_PARAM;
+        pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
+        if (NULL == pSessionDesc)
+        {
+            LAC_INVALID_PARAM_LOG("Session handle not as expected");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+
+        if (CPA_FALSE == pSessionDesc->isDcDp)
+        {
+            LAC_INVALID_PARAM_LOG("The session type should be data plane");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+
+        sessDirection = pSessionDesc->sessDirection;
+        huffType = pSessionDesc->huffType;
+    }
+    else
+    {
+        /* Stateful is not supported */
+        if (CPA_DC_STATELESS != pOpData->pSetupData->sessState)
+        {
+            LAC_INVALID_PARAM_LOG("Invalid sessState value");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+
+        if (CPA_STATUS_SUCCESS !=
+            dcCheckSessionData(pOpData->pSetupData, pOpData->dcInstance))
+        {
+            return CPA_STATUS_INVALID_PARAM;
+        }
+
+        sessDirection = pOpData->pSetupData->sessDirection;
+        huffType = pOpData->pSetupData->huffType;
+
+        if (CPA_DC_DIR_DECOMPRESS < sessDirection)
+        {
+            LAC_INVALID_PARAM_LOG("Invalid direction of operation");
+            return CPA_STATUS_INVALID_PARAM;
+        }
     }
 
     /* Compressing zero byte is not supported */
-    if ((CPA_DC_DIR_COMPRESS == pSessionDesc->sessDirection) &&
+    if ((CPA_DC_DIR_COMPRESS == sessDirection) &&
         (0 == pOpData->bufferLenToCompress))
     {
         LAC_INVALID_PARAM_LOG("The source buffer length to compress needs to "
@@ -257,11 +298,11 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
 
     LAC_CHECK_8_BYTE_ALIGNMENT(pOpData->thisPhys);
 
-    if ((CPA_DC_DIR_COMPRESS == pSessionDesc->sessDirection) ||
-        (CPA_DC_DIR_COMBINED == pSessionDesc->sessDirection))
+    if ((CPA_DC_DIR_COMPRESS == sessDirection) ||
+        (CPA_DC_DIR_COMBINED == sessDirection))
     {
 #ifndef ICP_DC_DYN_NOT_SUPPORTED
-        if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)
+        if (CPA_DC_HT_FULL_DYNAMIC == huffType)
         {
             /* Check if Intermediate Buffer Array pointer is NULL */
             if ((!pService->generic_service_info.isGen4) &&
@@ -285,9 +326,9 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
         }
         else
 #else
-        if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)
+        if (CPA_DC_HT_FULL_DYNAMIC == huffType)
         {
-            LAC_INVALID_PARAM_LOG("Invalid huffType value, dynamic sessions "
+            LAC_INVALID_PARAM_LOG("Invalid huffType value, dynamic compression "
                                   "not supported");
             return CPA_STATUS_INVALID_PARAM;
         }
@@ -440,10 +481,15 @@ CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
  * @param[in]       pOpData          Pointer to a structure containing the
  *                                   request parameters
  * @param[in]       pCurrentQatMsg   Pointer to current QAT message on the ring
+ * @param[in]       pNsRefQatMsg     Pointer to QAT NS reference message on the
+ *                                   ring
  *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported algorithm/feature
  *****************************************************************************/
-STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
-                             icp_qat_fw_comp_req_t *pCurrentQatMsg)
+STATIC CpaStatus dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
+                                  icp_qat_fw_comp_req_t *pCurrentQatMsg,
+                                  icp_qat_fw_comp_req_t *pNsRefQatMsg)
 {
     icp_qat_fw_comp_req_t *pReqCache = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
@@ -452,20 +498,71 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
     Cpa8U cnvnr = ICP_QAT_FW_COMP_NO_CNV_RECOVERY;
     CpaBoolean cnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
     sal_compression_service_t *pService = NULL;
+    CpaStatus status;
 
     pService = (sal_compression_service_t *)(pOpData->dcInstance);
-    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
+
+    if (pOpData->pSessionHandle)
+    {
+        pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
+
+        if (CPA_DC_DIR_COMPRESS == pOpData->sessDirection)
+        {
+            pReqCache = &(pSessionDesc->reqCacheComp);
+        }
+        else
+        {
+            pReqCache = &(pSessionDesc->reqCacheDecomp);
+        }
+
+        /* Fills in the template DC ET ring message - cached from the
+         * session descriptor */
+        osalMemCopy((void *)pCurrentQatMsg,
+                    (void *)(pReqCache),
+                    (LAC_QAT_DC_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES));
+    }
+    else
+    {
+        if (pNsRefQatMsg)
+        {
+            /* Fills in the template DC ET ring message - cached from the
+             * first request in the batch */
+            osalMemCopy((void *)pCurrentQatMsg,
+                        (void *)pNsRefQatMsg,
+                        (LAC_QAT_DC_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES));
+        }
+        else
+        {
+            status = dcNsCreateBaseRequest(
+                pCurrentQatMsg, pService, pOpData->pSetupData);
+
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                return status;
+            }
+
+            ICP_QAT_FW_COMN_PTR_TYPE_SET(
+                pCurrentQatMsg->comn_hdr.comn_req_flags, DC_DP_QAT_PTR_TYPE);
+        }
+    }
 
     if (CPA_DC_DIR_COMPRESS == pOpData->sessDirection)
     {
-        pReqCache = &(pSessionDesc->reqCacheComp);
         /* CNV check */
         if (CPA_TRUE == pOpData->compressAndVerify)
         {
             cnv = ICP_QAT_FW_COMP_CNV;
             if (pService->generic_service_info.isGen4)
             {
-                cnvErrorInjection = pSessionDesc->cnvErrorInjection;
+                if (pOpData->pSessionHandle)
+                {
+                    cnvErrorInjection = pSessionDesc->cnvErrorInjection;
+                }
+                else
+                {
+                    cnvErrorInjection =
+                        pService->generic_service_info.ns_isCnvErrorInjection;
+                }
             }
 
             /* CNVNR check */
@@ -475,16 +572,6 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
             }
         }
     }
-    else
-    {
-        pReqCache = &(pSessionDesc->reqCacheDecomp);
-    }
-
-    /* Fills in the template DC ET ring message - cached from the
-     * session descriptor */
-    osalMemCopy((void *)pCurrentQatMsg,
-                (void *)(pReqCache),
-                (LAC_QAT_DC_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES));
 
     if (CPA_DP_BUFLIST == pOpData->srcBufferLen)
     {
@@ -495,10 +582,10 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
         bufferFormat = QAT_COMN_PTR_TYPE_FLAT;
     }
 
-    pCurrentQatMsg->comp_pars.req_par_flags |=
-        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(ICP_QAT_FW_COMP_NOT_SOP,
-                                              ICP_QAT_FW_COMP_NOT_EOP,
-                                              ICP_QAT_FW_COMP_NOT_BFINAL,
+    pCurrentQatMsg->comp_pars.req_par_flags =
+        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(ICP_QAT_FW_COMP_SOP,
+                                              ICP_QAT_FW_COMP_EOP,
+                                              ICP_QAT_FW_COMP_BFINAL,
                                               cnv,
                                               cnvnr,
                                               cnvErrorInjection,
@@ -514,6 +601,8 @@ STATIC void dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
 
     pCurrentQatMsg->comp_pars.comp_len = pOpData->bufferLenToCompress;
     pCurrentQatMsg->comp_pars.out_buffer_sz = pOpData->bufferLenForData;
+
+    return CPA_STATUS_SUCCESS;
 }
 
 CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
@@ -522,8 +611,12 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
     icp_qat_fw_comp_req_t *pCurrentQatMsg = NULL;
     icp_comms_trans_handle trans_handle = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
-#ifdef ICP_PARAM_CHECK
     CpaStatus status = CPA_STATUS_SUCCESS;
+#ifdef ICP_DC_DYN_NOT_SUPPORTED
+    CpaDcHuffType huffType;
+#endif
+#ifdef ICP_PARAM_CHECK
+    CpaDcSessionDir sessDirection;
 
     status = dcDataPlaneParamCheck(pOpData);
     if (CPA_STATUS_SUCCESS != status)
@@ -549,29 +642,49 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
 
     trans_handle = ((sal_compression_service_t *)pOpData->dcInstance)
                        ->trans_handle_compression_tx;
-    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
+
+    if (pOpData->pSessionHandle)
+    {
+        pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData->pSessionHandle);
+
+#ifdef ICP_PARAM_CHECK
+        sessDirection = pSessionDesc->sessDirection;
+#endif
+#ifdef ICP_DC_DYN_NOT_SUPPORTED
+        huffType = pSessionDesc->huffType;
+#endif
+    }
+    else
+    {
+#ifdef ICP_PARAM_CHECK
+        sessDirection = pOpData->pSetupData->sessDirection;
+#endif
+#ifdef ICP_DC_DYN_NOT_SUPPORTED
+        huffType = pOpData->pSetupData->huffType;
+#endif
+    }
 
 #ifdef ICP_PARAM_CHECK
     if ((CPA_DC_DIR_COMPRESS == pOpData->sessDirection) &&
-        (CPA_DC_DIR_DECOMPRESS == pSessionDesc->sessDirection))
+        (CPA_DC_DIR_DECOMPRESS == sessDirection))
     {
-        LAC_INVALID_PARAM_LOG("The session does not support this direction of "
-                              "operation");
+        LAC_INVALID_PARAM_LOG("(a) The session or (b) the NS setup data does "
+                              "not support this direction of operation");
         return CPA_STATUS_INVALID_PARAM;
     }
     else if ((CPA_DC_DIR_DECOMPRESS == pOpData->sessDirection) &&
-             (CPA_DC_DIR_COMPRESS == pSessionDesc->sessDirection))
+             (CPA_DC_DIR_COMPRESS == sessDirection))
     {
-        LAC_INVALID_PARAM_LOG("The session does not support this direction of"
-                              " operation");
+        LAC_INVALID_PARAM_LOG("(a) The session or (b) the NS setup data does "
+                              "not support this direction of operation");
         return CPA_STATUS_INVALID_PARAM;
     }
 #endif
 
 #ifdef ICP_DC_DYN_NOT_SUPPORTED
-    if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)
+    if (CPA_DC_HT_FULL_DYNAMIC == huffType)
     {
-        LAC_INVALID_PARAM_LOG("Invalid huffType value, dynamic sessions "
+        LAC_INVALID_PARAM_LOG("Invalid huffType value, dynamic compression "
                               "not supported");
         return CPA_STATUS_INVALID_PARAM;
     }
@@ -583,9 +696,17 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
         return CPA_STATUS_RETRY;
     }
 
-    dcDpWriteRingMsg(pOpData, pCurrentQatMsg);
+    status = dcDpWriteRingMsg(pOpData, pCurrentQatMsg, NULL);
 
-    pSessionDesc->pendingDpStatelessCbCount++;
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    if (pOpData->pSessionHandle)
+    {
+        pSessionDesc->pendingDpStatelessCbCount++;
+    }
 
     if (CPA_TRUE == performOpNow)
     {
@@ -600,11 +721,16 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
                                 const CpaBoolean performOpNow)
 {
     icp_qat_fw_comp_req_t *pCurrentQatMsg = NULL;
+    icp_qat_fw_comp_req_t *pNsRefQatMsg = NULL;
     icp_comms_trans_handle trans_handle = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
-    Cpa32U i = 0;
-#ifdef ICP_PARAM_CHECK
     CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U i = 0;
+#ifdef ICP_DC_DYN_NOT_SUPPORTED
+    CpaDcHuffType huffType;
+#endif
+#ifdef ICP_PARAM_CHECK
+    CpaDcSessionDir sessDirection;
 
     sal_compression_service_t *pService = NULL;
 
@@ -638,11 +764,23 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
             return CPA_STATUS_INVALID_PARAM;
         }
 
-        if (pOpData[i]->pSessionHandle != pOpData[0]->pSessionHandle)
+        if (pOpData[0]->pSessionHandle)
         {
-            LAC_INVALID_PARAM_LOG("All session handles should be the same "
-                                  "in the pOpData");
-            return CPA_STATUS_INVALID_PARAM;
+            if (pOpData[i]->pSessionHandle != pOpData[0]->pSessionHandle)
+            {
+                LAC_INVALID_PARAM_LOG("All session handles should be the same "
+                                      "in the pOpData");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+        }
+        else
+        {
+            if (pOpData[i]->pSetupData != pOpData[0]->pSetupData)
+            {
+                LAC_INVALID_PARAM_LOG("All NS setup data should be the same "
+                                      "in the pOpData");
+                return CPA_STATUS_INVALID_PARAM;
+            }
         }
     }
 #endif
@@ -669,30 +807,51 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
     trans_handle = ((sal_compression_service_t *)pOpData[0]->dcInstance)
                        ->trans_handle_compression_tx;
 
-    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData[0]->pSessionHandle);
+    if (pOpData[0]->pSessionHandle)
+    {
+        pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pOpData[0]->pSessionHandle);
+
+#ifdef ICP_PARAM_CHECK
+        sessDirection = pSessionDesc->sessDirection;
+#endif
+#ifdef ICP_DC_DYN_NOT_SUPPORTED
+        huffType = pSessionDesc->huffType;
+#endif
+    }
+    else
+    {
+#ifdef ICP_PARAM_CHECK
+        sessDirection = pOpData[0]->pSetupData->sessDirection;
+#endif
+#ifdef ICP_DC_DYN_NOT_SUPPORTED
+        huffType = pOpData[0]->pSetupData->huffType;
+#endif
+    }
 
 #ifdef ICP_PARAM_CHECK
     for (i = 0; i < numberRequests; i++)
     {
         if ((CPA_DC_DIR_COMPRESS == pOpData[i]->sessDirection) &&
-            (CPA_DC_DIR_DECOMPRESS == pSessionDesc->sessDirection))
+            (CPA_DC_DIR_DECOMPRESS == sessDirection))
         {
-            LAC_INVALID_PARAM_LOG("The session does not support this "
-                                  "direction of operation");
+            LAC_INVALID_PARAM_LOG("(a) The session or (b) the NS setup data "
+                                  "does not support this direction of "
+                                  "operation");
             return CPA_STATUS_INVALID_PARAM;
         }
         else if ((CPA_DC_DIR_DECOMPRESS == pOpData[i]->sessDirection) &&
-                 (CPA_DC_DIR_COMPRESS == pSessionDesc->sessDirection))
+                 (CPA_DC_DIR_COMPRESS == sessDirection))
         {
-            LAC_INVALID_PARAM_LOG("The session does not support this "
-                                  "direction of operation");
+            LAC_INVALID_PARAM_LOG("(a) The session or (b) the NS setup data "
+                                  "does not support this direction of "
+                                  "operation");
             return CPA_STATUS_INVALID_PARAM;
         }
     }
 #endif
 
 #ifdef ICP_DC_DYN_NOT_SUPPORTED
-    if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)
+    if (CPA_DC_HT_FULL_DYNAMIC == huffType)
     {
         LAC_INVALID_PARAM_LOG("Invalid huffType value, dynamic sessions "
                               "not supported");
@@ -707,13 +866,29 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
         return CPA_STATUS_RETRY;
     }
 
+    pNsRefQatMsg = NULL;
+
     for (i = 0; i < numberRequests; i++)
     {
-        dcDpWriteRingMsg(pOpData[i], pCurrentQatMsg);
+        status = dcDpWriteRingMsg(pOpData[i], pCurrentQatMsg, pNsRefQatMsg);
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+
+        if (!pNsRefQatMsg && pOpData[0]->pSetupData)
+        {
+            pNsRefQatMsg = pCurrentQatMsg;
+        }
+
         icp_adf_getQueueNext(trans_handle, (void **)&pCurrentQatMsg);
     }
 
-    pSessionDesc->pendingDpStatelessCbCount += numberRequests;
+    if (pOpData[0]->pSessionHandle)
+    {
+        pSessionDesc->pendingDpStatelessCbCount += numberRequests;
+    }
 
     if (CPA_TRUE == performOpNow)
     {

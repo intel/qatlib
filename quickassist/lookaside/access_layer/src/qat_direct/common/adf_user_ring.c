@@ -464,10 +464,10 @@ int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
 
     if ((NULL == ring->ring_virt_addr) || (0 == ring->ring_phys_base_addr))
     {
-        ADF_ERROR("unable to get ringbuf(v:%p,p:%p) for rings in bank(%u)\n",
+        ADF_ERROR("unable to get ringbuf(v:%p,p:%p) for rings in bank(%lu)\n",
                   ring->ring_virt_addr,
-                  ring->ring_phys_base_addr,
-                  ring->ring_num);
+                  (void *)ring->ring_phys_base_addr,
+                  (unsigned long)ring->ring_num);
         if (ring->ring_phys_base_addr)
             qaeMemFreeNUMA(&ring->ring_virt_addr);
         return -ENOMEM;

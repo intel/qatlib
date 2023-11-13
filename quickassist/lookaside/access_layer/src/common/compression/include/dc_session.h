@@ -76,6 +76,7 @@
 #include "cpa_dc_dp.h"
 #include "icp_qat_fw_comp.h"
 #include "sal_qat_cmn_msg.h"
+#include "sal_types_compression.h"
 
 /* Maximum number of intermediate buffers SGLs for devices
  * with a maximum of 6 compression slices */
@@ -426,6 +427,28 @@ CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
                         CpaDcSessionHandle pSessionHandle);
 #endif /* ICP_DC_ERROR_SIMULATION */
 
+#ifdef ICP_PARAM_CHECK
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Check that pSessionData is valid
+ *
+ * @description
+ *      Check that all the parameters defined in the pSessionData are valid
+ *
+ * @param[in]       pSessionData     Pointer to a user instantiated structure
+ *                                   containing session data
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_FAIL           Function failed to find device
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported algorithm/feature
+ *
+ *****************************************************************************/
+CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
+                             CpaInstanceHandle dcInstance);
+#endif
+
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
@@ -444,5 +467,64 @@ CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
  *****************************************************************************/
 CpaStatus dcXxhash32SetState(dc_session_desc_t *pSessionDesc, Cpa32U seed);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Get the compression command id for the given session setup data.
+ *
+ * @description
+ *      This function will get the compression command id based on parameters
+ *      passed in the given session setup data.
+ *
+ * @param[in]   pService           Pointer to the service
+ * @param[in]   pSessionData       Pointer to a user instantiated
+ *                                 structure containing session data
+ * @param[out]  pDcCmdId           Pointer to the command id
+ *
+ * @retval CPA_STATUS_SUCCESS      Function executed successfully
+ * @retval CPA_STATUS_UNSUPPORTED  Unsupported algorithm/feature
+ *
+ *****************************************************************************/
+CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
+                                 CpaDcSessionSetupData *pSessionData,
+                                 Cpa8U *pDcCmdId);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Get the decompression command id for the given session setup data.
+ *
+ * @description
+ *      This function will get the decompression command id based on parameters
+ *      passed in the given session setup data.
+ *
+ * @param[in]   pService           Pointer to the service
+ * @param[in]   pSessionData       Pointer to a user instantiated
+ *                                 structure containing session data
+ * @param[out]  pDcCmdId           Pointer to the command id
+ *
+ * @retval CPA_STATUS_SUCCESS      Function executed successfully
+ * @retval CPA_STATUS_UNSUPPORTED  Unsupported algorithm/feature
+ *
+ *****************************************************************************/
+CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
+                                   CpaDcSessionSetupData *pSessionData,
+                                   Cpa8U *pDcCmdId);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Populate the translator content descriptor
+ *
+ * @description
+ *      This function will populate the translator content descriptor
+ *
+ * @param[out]  pMsg                     Pointer to the compression message
+ * @param[in]   nextSlice                Next slice
+ *
+ *****************************************************************************/
+void dcTransContentDescPopulate(icp_qat_fw_comp_req_t *pMsg,
+                                icp_qat_fw_slice_t nextSlice);
 
 #endif /* DC_SESSION_H */

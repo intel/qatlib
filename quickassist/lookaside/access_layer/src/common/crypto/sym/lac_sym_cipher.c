@@ -140,6 +140,8 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
         case CPA_CY_SYM_CIPHER_3DES_CBC:
         case CPA_CY_SYM_CIPHER_AES_F8:
         case CPA_CY_SYM_CIPHER_AES_XTS:
+        case CPA_CY_SYM_CIPHER_SM4_CBC:
+        case CPA_CY_SYM_CIPHER_SM4_CTR:
         {
 #ifdef ICP_PARAM_CHECK
             ivLenInBytes = LacSymQat_CipherIvSizeBytesGet(algorithm);
@@ -420,6 +422,16 @@ CpaStatus LacCipher_SessionSetupDataCheck(
                     return CPA_STATUS_INVALID_PARAM;
                 }
                 break;
+            case CPA_CY_SYM_CIPHER_SM4_ECB:
+            case CPA_CY_SYM_CIPHER_SM4_CBC:
+            case CPA_CY_SYM_CIPHER_SM4_CTR:
+                if (pCipherSetupData->cipherKeyLenInBytes !=
+                    ICP_QAT_HW_SM4_KEY_SZ)
+                {
+                    LAC_INVALID_PARAM_LOG("Invalid SM4 cipher key length");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+                break;
             default:
                 LAC_INVALID_PARAM_LOG("Invalid cipher algorithm");
                 return CPA_STATUS_INVALID_PARAM;
@@ -460,6 +472,7 @@ CpaStatus LacCipher_PerformParamCheck(CpaCySymCipherAlgorithm algorithm,
             case CPA_CY_SYM_CIPHER_AES_F8:
             case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+            case CPA_CY_SYM_CIPHER_SM4_CTR:
                 /* No action needed */
                 break;
             /*

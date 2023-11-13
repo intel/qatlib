@@ -54,10 +54,13 @@
 #include "qat_log.h"
 #include "qat_mgr.h"
 #include "vfio_lib.h"
+#include "adf_vfio_pf.h"
+
 
 #define INTEL_VENDOR_ID 0x8086
 #define QAT_4XXXVF_DEVICE_ID 0x4941
 #define QAT_401XXVF_DEVICE_ID 0x4943
+#define QAT_402XXVF_DEVICE_ID 0x4945
 
 
 #define IOMMUGROUP_DEV_DIR "/sys/kernel/iommu_groups/%s/devices/"
@@ -71,6 +74,9 @@
 static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
 
+
+STATIC icp_accel_pf_info_t pf_data[ADF_MAX_DEVICES] = { 0 };
+STATIC int32_t num_pfs = 0;
 
 static pthread_mutex_t section_data_mutex;
 /* message name within array should lives at index determined by it's
@@ -142,6 +148,7 @@ static int is_qat_device(int device_id)
     switch(device_id) {
     case QAT_4XXXVF_DEVICE_ID:
     case QAT_401XXVF_DEVICE_ID:
+    case QAT_402XXVF_DEVICE_ID:
         return 1;
     default:
         return 0;
@@ -154,6 +161,7 @@ static int qat_device_type(int device_id)
     switch (device_id) {
     case QAT_4XXXVF_DEVICE_ID:
     case QAT_401XXVF_DEVICE_ID:
+    case QAT_402XXVF_DEVICE_ID:
         return DEVICE_4XXXVF;
     default:
         return 0;
@@ -168,10 +176,11 @@ static char *qat_device_name(int device_id)
         return "4xxxvf";
     case QAT_401XXVF_DEVICE_ID:
         return "401xxvf";
+    case QAT_402XXVF_DEVICE_ID:
+        return "402xxvf";
     default:
         return "unknown";
     }
-    return "unknown";
 }
 
 
@@ -213,11 +222,12 @@ void qat_mgr_cleanup_cfg(void)
         for (i = 0; i < num_section_data; i++, section++)
         {
             device = section->device_data;
+
+            if (!device)
+                continue;
+
             for (j = 0; j < section->num_devices; j++, device++)
             {
-                if (!device)
-                    continue;
-
                 if (device->dc_instance_data)
                 {
                     free(device->dc_instance_data);
@@ -661,13 +671,14 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     int num_vfs_this_section;
     int num_procs;
     int core = 0;
-    int pf;
+    int pf = 0;
     unsigned devid;
     char pf_str[10];
     ENTRY pf_entry = {pf_str, NULL};
     int pfs_per_vf_group[ADF_MAX_DEVICES] = {0};
     uint32_t ext_dc_caps, capabilities;
     bool compatible;
+    bool vm = false;
     int ret;
     struct pf_capabilities *cached_capabilities;
     int section_num_sym_inst = 0;
@@ -679,6 +690,22 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
 
     num_procs = get_nprocs();
 
+    num_pfs =
+        adf_vfio_init_pfs_info(pf_data, sizeof(pf_data) / sizeof(pf_data[0]));
+
+    if (num_pfs < 0)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Unable to init pfs info\n");
+        return -EINVAL;
+    }
+
+    if (!num_pfs)
+    {
+        vm = true;
+        qat_log(LOG_LEVEL_DEBUG,
+                "Unable to find pfs in the system, assuming "
+                "qat_mgr_lib is running inside VM\n");
+    }
     /*
      * A VF group is a set of VFs with the same device/function
      * but from different PFs.
@@ -701,8 +728,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         for (i = 0; i < num_vf_devices; i++)
         {
             /* Convert PF address to int - take node into account */
-            pf = BDF_BUS(dev_list[i].bdf);
-            pf += (BDF_NODE(dev_list[i].bdf) << 8);
+            pf = PF(dev_list[i].bdf);
             /* Convert address to string to use as hash table key */
             snprintf(pf_str, sizeof(pf_str), "%d", pf);
             /* Check if pf is already in the hash table */
@@ -745,15 +771,15 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         else
         {
             num_section_data = num_vf_devices / policy;
-            if (num_vf_devices % policy)
-                num_section_data++;
         }
 
         if (num_section_data <= 0)
         {
             qat_log(LOG_LEVEL_ERROR,
-                    "num_section_data is less or equal 0: %d\n",
-                    num_section_data);
+                    "Policy %d is greater than the number of "
+                    "available devices %d\n",
+                    policy,
+                    num_vf_devices);
             return -EINVAL;
         }
         qat_log(LOG_LEVEL_DEBUG, "num_section_data %d\n", num_section_data);
@@ -866,10 +892,6 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
              * qat_mgr_get_device_capabilities will open device, initialize
              * VF2PF communication, query capabilities and close device.
              *
-             * All VFs coming from same PF will have same capabilities, to save
-             * time, after querying capabilities of given PF they can be cached
-             * and reused by other VFs.
-             *
              * Before first query, we don't know if PF is supporting VF2PF (1st
              * call to adf_vf2pf_available will report availability of VF2PF),
              * in case where PF is not supporting VF2PF, consecutive calls to
@@ -877,12 +899,20 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
              * "fallback" capabilities defined above will be used.
              */
 
-            /* Get PF number that this VF is coming from (take node into
-             * account) */
-            pf = BDF_BUS(dev_list[vf_idx].bdf);
-            pf += (BDF_NODE(dev_list[vf_idx].bdf) << 8);
+            cached_capabilities = NULL;
+            if (!vm)
+            {
+                /**
+                 * If running on a host, it can be assumed that all devices with
+                 * the same domain+bus are VFs from the same PF and so have the
+                 * same capabilities. So it's an optimization to query the
+                 * capabilities of only one VF and cache them to populate the
+                 * other VFs.
+                 */
+                pf = PF(dev_list[vf_idx].bdf);
+                cached_capabilities = find_pf_capabilities(pf);
+            }
 
-            cached_capabilities = find_pf_capabilities(pf);
             if (cached_capabilities)
             {
                 device_data->accel_capabilities =
@@ -901,6 +931,17 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 {
                     device_data->accel_capabilities = capabilities;
                     device_data->extended_capabilities = ext_dc_caps;
+                }
+                else if (!compatible)
+                {
+                    qat_log(LOG_LEVEL_ERROR,
+                            "Detected not compatible PF driver\n");
+                    qat_mgr_cleanup_cfg();
+                    return ret;
+                }
+
+                if (0 == ret && !vm)
+                {
                     cached_capabilities =
                         calloc(1, sizeof(struct pf_capabilities));
                     if (!cached_capabilities)
@@ -914,13 +955,6 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                     cached_capabilities->capabilities = capabilities;
                     cached_capabilities->ext_dc_caps = ext_dc_caps;
                     add_pf_capabilities(cached_capabilities);
-                }
-                else if (!compatible)
-                {
-                    qat_log(LOG_LEVEL_ERROR,
-                            "Detected not compatible PF driver\n");
-                    qat_mgr_cleanup_cfg();
-                    return ret;
                 }
             }
 
@@ -1234,7 +1268,7 @@ static void dump_message(void *ptr, char *text)
     ICP_CHECK_FOR_NULL_PARAM_VOID(text);
 
     printf("%s\n", text);
-    printf("Message type %d\n", req->hdr.type);
+    printf("Message type %hu\n", (unsigned short int)(req->hdr.type));
     if (req->hdr.type > 0 && req->hdr.type <= QATMGR_MSGTYPES_STR_MAX)
         printf("Message name %s\n", qatmgr_msgtype_str[req->hdr.type]);
     printf("   length %d\n", req->hdr.len);
@@ -1256,7 +1290,7 @@ static void dump_message(void *ptr, char *text)
     {
         qat_log(
             LOG_LEVEL_ERROR,
-            "Message payload size (%d) out of range. Max payload size is %d\n",
+            "Message payload size (%d) out of range. Max payload size is %lu\n",
             payload_size,
             MAX_PAYLOAD_SIZE);
     }

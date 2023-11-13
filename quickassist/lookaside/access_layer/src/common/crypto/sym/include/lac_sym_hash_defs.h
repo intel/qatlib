@@ -196,6 +196,17 @@
 /**< @ingroup LacHashDefs
  *  POLY state size */
 
+/* Constants for SM3 algorithm  */
+#define LAC_HASH_SM3_BLOCK_SIZE 64
+/**< @ingroup LacHashDefs
+ *  SM3 block size in bytes */
+#define LAC_HASH_SM3_DIGEST_SIZE 32
+/**< @ingroup LacHashDefs
+ *  SM3 digest length */
+#define LAC_HASH_SM3_STATE_SIZE 32
+/**< @ingroup LacHashDefs
+ *  SM3 state size */
+
 /* Constants for XCBC precompute algorithm  */
 #define LAC_HASH_XCBC_PRECOMP_KEY_NUM 3
 /**< @ingroup LacHashDefs
@@ -337,7 +348,8 @@
      (algorithm == CPA_CY_SYM_HASH_SHA224) ||                                  \
      (algorithm == CPA_CY_SYM_HASH_SHA256) ||                                  \
      (algorithm == CPA_CY_SYM_HASH_SHA384) ||                                  \
-     (algorithm == CPA_CY_SYM_HASH_SHA512) || (LAC_HASH_IS_SHA3(algorithm)))
+     (algorithm == CPA_CY_SYM_HASH_SHA512) || (LAC_HASH_IS_SHA3(algorithm)) || \
+     (algorithm == CPA_CY_SYM_HASH_SM3))
 /**< @ingroup LacSymQatHash
  * Macro to detect if the hash algorithm is a HMAC algorithm */
 

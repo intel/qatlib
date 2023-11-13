@@ -274,9 +274,10 @@ STATIC INLINE CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
 
     /* Formula for GEN4 LZ4S:
-     * sourceLen + Ceil(sourceLen/2000) * 11 + 1024 */
+     * sourceLen + Ceil(sourceLen/18) * 1 + 1024 */
     outputSizeLong = inputSizeLong + DC_DEST_BUFF_EXTRA_LZ4S_GEN4;
-    outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 2000) * 11;
+    /* No need to multiply by 1 so ignored in implementation of formula */
+    outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 18);
 
     /* Avoid output size overflow */
     if (outputSizeLong & 0xffffffff00000000UL)

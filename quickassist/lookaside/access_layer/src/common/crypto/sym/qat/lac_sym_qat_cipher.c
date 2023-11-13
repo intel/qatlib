@@ -275,6 +275,11 @@ static const uint8_t key_size_f8[] = {
     ICP_QAT_HW_CIPHER_ALGO_AES256 /* ICP_QAT_HW_AES_256_F8_KEY_SZ */
 };
 
+/* This array must be kept aligned with CpaCySymCipherAlgorithm enum but
+ * offset by -1 as that enum starts at 1. LacSymQat_CipherGetCfgData()
+ * below relies on that alignment and uses that enum -1 to index into this
+ * array.
+ */
 typedef struct _icp_qat_hw_cipher_info
 {
     icp_qat_hw_cipher_algo_t algorithm;
@@ -488,6 +493,33 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         IS_KEY_DEP_NO,
         NULL,
     },
+    /* CPA_CY_SYM_CIPHER_SM4_ECB */
+    {
+        ICP_QAT_HW_CIPHER_ALGO_SM4,
+        ICP_QAT_HW_CIPHER_ECB_MODE,
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
+        IS_KEY_DEP_NO,
+        NULL,
+    },
+    /* CPA_CY_SYM_CIPHER_SM4_CBC */
+    {
+        ICP_QAT_HW_CIPHER_ALGO_SM4,
+        ICP_QAT_HW_CIPHER_CBC_MODE,
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
+        IS_KEY_DEP_NO,
+        NULL,
+    },
+    /* CPA_CY_SYM_CIPHER_SM4_CTR */
+    {
+        ICP_QAT_HW_CIPHER_ALGO_SM4,
+        ICP_QAT_HW_CIPHER_CTR_MODE,
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
+        { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_ENCRYPT },
+        IS_KEY_DEP_NO,
+        NULL,
+    },
     /* RESERVED#1 in order to align with unsupported Algo in API repo */
     { 0 },
     /* RESERVED#2 in order to align with unsupported Algo in API repo */
@@ -577,7 +609,7 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
                                 icp_qat_hw_cipher_dir_t *pDir,
                                 icp_qat_hw_cipher_convert_t *pKey_convert)
 {
-    CpaCySymCipherAlgorithm cipherAlgorithm = 0;
+    int cipherIdx = 0;
     icp_qat_hw_cipher_dir_t cipherDirection = 0;
 
     LAC_ENSURE_NOT_NULL(pSession);
@@ -592,27 +624,27 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
     *pMode = ICP_QAT_HW_CIPHER_ECB_MODE;
     *pDir = ICP_QAT_HW_CIPHER_ENCRYPT;
 
-    /* decrease since it's numbered from 1 instead of 0 */
-    cipherAlgorithm = pSession->cipherAlgorithm - 1;
+    /* offset index as CpaCySymCipherAlgorithm enum starts from 1, not from 0 */
+    cipherIdx = pSession->cipherAlgorithm - 1;
     cipherDirection =
         pSession->cipherDirection == CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT
             ? ICP_QAT_HW_CIPHER_ENCRYPT
             : ICP_QAT_HW_CIPHER_DECRYPT;
 
     /* clang-format off */
-    LAC_ENSURE_RETURN_VOID(cipherAlgorithm < CPA_CY_SYM_CIPHER_CHACHA, "Invalid cipherAlgorithm value\n");
+    /* Boundary check against the last value in the algorithm enum */
+    LAC_ENSURE_RETURN_VOID(pSession->cipherAlgorithm <= CPA_CY_SYM_CIPHER_SM4_CTR, "Invalid cipherAlgorithm value\n");
     LAC_ENSURE_RETURN_VOID(cipherDirection <= ICP_QAT_HW_CIPHER_DECRYPT, "Invalid cipherDirection value\n");
     /* clang-format on */
 
-    *pAlgorithm = icp_qat_alg_info[cipherAlgorithm].algorithm;
-    *pMode = icp_qat_alg_info[cipherAlgorithm].mode;
-    *pDir = icp_qat_alg_info[cipherAlgorithm].dir[cipherDirection];
-    *pKey_convert =
-        icp_qat_alg_info[cipherAlgorithm].key_convert[cipherDirection];
+    *pAlgorithm = icp_qat_alg_info[cipherIdx].algorithm;
+    *pMode = icp_qat_alg_info[cipherIdx].mode;
+    *pDir = icp_qat_alg_info[cipherIdx].dir[cipherDirection];
+    *pKey_convert = icp_qat_alg_info[cipherIdx].key_convert[cipherDirection];
 
-    if (IS_KEY_DEP_NO != icp_qat_alg_info[cipherAlgorithm].isKeyLenDepend)
+    if (IS_KEY_DEP_NO != icp_qat_alg_info[cipherIdx].isKeyLenDepend)
     {
-        *pAlgorithm = icp_qat_alg_info[cipherAlgorithm]
+        *pAlgorithm = icp_qat_alg_info[cipherIdx]
                           .pAlgByKeySize[pSession->cipherKeyLenInBytes];
         /* clang-format off */
         LAC_ENSURE(ICP_QAT_HW_CIPHER_ALGO_NULL != *pAlgorithm, "Invalid AES key size\n");
@@ -913,6 +945,12 @@ Cpa8U LacSymQat_CipherBlockSizeBytesGet(CpaCySymCipherAlgorithm cipherAlgorithm)
         case CPA_CY_SYM_CIPHER_CHACHA:
             blockSize = ICP_QAT_HW_CHACHAPOLY_BLK_SZ;
             break;
+        /* SM4 */
+        case CPA_CY_SYM_CIPHER_SM4_ECB:
+        case CPA_CY_SYM_CIPHER_SM4_CBC:
+        case CPA_CY_SYM_CIPHER_SM4_CTR:
+            blockSize = ICP_QAT_HW_SM4_BLK_SZ;
+            break;
         default:
             LAC_ENSURE(CPA_FALSE, "Algorithm not supported in Cipher");
     }
@@ -942,6 +980,7 @@ Cpa32U LacSymQat_CipherIvSizeBytesGet(CpaCySymCipherAlgorithm cipherAlgorithm)
         case CPA_CY_SYM_CIPHER_AES_ECB:
         case CPA_CY_SYM_CIPHER_DES_ECB:
         case CPA_CY_SYM_CIPHER_3DES_ECB:
+        case CPA_CY_SYM_CIPHER_SM4_ECB:
         case CPA_CY_SYM_CIPHER_NULL:
             /* for all ECB Mode IV size is 0 */
             break;

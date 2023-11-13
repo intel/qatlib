@@ -84,6 +84,8 @@
 #define MAX_INSTANCES 1
 #endif
 
+#define UPPER_HALF_OF_REGISTER 32
+
 #ifdef DO_CRYPTO
 static sampleThread gPollingThread;
 static volatile int gPollingCy = 0;
@@ -280,6 +282,45 @@ void sampleDcStopPolling(void)
 {
     gPollingDc = 0;
     OS_SLEEP(10);
+}
+
+/*
+ * This function reads the value of Time Stamp Counter (TSC) and
+ * returns a 64-bit value.
+ */
+Cpa64U sampleCoderdtsc(void)
+{
+    volatile unsigned long a, d;
+
+    asm volatile("rdtsc" : "=a"(a), "=d"(d));
+    return (((Cpa64U)a) | (((Cpa64U)d) << UPPER_HALF_OF_REGISTER));
+}
+
+/*
+ * This function prints out a hexadecimal representation of bytes.
+ */
+void hexLog(Cpa8U *pData, Cpa32U numBytes, const char *caption)
+{
+    int i = 0;
+
+    if (NULL == pData)
+    {
+        return;
+    }
+
+    if (caption != NULL)
+    {
+        PRINT("\n=== %s ===\n", caption);
+    }
+
+    for (i = 0; i < numBytes; i++)
+    {
+        PRINT("%02X ", pData[i]);
+
+        if (!((i + 1) % 12))
+            PRINT("\n");
+    }
+    PRINT("\n");
 }
 
 

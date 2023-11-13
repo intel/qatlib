@@ -272,34 +272,6 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
     CpaCyEcPointMultiplyCbFunc cbFunc = NULL;
 #ifdef POLL_INLINE
     CpaInstanceInfo2 *instanceInfo2 = NULL;
-    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
-    if (instanceInfo2 == NULL)
-    {
-        PRINT_ERR("Failed to allocate memory for instanceInfo2");
-        return CPA_STATUS_FAIL;
-    }
-    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
-
-    if (poll_inline_g)
-    {
-        cbFunc = calcEcPointCb;
-        pPerfData = setup->performanceStats;
-        pPerfData->numOperations = SINGLE_OPERATION;
-        pPerfData->responses = 0;
-    }
-#endif
-
-#ifdef POLL_INLINE
-    if (poll_inline_g)
-    {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            qaeMemFree((void **)&instanceInfo2);
-            return CPA_STATUS_FAIL;
-        }
-    }
 #endif
 
     /*allocate the operation data structure and copy in the elliptic curve
@@ -358,7 +330,31 @@ CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
                          setup->pCurve->yg,
                          setup->pCurve->sizeOfyg,
                          CALC_EC_POINT_MEM_FREE);
+#ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
 
+    if (poll_inline_g)
+    {
+        cbFunc = calcEcPointCb;
+        pPerfData = setup->performanceStats;
+        pPerfData->numOperations = SINGLE_OPERATION;
+        pPerfData->responses = 0;
+
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
+            return CPA_STATUS_FAIL;
+        }
+    }
+#endif
     /*make sure the private key is less than the modulus*/
     makeParam1SmallerThanParam2(
         k->pData, opData.q.pData, k->dataLenInBytes, CPA_FALSE);
@@ -726,7 +722,7 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
             generateRandomData(iv, IV_LEN_IN_BYTES);
 
             pKPTSignRSOpData = qaeMemAllocNUMA(
-                sizeof(CpaCyKptEcdsaSignRSOpData *), node, BYTE_ALIGNMENT_64);
+                sizeof(CpaCyKptEcdsaSignRSOpData), node, BYTE_ALIGNMENT_64);
             if (NULL == pKPTSignRSOpData)
             {
                 PRINT_ERR("pKPTSignRSOpData qaeMemAlloc error\n");

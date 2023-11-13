@@ -217,6 +217,20 @@ typedef enum
     LAC_DSA_VERIFY_REQUEST
 } dsa_request_type_t;
 
+/* Type of the ECSM2 request */
+typedef enum
+{
+    LAC_ECSM2_POINT_MULTIPLY_REQUEST = 1,
+    LAC_ECSM2_GEN_POINT_MULTIPLY_REQUEST,
+    LAC_ECSM2_POINT_VERIFY_REQUEST,
+    LAC_ECSM2_SIGN_REQUEST,
+    LAC_ECSM2_VERIFY_REQUEST,
+    LAC_ECSM2_ENC_REQUEST,
+    LAC_ECSM2_DEC_REQUEST,
+    LAC_ECSM2_KEY_EXCHANGE_P1_REQUEST,
+    LAC_ECSM2_KEY_EXCHANGE_P2_REQUEST
+} ecsm2_request_type_t;
+
 /* Type of the ECDSA request */
 typedef enum
 {

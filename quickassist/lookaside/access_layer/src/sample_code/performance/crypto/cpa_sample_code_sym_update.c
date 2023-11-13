@@ -788,6 +788,11 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
     Cpa32U failCount = 0;
     CpaCySymSessionUpdateData sessionUpdate = {0};
     CpaCySymCapabilitiesInfo capInfo;
+    Cpa32U srcBufferCnt = 0;
+    Cpa32U srcBufferListCnt = 0;
+    Cpa32U dstBufferCnt = 0;
+    Cpa32U dstBufferListCnt = 0;
+    Cpa32U opDataCnt = 0;
 
     sampleCodeBarrier();
 
@@ -930,6 +935,7 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                 {
                     generateRandomData(pSrcBuffer[innerLoop], srcBufferLen);
                 }
+                srcBufferCnt++;
 
                 // Alloc src buffer list
                 status = setupBufferList(
@@ -945,6 +951,7 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                     status = CPA_STATUS_FAIL;
                     break;
                 }
+                srcBufferListCnt++;
             }
         }
     }
@@ -990,6 +997,7 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                     status = CPA_STATUS_FAIL;
                     break;
                 }
+                dstBufferCnt++;
 
                 // Alloc dst buffer list
                 status = setupBufferList(
@@ -1005,6 +1013,7 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                     status = CPA_STATUS_FAIL;
                     break;
                 }
+                dstBufferListCnt++;
             }
         }
     }
@@ -1232,6 +1241,7 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                     status = CPA_STATUS_FAIL;
                     break;
                 }
+                opDataCnt++;
             }
         }
     }
@@ -1373,12 +1383,24 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
     }
 
 // Free memory
-    for (innerLoop = 0; innerLoop < setup->numBuffers; innerLoop++)
+    for (innerLoop = 0; innerLoop < srcBufferCnt; innerLoop++)
     {
         freeUpdateMem((void **)&pSrcBuffer[innerLoop]);
+    }
+    for (innerLoop = 0; innerLoop < srcBufferListCnt; innerLoop++)
+    {
         freeUpdateMem((void **)&pSrcBufferList[innerLoop]);
+    }
+    for (innerLoop = 0; innerLoop < dstBufferCnt; innerLoop++)
+    {
         freeUpdateMem((void **)&pDstBuffer[innerLoop]);
+    }
+    for (innerLoop = 0; innerLoop < dstBufferListCnt; innerLoop++)
+    {
         freeUpdateMem((void **)&pDstBufferList[innerLoop]);
+    }
+    for (innerLoop = 0; innerLoop < opDataCnt; innerLoop++)
+    {
         freeUpdateMem((void **)&pOpData[innerLoop]);
     }
     freeUpdateMem((void **)&pSrcBuffer);

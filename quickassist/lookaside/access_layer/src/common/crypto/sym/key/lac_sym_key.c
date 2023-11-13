@@ -539,6 +539,8 @@ STATIC Cpa32U getDigestSizeFromHashAlgo(CpaCySymHashAlgorithm hashAlgorithm)
             return LAC_HASH_SHA384_DIGEST_SIZE;
         case CPA_CY_SYM_HASH_SHA512:
             return LAC_HASH_SHA512_DIGEST_SIZE;
+        case CPA_CY_SYM_HASH_SM3:
+            return LAC_HASH_SM3_DIGEST_SIZE;
         default:
             return 0;
     }
@@ -1664,6 +1666,9 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
             {
                 switch (hashAlgorithm)
                 {
+                    case CPA_CY_SYM_HASH_SM3:
+                        precompute = CPA_FALSE;
+                        break;
                     case CPA_CY_SYM_HASH_SHA256:
                         if (uSecretLen > ICP_QAT_FW_LA_TLS_V1_2_SECRET_LEN_MAX)
                         {

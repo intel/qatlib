@@ -113,7 +113,7 @@ static void add_bar(pcs_t *pcs, void *ptr, const size_t size)
     idx = pcs->nr_bar;
     if (idx >= MAX_BAR_NR)
     {
-        ADF_ERROR("add_bar: invalid idx %d\n", idx);
+        ADF_ERROR("add_bar: invalid idx %lu\n", idx);
         return;
     }
 

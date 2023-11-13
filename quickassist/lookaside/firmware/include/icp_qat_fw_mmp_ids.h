@@ -74,7 +74,7 @@
 #ifndef __ICP_QAT_FW_MMP_IDS__
 #define __ICP_QAT_FW_MMP_IDS__
 
-#define PKE_INIT 0x09061a09
+#define PKE_INIT 0x0806169f
 /**< Functionality ID for Initialisation sequence
  * @li 1 input parameters :
  *     @link icp_qat_fw_mmp_init_input_s::z z @endlink
@@ -1900,7 +1900,84 @@
  * icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_s::r r @endlink @link
  * icp_qat_fw_mmp_ecdsa_sign_rs_p384_output_s::s s @endlink
  */
-
+#define PKE_ECSM2_GENERATOR_MULTIPLICATION 0x220f16ae
+/**< Functionality ID for ECC SM2 point multiply [k]G
+ * @li 1 input parameters : @link
+ * icp_qat_fw_mmp_ecsm2_generator_multiplication_input_s::k k @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_ecsm2_generator_multiplication_output_s::xd xd @endlink @link
+ * icp_qat_fw_mmp_ecsm2_generator_multiplication_output_s::yd yd @endlink
+ */
+#define PKE_ECSM2_POINT_MULTIPLICATION 0x211716ce
+/**< Functionality ID for ECC SM2 point multiply [k]P
+ * @li 3 input parameters : @link
+ * icp_qat_fw_mmp_ecsm2_point_multiplication_input_s::k k @endlink @link
+ * icp_qat_fw_mmp_ecsm2_point_multiplication_input_s::x x @endlink @link
+ * icp_qat_fw_mmp_ecsm2_point_multiplication_input_s::y y @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_ecsm2_point_multiplication_output_s::xd xd @endlink @link
+ * icp_qat_fw_mmp_ecsm2_point_multiplication_output_s::yd yd @endlink
+ */
+#define PKE_ECSM2_POINT_VERIFY 0x1b0716a6
+/**< Functionality ID for ECC SM2 point verify
+ * @li 2 input parameters : @link icp_qat_fw_mmp_ecsm2_point_verify_input_s::x x
+ * @endlink @link icp_qat_fw_mmp_ecsm2_point_verify_input_s::y y @endlink
+ * @li no output parameters
+ */
+#define PKE_ECSM2_SIGN_RS 0x222116fe
+/**< Functionality ID for ECC SM2 Sign RS
+ * @li 3 input parameters : @link icp_qat_fw_mmp_ecsm2_sign_rs_input_s::k k
+ * @endlink @link icp_qat_fw_mmp_ecsm2_sign_rs_input_s::e e @endlink @link
+ * icp_qat_fw_mmp_ecsm2_sign_rs_input_s::d d @endlink
+ * @li 2 output parameters : @link icp_qat_fw_mmp_ecsm2_sign_rs_output_s::r r
+ * @endlink @link icp_qat_fw_mmp_ecsm2_sign_rs_output_s::s s @endlink
+ */
+#define PKE_ECSM2_VERIFY 0x29241743
+/**< Functionality ID for ECC SM2 Signature Verify
+ * @li 5 input parameters : @link icp_qat_fw_mmp_ecsm2_verify_input_s::e e
+ * @endlink @link icp_qat_fw_mmp_ecsm2_verify_input_s::r r @endlink @link
+ * icp_qat_fw_mmp_ecsm2_verify_input_s::s s @endlink @link
+ * icp_qat_fw_mmp_ecsm2_verify_input_s::xp xp @endlink @link
+ * icp_qat_fw_mmp_ecsm2_verify_input_s::yp yp @endlink
+ * @li no output parameters
+ */
+#define PKE_ECSM2_ENCRYPTION 0x25221720
+/**< Functionality ID for ECC SM2 encryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_ecsm2_encryption_input_s::k k
+ * @endlink @link icp_qat_fw_mmp_ecsm2_encryption_input_s::xp xp @endlink @link
+ * icp_qat_fw_mmp_ecsm2_encryption_input_s::yp yp @endlink
+ * @li 4 output parameters : @link icp_qat_fw_mmp_ecsm2_encryption_output_s::xc
+ * xc @endlink @link icp_qat_fw_mmp_ecsm2_encryption_output_s::yc yc @endlink
+ * @link icp_qat_fw_mmp_ecsm2_encryption_output_s::xpb xpb @endlink @link
+ * icp_qat_fw_mmp_ecsm2_encryption_output_s::ypb ypb @endlink
+ */
+#define PKE_ECSM2_DECRYPTION 0x201716e6
+/**< Functionality ID for ECC SM2 decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_ecsm2_decryption_input_s::d d
+ * @endlink @link icp_qat_fw_mmp_ecsm2_decryption_input_s::xpb xpb @endlink
+ * @link icp_qat_fw_mmp_ecsm2_decryption_input_s::ypb ypb @endlink
+ * @li 2 output parameters : @link icp_qat_fw_mmp_ecsm2_decryption_output_s::xd
+ * xd @endlink @link icp_qat_fw_mmp_ecsm2_decryption_output_s::yd yd @endlink
+ */
+#define PKE_ECSM2_KEYEX_P1 0x220f16be
+/**< Functionality ID for ECC SM2 key exchange phase1
+ * @li 1 input parameters : @link icp_qat_fw_mmp_ecsm2_keyex_p1_input_s::k k
+ * @endlink
+ * @li 2 output parameters : @link icp_qat_fw_mmp_ecsm2_keyex_p1_output_s::xd xd
+ * @endlink @link icp_qat_fw_mmp_ecsm2_keyex_p1_output_s::yd yd @endlink
+ */
+#define PKE_ECSM2_KEYEX_P2 0x22361768
+/**< Functionality ID for ECC SM2 key exchange phase2
+ * @li 7 input parameters : @link icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::r r
+ * @endlink @link icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::d d @endlink @link
+ * icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::x1 x1 @endlink @link
+ * icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::x2 x2 @endlink @link
+ * icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::y2 y2 @endlink @link
+ * icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::xp xp @endlink @link
+ * icp_qat_fw_mmp_ecsm2_keyex_p2_input_s::yp yp @endlink
+ * @li 2 output parameters : @link icp_qat_fw_mmp_ecsm2_keyex_p2_output_s::xus
+ * xus @endlink @link icp_qat_fw_mmp_ecsm2_keyex_p2_output_s::yus yus @endlink
+ */
 #define PKE_LIVENESS 0x00000001
 /**< Functionality ID for PKE_LIVENESS
  * @li 0 input parameter(s)

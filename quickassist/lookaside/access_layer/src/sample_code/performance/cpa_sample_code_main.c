@@ -375,7 +375,6 @@ int main(int argc, char *argv[])
     computeOffloadCost = optArray[GET_OFFLOAD_COST_POS].optValue;
     includeLZ4 = optArray[RUN_LZ4_TEST_POS].optValue;
 
-#ifndef LATENCY_CODE
     /* If Latency support is not compiled in and the user asks
      * for latency computation, flag the warning.
      */
@@ -384,7 +383,6 @@ int main(int argc, char *argv[])
         PRINT("Warning! Latency computation is not supported\n");
         computeLatency = 0;
     }
-#endif
 
     if (computeLatency != 0 && computeOffloadCost != 0)
     {
@@ -432,9 +430,6 @@ int main(int argc, char *argv[])
         }
     }
 
-#ifdef LATENCY_CODE
-    enableLatencyMeasurements(computeLatency != 0 ? 1 : 0);
-#endif
 
     if (computeOffloadCost != 0)
     {

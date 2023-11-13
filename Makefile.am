@@ -71,7 +71,8 @@ libadf_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_log.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_pf.c
 libadf_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		   -I$(srcdir)/quickassist/utilities/osal/include \
 		   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
@@ -93,7 +94,8 @@ qatmgr_SOURCES = \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_log.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
 	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_pf.c
 qatmgr_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
 	        -I$(srcdir)/quickassist/lookaside/access_layer/include \
 	        -I$(srcdir)/quickassist/include \
@@ -126,7 +128,7 @@ libcrc_SOURCES_DIR = quickassist/lookaside/access_layer/src/common/compression/
 %.lo:
 	@echo "  CCAS     $(libcrc_SOURCES_DIR)$@"
 	@$(LIBTOOL) --mode=compile --quiet \
-	nasm -f elf64 -D LINUX -X gnu $(libcrc_SOURCES_DIR)$(@:.lo=.S) -I$(libcrc_SOURCES_DIR) -o $@ -prefer-non-pic
+	nasm -f elf64 -D LINUX -X gnu $(top_srcdir)/$(libcrc_SOURCES_DIR)$(@:.lo=.S) -I$(top_srcdir)/$(libcrc_SOURCES_DIR) -o $@ -prefer-non-pic
 endif
 
 lib_LTLIBRARIES += lib@LIBQATNAME@.la
@@ -158,6 +160,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ec_nist_curves.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecdh.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecdsa.c \
+	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecsm2.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_kpt_ecdsa.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/large_number/lac_ln.c \
 	quickassist/lookaside/access_layer/src/common/crypto/asym/large_number/lac_ln_interface_check.c \
@@ -261,6 +264,7 @@ pkginclude_HEADERS = \
 	quickassist/include/lac/cpa_cy_dsa.h \
 	quickassist/include/lac/cpa_cy_ecdh.h \
 	quickassist/include/lac/cpa_cy_ecdsa.h \
+	quickassist/include/lac/cpa_cy_ecsm2.h \
 	quickassist/include/lac/cpa_cy_ec.h \
 	quickassist/include/lac/cpa_cy_im.h \
 	quickassist/include/lac/cpa_cy_key.h \

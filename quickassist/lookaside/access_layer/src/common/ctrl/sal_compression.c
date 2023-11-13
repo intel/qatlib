@@ -315,8 +315,7 @@ SalCtrl_CompressionInit_CompData(icp_accel_dev_t *device,
             {
                 pCompService->generic_service_info.integrityCrcCheck = CPA_TRUE;
             }
-            pCompService->numInterBuffs =
-                DC_QAT_MAX_NUM_INTER_BUFFERS_6COMP_SLICES;
+            pCompService->numInterBuffs = 0;
             pCompService->comp_device_data.minOutputBuffSize =
                 DC_DEST_BUFFER_STA_MIN_SIZE_GEN4;
             pCompService->comp_device_data.minOutputBuffSizeDynamic =
@@ -2100,7 +2099,6 @@ CpaStatus cpaDcQueryCapabilities(
     {
         pInstanceCapabilities->statelessLZ4Compression = CPA_TRUE;
         pInstanceCapabilities->statelessLZ4Decompression = CPA_TRUE;
-        pInstanceCapabilities->statefulLZ4Decompression = CPA_TRUE;
         pInstanceCapabilities->checksumXXHash32 = CPA_TRUE;
     }
     if (pService->generic_service_info.capabilitiesMask &

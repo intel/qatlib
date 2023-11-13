@@ -878,25 +878,6 @@ CpaStatus dsaPerform(dsa_test_params_t *setup)
 #endif
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 
-#ifdef POLL_INLINE
-    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
-    if (instanceInfo2 == NULL)
-    {
-        PRINT_ERR("Failed to allocate memory for instanceInfo2");
-        return CPA_STATUS_FAIL;
-    }
-    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
-
-    if (poll_inline_g)
-    {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            goto barrier;
-        }
-    }
-#endif
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -945,6 +926,7 @@ CpaStatus dsaPerform(dsa_test_params_t *setup)
     {
         PRINT_ERR("P & Q len not supported\n");
         /*thread status is init to fail so just return fail here*/
+        status = CPA_STATUS_FAIL;
         goto barrier;
     }
     /* Completion used in callback */
@@ -1154,6 +1136,28 @@ CpaStatus dsaPerform(dsa_test_params_t *setup)
         cbFunc = dsaVerifyCb;
     }
 
+#ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        FREE_DSA_MEM;
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+    if (poll_inline_g)
+    {
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            FREE_DSA_MEM;
+            qaeMemFree((void **)&instanceInfo2);
+            status = CPA_STATUS_FAIL;
+        }
+    }
+#endif
+
     /************************************************************************
      * STAGE 2 repeatedly verify all the signatures and measure the performance
      *************************************************************************
@@ -1165,9 +1169,6 @@ barrier:
     /* exiting the function if any failure occurs in previous steps*/
     if (CPA_STATUS_SUCCESS != status)
     {
-#ifdef POLL_INLINE
-        qaeMemFree((void **)&instanceInfo2);
-#endif
         return status;
     }
     /* get a timestamp before submitting any requests. After submitting
@@ -1350,25 +1351,6 @@ CpaStatus dsaSignPerform(dsa_test_params_t *setup)
 #endif
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 
-#ifdef POLL_INLINE
-    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
-    if (instanceInfo2 == NULL)
-    {
-        PRINT_ERR("Failed to allocate memory for instanceInfo2");
-        return CPA_STATUS_FAIL;
-    }
-    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
-
-    if (poll_inline_g)
-    {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            goto barrier;
-        }
-    }
-#endif
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -1418,6 +1400,7 @@ CpaStatus dsaSignPerform(dsa_test_params_t *setup)
     {
         PRINT_ERR("P & Q len not supported\n");
         /*thread status is init to fail so just return fail here*/
+        status = CPA_STATUS_FAIL;
         goto barrier;
     }
     /* Completion used in callback */
@@ -1600,6 +1583,28 @@ CpaStatus dsaSignPerform(dsa_test_params_t *setup)
         cbFunc = dsaSignRSCb;
     }
 
+#ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        FREE_DSA_SIGN_MEM;
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+    if (poll_inline_g)
+    {
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            FREE_DSA_SIGN_MEM;
+            qaeMemFree((void **)&instanceInfo2);
+            return CPA_STATUS_FAIL;
+        }
+    }
+#endif
+
     /************************************************************************
      * STAGE 2 repeatedly sign messages and measure the performance
      *************************************************************************
@@ -1610,9 +1615,6 @@ barrier:
     /* exiting the function if any failure occurs in previous steps*/
     if (CPA_STATUS_SUCCESS != status)
     {
-#ifdef POLL_INLINE
-        qaeMemFree((void **)&instanceInfo2);
-#endif
         return status;
     }
     /* get a timestamp before submitting any requests. After submitting

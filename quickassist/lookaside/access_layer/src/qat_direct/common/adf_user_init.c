@@ -186,7 +186,7 @@ STATIC CpaStatus do_shutdown(icp_accel_dev_t *accel_dev,
     CpaStatus status = CPA_STATUS_FAIL;
     ICP_CHECK_FOR_NULL_PARAM(subsystem_hdl);
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
-    ICP_CHECK_PARAM_RANGE(accel_dev->accelId, 0, ADF_MAX_DEVICES - 1);
+    ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
     /* Shutdown the subsystem if required */
     if (BIT_IS_SET(
@@ -559,7 +559,7 @@ CpaStatus adf_subsystemRestarting(icp_accel_dev_t *accel_dev)
     Cpa32U retryflag = 0;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
-    ICP_CHECK_PARAM_RANGE(accel_dev->accelId, 0, ADF_MAX_DEVICES - 1);
+    ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
     while (NULL != subsystem_hdl)
     {
@@ -630,7 +630,7 @@ CpaStatus adf_subsystemRestarted(icp_accel_dev_t *accel_dev)
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
-    ICP_CHECK_PARAM_RANGE(accel_dev->accelId, 0, ADF_MAX_DEVICES - 1);
+    ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
     while (NULL != subsystem_hdl)
     {
@@ -672,7 +672,7 @@ CpaStatus adf_subsystemError(icp_accel_dev_t *accel_dev)
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
-    ICP_CHECK_PARAM_RANGE(accel_dev->accelId, 0, ADF_MAX_DEVICES - 1);
+    ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
     while (NULL != subsystem_hdl)
     {

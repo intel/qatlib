@@ -177,6 +177,132 @@ typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
+ *    Input parameter list for ECC SM2 point multiply [k]G ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_GENERATOR_MULTIPLICATION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_generator_multiplication_input_s
+{
+    uint64_t k; /**< k  = multiplicand  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_generator_multiplication_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 point multiply [k]P ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_POINT_MULTIPLICATION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_point_multiplication_input_s
+{
+    uint64_t k; /**< k  = input number  (4 qwords)*/
+    uint64_t x; /**< x = affine coordinate X of input point  (4 qwords)*/
+    uint64_t y; /**< y = affine coordinate Y of input point  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_point_multiplication_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 point verify ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_POINT_VERIFY.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_point_verify_input_s
+{
+    uint64_t x; /**< x = affine coordinate X of input point  (4 qwords)*/
+    uint64_t y; /**< y = affine coordinate Y of input point  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_point_verify_input_t;
+ /**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 Sign RS ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_SIGN_RS.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_sign_rs_input_s
+{
+    uint64_t k; /**< k  = random value  (4 qwords)*/
+    uint64_t e; /**< e  = digest of the message to be signed  (4 qwords)*/
+    uint64_t d; /**< d  = private key  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_sign_rs_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 Signature Verify ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_VERIFY.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_verify_input_s
+{
+    uint64_t e;  /**< e  = digest of the message to be signed  (4 qwords)*/
+    uint64_t r;  /**< r  = signature  (4 qwords)*/
+    uint64_t s;  /**< s  = signature  (4 qwords)*/
+    uint64_t xp; /**< xP = affine coordinate X of point P=[d]G  (4 qwords)*/
+    uint64_t yp; /**< yP = affine coordinate Y of point P=[d]G  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_verify_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 encryption ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_ENCRYPTION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_encryption_input_s
+{
+    uint64_t k;  /**< k  = random value  (4 qwords)*/
+    uint64_t xp; /**< xP = affine coordinate X of point P=[d]G  (4 qwords)*/
+    uint64_t yp; /**< yP = affine coordinate Y of point P=[d]G  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_encryption_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 decryption ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_DECRYPTION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_decryption_input_s
+{
+    uint64_t d;   /**< d  = private key  (4 qwords)*/
+    uint64_t xpb; /**< xPb = affine coordinate X of point C1  (4 qwords)*/
+    uint64_t ypb; /**< yPb = affine coordinate Y of point C1  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_decryption_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 key exchange phase1 ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_KEYEX_P1.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_keyex_p1_input_s
+{
+    uint64_t k; /**< k  = random value  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_keyex_p1_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC SM2 key exchange phase2 ,
+ *      to be used when icp_qat_fw_pke_request_s::functionalityId is
+ * #PKE_ECSM2_KEYEX_P2.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_keyex_p2_input_s
+{
+    uint64_t r;  /**< r  = random value  (4 qwords)*/
+    uint64_t d;  /**< d  = private key  (4 qwords)*/
+    uint64_t x1; /**< x1 = affine coordinate X of point RA  (4 qwords)*/
+    uint64_t x2; /**< x2 = affine coordinate X of point RB  (4 qwords)*/
+    uint64_t y2; /**< y2 = affine coordinate X of point RB  (4 qwords)*/
+    uint64_t xp; /**< xP = affine coordinate X of public key PB  (4 qwords)*/
+    uint64_t yp; /**< yP = affine coordinate X of public key PB  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_keyex_p2_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
  *    Input parameter list for Initialisation sequence,
  *      to be used when icp_qat_fw_pke_request_s::functionalityId is #PKE_INIT.
  */
@@ -2826,6 +2952,35 @@ typedef union icp_qat_fw_mmp_input_param_u {
      */
     uint64_t flat_array[ICP_QAT_FW_PKE_INPUT_COUNT_MAX];
 
+    /** ECC SM2 point multiply [k]G  */
+    icp_qat_fw_mmp_ecsm2_generator_multiplication_input_t
+        mmp_ecsm2_generator_multiplication;
+
+    /** ECC SM2 point multiply [k]P  */
+    icp_qat_fw_mmp_ecsm2_point_multiplication_input_t
+        mmp_ecsm2_point_multiplication;
+
+    /** ECC SM2 point verify  */
+    icp_qat_fw_mmp_ecsm2_point_verify_input_t mmp_ecsm2_point_verify;
+
+    /** ECC SM2 Sign RS  */
+    icp_qat_fw_mmp_ecsm2_sign_rs_input_t mmp_ecsm2_sign_rs;
+
+    /** ECC SM2 Signature Verify  */
+    icp_qat_fw_mmp_ecsm2_verify_input_t mmp_ecsm2_verify;
+
+    /** ECC SM2 encryption  */
+    icp_qat_fw_mmp_ecsm2_encryption_input_t mmp_ecsm2_encryption;
+
+    /** ECC SM2 decryption  */
+    icp_qat_fw_mmp_ecsm2_decryption_input_t mmp_ecsm2_decryption;
+
+    /** ECC SM2 key exchange phase1  */
+    icp_qat_fw_mmp_ecsm2_keyex_p1_input_t mmp_ecsm2_keyex_p1;
+
+    /** ECC SM2 key exchange phase2  */
+    icp_qat_fw_mmp_ecsm2_keyex_p2_input_t mmp_ecsm2_keyex_p2;
+
     /** Initialisation sequence  */
     icp_qat_fw_mmp_init_input_t mmp_init;
 
@@ -3506,6 +3661,125 @@ typedef struct icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_s
     uint64_t r; /**< ECDSA signature r  (4 qwords)*/
     uint64_t s; /**< ECDSA signature s  (4 qwords)*/
 } icp_qat_fw_mmp_ecdsa_sign_rs_p256_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 point multiply [k]G ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_GENERATOR_MULTIPLICATION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_generator_multiplication_output_s
+{
+    uint64_t xd; /**< xD = affine coordinate X of point [k]G  (4 qwords)*/
+    uint64_t yd; /**< yD = affine coordinate Y of point [k]G  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_generator_multiplication_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 point multiply [k]P ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_POINT_MULTIPLICATION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_point_multiplication_output_s
+{
+    uint64_t xd; /**< xD = affine coordinate X of point [k](x,y)  (4 qwords)*/
+    uint64_t yd; /**< yD = affine coordinate Y of point [k](x,y)  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_point_multiplication_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 point verify ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_POINT_VERIFY.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_point_verify_output_s
+{
+    /* no output parameters */
+} icp_qat_fw_mmp_ecsm2_point_verify_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 Sign RS ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_SIGN_RS.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_sign_rs_output_s
+{
+    uint64_t r; /**< ECSM2 signature r  (4 qwords)*/
+    uint64_t s; /**< ECSM2 signature s  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_sign_rs_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 Signature Verify ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_VERIFY.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_verify_output_s
+{
+    /* no output parameters */
+} icp_qat_fw_mmp_ecsm2_verify_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 encryption ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_ENCRYPTION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_encryption_output_s
+{
+    uint64_t xc; /**< xC = affine coordinate X of point C1=[k]G  (4 qwords)*/
+    uint64_t yc; /**< yC = affine coordinate Y of point C1=[k]G  (4 qwords)*/
+    uint64_t
+        xpb; /**< xPb = affine coordinate X of point [k](xP,yP)  (4 qwords)*/
+    uint64_t
+        ypb; /**< yPb = affine coordinate Y of point [k](xP,yP)  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_encryption_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 decryption ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_DECRYPTION.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_decryption_output_s
+{
+    uint64_t xd; /**< xD = affine coordinate X of point [d]C1  (4 qwords)*/
+    uint64_t yd; /**< yD = affine coordinate Y of point [d]C1  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_decryption_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 key exchange phase1 ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_KEYEX_P1.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_keyex_p1_output_s
+{
+    uint64_t xd; /**< xD = affine coordinate X of point [k]G  (4 qwords)*/
+    uint64_t yd; /**< yD = affine coordinate X of point [k]G  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_keyex_p1_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC SM2 key exchange phase2 ,
+ *      to be used when icp_qat_fw_pke_response_s::functionalityId is
+ * #PKE_ECSM2_KEYEX_P2.
+ */
+typedef struct icp_qat_fw_mmp_ecsm2_keyex_p2_output_s
+{
+    uint64_t xus; /**< xus = affine coordinate X of point (xU,yU)  (4 qwords)*/
+    uint64_t yus; /**< yus = affine coordinate X of point (xU,yU)  (4 qwords)*/
+} icp_qat_fw_mmp_ecsm2_keyex_p2_output_t;
 
 /**
  * @ingroup icp_qat_fw_mmp
@@ -5798,6 +6072,35 @@ typedef union icp_qat_fw_mmp_output_param_u {
      * are pointers to large integers.
      */
     uint64_t flat_array[ICP_QAT_FW_PKE_OUTPUT_COUNT_MAX];
+
+    /** ECC SM2 point multiply [k]G  */
+    icp_qat_fw_mmp_ecsm2_generator_multiplication_output_t
+        mmp_ecsm2_generator_multiplication;
+
+    /** ECC SM2 point multiply [k]P  */
+    icp_qat_fw_mmp_ecsm2_point_multiplication_output_t
+        mmp_ecsm2_point_multiplication;
+
+    /** ECC SM2 point verify  */
+    icp_qat_fw_mmp_ecsm2_point_verify_output_t mmp_ecsm2_point_verify;
+
+    /** ECC SM2 Sign RS  */
+    icp_qat_fw_mmp_ecsm2_sign_rs_output_t mmp_ecsm2_sign_rs;
+
+    /** ECC SM2 Signature Verify  */
+    icp_qat_fw_mmp_ecsm2_verify_output_t mmp_ecsm2_verify;
+
+    /** ECC SM2 encryption  */
+    icp_qat_fw_mmp_ecsm2_encryption_output_t mmp_ecsm2_encryption;
+
+    /** ECC SM2 decryption  */
+    icp_qat_fw_mmp_ecsm2_decryption_output_t mmp_ecsm2_decryption;
+
+    /** ECC SM2 key exchange phase1  */
+    icp_qat_fw_mmp_ecsm2_keyex_p1_output_t mmp_ecsm2_keyex_p1;
+
+    /** ECC SM2 key exchange phase2  */
+    icp_qat_fw_mmp_ecsm2_keyex_p2_output_t mmp_ecsm2_keyex_p2;
 
     /** Initialisation sequence  */
     icp_qat_fw_mmp_init_output_t mmp_init;

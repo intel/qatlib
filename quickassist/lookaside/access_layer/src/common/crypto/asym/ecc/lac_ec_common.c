@@ -78,6 +78,7 @@
 #include "cpa_cy_ec.h"
 #include "cpa_cy_ecdh.h"
 #include "cpa_cy_ecdsa.h"
+#include "cpa_cy_ecsm2.h"
 
 /* OSAL Includes */
 #include "Osal.h"
@@ -114,6 +115,7 @@
 #define LAC_EC_NUM_STATS (sizeof(CpaCyEcStats64) / sizeof(Cpa64U))
 #define LAC_ECDH_NUM_STATS (sizeof(CpaCyEcdhStats64) / sizeof(Cpa64U))
 #define LAC_ECDSA_NUM_STATS (sizeof(CpaCyEcdsaStats64) / sizeof(Cpa64U))
+#define LAC_ECSM2_NUM_STATS (sizeof(CpaCyEcsm2Stats64) / sizeof(Cpa64U))
 
 #define LAC_EC_ALL_STATS_CLEAR(pCryptoService)                                 \
     do                                                                         \
@@ -131,6 +133,10 @@
         for (i = 0; i < LAC_ECDSA_NUM_STATS; i++)                              \
         {                                                                      \
             osalAtomicSet(0, &pCryptoService->pLacEcdsaStatsArr[i]);           \
+        }                                                                      \
+        for (i = 0; i < LAC_ECSM2_NUM_STATS; i++)                              \
+        {                                                                      \
+            osalAtomicSet(0, &pCryptoService->pLacEcsm2StatsArr[i]);           \
         }                                                                      \
     } while (0)
 /**< @ingroup Lac_Ec
@@ -165,6 +171,12 @@ CpaStatus LacEc_Init(CpaInstanceHandle instanceHandle)
                                LAC_ECDSA_NUM_STATS * sizeof(OsalAtomic));
     }
 
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        status = LAC_OS_MALLOC(&(pCryptoService->pLacEcsm2StatsArr),
+                               LAC_ECSM2_NUM_STATS * sizeof(OsalAtomic));
+    }
+
     /* initialize stats to zero */
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -192,6 +204,11 @@ void LacEc_StatsFree(CpaInstanceHandle instanceHandle)
     if (NULL != pCryptoService->pLacEcdsaStatsArr)
     {
         LAC_OS_FREE(pCryptoService->pLacEcdsaStatsArr);
+    }
+
+    if (NULL != pCryptoService->pLacEcsm2StatsArr)
+    {
+        LAC_OS_FREE(pCryptoService->pLacEcsm2StatsArr);
     }
 }
 
@@ -241,11 +258,13 @@ void LacEc_StatsShow(CpaInstanceHandle instanceHandle)
     CpaCyEcStats64 ecStats = {0};
     CpaCyEcdhStats64 ecdhStats = {0};
     CpaCyEcdsaStats64 ecdsaStats = {0};
+    CpaCyEcsm2Stats64 ecsm2Stats = {0};
 
     /* retrieve the stats */
     (void)cpaCyEcQueryStats64(instanceHandle, &ecStats);
     (void)cpaCyEcdhQueryStats64(instanceHandle, &ecdhStats);
     (void)cpaCyEcdsaQueryStats64(instanceHandle, &ecdsaStats);
+    (void)cpaCyEcsm2QueryStats64(instanceHandle, &ecsm2Stats);
 
     /* log the stats to the standard output */
 
@@ -372,6 +391,166 @@ void LacEc_StatsShow(CpaInstanceHandle instanceHandle)
             ecdhStats.numEcdhPointMultiplyCompleted,
             ecdhStats.numEcdhPointMultiplyCompletedError,
             ecdhStats.numEcdhRequestCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            SEPARATOR BORDER "  ECSM2 Stats                           " BORDER
+                             "\n" SEPARATOR);
+
+    /* ecsm2 status */
+    osalLog(
+        OSAL_LOG_LVL_USER,
+        OSAL_LOG_DEV_STDOUT,
+        BORDER
+        " ECSM2 Point Multiplication Requests-Succ:           %16llu " BORDER
+        "\n" BORDER
+        " ECSM2 Point Multiplication Request-Err:             %16llu " BORDER
+        "\n" BORDER
+        " ECSM2 Point Multiplication Completed-Succ:          %16llu " BORDER
+        "\n" BORDER
+        " ECSM2 Point Multiplication Completed-Err:           %16llu " BORDER
+        "\n" BORDER
+        " ECSM2 Point Multiplication Completed-Output Invalid:%16llu " BORDER
+        "\n" SEPARATOR,
+        ecsm2Stats.numEcsm2PointMultiplyRequests,
+        ecsm2Stats.numEcsm2PointMultiplyRequestErrors,
+        ecsm2Stats.numEcsm2PointMultiplyCompleted,
+        ecsm2Stats.numEcsm2PointMultiplyCompletedError,
+        ecsm2Stats.numEcsm2PointMultiplyCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER " ECSM2 Generator Multiplication Requests-Succ:           "
+                   "%16llu " BORDER "\n" BORDER
+                   " ECSM2 Generator Multiplication Request-Err:             "
+                   "%16llu " BORDER "\n" BORDER
+                   " ECSM2 Generator Multiplication Completed-Succ:          "
+                   "%16llu " BORDER "\n" BORDER
+                   " ECSM2 Generator Multiplication Completed-Err:           "
+                   "%16llu " BORDER "\n" BORDER
+                   " ECSM2 Generator Multiplication Completed-Output Invalid:"
+                   "%16llu " BORDER "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2GeneratorMultiplyRequests,
+            ecsm2Stats.numEcsm2GeneratorMultiplyRequestErrors,
+            ecsm2Stats.numEcsm2GeneratorMultiplyCompleted,
+            ecsm2Stats.numEcsm2GeneratorMultiplyCompletedError,
+            ecsm2Stats.numEcsm2GeneratorMultiplyCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER " ECSM2 Point Verify Requests-Succ:           %16llu " BORDER
+                   "\n" BORDER
+                   " ECSM2 Point Verify Request-Err:             %16llu " BORDER
+                   "\n" BORDER
+                   " ECSM2 Point Verify Completed-Succ:          %16llu " BORDER
+                   "\n" BORDER
+                   " ECSM2 Point Verify Completed-Err:           %16llu " BORDER
+                   "\n" BORDER
+                   " ECSM2 Point Verify Completed-Output Invalid:%16llu " BORDER
+                   "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2PointVerifyRequests,
+            ecsm2Stats.numEcsm2PointVerifyRequestErrors,
+            ecsm2Stats.numEcsm2PointVerifyCompleted,
+            ecsm2Stats.numEcsm2PointVerifyCompletedError,
+            ecsm2Stats.numEcsm2PointVerifyCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " ECSM2 Sign Requests-Succ:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Sign Request-Err:             %16llu " BORDER "\n" BORDER
+            " ECSM2 Sign Completed-Succ:          %16llu " BORDER "\n" BORDER
+            " ECSM2 Sign Completed-Err:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Sign Completed-Output Invalid:%16llu " BORDER
+            "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2SignRequests,
+            ecsm2Stats.numEcsm2SignRequestErrors,
+            ecsm2Stats.numEcsm2SignCompleted,
+            ecsm2Stats.numEcsm2SignCompletedError,
+            ecsm2Stats.numEcsm2SignCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " ECSM2 Verify Requests-Succ:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Verify Request-Err:             %16llu " BORDER "\n" BORDER
+            " ECSM2 Verify Completed-Succ:          %16llu " BORDER "\n" BORDER
+            " ECSM2 Verify Completed-Err:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Verify Completed-Output Invalid:%16llu " BORDER
+            "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2VerifyRequests,
+            ecsm2Stats.numEcsm2VerifyRequestErrors,
+            ecsm2Stats.numEcsm2VerifyCompleted,
+            ecsm2Stats.numEcsm2VerifyCompletedError,
+            ecsm2Stats.numEcsm2VerifyCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " ECSM2 Encrypt Requests-Succ:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Encrypt Request-Err:             %16llu " BORDER "\n" BORDER
+            " ECSM2 Encrypt Completed-Succ:          %16llu " BORDER "\n" BORDER
+            " ECSM2 Encrypt Completed-Err:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Encrypt Completed-Output Invalid:%16llu " BORDER
+            "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2EncryptRequests,
+            ecsm2Stats.numEcsm2EncryptRequestErrors,
+            ecsm2Stats.numEcsm2EncryptCompleted,
+            ecsm2Stats.numEcsm2EncryptCompletedError,
+            ecsm2Stats.numEcsm2EncryptCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " ECSM2 Decrypt Requests-Succ:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Decrypt Request-Err:             %16llu " BORDER "\n" BORDER
+            " ECSM2 Decrypt Completed-Succ:          %16llu " BORDER "\n" BORDER
+            " ECSM2 Decrypt Completed-Err:           %16llu " BORDER "\n" BORDER
+            " ECSM2 Decrypt Completed-Output Invalid:%16llu " BORDER
+            "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2DecryptRequests,
+            ecsm2Stats.numEcsm2DecryptRequestErrors,
+            ecsm2Stats.numEcsm2DecryptCompleted,
+            ecsm2Stats.numEcsm2DecryptCompletedError,
+            ecsm2Stats.numEcsm2DecryptCompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " ECSM2 Key Exchange Phase1 Requests-Succ:           %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase1 Request-Err:             %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase1 Completed-Succ:          %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase1 Completed-Err:           %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase1 Completed-Output Invalid:%16llu " BORDER
+            "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2KeyExPhase1Requests,
+            ecsm2Stats.numEcsm2KeyExPhase1RequestErrors,
+            ecsm2Stats.numEcsm2KeyExPhase1Completed,
+            ecsm2Stats.numEcsm2KeyExPhase1CompletedError,
+            ecsm2Stats.numEcsm2KeyExPhase1CompletedOutputInvalid);
+
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " ECSM2 Key Exchange Phase2 Requests-Succ:           %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase2 Request-Err:             %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase2 Completed-Succ:          %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase2 Completed-Err:           %16llu " BORDER
+            "\n" BORDER
+            " ECSM2 Key Exchange Phase2 Completed-Output Invalid:%16llu " BORDER
+            "\n" SEPARATOR,
+            ecsm2Stats.numEcsm2KeyExPhase2Requests,
+            ecsm2Stats.numEcsm2KeyExPhase2RequestErrors,
+            ecsm2Stats.numEcsm2KeyExPhase2Completed,
+            ecsm2Stats.numEcsm2KeyExPhase2CompletedError,
+            ecsm2Stats.numEcsm2KeyExPhase2CompletedOutputInvalid);
 }
 
 void LacEc_CheckCurve4QWGF2(Cpa32U *pNumQWs,

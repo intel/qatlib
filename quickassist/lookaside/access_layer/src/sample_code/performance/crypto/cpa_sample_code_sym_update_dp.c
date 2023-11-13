@@ -829,6 +829,9 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
     Cpa32U failCount = 0;
     CpaCySymSessionUpdateData sessionUpdate = {0};
     CpaCySymCapabilitiesInfo capInfo;
+    Cpa32U srcBufferCnt = 0;
+    Cpa32U dstBufferCnt = 0;
+    Cpa32U opDataCnt = 0;
 
     sampleCodeBarrier();
 
@@ -922,6 +925,7 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                 {
                     generateRandomData(pSrcBuffer[innerLoop], srcBufferLen);
                 }
+                srcBufferCnt++;
             }
         }
     }
@@ -954,6 +958,7 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                     status = CPA_STATUS_FAIL;
                     break;
                 }
+                dstBufferCnt++;
             }
         }
     }
@@ -1222,6 +1227,7 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                 }
                 /* Zero initialize Op data structure*/
                 memset(pOpData[innerLoop], 0, sizeof(CpaCySymDpOpData));
+                opDataCnt++;
             }
         }
     }
@@ -1415,10 +1421,16 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
         status = sessionStatus;
     }
 
-    for (innerLoop = 0; innerLoop < setup->numBuffers; innerLoop++)
+    for (innerLoop = 0; innerLoop < srcBufferCnt; innerLoop++)
     {
         freeUpdateMem((void **)&pSrcBuffer[innerLoop]);
+    }
+    for (innerLoop = 0; innerLoop < dstBufferCnt; innerLoop++)
+    {
         freeUpdateMem((void **)&pDstBuffer[innerLoop]);
+    }
+    for (innerLoop = 0; innerLoop < opDataCnt; innerLoop++)
+    {
         freeUpdateMem((void **)&pOpData[innerLoop]);
     }
     freeUpdateMem((void **)&pSrcBuffer);

@@ -275,6 +275,7 @@ int qatmgr_close(void);
 #define BDF_BUS(bdf) (bdf >> 8 & 0xFF)
 #define BDF_DEV(bdf) (bdf >> 3 & 0x1F)
 #define BDF_FUN(bdf) (bdf & 0x7)
+#define PF(bdf) (BDF_BUS(bdf) + (BDF_NODE(bdf) << 8))
 
 void qat_mgr_cleanup_cfg(void);
 int qat_mgr_get_dev_list(unsigned *num_devices,

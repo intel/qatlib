@@ -131,6 +131,9 @@ exit 0
 %{_mandir}/man8/qat_init.sh.8*
 
 %changelog
+* Fri Oct 27 2023 Michal Ferenc <michal1x.ferenc@intel.com> - 23.11.0-1
+- Update to qatlib 23.11.0
+
 * Fri Aug 18 2023 Michal Ferenc <michal1x.ferenc@intel.com> - 23.08.0-1
 - Add the chaining_sample to tests package.
 - Update to qatlib 23.08.0
