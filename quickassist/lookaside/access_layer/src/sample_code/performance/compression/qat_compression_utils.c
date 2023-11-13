@@ -292,13 +292,6 @@ CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
         chainResultLen = sizeof(CpaDcChainRqResults);
         chainOpDataLen = sizeof(CpaDcChainOpData);
     }
-#ifdef SC_CHAINING_EXT_ENABLED
-    else
-    {
-        chainResultLen = sizeof(CpaDcChainRqVResults);
-        chainOpDataLen = sizeof(CpaDcChainSubOpData2);
-    }
-#endif
 
     if (NULL != chainResultArray)
     {
@@ -1918,10 +1911,6 @@ CpaStatus performDcChainOffloadCalculationBusyLoop(
         dcChainScSetBytesProducedAndConsumed(
             resultArray, setup->performanceStats, setup, dcSessDir);
 
-        currentThroughput = getThroughput(pPerfData->responses,
-                                          packetSize,
-                                          pPerfData->endCyclesTimestamp -
-                                              pPerfData->startCyclesTimestamp);
     }
     upperBound = pPerfData->busyLoopValue;
 
@@ -2031,10 +2020,6 @@ CpaStatus performOffloadCalculationBusyLoop(
         dcScSetBytesProducedAndConsumed(
             resultArray, setup->performanceStats, setup, dcSessDir);
 
-        currentThroughput = getThroughput(pPerfData->responses,
-                                          packetSize,
-                                          pPerfData->endCyclesTimestamp -
-                                              pPerfData->startCyclesTimestamp);
     }
     upperBound = pPerfData->busyLoopValue;
 

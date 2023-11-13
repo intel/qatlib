@@ -136,6 +136,9 @@ typedef struct sal_crypto_service_s
     OsalAtomic *pLacEcdsaStatsArr;
     /**< pointer to an array of atomic stats for Ecc DSA */
 
+    OsalAtomic *pLacEcsm2StatsArr;
+    /**< pointer to an array of atomic stats for Ecc SM2 */
+
     OsalAtomic *pLacPrimeStatsArr;
     /**< pointer to an array of atomic stats for prime */
 

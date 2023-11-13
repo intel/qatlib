@@ -40,10 +40,12 @@ if SAMPLES
 COMMON_SAMPLE_CFLAGS = -D USER_SPACE \
 		       -D_GNU_SOURCE \
 		       -DSC_ENABLE_DYNAMIC_COMPRESSION \
+		       -DSC_SM2_ENABLED \
 		       -DWITH_CMDRV \
-		       -DWITH_UPSTREAM \
+		       -DSC_WITH_QAT20_UPSTREAM \
 		       -DDO_CRYPTO \
 		       -DINCLUDE_COMPRESSION \
+		       -DSC_CHAINING_ENABLED \
 		       -Wno-deprecated-declarations
 
 COMMON_SAMPLE_INCLUDES = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/framework \
@@ -56,7 +58,9 @@ COMMON_SAMPLE_INCLUDES = -I$(srcdir)/quickassist/lookaside/access_layer/src/samp
 			 -I$(srcdir)/quickassist/include \
 			 -I$(srcdir)/quickassist/include/lac \
 			 -I$(srcdir)/quickassist/include/dc \
-			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/busy_loop
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/busy_loop \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
+			 -I$(srcdir)/quickassist/lookaside/access_layer/src/common/compression/include
 
 COMMON_SAMPLE_LDFLAGS = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la
 
@@ -83,6 +87,11 @@ cpa_sample_code_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_kpt2_common.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_kpt2_perf.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_kpt2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_sign_verify.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_Keyex_P1_P2.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_kdf_hash.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_enc_dec.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_dp.c \
@@ -90,6 +99,7 @@ cpa_sample_code_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_e2e.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_zlib.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_main.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_chaining_main.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_latency.c \
 	quickassist/lookaside/access_layer/src/sample_code/busy_loop/busy_loop.c
 cpa_sample_code_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance \
@@ -123,6 +133,11 @@ libcpa_sample_code_s_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_kpt2_common.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_kpt2_perf.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_kpt2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_perf.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_sign_verify.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_Keyex_P1_P2.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_kdf_hash.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_enc_dec.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_dp.c \
@@ -130,6 +145,7 @@ libcpa_sample_code_s_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_e2e.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_zlib.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_main.c \
+	quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_chaining_main.c \
 	quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_latency.c \
 	quickassist/lookaside/access_layer/src/sample_code/busy_loop/busy_loop.c
 libcpa_sample_code_s_la_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance \

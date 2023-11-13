@@ -68,7 +68,10 @@
  **************************************************************************/
 #include "cpa_sample_code_rsa_kpt2_perf.h"
 #if CY_API_VERSION_AT_LEAST(3, 0)
-void kptFreeRSAOPDataMemory(CpaCyKptRsaDecryptOpData *pKPTDecryptOpData)
+void kptFreeRSAOPDataMemory(CpaCyKptRsaDecryptOpData *pKPTDecryptOpData,
+                            CpaFlatBuffer *pWpkAndAuthTag,
+                            CpaFlatBuffer *pPrivateKeyOfType1,
+                            CpaFlatBuffer *pPrivateKeyOfType2)
 {
     if (NULL != pKPTDecryptOpData->inputData.pData)
         qaeMemFreeNUMA((void **)&pKPTDecryptOpData->inputData.pData);
@@ -82,6 +85,24 @@ void kptFreeRSAOPDataMemory(CpaCyKptRsaDecryptOpData *pKPTDecryptOpData)
                            ->privateKeyRep2.privateKey.pData);
     qaeMemFreeNUMA((void **)&pKPTDecryptOpData->pRecipientPrivateKey);
     qaeMemFreeNUMA((void **)&pKPTDecryptOpData);
+    if (NULL != pWpkAndAuthTag)
+    {
+        if (NULL != pWpkAndAuthTag->pData)
+            qaeMemFreeNUMA((void **)&pWpkAndAuthTag->pData);
+        qaeMemFree((void **)&pWpkAndAuthTag);
+    }
+    if (NULL != pPrivateKeyOfType1)
+    {
+        if (NULL != pPrivateKeyOfType1->pData)
+            qaeMemFreeNUMA((void **)&pPrivateKeyOfType1->pData);
+        qaeMemFree((void **)&pPrivateKeyOfType1);
+    }
+    if (NULL != pPrivateKeyOfType2)
+    {
+        if (NULL != pPrivateKeyOfType2->pData)
+            qaeMemFreeNUMA((void **)&pPrivateKeyOfType2->pData);
+        qaeMemFree((void **)&pPrivateKeyOfType2);
+    }
 
     return;
 }
@@ -115,7 +136,6 @@ CpaStatus setKpt2RsaDecryptOpData(CpaInstanceHandle instanceHandle,
                                   Cpa8U *pAad,
                                   Cpa32U aadLenInBytes)
 {
-    CpaStatus retstatus = CPA_STATUS_SUCCESS;
     CpaBoolean status = CPA_TRUE;
     Cpa32U wpkSize = 0;
     Cpa8U pAuthTag[AUTH_TAG_LEN_IN_BYTES] = {0};
@@ -183,86 +203,93 @@ CpaStatus setKpt2RsaDecryptOpData(CpaInstanceHandle instanceHandle,
         if (NULL == pPrivateKeyOfType1->pData)
         {
             PRINT_ERR("qaeMemAlloc pPrivateKeyOfType1->pData error\n");
-            kptFreeRSAOPDataMemory(pKptDecOpdata);
-            retstatus = CPA_STATUS_FAIL;
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2);
+            return CPA_STATUS_FAIL;
         }
-        if (CPA_STATUS_SUCCESS == retstatus)
+        memset(
+            pPrivateKeyOfType1->pData, 0, pPrivateKeyOfType1->dataLenInBytes);
+
+        memcpy(pPrivateKeyOfType1->pData,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep1
+                   .privateExponentD.pData,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep1
+                   .privateExponentD.dataLenInBytes);
+
+        memcpy(
+            pPrivateKeyOfType1->pData +
+                pDecryptOpData->pRecipientPrivateKey->privateKeyRep1
+                    .privateExponentD.dataLenInBytes,
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRep1.modulusN.pData,
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRep1.modulusN
+                .dataLenInBytes);
+
+        pWpkAndAuthTag->dataLenInBytes =
+            pPrivateKeyOfType1->dataLenInBytes + AUTH_TAG_LEN_IN_BYTES;
+        pWpkAndAuthTag->pData = qaeMemAllocNUMA(
+            pWpkAndAuthTag->dataLenInBytes, node, BYTE_ALIGNMENT_64);
+        if (NULL == pWpkAndAuthTag->pData)
         {
-            memset(pPrivateKeyOfType1->pData,
-                   0,
-                   pPrivateKeyOfType1->dataLenInBytes);
-
-            memcpy(pPrivateKeyOfType1->pData,
-                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep1
-                       .privateExponentD.pData,
-                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep1
-                       .privateExponentD.dataLenInBytes);
-
-            memcpy(pPrivateKeyOfType1->pData +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep1
-                           .privateExponentD.dataLenInBytes,
-                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep1.modulusN
-                       .pData,
-                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep1.modulusN
-                       .dataLenInBytes);
-
-            pWpkAndAuthTag->dataLenInBytes =
-                pPrivateKeyOfType1->dataLenInBytes + AUTH_TAG_LEN_IN_BYTES;
-            pWpkAndAuthTag->pData = qaeMemAllocNUMA(
-                pWpkAndAuthTag->dataLenInBytes, node, BYTE_ALIGNMENT_64);
-            if (NULL == pWpkAndAuthTag->pData)
-            {
-                PRINT_ERR("qaeMemAlloc pWpkAndAuthTag->pData error\n");
-                kptFreeRSAOPDataMemory(pKptDecOpdata);
-                retstatus = CPA_STATUS_FAIL;
-            }
-
-            status = encryptPrivateKey(pPrivateKeyOfType1->pData,
-                                       pPrivateKeyOfType1->dataLenInBytes,
-                                       pSampleSWK,
-                                       pIv,
-                                       IV_LEN_IN_BYTES,
-                                       pWpkAndAuthTag->pData,
-                                       &wpkSize,
-                                       pAuthTag,
-                                       pAad,
-                                       aadLenInBytes);
-            if (CPA_FALSE == status)
-            {
-                PRINT_ERR("encyPrivateKey failed!\n");
-                kptFreeRSAOPDataMemory(pKptDecOpdata);
-                retstatus = CPA_STATUS_FAIL;
-            }
+            PRINT_ERR("qaeMemAlloc pWpkAndAuthTag->pData error\n");
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2);
+            return CPA_STATUS_FAIL;
         }
-        if (CPA_STATUS_SUCCESS == retstatus)
+
+        status = encryptPrivateKey(pPrivateKeyOfType1->pData,
+                                   pPrivateKeyOfType1->dataLenInBytes,
+                                   pSampleSWK,
+                                   pIv,
+                                   IV_LEN_IN_BYTES,
+                                   pWpkAndAuthTag->pData,
+                                   &wpkSize,
+                                   pAuthTag,
+                                   pAad,
+                                   aadLenInBytes);
+        if (CPA_FALSE == status)
         {
-            /* Concatenated with AuthTag */
-            memcpy(pWpkAndAuthTag->pData + wpkSize,
-                   pAuthTag,
-                   AUTH_TAG_LEN_IN_BYTES);
-
-            /* Opdata setup */
-            ALLOC_FLAT_BUFF_DATA(instanceHandle,
-                                 &(pKptDecOpdata->inputData),
-                                 pDecryptOpData->inputData.dataLenInBytes,
-                                 pDecryptOpData->inputData.pData,
-                                 pDecryptOpData->inputData.dataLenInBytes,
-                                 kptFreeRSAOPDataMemory(pKptDecOpdata));
-
-            ALLOC_FLAT_BUFF_DATA(instanceHandle,
-                                 &(pKptDecOpdata->pRecipientPrivateKey
-                                       ->privateKeyRep1.privateKey),
-                                 wpkSize + AUTH_TAG_LEN_IN_BYTES,
-                                 pWpkAndAuthTag->pData,
-                                 wpkSize + AUTH_TAG_LEN_IN_BYTES,
-                                 kptFreeRSAOPDataMemory(pKptDecOpdata));
-
-            pKptDecOpdata->pRecipientPrivateKey->version =
-                pDecryptOpData->pRecipientPrivateKey->version;
-
-            pKptDecOpdata->pRecipientPrivateKey->privateKeyRepType =
-                pDecryptOpData->pRecipientPrivateKey->privateKeyRepType;
+            PRINT_ERR("encyPrivateKey failed!\n");
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2);
+            return CPA_STATUS_FAIL;
         }
+        /* Concatenated with AuthTag */
+        memcpy(
+            pWpkAndAuthTag->pData + wpkSize, pAuthTag, AUTH_TAG_LEN_IN_BYTES);
+
+        /* Opdata setup */
+        ALLOC_FLAT_BUFF_DATA(instanceHandle,
+                             &(pKptDecOpdata->inputData),
+                             pDecryptOpData->inputData.dataLenInBytes,
+                             pDecryptOpData->inputData.pData,
+                             pDecryptOpData->inputData.dataLenInBytes,
+                             kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                                    pWpkAndAuthTag,
+                                                    pPrivateKeyOfType1,
+                                                    pPrivateKeyOfType2));
+
+        ALLOC_FLAT_BUFF_DATA(
+            instanceHandle,
+            &(pKptDecOpdata->pRecipientPrivateKey->privateKeyRep1.privateKey),
+            wpkSize + AUTH_TAG_LEN_IN_BYTES,
+            pWpkAndAuthTag->pData,
+            wpkSize + AUTH_TAG_LEN_IN_BYTES,
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2));
+
+        pKptDecOpdata->pRecipientPrivateKey->version =
+            pDecryptOpData->pRecipientPrivateKey->version;
+
+        pKptDecOpdata->pRecipientPrivateKey->privateKeyRepType =
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRepType;
     }
     else
     {
@@ -291,171 +318,177 @@ CpaStatus setKpt2RsaDecryptOpData(CpaInstanceHandle instanceHandle,
         if (NULL == pPrivateKeyOfType2->pData)
         {
             PRINT_ERR("qaeMemAlloc pPrivateKeyOfType2->pData error\n");
-            kptFreeRSAOPDataMemory(pKptDecOpdata);
-            retstatus = CPA_STATUS_FAIL;
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2);
+            return CPA_STATUS_FAIL;
         }
 
-        if (CPA_STATUS_SUCCESS == retstatus)
-        {
-            memset(pPrivateKeyOfType2->pData,
-                   0,
-                   pPrivateKeyOfType2->dataLenInBytes);
+        memset(
+            pPrivateKeyOfType2->pData, 0, pPrivateKeyOfType2->dataLenInBytes);
 
-            memcpy(pPrivateKeyOfType2->pData,
+        memcpy(
+            pPrivateKeyOfType2->pData,
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P.pData,
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
+                .dataLenInBytes);
+
+        memcpy(
+            pPrivateKeyOfType2->pData +
+                pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
+                    .dataLenInBytes,
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime2Q.pData,
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime2Q
+                .dataLenInBytes);
+
+        memcpy(pPrivateKeyOfType2->pData +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
-                       .pData,
+                       .dataLenInBytes +
+                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime2Q
+                       .dataLenInBytes,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.exponent1Dp
+                   .pData,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.exponent1Dp
+                   .dataLenInBytes);
+
+        memcpy(pPrivateKeyOfType2->pData +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
-                       .dataLenInBytes);
-
-            memcpy(pPrivateKeyOfType2->pData +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime1P.dataLenInBytes,
+                       .dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime2Q
-                       .pData,
+                       .dataLenInBytes +
+                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
+                       .exponent1Dp.dataLenInBytes,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.exponent2Dq
+                   .pData,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.exponent2Dq
+                   .dataLenInBytes);
+
+        memcpy(pPrivateKeyOfType2->pData +
+                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
+                       .dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime2Q
-                       .dataLenInBytes);
-
-            memcpy(pPrivateKeyOfType2->pData +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime1P.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime2Q.dataLenInBytes,
+                       .dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                       .exponent1Dp.pData,
+                       .exponent1Dp.dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                       .exponent1Dp.dataLenInBytes);
+                       .exponent2Dq.dataLenInBytes,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
+                   .coefficientQInv.pData,
+               pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
+                   .coefficientQInv.dataLenInBytes);
 
-            memcpy(pPrivateKeyOfType2->pData +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime1P.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime2Q.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .exponent1Dp.dataLenInBytes,
+        memcpy(pPrivateKeyOfType2->pData +
+                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
+                       .dataLenInBytes +
+                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime2Q
+                       .dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                       .exponent2Dq.pData,
+                       .exponent1Dp.dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                       .exponent2Dq.dataLenInBytes);
-
-            memcpy(pPrivateKeyOfType2->pData +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime1P.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime2Q.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .exponent1Dp.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .exponent2Dq.dataLenInBytes,
+                       .exponent2Dq.dataLenInBytes +
                    pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                       .coefficientQInv.pData,
-                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                       .coefficientQInv.dataLenInBytes);
+                       .coefficientQInv.dataLenInBytes +
+                   pDecryptOpData->pRecipientPrivateKey->privateKeyRep2.prime1P
+                           .dataLenInBytes *
+                       NUM_KEY_PAIRS -
+                   pRsaPublicKey->publicExponentE.dataLenInBytes,
+               pRsaPublicKey->publicExponentE.pData,
+               pRsaPublicKey->publicExponentE.dataLenInBytes);
 
-            memcpy(pPrivateKeyOfType2->pData +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime1P.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .prime2Q.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .exponent1Dp.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .exponent2Dq.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                           .coefficientQInv.dataLenInBytes +
-                       pDecryptOpData->pRecipientPrivateKey->privateKeyRep2
-                               .prime1P.dataLenInBytes *
-                           NUM_KEY_PAIRS -
-                       pRsaPublicKey->publicExponentE.dataLenInBytes,
-                   pRsaPublicKey->publicExponentE.pData,
-                   pRsaPublicKey->publicExponentE.dataLenInBytes);
-
-            pWpkAndAuthTag->dataLenInBytes =
-                pPrivateKeyOfType2->dataLenInBytes + AUTH_TAG_LEN_IN_BYTES;
-            pWpkAndAuthTag->pData = qaeMemAllocNUMA(
-                pWpkAndAuthTag->dataLenInBytes, node, BYTE_ALIGNMENT_64);
-            if (NULL == pWpkAndAuthTag->pData)
-            {
-                PRINT_ERR("qaeMemAlloc pWpkAndAuthTag->pData error\n");
-                kptFreeRSAOPDataMemory(pKptDecOpdata);
-                retstatus = CPA_STATUS_FAIL;
-            }
-
-            status = encryptPrivateKey(pPrivateKeyOfType2->pData,
-                                       pPrivateKeyOfType2->dataLenInBytes,
-                                       pSampleSWK,
-                                       pIv,
-                                       IV_LEN_IN_BYTES,
-                                       pWpkAndAuthTag->pData,
-                                       &wpkSize,
-                                       pAuthTag,
-                                       pAad,
-                                       aadLenInBytes);
-            if (CPA_FALSE == status)
-            {
-                PRINT_ERR("encyPrivateKey failed!\n");
-                kptFreeRSAOPDataMemory(pKptDecOpdata);
-                retstatus = CPA_STATUS_FAIL;
-            }
-        }
-        if (CPA_STATUS_SUCCESS == retstatus)
+        pWpkAndAuthTag->dataLenInBytes =
+            pPrivateKeyOfType2->dataLenInBytes + AUTH_TAG_LEN_IN_BYTES;
+        pWpkAndAuthTag->pData = qaeMemAllocNUMA(
+            pWpkAndAuthTag->dataLenInBytes, node, BYTE_ALIGNMENT_64);
+        if (NULL == pWpkAndAuthTag->pData)
         {
-            /* Concatenated with AuthTag */
-            memcpy(pWpkAndAuthTag->pData + wpkSize,
-                   pAuthTag,
-                   AUTH_TAG_LEN_IN_BYTES);
-            /* Opdata setup */
-            ALLOC_FLAT_BUFF_DATA(instanceHandle,
-                                 &(pKptDecOpdata->inputData),
-                                 pDecryptOpData->inputData.dataLenInBytes,
-                                 pDecryptOpData->inputData.pData,
-                                 pDecryptOpData->inputData.dataLenInBytes,
-                                 kptFreeRSAOPDataMemory(pKptDecOpdata));
-
-            ALLOC_FLAT_BUFF_DATA(instanceHandle,
-                                 &(pKptDecOpdata->pRecipientPrivateKey
-                                       ->privateKeyRep2.privateKey),
-                                 wpkSize + AUTH_TAG_LEN_IN_BYTES,
-                                 pWpkAndAuthTag->pData,
-                                 wpkSize + AUTH_TAG_LEN_IN_BYTES,
-                                 kptFreeRSAOPDataMemory(pKptDecOpdata));
-
-            pKptDecOpdata->pRecipientPrivateKey->version =
-                pDecryptOpData->pRecipientPrivateKey->version;
-
-            pKptDecOpdata->pRecipientPrivateKey->privateKeyRepType =
-                pDecryptOpData->pRecipientPrivateKey->privateKeyRepType;
+            PRINT_ERR("qaeMemAlloc pWpkAndAuthTag->pData error\n");
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2);
+            return CPA_STATUS_FAIL;
         }
+
+        status = encryptPrivateKey(pPrivateKeyOfType2->pData,
+                                   pPrivateKeyOfType2->dataLenInBytes,
+                                   pSampleSWK,
+                                   pIv,
+                                   IV_LEN_IN_BYTES,
+                                   pWpkAndAuthTag->pData,
+                                   &wpkSize,
+                                   pAuthTag,
+                                   pAad,
+                                   aadLenInBytes);
+        if (CPA_FALSE == status)
+        {
+            PRINT_ERR("encyPrivateKey failed!\n");
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2);
+            return CPA_STATUS_FAIL;
+        }
+        /* Concatenated with AuthTag */
+        memcpy(
+            pWpkAndAuthTag->pData + wpkSize, pAuthTag, AUTH_TAG_LEN_IN_BYTES);
+        /* Opdata setup */
+        ALLOC_FLAT_BUFF_DATA(instanceHandle,
+                             &(pKptDecOpdata->inputData),
+                             pDecryptOpData->inputData.dataLenInBytes,
+                             pDecryptOpData->inputData.pData,
+                             pDecryptOpData->inputData.dataLenInBytes,
+                             kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                                    pWpkAndAuthTag,
+                                                    pPrivateKeyOfType1,
+                                                    pPrivateKeyOfType2));
+
+        ALLOC_FLAT_BUFF_DATA(
+            instanceHandle,
+            &(pKptDecOpdata->pRecipientPrivateKey->privateKeyRep2.privateKey),
+            wpkSize + AUTH_TAG_LEN_IN_BYTES,
+            pWpkAndAuthTag->pData,
+            wpkSize + AUTH_TAG_LEN_IN_BYTES,
+            kptFreeRSAOPDataMemory(pKptDecOpdata,
+                                   pWpkAndAuthTag,
+                                   pPrivateKeyOfType1,
+                                   pPrivateKeyOfType2));
+
+        pKptDecOpdata->pRecipientPrivateKey->version =
+            pDecryptOpData->pRecipientPrivateKey->version;
+
+        pKptDecOpdata->pRecipientPrivateKey->privateKeyRepType =
+            pDecryptOpData->pRecipientPrivateKey->privateKeyRepType;
     }
 
     *pKPTDecryptOpData = pKptDecOpdata;
 
-    if (NULL != pPrivateKeyOfType1->pData)
-    {
-        qaeMemFreeNUMA((void **)&pPrivateKeyOfType1->pData);
-    }
     if (NULL != pPrivateKeyOfType1)
     {
+        if (NULL != pPrivateKeyOfType1->pData)
+        {
+            qaeMemFreeNUMA((void **)&pPrivateKeyOfType1->pData);
+        }
         qaeMemFree((void **)&pPrivateKeyOfType1);
-    }
-
-    if (NULL != pPrivateKeyOfType2->pData)
-    {
-        qaeMemFreeNUMA((void **)&pPrivateKeyOfType2->pData);
     }
     if (NULL != pPrivateKeyOfType2)
     {
+        if (NULL != pPrivateKeyOfType2->pData)
+        {
+            qaeMemFreeNUMA((void **)&pPrivateKeyOfType2->pData);
+        }
         qaeMemFree((void **)&pPrivateKeyOfType2);
-    }
-    if (NULL != pWpkAndAuthTag->pData)
-    {
-        qaeMemFreeNUMA((void **)&pWpkAndAuthTag->pData);
     }
     if (NULL != pWpkAndAuthTag)
     {
+        if (NULL != pWpkAndAuthTag->pData)
+        {
+            qaeMemFreeNUMA((void **)&pWpkAndAuthTag->pData);
+        }
         qaeMemFree((void **)&pWpkAndAuthTag);
     }
 
-    return retstatus;
+    return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(setKpt2RsaDecryptOpData);
 

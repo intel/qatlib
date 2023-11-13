@@ -236,8 +236,27 @@ volatile CpaBoolean enableReadInstance_g = CPA_FALSE;
 /* DC chaining specific variable to enable S/W write chaining operation */
 volatile CpaBoolean swWrite_g = CPA_FALSE;
 
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+volatile CpaBoolean isNsRequest_g = CPA_FALSE;
+#endif
 int verboseOutput = 1;
 
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+CpaStatus setDcNsFlag(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        isNsRequest_g = CPA_TRUE;
+    }
+    else
+    {
+        isNsRequest_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(isNsRequest_g);
+EXPORT_SYMBOL(setDcNsFlag);
+#endif
 CpaStatus setDataIntegrity(CpaBoolean val)
 {
     dataIntegrity_g = val;
@@ -744,7 +763,9 @@ CpaStatus startThreads(void)
      * startThreads has been called*/
     threadState_g = THREAD_STARTED;
     /* Reset the flag, when all threads are executed */
+    sample_code_thread_mutex_lock(&startThreadControlMutex_g);
     numThreadsAtBarrier_g = 0;
+    sample_code_thread_mutex_unlock(&startThreadControlMutex_g);
     FUNC_EXIT();
     return CPA_STATUS_SUCCESS;
 }

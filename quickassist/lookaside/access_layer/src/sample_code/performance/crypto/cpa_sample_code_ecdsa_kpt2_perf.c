@@ -69,12 +69,26 @@
 #include "cpa_sample_code_ecdsa_kpt2_perf.h"
 #if CY_API_VERSION_AT_LEAST(3, 0)
 
-void kpt2FreeECDSAOPDataMemory(CpaCyKptEcdsaSignRSOpData *pKPTSignRSOpData)
+void kpt2FreeECDSAOPDataMemory(CpaCyKptEcdsaSignRSOpData *pKPTSignRSOpData,
+                               CpaFlatBuffer *pWpkAndAuthTag,
+                               CpaFlatBuffer *pPrivateKey)
 {
     if (NULL != pKPTSignRSOpData->privateKey.pData)
         qaeMemFreeNUMA((void **)&pKPTSignRSOpData->privateKey.pData);
     if (NULL != pKPTSignRSOpData->m.pData)
         qaeMemFreeNUMA((void **)&pKPTSignRSOpData->m.pData);
+    if (NULL != pWpkAndAuthTag)
+    {
+        if (NULL != pWpkAndAuthTag->pData)
+            qaeMemFree((void **)&pWpkAndAuthTag->pData);
+        qaeMemFree((void **)&pWpkAndAuthTag);
+    }
+    if (NULL != pPrivateKey)
+    {
+        if (NULL != pPrivateKey->pData)
+            qaeMemFree((void **)&pPrivateKey->pData);
+        qaeMemFree((void **)&pPrivateKey);
+    }
 
     return;
 }
@@ -169,9 +183,10 @@ CpaStatus setKPT2EcdsaSignRSOpData(CpaInstanceHandle instanceHandle,
                                aadLenInBytes);
     if (CPA_FALSE == status)
     {
-        kpt2FreeECDSAOPDataMemory(pKPTSignRSOpData);
+        kpt2FreeECDSAOPDataMemory(
+            pKPTSignRSOpData, pWpkAndAuthTag, pPrivateKey);
         PRINT_ERR("encryptPrivateKey failed!\n");
-        retstatus = CPA_STATUS_FAIL;
+        return CPA_STATUS_FAIL;
     }
     if (CPA_STATUS_SUCCESS == retstatus)
     {
@@ -185,17 +200,20 @@ CpaStatus setKPT2EcdsaSignRSOpData(CpaInstanceHandle instanceHandle,
                              pWpkAndAuthTag->dataLenInBytes,
                              pWpkAndAuthTag->pData,
                              pWpkAndAuthTag->dataLenInBytes,
-                             kpt2FreeECDSAOPDataMemory(pKPTSignRSOpData));
-
+                             kpt2FreeECDSAOPDataMemory(pKPTSignRSOpData,
+                                                       pWpkAndAuthTag,
+                                                       pPrivateKey));
         ALLOC_FLAT_BUFF_DATA(instanceHandle,
                              &(pKPTSignRSOpData->m),
                              pSignRSOpData->m.dataLenInBytes,
                              pSignRSOpData->m.pData,
                              pSignRSOpData->m.dataLenInBytes,
-                             kpt2FreeECDSAOPDataMemory(pKPTSignRSOpData));
+                             kpt2FreeECDSAOPDataMemory(pKPTSignRSOpData,
+                                                       pWpkAndAuthTag,
+                                                       pPrivateKey));
     }
 
-    if (NULL != pWpkAndAuthTag->pData)
+    if (NULL != pWpkAndAuthTag && NULL != pWpkAndAuthTag->pData)
     {
         qaeMemFree((void **)&pWpkAndAuthTag->pData);
     }
@@ -203,7 +221,7 @@ CpaStatus setKPT2EcdsaSignRSOpData(CpaInstanceHandle instanceHandle,
     {
         qaeMemFree((void **)&pWpkAndAuthTag);
     }
-    if (NULL != pPrivateKey->pData)
+    if (NULL != pPrivateKey && NULL != pPrivateKey->pData)
     {
         qaeMemFree((void **)&pPrivateKey->pData);
     }

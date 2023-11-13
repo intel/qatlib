@@ -712,8 +712,7 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
         if (CPA_STATUS_SUCCESS != reinit_bank_from_accel(accel_dev, bank))
         {
             ICP_MUTEX_UNLOCK(bank->user_bank_lock);
-            icp_adf_transReleaseHandle(pRingHandle);
-            return CPA_STATUS_FAIL;
+            goto trans_reinit_handle_failed;
         }
         ICP_MUTEX_UNLOCK(bank->user_bank_lock);
     }
@@ -726,22 +725,19 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
         if ((ring_rnum < 0) || (ring_rnum >= accel_dev->maxNumRingsPerBank))
         {
             ADF_ERROR("Invalid ring num\n");
-            icp_adf_transReleaseHandle(pRingHandle);
-            return CPA_STATUS_FAIL;
+            goto trans_reinit_handle_failed;
         }
     }
     else
     {
-        icp_adf_transReleaseHandle(pRingHandle);
-        return CPA_STATUS_FAIL;
+        goto trans_reinit_handle_failed;
     }
 
     /* Reserve the ring in the kernel driver */
     if (CPA_STATUS_SUCCESS !=
         adf_io_reserve_ring(accel_dev->accelId, bank_nr, ring_rnum))
     {
-        icp_adf_transReleaseHandle(pRingHandle);
-        return CPA_STATUS_FAIL;
+        goto trans_reinit_handle_failed;
     }
 
     if (CPA_STATUS_SUCCESS != adf_repopulate_ring_info(pRingHandle,
@@ -758,8 +754,7 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
                                                        msg_size,
                                                        ring_rnum))
     {
-        icp_adf_transReleaseHandle(pRingHandle);
-        return CPA_STATUS_FAIL;
+        goto trans_reinit_handle_failed;
     }
 
     if (CPA_STATUS_SUCCESS != adf_reinit_ring(pRingHandle,
@@ -771,8 +766,7 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
                                               nodeid))
     {
         ADF_ERROR("adf_init_ring failed\n");
-        icp_adf_transReleaseHandle(pRingHandle);
-        return CPA_STATUS_FAIL;
+        goto trans_reinit_handle_failed;
     }
 
     pRingHandle->accel_dev = accel_dev;
@@ -781,9 +775,7 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
     if (CPA_STATUS_SUCCESS != status)
     {
         ADF_ERROR("icp_adf_transGetRingNum failed\n");
-        icp_adf_transReleaseHandle(*trans_handle);
-        *trans_handle = NULL;
-        return CPA_STATUS_FAIL;
+        goto trans_reinit_handle_failed;
     }
 
     /* callback has been overwritten in kernelspace
@@ -803,6 +795,10 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
     }
 
     return CPA_STATUS_SUCCESS;
+trans_reinit_handle_failed:
+    icp_adf_transReleaseHandle(*trans_handle);
+    *trans_handle = NULL;
+    return CPA_STATUS_FAIL;
 }
 
 STATIC CpaStatus icp_adf_transCleanHandle(icp_comms_trans_handle trans_handle)

@@ -197,9 +197,10 @@ void LacSymQat_LaPacketCommandFlagSet(Cpa32U qatPacketType,
                                       Cpa16U *pLaCommandFlags,
                                       Cpa32U ivLenInBytes)
 {
-    /* For Chacha ciphers set command flag as partial none to proceed
+    /* For SM4/Chacha ciphers set command flag as partial none to proceed
      * with stateless processing */
-    if (LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
+    if (LAC_CIPHER_IS_SM4(cipherAlgorithm) ||
+        LAC_CIPHER_IS_CHACHA(cipherAlgorithm))
     {
         ICP_QAT_FW_LA_PARTIAL_SET(*pLaCommandFlags, ICP_QAT_FW_LA_PARTIAL_NONE);
         return;

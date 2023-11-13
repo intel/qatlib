@@ -611,9 +611,9 @@ LacAlgChain_GetCipherConfigOffset(lac_session_desc_t *pSessionDesc)
     return offset * LAC_QUAD_WORD_IN_BYTES;
 }
 
-static CpaStatus LacAlgChain_SessionCipherKeyUpdate(
-    lac_session_desc_t *pSessionDesc,
-    Cpa8U *pCipherKey)
+STATIC CpaStatus
+LacAlgChain_SessionCipherKeyUpdate(lac_session_desc_t *pSessionDesc,
+                                   Cpa8U *pCipherKey)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
 
@@ -693,9 +693,9 @@ static CpaStatus LacAlgChain_SessionCipherKeyUpdate(
     return status;
 }
 
-static CpaStatus LacAlgChain_SessionAuthKeyUpdate(
-    lac_session_desc_t *pSessionDesc,
-    Cpa8U *authKey)
+STATIC CpaStatus
+LacAlgChain_SessionAuthKeyUpdate(lac_session_desc_t *pSessionDesc,
+                                 Cpa8U *authKey)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa8U *pHwBlockBaseInDRAM = NULL;
@@ -705,6 +705,7 @@ static CpaStatus LacAlgChain_SessionAuthKeyUpdate(
     CpaCySymSessionSetupData sessionSetup;
     Cpa16U cipherConfigSize;
 
+    LAC_OS_BZERO(&sessionSetup, sizeof(sessionSetup));
     cipherConfigSize = LacAlgChain_GetCipherConfigSize(pSessionDesc);
 
     icp_qat_fw_cipher_auth_cd_ctrl_hdr_t *cd_ctrl =
@@ -749,7 +750,8 @@ static CpaStatus LacAlgChain_SessionAuthKeyUpdate(
             pOutHashSetup + cipherConfigSize;
     }
 
-    if (CPA_CY_SYM_HASH_SHA3_256 == pSessionDesc->hashAlgorithm)
+    if (CPA_CY_SYM_HASH_SHA3_256 == pSessionDesc->hashAlgorithm ||
+        CPA_CY_SYM_HASH_SM3 == pSessionDesc->hashAlgorithm)
     {
         if (CPA_FALSE == pSessionDesc->isAuthEncryptOp)
         {
@@ -1675,7 +1677,8 @@ CpaStatus LacAlgChain_SessionInit(
                 {
                     /* SHA3 HMAC do not support precompute, force MODE2
                      * for AUTH */
-                    if (LAC_HASH_IS_SHA3(pHashData->hashAlgorithm))
+                    if (LAC_HASH_IS_SHA3(pHashData->hashAlgorithm) ||
+                        (CPA_CY_SYM_HASH_SM3 == pHashData->hashAlgorithm))
                     {
                         pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE2;
                     }
@@ -2293,7 +2296,8 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                  * a local variable for isDcChaining but other places may use
                  * the cookie so it needs to be correctly initialized.
                  */
-                pCookie->dcChain.isDcChaining = CPA_FALSE;
+                if (NULL != pCookie)
+                    pCookie->dcChain.isDcChaining = CPA_FALSE;
             }
         } while ((void *)CPA_STATUS_RETRY == pSymCookie);
     }
@@ -2359,7 +2363,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             }
         }
     }
-    if (CPA_STATUS_SUCCESS == status)
+    if (CPA_STATUS_SUCCESS == status && pCookie != NULL)
     {
         /* populate the cookie */
         pCookie->pCallbackTag = pCallbackTag;

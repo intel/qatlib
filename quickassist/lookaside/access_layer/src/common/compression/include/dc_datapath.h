@@ -201,7 +201,8 @@ typedef struct dc_compression_cookie_s
     CpaInstanceHandle dcInstance;
     /**< Compression instance handle */
     CpaDcSessionHandle pSessionHandle;
-    /**< Pointer to the session handle */
+    /**< Pointer to the session handle. It is either a real address or a
+     * special value used to identify requests coming from the NS API. */
     icp_qat_fw_comp_req_t request;
     /**< Compression request */
     void *callbackTag;
@@ -267,6 +268,13 @@ typedef struct dc_compression_cookie_s
  *
  *****************************************************************************/
 void dcCompression_ProcessCallback(void *pRespMsg);
+
+#ifndef KERNEL_SPACE
+#ifdef ICP_PARAM_CHECK
+CpaStatus dcCheckOpData(sal_compression_service_t *pService,
+                        CpaDcOpData *pOpData);
+#endif
+#endif
 
 /**
 *****************************************************************************

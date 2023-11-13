@@ -80,6 +80,10 @@
 #include "qae_mem_utils.h"
 #endif
 
+#if   defined(SC_WITH_QAT20_UPSTREAM)
+#define SC_WITH_GEN4
+#endif
+
 #ifndef SAMPLE_CODE_CORPUS_PATH
 #define SAMPLE_CODE_CORPUS_PATH "/lib/firmware/"
 #endif

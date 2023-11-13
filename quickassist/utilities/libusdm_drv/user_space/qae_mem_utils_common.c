@@ -842,7 +842,8 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
 
     if (size > QAE_MAX_ALLOC_SIZE)
     {
-        CMD_ERROR("%s:%d Size cannot exceed 64M \n", __func__, __LINE__);
+        CMD_ERROR(
+            "%s:%d Size cannot exceed 64M for vfio\n", __func__, __LINE__);
         return NULL;
     }
 

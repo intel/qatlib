@@ -293,6 +293,7 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     /* If the setup is requesting non-default CnV behaviour for special
      * tests, set it accordingly.
      */
+    dcSetup->setNsRequest = isNsRequest_g;
     if (direction == CPA_DC_DIR_COMPRESS)
     {
         dcSetup->useE2E = dataIntegrity_g;
@@ -319,6 +320,11 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     dcSetup->setupData.compLevel = compLevel;
     dcSetup->setupData.compType = algorithm;
     dcSetup->setupData.sessDirection = direction;
+    if (dcSetup->setNsRequest == CPA_TRUE)
+    {
+        dcSetup->setupData.sessState = CPA_DC_STATELESS;
+    }
+    else
     {
         dcSetup->setupData.sessState = state;
     }
@@ -365,6 +371,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     dcSetup.syncFlag = tmpSetup->syncFlag;
     dcSetup.numLoops = tmpSetup->numLoops;
     dcSetup.setupData.checksum = tmpSetup->setupData.checksum;
+    dcSetup.setNsRequest = tmpSetup->setNsRequest;
     dcSetup.useE2E = tmpSetup->useE2E;
     dcSetup.useE2EVerify = tmpSetup->useE2EVerify;
 
@@ -515,10 +522,8 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     {
         PRINT("Do CRC integrity capabilities check for this instance. %d\n",
               testSetup->logicalQaInstance);
-#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
         if (CPA_FALSE == capabilities.integrityCrcs64b)
         {
-#endif
             if (CPA_FALSE == capabilities.integrityCrcs)
             {
 
@@ -532,9 +537,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
                 qaeMemFree((void **)&dcSetup.packetSizeInBytesArray);
                 sampleCodeThreadExit();
             }
-#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
         }
-#endif
     }
     if (CPA_TRUE == dcSetup.useXlt && ASYNC == dcSetup.syncFlag)
     {
@@ -680,6 +683,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             fileArray[setup->corpusFileIndex].corpusBinaryDataLen,
             testBufferSize);
     }
+    if (CPA_FALSE == setup->setNsRequest)
     {
         // Initialize the compression session to use
         if (CPA_STATUS_SUCCESS == status)
@@ -943,6 +947,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
         coo_average(setup->performanceStats);
         coo_deinit(setup->performanceStats);
         // remove the session free the handle
+        if (CPA_FALSE == setup->setNsRequest)
         {
             if (CPA_STATUS_SUCCESS !=
                 qatCompressionSessionTeardown(
@@ -990,6 +995,7 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     static Cpa32U staticAssign = 0;
+    CpaDcCallbackFn dcCbFn = NULL;
 
     if (setup->requestOps.flushFlag != setup->flushFlag)
     {
@@ -1012,6 +1018,25 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
         {
             coo_req_start(setup->performanceStats);
             {
+                if (CPA_TRUE == setup->setNsRequest)
+                {
+                    setup->setupData.sessDirection = CPA_DC_DIR_COMPRESS;
+                    if (ASYNC == setup->syncFlag)
+                    {
+                        dcCbFn = dcPerformCallback;
+                    }
+
+                    status =
+                        cpaDcNsCompressData(setup->dcInstanceHandle,
+                                            &(setup->setupData),
+                                            &arrayOfSrcBufferLists[listNum],
+                                            &arrayOfDestBufferLists[listNum],
+                                            &(setup->requestOps),
+                                            &arrayOfResults[listNum],
+                                            dcCbFn,
+                                            (void *)setup);
+                }
+                else
                 {
                     status =
                         cpaDcCompressData2(setup->dcInstanceHandle,
@@ -1032,6 +1057,25 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
              *  the setting of this flag should not matter for decompress*/
             setup->requestOps.compressAndVerify = CPA_FALSE;
             coo_req_start(setup->performanceStats);
+            if (CPA_TRUE == setup->setNsRequest)
+            {
+                setup->setupData.sessDirection = CPA_DC_DIR_DECOMPRESS;
+
+                if (ASYNC == setup->syncFlag)
+                {
+                    dcCbFn = dcPerformCallback;
+                }
+
+                status = cpaDcNsDecompressData(setup->dcInstanceHandle,
+                                               &(setup->setupData),
+                                               &arrayOfDestBufferLists[listNum],
+                                               &arrayOfCmpBufferLists[listNum],
+                                               &(setup->requestOps),
+                                               &arrayOfResults[listNum],
+                                               dcCbFn,
+                                               (void *)setup);
+            }
+            else
             {
                 status = cpaDcDecompressData2(setup->dcInstanceHandle,
                                               pSessionHandle,

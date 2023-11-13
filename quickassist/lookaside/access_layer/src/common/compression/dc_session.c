@@ -115,8 +115,8 @@
  * @retval CPA_STATUS_UNSUPPORTED    Unsupported algorithm/feature
  *
  *****************************************************************************/
-STATIC CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
-                                    CpaInstanceHandle dcInstance)
+CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
+                             CpaInstanceHandle dcInstance)
 {
     CpaDcInstanceCapabilities instanceCapabilities = {0};
 
@@ -662,8 +662,8 @@ STATIC void dcCompContentDescPopulate(sal_compression_service_t *pService,
  * @param[in]   nextSlice                Next slice
  *
  *****************************************************************************/
-STATIC void dcTransContentDescPopulate(icp_qat_fw_comp_req_t *pMsg,
-                                       icp_qat_fw_slice_t nextSlice)
+void dcTransContentDescPopulate(icp_qat_fw_comp_req_t *pMsg,
+                                icp_qat_fw_slice_t nextSlice)
 {
 
     icp_qat_fw_xlt_cd_hdr_t *pTransControlBlock = NULL;
@@ -747,9 +747,9 @@ STATIC CpaStatus dcGetContextSize(CpaInstanceHandle dcInstance,
  * @retval CPA_STATUS_UNSUPPORTED  Unsupported algorithm/feature
  *
  *****************************************************************************/
-STATIC CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
-                                        CpaDcSessionSetupData *pSessionData,
-                                        Cpa8U *pDcCmdId)
+CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
+                                 CpaDcSessionSetupData *pSessionData,
+                                 Cpa8U *pDcCmdId)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
 #ifdef ICP_PARAM_CHECK
@@ -820,9 +820,9 @@ STATIC CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
  * @retval CPA_STATUS_UNSUPPORTED  Unsupported algorithm/feature
  *
  *****************************************************************************/
-STATIC CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
-                                          CpaDcSessionSetupData *pSessionData,
-                                          Cpa8U *pDcCmdId)
+CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
+                                   CpaDcSessionSetupData *pSessionData,
+                                   Cpa8U *pDcCmdId)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
 #ifdef ICP_PARAM_CHECK
@@ -901,7 +901,6 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     CpaPhysicalAddr physAddress = 0;
     CpaPhysicalAddr physAddressAligned = 0;
     Cpa32U minContextSize = 0, historySize = 0;
-    Cpa32U rpCmdFlags = 0;
     icp_qat_fw_serv_specif_flags cmdFlags = 0;
     Cpa8U secureRam = ICP_QAT_FW_COMP_ENABLE_SECURE_RAM_USED_AS_INTMD_BUF;
     Cpa8U sessType = ICP_QAT_FW_COMP_STATELESS_SESSION;
@@ -1249,15 +1248,6 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
             break;
     }
 
-    rpCmdFlags =
-        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(ICP_QAT_FW_COMP_SOP,
-                                              ICP_QAT_FW_COMP_EOP,
-                                              ICP_QAT_FW_COMP_BFINAL,
-                                              ICP_QAT_FW_COMP_NO_CNV,
-                                              ICP_QAT_FW_COMP_NO_CNV_RECOVERY,
-                                              ICP_QAT_FW_COMP_NO_CNV_DFX,
-                                              ICP_QAT_FW_COMP_CRC_MODE_LEGACY);
-
     cmdFlags = ICP_QAT_FW_COMP_FLAGS_BUILD(sessType,
                                            autoSelectBest,
                                            enhancedAutoSelectBest,
@@ -1275,7 +1265,6 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
             return status;
         }
         pReqCache = &(pSessionDesc->reqCacheComp);
-        pReqCache->comp_pars.req_par_flags = rpCmdFlags;
         pReqCache->comp_pars.crc.legacy.initial_adler = 1;
         pReqCache->comp_pars.crc.legacy.initial_crc32 = 0;
 
@@ -1299,7 +1288,6 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
             return status;
         }
         pReqCache = &(pSessionDesc->reqCacheDecomp);
-        pReqCache->comp_pars.req_par_flags = rpCmdFlags;
         pReqCache->comp_pars.crc.legacy.initial_adler = 1;
         pReqCache->comp_pars.crc.legacy.initial_crc32 = 0;
 

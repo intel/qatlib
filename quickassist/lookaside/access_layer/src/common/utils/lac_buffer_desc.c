@@ -290,9 +290,10 @@ CpaStatus LacBuffDesc_FlatBufferVerify(
         if (!LAC_ADDRESS_ALIGNED(pUserFlatBuffer->pData,
                                  alignmentShiftExpected))
         {
-            LAC_INVALID_PARAM_LOG1("FlatBuffer not aligned as expected."
-                                   " Expected alignment %u Bytes.",
-                                   (uintptr_t)(1 << alignmentShiftExpected));
+            LAC_INVALID_PARAM_LOG1(
+                "FlatBuffer not aligned as expected."
+                " Expected alignment %lu Bytes.",
+                (unsigned long)(1 << alignmentShiftExpected));
             return CPA_STATUS_INVALID_PARAM;
         }
     }
@@ -323,9 +324,10 @@ CpaStatus LacBuffDesc_FlatBufferVerifyNull(
         if (!LAC_ADDRESS_ALIGNED(pUserFlatBuffer->pData,
                                  alignmentShiftExpected))
         {
-            LAC_INVALID_PARAM_LOG1("FlatBuffer not aligned as expected."
-                                   " Expected alignment %u Bytes.",
-                                   (uintptr_t)(1 << alignmentShiftExpected));
+            LAC_INVALID_PARAM_LOG1(
+                "FlatBuffer not aligned as expected."
+                " Expected alignment %lu Bytes.",
+                (unsigned long)(1 << alignmentShiftExpected));
             return CPA_STATUS_INVALID_PARAM;
         }
     }

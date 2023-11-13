@@ -849,12 +849,12 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
         LacSymQat_HashAlgLookupGet(
             instanceHandle, hashAlgorithm, &pHashAlgInfo);
 
-        /* check if the message is a multiple of the block size. A mask is
-         * used for this seeing that the block size is a power of 2 */
-        if ((pOpData->messageLenToHashInBytes &
-             (pHashAlgInfo->blockLength - 1)) != 0)
+        /* check if the message is a multiple of the block size. */
+        if (pOpData->messageLenToHashInBytes % pHashAlgInfo->blockLength != 0)
         {
-            LAC_INVALID_PARAM_LOG("messageLenToHashInBytes not block size");
+            LAC_INVALID_PARAM_LOG2("message(%d) not block-size(%d) multiple",
+                                   pOpData->messageLenToHashInBytes,
+                                   pHashAlgInfo->blockLength);
             return CPA_STATUS_INVALID_PARAM;
         }
     }

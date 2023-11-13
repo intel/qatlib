@@ -212,7 +212,14 @@ void sleepNano(Cpa32U nanoseconds)
 
 Cpa32U sampleCodeGetNumberOfCpus(void)
 {
-    return (Cpa32U)sysconf(_SC_NPROCESSORS_ONLN);
+    int numCpus = 0;
+    numCpus = sysconf(_SC_NPROCESSORS_ONLN);
+    if (numCpus < 0)
+    {
+        PRINT_ERR("Failed to get online processors count %d\n", errno);
+        numCpus = 0;
+    }
+    return numCpus;
 }
 
 #include <sys/time.h>
@@ -589,8 +596,8 @@ CpaStatus sampleCodeThreadTimedJoin(sample_code_thread_t *thread,
     if (status != 0)
     {
         PRINT_ERR("clock_gettime failed, Error Code: %d - %s\n",
-                  status,
-                  strerror(status));
+                  errno,
+                  strerror(errno));
         return CPA_STATUS_FAIL;
     }
 #else
@@ -894,6 +901,12 @@ CpaStatus getCorpusFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
     }
     fseek(corpusFilePtr, 0, SEEK_END);
     lSize = ftell(corpusFilePtr);
+    if (lSize < 0)
+    {
+        PRINT("Error getting file position\n");
+        fclose(corpusFilePtr);
+        return CPA_STATUS_FAIL;
+    }
     if (fseek(corpusFilePtr, 0, SEEK_SET) != 0)
     {
         PRINT("Could not move to beginning of file\n");
@@ -982,6 +995,12 @@ CpaStatus getCompressedFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
 
     fseek(corpusFilePtr, 0, SEEK_END);
     lSize = ftell(corpusFilePtr);
+    if (lSize < 0)
+    {
+        PRINT("Error getting file position\n");
+        fclose(corpusFilePtr);
+        return CPA_STATUS_FAIL;
+    }
     if (fseek(corpusFilePtr, 0, SEEK_SET) != 0)
     {
         PRINT("Could not move to beginning of file\n");

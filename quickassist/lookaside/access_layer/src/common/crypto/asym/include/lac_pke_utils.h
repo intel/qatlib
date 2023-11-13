@@ -254,11 +254,13 @@ typedef enum
             LAC_INVALID_PARAM_LOG(#pBuffer " has incorrect length");           \
             return CPA_STATUS_INVALID_PARAM;                                   \
         }                                                                      \
-        else if ((CHECK_GREATER_EQUALS == checkType) &&                        \
-                 ((pBuffer)->dataLenInBytes < lenInBytes))                     \
+        else if ((CHECK_GREATER_EQUALS == checkType) && (lenInBytes > 0))      \
         {                                                                      \
-            LAC_INVALID_PARAM_LOG(#pBuffer " has incorrect length");           \
-            return CPA_STATUS_INVALID_PARAM;                                   \
+            if ((pBuffer)->dataLenInBytes < lenInBytes)                        \
+            {                                                                  \
+                LAC_INVALID_PARAM_LOG(#pBuffer " has incorrect length");       \
+                return CPA_STATUS_INVALID_PARAM;                               \
+            }                                                                  \
         }                                                                      \
                                                                                \
     } while (0)

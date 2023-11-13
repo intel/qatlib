@@ -195,33 +195,6 @@ void dcPerformCallback(void *pCallbackTag, CpaStatus status)
             pPerfData->submissions);
         pPerfData->threadReturnStatus = CPA_STATUS_FAIL;
     }
-#ifdef LATENCY_CODE
-    if (latency_enable)
-    {
-        /* Did we setup the array pointer? */
-        QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(
-            pPerfData->response_times, pPerfData->threadReturnStatus);
-
-        /*Have we sampled too many buffer operations?*/
-        if (pPerfData->latencyCount >= MAX_LATENCY_COUNT)
-        {
-            PRINT_ERR("max latency count exceeded\n");
-            pPerfData->threadReturnStatus = CPA_STATUS_FAIL;
-        }
-        /* Is this the buffer we calculate latency on?
-         * And have we calculated too many for array? */
-        if (pPerfData->threadReturnStatus == CPA_STATUS_SUCCESS &&
-            pPerfData->responses == pPerfData->nextCount &&
-            pPerfData->latencyCount < MAX_LATENCY_COUNT)
-        {
-            int i = pPerfData->latencyCount;
-            /*Now get the end timestamp - before any print outs*/
-            pPerfData->response_times[i] = sampleCodeTimestamp();
-            pPerfData->nextCount += pPerfData->countIncrement;
-            pPerfData->latencyCount++;
-        }
-    }
-#endif
 
     if ((CPA_TRUE == gUseStatefulLite) ||
         (CPA_DC_STATEFUL == test_struct->setupData.sessState) ||
@@ -1369,27 +1342,6 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
         }
         if (!signOfLife)
         {
-#ifdef LATENCY_CODE
-            if (latency_enable)
-            {
-                /* Accumulate over all tests. Before using later we divide
-                 * by number of threads: data->numberOfThreads*/
-                stats.minLatency += data->performanceStats[i]->minLatency;
-                stats.aveLatency += data->performanceStats[i]->aveLatency;
-                stats.maxLatency += data->performanceStats[i]->maxLatency;
-            }
-#endif
-#ifdef LATENCY_CODE
-            if (latency_debug)
-            {
-                /* NOTE: These numbers are in CPU cycles here */
-                PRINT(", minLatency: %llu, aveLatency: %llu, maxLatency: %llu",
-                      data->performanceStats[i]->minLatency,
-                      data->performanceStats[i]->aveLatency,
-                      data->performanceStats[i]->maxLatency);
-                PRINT("\n");
-            }
-#endif
         }
         if (iaCycleCount_g)
         {
@@ -1438,28 +1390,6 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
             do_div(stats.offloadCycles, data->numberOfThreads);
             PRINT("Avg Offload Cycles        %llu\n", stats.offloadCycles);
         }
-#ifdef LATENCY_CODE
-        if (latency_enable)
-        {
-            perf_cycles_t statsLatency = 0;
-            perf_cycles_t cpuFreqKHz = sampleCodeGetCpuFreq();
-
-            /* Display how long it took on average to process a buffer in uSecs
-             * Also include min/max to show variance */
-            do_div(stats.minLatency, data->numberOfThreads);
-            statsLatency = 1000 * stats.minLatency;
-            do_div(statsLatency, cpuFreqKHz);
-            PRINT("Min. Latency (uSecs)      %llu\n", statsLatency);
-            do_div(stats.aveLatency, data->numberOfThreads);
-            statsLatency = 1000 * stats.aveLatency;
-            do_div(statsLatency, cpuFreqKHz);
-            PRINT("Ave. Latency (uSecs)      %llu\n", statsLatency);
-            do_div(stats.maxLatency, data->numberOfThreads);
-            statsLatency = 1000 * stats.maxLatency;
-            do_div(statsLatency, cpuFreqKHz);
-            PRINT("Max. Latency (uSecs)      %llu\n", statsLatency);
-        }
-#endif
     }
     return status;
 }
@@ -1878,25 +1808,6 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
         }
     }
 
-#ifdef SC_CHAINING_EXT_ENABLED
-    if ((CPA_DC_CHAIN_COMPRESS_THEN_AEAD == chainSetup->chainOperation) ||
-        (CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS == chainSetup->chainOperation))
-    {
-        PRINT("AppendCRC Enabled      ");
-        switch (chainSetup->appendCRC)
-        {
-            case (CPA_TRUE):
-                PRINT("YES\n");
-                break;
-            case (CPA_FALSE):
-                PRINT("NO\n");
-                break;
-            default:
-                PRINT("Not known\n");
-                break;
-        }
-    }
-#endif
 
     PRINT("Direction              ");
     switch (chainSetup->dcSessDir)
@@ -1993,7 +1904,9 @@ EXPORT_SYMBOL(dcSetBytesProducedAndConsumed);
 CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
                                               Cpa32U bytesProduced)
 {
+#ifdef KERNEL_SPACE
     Cpa32U ratio = 0, remainder = 0;
+#endif
 
     if (0 == bytesConsumed)
     {
@@ -2004,8 +1917,7 @@ CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
     PRINT("Compression Ratio      %.04f\n",
           ((float)bytesProduced / bytesConsumed));
     return CPA_STATUS_SUCCESS;
-#endif
-
+#else
     ratio = bytesProduced * SCALING_FACTOR_1000;
     do_div(ratio, bytesConsumed);
     remainder = ratio % BASE_10;
@@ -2013,6 +1925,7 @@ CpaStatus dcCalculateAndPrintCompressionRatio(Cpa32U bytesConsumed,
     do_div(ratio, bytesConsumed);
     PRINT("Compression Ratio      0.%d%d\n", ratio, remainder);
     return CPA_STATUS_SUCCESS;
+#endif
 }
 
 Cpa32U getDcThroughput(Cpa32U totalBytes,

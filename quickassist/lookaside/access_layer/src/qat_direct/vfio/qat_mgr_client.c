@@ -62,6 +62,14 @@
 static int qatmgr_sock = -1;
 static OsalMutex qatmgr_mutex;
 
+/*
+ * This array does not need to be global, it is only used locally to
+ * adf_vfio_build_sconfig().
+ * However, it is global to avoid excessive use of stack memory and potential
+ * stack-overflow in this function.
+ */
+static struct qatmgr_dev_data dev_list[MAX_DEVS_STATIC_CFG];
+
 static int qatmgr_socket_open(void)
 {
     struct sockaddr_un sockaddr;
@@ -109,7 +117,6 @@ static int adf_vfio_build_sconfig()
     char *env;
     long long devs = -1;
     unsigned n;
-    struct qatmgr_dev_data dev_list[MAX_DEVS_STATIC_CFG];
     int i, j;
     char *fin;
 

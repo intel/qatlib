@@ -26,6 +26,7 @@ quickassist/include/lac/cpa_cy_dsa.h
 quickassist/include/lac/cpa_cy_ec.h
 quickassist/include/lac/cpa_cy_ecdh.h
 quickassist/include/lac/cpa_cy_ecdsa.h
+quickassist/include/lac/cpa_cy_ecsm2.h
 quickassist/include/lac/cpa_cy_im.h
 quickassist/include/lac/cpa_cy_key.h
 quickassist/include/lac/cpa_cy_kpt.h
@@ -78,6 +79,7 @@ quickassist/lookaside/access_layer/src/common/compression/include/dc_err_sim.h
 quickassist/lookaside/access_layer/src/common/compression/include/dc_error_counter.h
 quickassist/lookaside/access_layer/src/common/compression/include/dc_header_footer.h
 quickassist/lookaside/access_layer/src/common/compression/include/dc_header_footer_lz4.h
+quickassist/lookaside/access_layer/src/common/compression/include/dc_ns_datapath.h
 quickassist/lookaside/access_layer/src/common/compression/include/dc_session.h
 quickassist/lookaside/access_layer/src/common/compression/include/dc_stats.h
 quickassist/lookaside/access_layer/src/common/compression/include/dc_xxhash32.h
@@ -95,6 +97,7 @@ quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ec_montedwds.c
 quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ec_nist_curves.c
 quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecdh.c
 quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecdsa.c
+quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_ecsm2.c
 quickassist/lookaside/access_layer/src/common/crypto/asym/ecc/lac_kpt_ecdsa.c
 quickassist/lookaside/access_layer/src/common/crypto/asym/include/lac_dsa.h
 quickassist/lookaside/access_layer/src/common/crypto/asym/include/lac_ec.h
@@ -239,6 +242,8 @@ quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.h
 quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c
 quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.h
 quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_cfg.c
+quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_pf.c
+quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_pf.h
 quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_ring.c
 quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_user_bundles.c
 quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_user_proxy.c
@@ -317,6 +322,7 @@ quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_s
 quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.c
 quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_dc_utils.h
 quickassist/lookaside/access_layer/src/sample_code/performance/compression/cpa_sample_code_zlib.c
+quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_chaining_main.c
 quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_cnv_utils.h
 quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_e2e.c
 quickassist/lookaside/access_layer/src/sample_code/performance/compression/qat_compression_e2e.h
@@ -348,6 +354,12 @@ quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample
 quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_kpt2_perf.c
 quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_kpt2_perf.h
 quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_rsa_perf.c
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_Keyex_P1_P2.c
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_enc_dec.c
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_kdf_hash.c
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_perf.c
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_perf.h
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_sign_verify.c
 quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c
 quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf_dp.c
 quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf_dp.h

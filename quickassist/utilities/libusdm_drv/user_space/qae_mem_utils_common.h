@@ -99,7 +99,8 @@
 
 /* Maximum supported alignment is 4M. */
 #define QAE_MAX_PHYS_ALIGN (0x400000ULL)
-/* Maximum supported allocation is 64M. */
+
+/* Maximum supported allocation is 64M for vfio. */
 #define QAE_MAX_ALLOC_SIZE (0x4000000ULL)
 
 typedef struct

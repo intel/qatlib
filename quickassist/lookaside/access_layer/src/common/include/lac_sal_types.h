@@ -203,6 +203,12 @@ typedef struct sal_service_s
 
     CpaBoolean isGen4;
     /* True if the device is qat_4xxx or qat_4xxxvf */
+
+    CpaBoolean ns_isCnvErrorInjection;
+    /** < Cnv Error Injection simulation is enabled.
+     * This var is needed in the instance as there is no session
+     * structure available to store it for the NS case. */
+
 } sal_service_t;
 #ifdef __CLANG_FORMAT__
 /* clang-format on */

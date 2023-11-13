@@ -110,9 +110,7 @@
 /* Extra buffer */
 #define EXTRA_BUFFER (2)
 #define MIN_DST_BUFFER_SIZE (8192)
-#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
 #define MIN_DST_BUFFER_SIZE_GEN4 (1024)
-#endif
 #define DEFAULT_INCLUDE_LZ4 (0)
 #define DEFAULT_COMPRESSION_LOOPS (100)
 #define DEFAULT_COMPRESSION_WINDOW_SIZE (7)
@@ -344,6 +342,8 @@ typedef struct compression_test_params_s
     qat_dc_e2e_t *e2e;
     CpaBoolean disableAdditionalCmpbufferSize;
 #if DC_API_VERSION_AT_LEAST(3, 2)
+    /*flag to set (NS)Sessionless compression/decompression Request*/
+    CpaBoolean setNsRequest;
 #endif
     CpaDcSessionHandle *pSessionHandle;
     /* the Destination Buffer size obtained using
@@ -617,32 +617,6 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
                            Cpa32U numLoops);
 #endif
 
-#ifdef SC_CHAINING_EXT_ENABLED
-CpaStatus setupDcChainExtTest(CpaDcChainOperations chainOperation,
-                              Cpa8U numSessions,
-                              CpaDcCompType algorithm,
-                              CpaDcSessionDir direction,
-                              CpaDcCompLvl compLevel,
-                              CpaDcHuffType huffmanType,
-                              CpaDcSessionState state,
-                              Cpa32U windowsSize,
-                              Cpa32U testBufferSize,
-                              corpus_type_t corpusType,
-                              sync_mode_t syncFlag,
-                              CpaCySymOp opType,
-                              CpaCySymCipherAlgorithm cipherAlg,
-                              Cpa32U cipherKeyLengthInBytes,
-                              CpaCySymCipherDirection cipherDir,
-                              CpaCySymAlgChainOrder algChainOrder,
-                              CpaCyPriority priority,
-                              CpaCySymHashAlgorithm hashAlg,
-                              CpaCySymHashMode hashMode,
-                              Cpa32U authKeyLengthInBytes,
-                              Cpa32U numLoops,
-                              CpaBoolean appendCrc,
-                              CpaBoolean keyDerive,
-                              CpaBoolean dropData);
-#endif
 
 /**
  * *****************************************************************************
@@ -865,27 +839,6 @@ void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
                           Cpa32U numSessions);
 #endif
 
-#ifdef SC_CHAINING_EXT_ENABLED
-/**
- * *****************************************************************************
- *  @ingroup compressionThreads
- *  free callback  Structures
- *
- *  @description
- *      this API frees all the chain operation structures
- *
- *  @threadSafe
- *      No
- *
- *  @param[in] pOpData   array of CpaDcChainOpData structure.
- *  @param[in] numLists number of buffer list.
- *  @param[in] numSessions number of session in chaining operation.
- *
- ******************************************************************************/
-void dcExtChainOpDataMemFree(CpaDcChainSubOpData2 *pOpdata,
-                             Cpa32U numLists,
-                             Cpa32U numSessions);
-#endif
 
 /**
  * *****************************************************************************

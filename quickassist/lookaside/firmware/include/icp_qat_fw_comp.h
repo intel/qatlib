@@ -505,11 +505,11 @@ typedef enum
     ICP_QAT_FW_COMP_20_CMD_LZ4S_DECOMPRESS = 6,
     /*!< LZ4S Decompress Request */
 
-    ICP_QAT_FW_COMP_20_CMD_XP10_COMPRESS = 7,
-    /*!< XP10 Compress Request -- Placeholder */
+    ICP_QAT_FW_COMP_20_CMD_RESERVED_1 = 7,
+    /*!< Placeholder */
 
-    ICP_QAT_FW_COMP_20_CMD_XP10_DECOMPRESS = 8,
-    /*!< XP10 Decompress Request -- Placeholder */
+    ICP_QAT_FW_COMP_20_CMD_RESERVED_2 = 8,
+    /*!<  Placeholder */
 
     ICP_QAT_FW_COMP_20_CMD_DELIMITER
     /**< Delimiter type */
