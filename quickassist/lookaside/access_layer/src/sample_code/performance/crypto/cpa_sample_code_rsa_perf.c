@@ -131,10 +131,6 @@ Cpa32U asymPollingInterval_g = 0;
 EXPORT_SYMBOL(asymPollingInterval_g);
 #endif
 
-#ifdef LATENCY_CODE
-extern int
-    latency_single_buffer_mode; /* set to 1 for single buffer processing */
-#endif
 
 /*we use public exponent e = 65537. The NIST Special Publication on Computer
  * Security (SP 800-78 Rev 1 of August 2007) does not allow public exponents e
@@ -282,13 +278,6 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     CpaCyRsaKeyGenCbFunc rsaKeyGenCb = NULL;
 #ifdef POLL_INLINE
     CpaInstanceInfo2 *instanceInfo2 = NULL;
-    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
-    if (instanceInfo2 == NULL)
-    {
-        PRINT_ERR("Failed to allocate memory for instanceInfo2");
-        return CPA_STATUS_FAIL;
-    }
-    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
 #endif
 
 
@@ -296,20 +285,6 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     {
         rsaKeyGenCb = NULL;
     }
-#ifdef POLL_INLINE
-    if (poll_inline_g)
-    {
-        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
-            qaeMemFree((void **)&instanceInfo2);
-            return CPA_STATUS_FAIL;
-        }
-        rsaKeyGenCb = rsaKeyGenCallback;
-    }
-#endif
-
     /*allocate the public key modulus*/
     ALLOC_FLAT_BUFF_DATA(instanceHandle,
                          &(pPublicKey->modulusN),
@@ -448,6 +423,28 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     pPerfData->numOperations = SINGLE_OPERATION;
 
     sampleCodeSemaphoreInit(&pPerfData->comp, 0);
+
+#ifdef POLL_INLINE
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+    if (poll_inline_g)
+    {
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, instanceInfo2);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+            qaeMemFree((void **)&instanceInfo2);
+            return CPA_STATUS_FAIL;
+        }
+        rsaKeyGenCb = rsaKeyGenCallback;
+    }
+#endif
+
         for (retry = 0; retry < NUM_RSA_KEYGEN_RETRIES; retry++)
         {
             status = cpaCyRsaGenKey(instanceHandle,
@@ -1234,14 +1231,6 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
     Cpa64U nextPoll = asymPollingInterval_g;
     CpaBoolean isPolled = CPA_FALSE;
 #endif
-#ifdef LATENCY_CODE
-    Cpa64U latency_submissions = 0;
-    Cpa32U i = 0;
-    perf_cycles_t *request_submit_start = NULL;
-    perf_cycles_t *request_respnse_time = NULL;
-    const Cpa32U request_mem_sz = sizeof(perf_cycles_t) * MAX_LATENCY_COUNT;
-
-#endif
 
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
@@ -1279,7 +1268,7 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
             return CPA_STATUS_FAIL;
         }
         pKptUnwrapCtx =
-            qaeMemAllocNUMA(sizeof(CpaCyKptUnwrapContext) * setup->numBuffers,
+            qaeMemAllocNUMA(sizeof(CpaCyKptUnwrapContext *) * setup->numBuffers,
                             node,
                             BYTE_ALIGNMENT_64);
         if (NULL == pKptUnwrapCtx)
@@ -1298,36 +1287,6 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 
     DECLARE_IA_CYCLE_COUNT_VARIABLES();
 
-#ifdef LATENCY_CODE
-    if (latency_enable)
-    {
-        if (setup->performanceStats->numOperations > LATENCY_SUBMISSION_LIMIT)
-        {
-            PRINT_ERR("Error max submissions for latency  must be <= %d\n",
-                      LATENCY_SUBMISSION_LIMIT);
-            return CPA_STATUS_FAIL;
-        }
-
-        request_submit_start = qaeMemAlloc(request_mem_sz);
-        request_respnse_time = qaeMemAlloc(request_mem_sz);
-        if (request_submit_start == NULL || request_respnse_time == NULL)
-        {
-            PRINT_ERR("Failed to allocate memory for submission and"
-                      " response times\n");
-            return CPA_STATUS_FAIL;
-        }
-        memset(request_submit_start, 0, request_mem_sz);
-        memset(request_respnse_time, 0, request_mem_sz);
-        setup->performanceStats->nextCount =
-            (setup->numBuffers * setup->numLoops) / 100;
-        setup->performanceStats->countIncrement =
-            (setup->numBuffers * setup->numLoops) / 100;
-
-        setup->performanceStats->response_times = request_respnse_time;
-        /* for debug purposes*/
-        setup->performanceStats->start_times = request_submit_start;
-    }
-#endif
     instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
     if (instanceInfo == NULL)
     {
@@ -1484,18 +1443,6 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         {
             do
             {
-#ifdef LATENCY_CODE
-                if (latency_enable)
-                {
-                    if (latency_submissions + 1 ==
-                        setup->performanceStats->nextCount)
-                    {
-                        request_submit_start[setup->performanceStats
-                                                 ->latencyCount] =
-                            sampleCodeTimestamp();
-                    }
-                }
-#endif
                 coo_req_start(pPerfData);
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
@@ -1571,30 +1518,6 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
                 break;
             }
 
-#ifdef LATENCY_CODE
-            if (latency_enable)
-            {
-                /* Another buffer has been submitted to the accelerator */
-                latency_submissions++;
-
-                /* Have we been requested to process one buffer at a time. This
-                 * will result in no retries and so the best latency times.
-                 */
-                if (latency_single_buffer_mode != 0)
-                {
-                    /* Must now wait until this buffer is processed by the CPM
-                     */
-                    while (pPerfData->responses != latency_submissions)
-                    {
-                        /* Keep polling until encryption of the buffer
-                         * completes
-                         * and rsaPerformCallback() increments
-                         * pPerfData->responses */
-                        sampleCodeAsymPollInstance(setup->cyInstanceHandle, 0);
-                    }
-                }
-            }
-#endif
 
 #ifdef POLL_INLINE
             if (poll_inline_g)
@@ -1642,60 +1565,6 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
             PRINT_ERR("Thread %u timeout. ", setup->threadID);
         }
     }
-#ifdef LATENCY_CODE
-    if (latency_enable)
-    {
-        if (latency_debug)
-        {
-            PRINT("%s: Calculating min, max and ave latencies...\n",
-                  __FUNCTION__);
-            sampleCodeSleep(1); /* Let all our debug be printed out */
-        }
-        /* Will be less than this */
-        setup->performanceStats->minLatency = MAX_LATENCY_LIMIT;
-        /* Will be more than this */
-        setup->performanceStats->maxLatency = 0;
-
-        /* Let's accumulate in 'aveLatency' all the individual 'latency'
-         * times. Typically, there should be MAX_LATENCY_COUNT of these.
-         * We also calculate min/max so we can get a sense of the variance.
-         */
-
-        for (i = 0; i < setup->performanceStats->latencyCount; i++)
-        {
-            perf_cycles_t latency = setup->performanceStats->response_times[i] -
-                                    request_submit_start[i];
-            setup->performanceStats->aveLatency += latency;
-
-            if (latency < setup->performanceStats->minLatency)
-                setup->performanceStats->minLatency = latency;
-            if (latency > setup->performanceStats->maxLatency)
-                setup->performanceStats->maxLatency = latency;
-
-            if (latency_debug)
-                PRINT("%d, end[i]:%llu, start[i]:%llu, min:%llu, ave:%llu, "
-                      "max:%llu\n",
-                      i,
-                      setup->performanceStats->response_times[i],
-                      request_submit_start[i],
-                      setup->performanceStats->minLatency,
-                      setup->performanceStats->aveLatency,
-                      setup->performanceStats->maxLatency);
-        }
-        if (setup->performanceStats->latencyCount > 0)
-        {
-            /* Then scale down this accumulated value to get the average.
-             * This will be reported by dcPrintStats() at the end of the test */
-            do_div(setup->performanceStats->aveLatency,
-                   setup->performanceStats->latencyCount);
-        }
-
-        /*we are finished with the response time so set to null before exit*/
-        setup->performanceStats->response_times = NULL;
-        qaeMemFree((void **)&request_respnse_time);
-        qaeMemFree((void **)&request_submit_start);
-    }
-#endif
     if (CPA_CC_BUSY_LOOPS == iaCycleCount_g)
     {
         IA_CYCLE_COUNT_CALCULATION();

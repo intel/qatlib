@@ -104,6 +104,7 @@
 ****************************************************************************
 */
 
+#ifdef QAT_LEGACY_ALGORITHMS
 static const Cpa32U lacDsaGenPSizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_DSA_1024_160_PAIR, PKE_DSA_GEN_P_1024_160},
     {LAC_DSA_2048_224_PAIR, PKE_DSA_GEN_P_2048_224},
@@ -156,6 +157,7 @@ static const Cpa32U lacDsaVerifySizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
     {LAC_DSA_3072_256_PAIR, PKE_DSA_VERIFY_3072_256}};
 /**<
  * Maps between operation sizes and PKE VERIFY function ids */
+#endif /* QAT_LEGACY_ALGORITHMS */
 
 /**< Number of DSA stats */
 #define LAC_DSA_NUM_STATS (sizeof(CpaCyDsaStats64) / sizeof(Cpa64U))
@@ -236,6 +238,7 @@ static const Cpa32U lacDsaVerifySizeIdMap[][LAC_PKE_NUM_COLUMNS] = {
  *       a value from the lac_dsa_ln_pair_t enum
  ***************************************************************************/
 
+#ifdef QAT_LEGACY_ALGORITHMS
 STATIC
 lac_dsa_ln_pairs_t LacDsa_GetLNPair(Cpa32U opSizeLBits, Cpa32U opSizeNBits)
 {
@@ -480,7 +483,7 @@ STATIC CpaStatus LacDsaPParamGenSyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
-
+#endif /* QAT_LEGACY_ALGORITHMS */
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -493,6 +496,7 @@ CpaStatus cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle_in,
                             CpaBoolean *pProtocolStatus,
                             CpaFlatBuffer *pP)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -509,11 +513,6 @@ CpaStatus cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle_in,
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
-
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
-
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
         instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -679,8 +678,12 @@ CpaStatus cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -823,6 +826,7 @@ STATIC CpaStatus LacDsaGParamGenSyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
+#endif /* QAT_LEGACY_ALGORITHMS */
 
 /**
  ***************************************************************************
@@ -836,6 +840,7 @@ CpaStatus cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle_in,
                             CpaBoolean *pProtocolStatus,
                             CpaFlatBuffer *pG)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -855,11 +860,6 @@ CpaStatus cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle_in,
 #ifdef ICP_PARAM_CHECK
     lac_dsa_ln_pairs_t lnPair = LAC_DSA_INVALID_PAIR;
 #endif
-
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
-
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
         instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -1031,8 +1031,12 @@ CpaStatus cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -1175,7 +1179,7 @@ STATIC CpaStatus LacDsaYParamGenSyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
-
+#endif /* QAT_LEGACY_ALGORITHMS */
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -1188,6 +1192,7 @@ CpaStatus cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle_in,
                             CpaBoolean *pProtocolStatus,
                             CpaFlatBuffer *pY)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -1204,10 +1209,6 @@ CpaStatus cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle_in,
     Cpa32U bitLenL = 0, opSizeLInBytes = 0;
     Cpa32U bitLenX = 0;
     lac_dsa_l_values_t opIndex = LAC_DSA_L_INVALID;
-
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -1393,8 +1394,12 @@ CpaStatus cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -1539,6 +1544,7 @@ STATIC CpaStatus LacDsaRSignSyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
+#endif /* QAT_LEGACY_ALGORITHMS */
 
 /**
  ***************************************************************************
@@ -1552,6 +1558,7 @@ CpaStatus cpaCyDsaSignR(const CpaInstanceHandle instanceHandle_in,
                         CpaBoolean *pProtocolStatus,
                         CpaFlatBuffer *pR)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -1568,10 +1575,6 @@ CpaStatus cpaCyDsaSignR(const CpaInstanceHandle instanceHandle_in,
     Cpa32U bitLenL = 0, nonceN = 0;
     Cpa32U opSizeNInBytes = 0;
     lac_dsa_ln_pairs_t opIndex = LAC_DSA_INVALID_PAIR;
-
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -1768,8 +1771,12 @@ CpaStatus cpaCyDsaSignR(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -1913,7 +1920,7 @@ STATIC CpaStatus LacDsaSignSSyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
-
+#endif /* QAT_LEGACY_ALGORITHMS */
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -1926,6 +1933,7 @@ CpaStatus cpaCyDsaSignS(const CpaInstanceHandle instanceHandle_in,
                         CpaBoolean *pProtocolStatus,
                         CpaFlatBuffer *pS)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -1940,14 +1948,12 @@ CpaStatus cpaCyDsaSignS(const CpaInstanceHandle instanceHandle_in,
 #endif
     Cpa32U functionalityId = LAC_PKE_INVALID_FUNC_ID;
     Cpa32U nonceN = 0, opSizeInByte = 0;
+
 #ifdef ICP_PARAM_CHECK
     Cpa32U byteLen = 0;
 #endif
-    lac_dsa_n_values_t opIndex = LAC_DSA_N_INVALID;
 
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
+    lac_dsa_n_values_t opIndex = LAC_DSA_N_INVALID;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -2160,8 +2166,12 @@ CpaStatus cpaCyDsaSignS(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -2317,7 +2327,7 @@ STATIC CpaStatus LacDsaRSSignSyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
-
+#endif /* QAT_LEGACY_ALGORITHMS */
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -2331,6 +2341,7 @@ CpaStatus cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle_in,
                          CpaFlatBuffer *pR,
                          CpaFlatBuffer *pS)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -2350,10 +2361,6 @@ CpaStatus cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle_in,
     Cpa32U byteLen = 0;
 #endif
     lac_dsa_ln_pairs_t opIndex = LAC_DSA_INVALID_PAIR;
-
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -2604,8 +2611,12 @@ CpaStatus cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
+#ifdef QAT_LEGACY_ALGORITHMS
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -2751,7 +2762,7 @@ STATIC CpaStatus LacDsaVerifySyn(const CpaInstanceHandle instanceHandle,
     LacSync_DestroySyncCookie(&pSyncCallbackData);
     return status;
 }
-
+#endif /* QAT_LEGACY_ALGORITHMS */
 /**
  ***************************************************************************
  * @ingroup Lac_Dsa
@@ -2763,6 +2774,7 @@ CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle_in,
                          const CpaCyDsaVerifyOpData *pOpData,
                          CpaBoolean *pVerifyStatus)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     CpaStatus status = CPA_STATUS_SUCCESS;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -2780,10 +2792,6 @@ CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle_in,
     Cpa32U byteLen = 0;
 #endif
     lac_dsa_ln_pairs_t opIndex = LAC_DSA_INVALID_PAIR;
-
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
     {
@@ -3009,6 +3017,9 @@ CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle_in,
     }
 #endif
     return status;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
 /**
@@ -3019,10 +3030,8 @@ CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle_in,
 CpaStatus cpaCyDsaQueryStats(CpaInstanceHandle instanceHandle,
                              CpaCyDsaStats *pDsaStats)
 {
+#ifdef QAT_LEGACY_ALGORITHMS
     sal_crypto_service_t *pCryptoService = NULL;
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
 #ifdef ICP_TRACE
     LAC_LOG2("Called with params (0x%lx, 0x%lx)\n",
              (LAC_ARCH_UINT)instanceHandle,
@@ -3053,6 +3062,9 @@ CpaStatus cpaCyDsaQueryStats(CpaInstanceHandle instanceHandle,
     LAC_DSA_STATS32_GET(*pDsaStats, pCryptoService);
 
     return CPA_STATUS_SUCCESS;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
 /**
@@ -3063,16 +3075,14 @@ CpaStatus cpaCyDsaQueryStats(CpaInstanceHandle instanceHandle,
 CpaStatus cpaCyDsaQueryStats64(CpaInstanceHandle instanceHandle,
                                CpaCyDsaStats64 *pDsaStats)
 {
-    sal_crypto_service_t *pCryptoService = NULL;
 #ifdef ICP_TRACE
     LAC_LOG2("Called with params (0x%lx, 0x%lx)\n",
              (LAC_ARCH_UINT)instanceHandle,
              (LAC_ARCH_UINT)pDsaStats);
 #endif
 
-#ifndef QAT_LEGACY_ALGORITHMS
-    return CPA_STATUS_UNSUPPORTED;
-#endif
+#ifdef QAT_LEGACY_ALGORITHMS
+    sal_crypto_service_t *pCryptoService = NULL;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle)
     {
@@ -3099,6 +3109,9 @@ CpaStatus cpaCyDsaQueryStats64(CpaInstanceHandle instanceHandle,
     LAC_DSA_STATS64_GET(*pDsaStats, pCryptoService);
 
     return CPA_STATUS_SUCCESS;
+#else /* !QAT_LEGACY_ALGORITHMS */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
 /**
@@ -3277,7 +3290,7 @@ void LacDsa_StatsShow(CpaInstanceHandle instanceHandle)
             dsaStats.numDsaVerifyCompleted,
             dsaStats.numDsaVerifyCompletedErrors,
             dsaStats.numDsaVerifyFailures);
-#else
+#else /* !QAT_LEGACY_ALGORITHMS */
     osalLog(OSAL_LOG_LVL_USER, OSAL_LOG_DEV_STDOUT, "  DSA not supported \n");
 #endif
 }

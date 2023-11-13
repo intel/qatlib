@@ -90,6 +90,7 @@
 *******************************************************************************
 */
 #include "dc_datapath.h"
+#include "dc_ns_datapath.h"
 #include "sal_statistics.h"
 #include "lac_common.h"
 #include "lac_mem.h"
@@ -479,6 +480,14 @@ void dcCompression_ProcessCallback(void *pRespMsg)
 
     /* Extract fields from the request data structure */
     pCookie = (dc_compression_cookie_t *)pReqData;
+
+    if (DCNS == (LAC_ARCH_UINT)pCookie->pSessionHandle ||
+        DCDPNS == (LAC_ARCH_UINT)pCookie->pSessionHandle)
+    {
+        dcNsCompression_ProcessCallback(pRespMsg);
+        return;
+    }
+
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pCookie->pSessionHandle);
     pService = (sal_compression_service_t *)(pCookie->dcInstance);
 
@@ -906,7 +915,7 @@ void dcCompression_ProcessCallback(void *pRespMsg)
  *
  *****************************************************************************/
 #ifndef KERNEL_SPACE
-STATIC CpaStatus dcCheckOpData(sal_compression_service_t *pService,
+CpaStatus dcCheckOpData(sal_compression_service_t *pService,
                                CpaDcOpData *pOpData)
 {
     CpaDcSkipMode skipMode = 0;

@@ -198,6 +198,13 @@ STATIC Cpa8U sha3_512InitialState[LAC_HASH_SHA3_512_STATE_SIZE] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
+/* SM3 - 32 bytes */
+STATIC Cpa8U sm3InitialState[LAC_HASH_SM3_STATE_SIZE] = {
+    0x73, 0x80, 0x16, 0x6f, 0x49, 0x14, 0xb2, 0xb9, 0x17, 0x24, 0x42,
+    0xd7, 0xda, 0x8a, 0x06, 0x00, 0xa9, 0x6f, 0x30, 0xbc, 0x16, 0x31,
+    0x38, 0xaa, 0xe3, 0x8d, 0xee, 0x4d, 0xb0, 0xfb, 0x0e, 0x4e
+};
+
 /* Constants used in generating K1, K2, K3 from a Key for AES_XCBC_MAC
  * State defined in RFC 3566 */
 STATIC Cpa8U aesXcbcKeySeed[LAC_SYM_QAT_XCBC_STATE_SIZE] = {
@@ -279,6 +286,11 @@ STATIC lac_sym_qat_hash_alg_info_t sha3_512Info = {
     LAC_HASH_SHA3_512_BLOCK_SIZE,
     sha3_512InitialState,
     LAC_HASH_SHA3_512_STATE_SIZE};
+
+STATIC lac_sym_qat_hash_alg_info_t sm3Info = { LAC_HASH_SM3_DIGEST_SIZE,
+                                               LAC_HASH_SM3_BLOCK_SIZE,
+                                               sm3InitialState,
+                                               LAC_HASH_SM3_STATE_SIZE };
 
 STATIC lac_sym_qat_hash_alg_info_t polyInfo = { LAC_HASH_POLY_DIGEST_SIZE,
                                                 LAC_HASH_POLY_BLOCK_SIZE,
@@ -395,6 +407,11 @@ STATIC lac_sym_qat_hash_qat_info_t sha3_512Config = {
     ICP_QAT_HW_SHA3_512_STATE1_SZ,
     ICP_QAT_HW_SHA3_512_STATE2_SZ};
 
+STATIC lac_sym_qat_hash_qat_info_t sm3Config = { ICP_QAT_HW_AUTH_ALGO_SM3,
+                                                 LAC_HASH_SM3_BLOCK_SIZE,
+                                                 ICP_QAT_HW_SM3_STATE1_SZ,
+                                                 ICP_QAT_HW_SM3_STATE2_SZ };
+
 STATIC lac_sym_qat_hash_qat_info_t polyConfig = {ICP_QAT_HW_AUTH_ALGO_POLY,
                                                  LAC_HASH_POLY_BLOCK_SIZE,
                                                  0,
@@ -452,26 +469,28 @@ STATIC lac_sym_qat_hash_qat_info_t zucEia3Config = {
 /* Array of mappings between algorithm and info structure
  * This array is used to populate the lookup table */
 STATIC lac_sym_qat_hash_def_map_t lacHashDefsMapping[] = {
-    {CPA_CY_SYM_HASH_MD5, {&md5Info, &md5Config}},
-    {CPA_CY_SYM_HASH_SHA1, {&sha1Info, &sha1Config}},
-    {CPA_CY_SYM_HASH_SHA224, {&sha224Info, &sha224Config}},
-    {CPA_CY_SYM_HASH_SHA256, {&sha256Info, &sha256Config}},
-    {CPA_CY_SYM_HASH_SHA384, {&sha384Info, &sha384Config}},
-    {CPA_CY_SYM_HASH_SHA512, {&sha512Info, &sha512Config}},
-    {CPA_CY_SYM_HASH_SHA3_224, {&sha3_224Info, &sha3_224Config}},
-    {CPA_CY_SYM_HASH_SHA3_256, {&sha3_256Info, &sha3_256Config}},
-    {CPA_CY_SYM_HASH_SHA3_384, {&sha3_384Info, &sha3_384Config}},
-    {CPA_CY_SYM_HASH_SHA3_512, {&sha3_512Info, &sha3_512Config}},
-    {CPA_CY_SYM_HASH_POLY, {&polyInfo, &polyConfig}},
-    {CPA_CY_SYM_HASH_AES_XCBC, {&xcbcMacInfo, &xcbcMacConfig}},
-    {CPA_CY_SYM_HASH_AES_CMAC, {&aesCmacInfo, &aesCmacConfig}},
-    {CPA_CY_SYM_HASH_AES_CCM, {&aesCcmInfo, &aesCcmConfig}},
-    {CPA_CY_SYM_HASH_AES_GCM, {&aesGcmInfo, &aesGcmConfig}},
-    {CPA_CY_SYM_HASH_KASUMI_F9, {&kasumiF9Info, &kasumiF9Config}},
-    {CPA_CY_SYM_HASH_SNOW3G_UIA2, {&snow3gUia2Info, &snow3gUia2Config}},
-    {CPA_CY_SYM_HASH_AES_GMAC, {&aesGcmInfo, &aesGcmConfig}},
-    {CPA_CY_SYM_HASH_ZUC_EIA3, {&zucEia3Info, &zucEia3Config}},
-    {CPA_CY_SYM_HASH_AES_CBC_MAC, {&aesCbcMacInfo, &aesCbcMacConfig}}};
+    { CPA_CY_SYM_HASH_MD5, { &md5Info, &md5Config } },
+    { CPA_CY_SYM_HASH_SHA1, { &sha1Info, &sha1Config } },
+    { CPA_CY_SYM_HASH_SHA224, { &sha224Info, &sha224Config } },
+    { CPA_CY_SYM_HASH_SHA256, { &sha256Info, &sha256Config } },
+    { CPA_CY_SYM_HASH_SHA384, { &sha384Info, &sha384Config } },
+    { CPA_CY_SYM_HASH_SHA512, { &sha512Info, &sha512Config } },
+    { CPA_CY_SYM_HASH_SHA3_224, { &sha3_224Info, &sha3_224Config } },
+    { CPA_CY_SYM_HASH_SHA3_256, { &sha3_256Info, &sha3_256Config } },
+    { CPA_CY_SYM_HASH_SHA3_384, { &sha3_384Info, &sha3_384Config } },
+    { CPA_CY_SYM_HASH_SHA3_512, { &sha3_512Info, &sha3_512Config } },
+    { CPA_CY_SYM_HASH_POLY, { &polyInfo, &polyConfig } },
+    { CPA_CY_SYM_HASH_SM3, { &sm3Info, &sm3Config } },
+    { CPA_CY_SYM_HASH_AES_XCBC, { &xcbcMacInfo, &xcbcMacConfig } },
+    { CPA_CY_SYM_HASH_AES_CMAC, { &aesCmacInfo, &aesCmacConfig } },
+    { CPA_CY_SYM_HASH_AES_CCM, { &aesCcmInfo, &aesCcmConfig } },
+    { CPA_CY_SYM_HASH_AES_GCM, { &aesGcmInfo, &aesGcmConfig } },
+    { CPA_CY_SYM_HASH_KASUMI_F9, { &kasumiF9Info, &kasumiF9Config } },
+    { CPA_CY_SYM_HASH_SNOW3G_UIA2, { &snow3gUia2Info, &snow3gUia2Config } },
+    { CPA_CY_SYM_HASH_AES_GMAC, { &aesGcmInfo, &aesGcmConfig } },
+    { CPA_CY_SYM_HASH_ZUC_EIA3, { &zucEia3Info, &zucEia3Config } },
+    { CPA_CY_SYM_HASH_AES_CBC_MAC, { &aesCbcMacInfo, &aesCbcMacConfig } }
+};
 
 /*
  * LacSymQat_HashLookupInit

@@ -113,6 +113,7 @@
 #include "lac_sal_ctrl.h"
 #include "icp_sal_versions.h"
 #include "sal_misc_error_stats.h"
+#include "icp_qat_fw_comp.h"
 #define SAL_USER_SPACE_START_TIMEOUT_MS 120000
 #define MAX_SUBSYSTEM_RETRY 64
 
@@ -609,6 +610,7 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         pInst->debug_parent_dir = debug_dir;
         pInst->capabilitiesMask = device->accelCapabilitiesMask;
         pInst->isGen4 = IS_QAT_4XXX(device->deviceType);
+        pInst->ns_isCnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
         status = SalList_add(services, &tail_list, pInst);
         if (CPA_STATUS_SUCCESS != status)
         {

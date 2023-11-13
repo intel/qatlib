@@ -137,7 +137,7 @@ void qaeMemFree(void **ptr);
  *      memory mapped from corresponding virtual address space will be returned.
  *
  * @param[in] size - A non-zero value representing the amount of memory in
- *                   bytes to be allocated.It cannot exceed 64MB
+ *                   bytes to be allocated. It cannot exceed QAE_MAX_ALLOC_SIZE.
  * @param[in] node - NUMA node
  * @param[in] phys_alignment_byte - A non-zero value representing memory
  *                                  boundary alignment in bytes. It must

@@ -157,6 +157,12 @@
 /* NULL algorithm block size */
 #define LAC_CIPHER_NULL_BLOCK_LEN_BYTES 8
 
+/* Macro to check if the Algorithm is SM4 */
+#define LAC_CIPHER_IS_SM4(algo)                                                \
+    ((algo == CPA_CY_SYM_CIPHER_SM4_ECB) ||                                    \
+     (algo == CPA_CY_SYM_CIPHER_SM4_CBC) ||                                    \
+     (algo == CPA_CY_SYM_CIPHER_SM4_CTR))
+
 /* Macro to check if the Algorithm is CHACHA */
 #define LAC_CIPHER_IS_CHACHA(algo) (algo == CPA_CY_SYM_CIPHER_CHACHA)
 /* Macro to check if the Algorithm is AES */
@@ -197,7 +203,8 @@
 #define LAC_CIPHER_IS_CTR_MODE(algo)                                           \
     ((algo == CPA_CY_SYM_CIPHER_AES_CTR) ||                                    \
      (algo == CPA_CY_SYM_CIPHER_3DES_CTR) || (LAC_CIPHER_IS_CCM(algo)) ||      \
-     (LAC_CIPHER_IS_GCM(algo)) || (LAC_CIPHER_IS_CHACHA(algo)))
+     (LAC_CIPHER_IS_GCM(algo)) || (LAC_CIPHER_IS_CHACHA(algo)) ||              \
+     (algo == CPA_CY_SYM_CIPHER_SM4_CTR))
 
 /* Macro to check if the Algorithm is ECB */
 #define LAC_CIPHER_IS_ECB_MODE(algo)                                           \
@@ -205,7 +212,8 @@
      (algo == CPA_CY_SYM_CIPHER_DES_ECB) ||                                    \
      (algo == CPA_CY_SYM_CIPHER_3DES_ECB) ||                                   \
      (algo == CPA_CY_SYM_CIPHER_NULL) ||                                       \
-     (algo == CPA_CY_SYM_CIPHER_SNOW3G_UEA2))
+     (algo == CPA_CY_SYM_CIPHER_SNOW3G_UEA2) ||                                \
+     (algo == CPA_CY_SYM_CIPHER_SM4_ECB))
 
 /* Macro to check if the Algorithm Mode is F8 */
 #define LAC_CIPHER_IS_F8_MODE(algo)                                            \
@@ -216,7 +224,8 @@
 #define LAC_CIPHER_IS_CBC_MODE(algo)                                           \
     ((algo == CPA_CY_SYM_CIPHER_AES_CBC) ||                                    \
      (algo == CPA_CY_SYM_CIPHER_DES_CBC) ||                                    \
-     (algo == CPA_CY_SYM_CIPHER_3DES_CBC))
+     (algo == CPA_CY_SYM_CIPHER_3DES_CBC) ||                                   \
+     (algo == CPA_CY_SYM_CIPHER_SM4_CBC))
 
 /* Macro to check if the Algorithm is CCM */
 #define LAC_CIPHER_IS_CCM(algo) (algo == CPA_CY_SYM_CIPHER_AES_CCM)

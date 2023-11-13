@@ -2695,6 +2695,15 @@ void SalCtrl_CyQueryCapabilities(sal_service_t *pGenericService,
         {
             pCapInfo->ecEdMontSupported = CPA_TRUE;
         }
+
+        if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SM2)
+        {
+            pCapInfo->ecSm2Supported = CPA_TRUE;
+        }
+        else
+        {
+            pCapInfo->ecSm2Supported = CPA_FALSE;
+        }
 #endif
     }
     pCapInfo->drbgSupported = CPA_FALSE;
@@ -2792,6 +2801,20 @@ CpaStatus SalCtrl_CySymQueryCapabilities(sal_service_t *pGenericService,
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_256);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_384);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SHA3_512);
+    }
+
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SM3)
+    {
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SM3);
+    }
+
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_SM4)
+    {
+#ifdef QAT_LEGACY_ALGORITHMS
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_ECB);
+#endif
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_CBC);
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_CTR);
     }
 
     return CPA_STATUS_SUCCESS;
@@ -3655,7 +3678,6 @@ CpaInstanceHandle Lac_GetFirstHandle(sal_service_type_t svc_type)
         default:
             LAC_LOG_ERROR("Invalid service type\n");
             return NULL;
-            break;
     }
     /* Only need 1 dev with crypto enabled - so check all devices*/
     status = icp_adf_getAllAccelDevByEachCapability(
@@ -3691,6 +3713,7 @@ CpaInstanceHandle Lac_GetFirstHandle(sal_service_type_t svc_type)
             cyInst = Lac_GetFirstCyHandle(adfInsts, num_cy_dev);
             break;
         default:
+            LAC_LOG_ERROR("Invalid service type!\n");
             break;
     }
     if (NULL == cyInst)

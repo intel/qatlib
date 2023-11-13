@@ -1,7 +1,4 @@
 ===============================================================================
-
-
-August 2023
 ===============================================================================
 
 
@@ -94,10 +91,9 @@ Check System Prerequisites
         intel_qat
         qat_4xxx
         They should load by default if using any of the following:
-         * Linux kernel v5.11+ (This is for crypto, for compression use v5.17+,
-         for sym-only asym-only, sym;dc and asym;dc use v6.6+, for dcc use v6.7+)
-         * Fedora 34+ (for compression use 36+)
-         * RHEL 8.4+ (for compression use 9.0+)
+        * A recent Linux kernel (see https://intel.github.io/quickassist/qatlib/requirements.html#kernel-firmware-requirements )
+        * Fedora 36+
+        * RHEL 8.4+ (for compression use 9.0+)
      * each PF device must be bound to the 4xxx driver
         Use "ls /sys/bus/pci/drivers/4xxx/" to show the BDFs of each bound PF
      * BIOS settings
@@ -169,7 +165,7 @@ Compilation and installation - quickstart instructions
 
         # Install dependencies
         sudo dnf install -y gcc systemd-devel automake autoconf libtool
-        sudo dnf install -y openssl-devel zlib-devel nasm
+        sudo dnf install -y pkg-config openssl-devel zlib-devel nasm
 
         # Clone QATlib into ~/qatlib, i.e. in your home dir
         cd ~
@@ -227,6 +223,7 @@ Compilation and installation - detailed instructions
             gcc
             make
             autotools (automake, autoconf, libtool)
+            pkg-config
             systemd-devel
             nasm
         Note: If nasm compiler is unavailable see
@@ -720,7 +717,7 @@ Common issues
         bound to qat_4xxx:
         sudo lspci -vvd:4940 | grep "Kernel driver in use".
         sudo lspci -vvd:4942 | grep "Kernel driver in use"
-        If no driver in use, upgrade to Linux kernel 5.11 or greater.
+        upgrade to a recent Linux Kernel.
         (2) No VFs available. Check VFs are available and bound to vfio-pci
         sudo lspci -vvd:4941 | grep "Kernel driver in use"
         sudo lspci -vvd:4943 | grep "Kernel driver in use"

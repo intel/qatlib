@@ -26,6 +26,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| November 2023 | 011 | 23.11 | - Support DC NS (NoSession) APIs.  <br> - Support  DC compressBound APIs. <br> - Support Symmetric Crypto SM3 & SM4. <br> - Support Asymmetric Crypto SM2. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | August 2023 | 010 | 23.08 | - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | February 2023 | 009 | 23.02 | - Added configuration option --enable-legacy-algorithms to use these insecure crypto algorithms and disabled them by default (AES-ECB, SHA-1, SHA2-224, SHA3-224, RSA512/1024/1536, DSA)<br>- Refactored code in quickassist/utilities/libusdm_drv<br>- Bugfixes<br>- Updated documentation with configuration and tuning information |
 | November 2022 | 008 | 22.07.2 | - Changed from yasm to nasm for assembly compilation<br> - Added configuration option to use C implementation of soft CRC implementation instead of asm<br>- Added support for pkg-config<br>- Added missing lock around accesses to some global data in qatmgr |
@@ -56,9 +57,10 @@ sample codes.
 The following services are available in qatlib via the QuickAssist API:
 * Symmetric (Bulk) Cryptography
   * Ciphers ([AES-ECB](#insecure-algorithms), AES-CBC, AES-CTR (no partials support),
-    AES-XTS (no partials support), AES-GCM, AES-CCM (192/256)
+    AES-XTS (no partials support), AES-GCM, AES-CCM (192/256), [SM4-ECB](#insecure-algorithms),
+    SM4-CBC, SM4-CTR)
   * Message digest/hash ([SHA1](#insecure-algorithms), SHA2 ([224](#insecure-algorithms)/256/384/512),
-    SHA3 ([224](#insecure-algorithms)/256/384/512) (no partials support) and
+    SHA3 ([224](#insecure-algorithms)/256/384/512) (no partials support), SM3) and
     authentication (AES-CBC-MAC, AES-XCBC-MAC)
   * Algorithm chaining (one cipher and one hash in a single operation)
   * Authenticated encryption (CCM-128 (no partials support),
@@ -77,12 +79,15 @@ The following services are available in qatlib via the QuickAssist API:
   * [DSA](#insecure-algorithms) parameter generation and digital signature generation/verification
   * Elliptic Curve Cryptography: ECDSA, ECDHE, Edwards Montgomery curves
   * Generic point multiply
+  * SM2 
 * Compression
   * Deflate
   * lz4/lz4s
   * Compress and Verify (CnV)
   * Compress and Verify and Recover (CnVnR)
   * End-to-end (E2E) integrity check
+  * DC compressBound APIs
+  * DC NS (No Session) APIs
 * Compression Chaining (Deflate only)
   * Hash then compress
 
@@ -102,6 +107,7 @@ The following algorithms are considered insecure and are disabled by default.
 * DSA
 * Diffie-Helman
 * Elliptic Curve Cryptography algorithms with less 256 bits
+* SM4-ECB
 
 To enable these algorithms, use the following configuration option:
    * `--enable-legacy-algorithms`
@@ -147,8 +153,6 @@ The following assumptions are made concerning the deployment environment:
   discovered and initialized the device, exposing the VFs. This driver is
   included in the Linux kernel, see [INSTALL](INSTALL) for information about which kernel
   to use.
-* The library can be used by unprivileged users if that user is included in
-  the 'qat' group.
 
 ## Examples
 Example applications that showcase usage of the QAT APIs are included in the
@@ -180,8 +184,7 @@ where: \<Component\> is one of the following:
 | QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
 | QATE-76698 | [GEN - Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
-| QATE-94286 | [CY - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
-| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup](#qate-94369) |
+| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup.](#qate-94369) |
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -224,20 +227,10 @@ where: \<Component\> is one of the following:
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
-## QATE-94286
-| Title      |       GEN - Compression services not detected when crypto-capable VFs are also added to VM.        |
-|----------|:-------------
-| Reference # | QATE-94286 |
-| Description | When configuring a system with different services on different QAT end-points, e.g. asym;sym on one and dc on another, and exposing only one of those Virtual Function (VF) types to the Virtual Machine (VM), the application works as expected. However, when VFs of more than one type are passed to the same VM, the application may only recognize one service-type, e.g. it may detect crypto instances, but not compression instances. There is an assumption that all VFs provide the same services if they come from the same PF. However, detecting which PF they come from is based on domain+bus, which is not always a valid assumption on a VM. |
-| Implication | This issue prevents the detection of compression services in a virtualized environment when the default kernel configuration is used, and crypto and dc VFs are passed to the VM, potentially impacting the proper functioning of the system. |
-| Resolution | When passing VFs to a guest, the BDFs on the guest should facilitate qatlib recognizing whether VFs are from the same PF or not. See RUNNING IN A VIRTUAL MACHINE / GUEST section of INSTALL for details. |
-| Affected OS | Linux |
-| Driver/Module | CPM-IA - General |
-
 ## QATE-94369
 | Title      |       GEN - SELinux Preventing QAT Service Startup        |
 |----------|:-------------
-| Reference # | QATE-94286 |
+| Reference # | QATE-94369 |
 | Description | The qat service fails to start due to SELinux preventing the qat_init.sh script and qatmgr from accessing resources. The issue occurs when the system is running with SELinux enabled, causing insufficient permissions for the qat_init.sh script and qatmgr to function correctly. |
 | Implication | This issue affects the proper functioning of the qat service on systems with SELinux enabled, potentially preventing QAT virtual functions (VFs) from functioning. |
 | Resolution | None available. |
@@ -250,22 +243,44 @@ in this section.
 
 | Issue ID | Description |
 |-------------|------------|
-| QATE-90845 | [GEN - QAT service fails to start, issue #38](#qate-90845) |
+| QATE-94286 | [GEN - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
+| QATE-95905 | [GEN - Fix build when building outside of main directory, issue #56](#qate-95905) |  
+| QATE-93844 | [DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.](#qate-93844) 
 | QATE-93278 | [GEN - sample_code potential seg-fault, issue #46](#qate-93278) |
+| QATE-90845 | [GEN - QAT service fails to start, issue #38](#qate-90845) |
+| QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-78459) |
 | QATE-76846 | [GEN - Forking and re-initializing use-cases do not work](#qate-76846) |
-| QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-74786) |
 | QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
 
-
-## QATE-90845
-| Title      |         GEN - QAT service fails to start, issue #38 |
+## QATE-94286
+| Title      |       GEN - Compression services not detected when crypto-capable VFs are also added to VM.        |
 |----------|:-------------
-| Reference # | QATE-90845 |
-| Description | QAT service fails to start. The qat service may fail if the kernel driver's initialization is not fully finished when the service starts. See [issue 38](https://github.com/intel/qatlib/issues/38). |
-| Implication | The qatmgr may not detect any or all of the vfio devices. |
-| Resolution | Fixed in 23.08. The service waits until the kernel driver has completed initialization of all PFs before starting the service. |
+| Reference # | QATE-94286 |
+| Description | When configuring a system with different services on different QAT end-points, e.g. asym;sym on one and dc on another, and exposing only one of those Virtual Function (VF) types to the Virtual Machine (VM), the application works as expected. However, when VFs of more than one type are passed to the same VM, the application may only recognize one service-type, e.g. it may detect crypto instances, but not compression instances. There is an assumption that all VFs provide the same services if they come from the same PF. However, detecting which PF they come from is based on domain+bus, which is not always a valid assumption on a VM. |
+| Implication | This issue prevents the detection of compression services in a virtualized environment when the default kernel configuration is used, and crypto and dc VFs are passed to the VM, potentially impacting the proper functioning of the system. |
+| Resolution | Fixed in 23.11. <br>Temporary solution: use a custom libvirt XML file like QATE-76698 here: https://github.com/intel/qatlib/tree/main#qate-76698 . |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
+
+## QATE-95905
+| Title      |       GEN - Fix build when building outside of main directory, issue #56        |
+|----------|:-------------
+| Reference # | QATE-95905 |<F3>
+| Description | Fix build when building outside of main directory. Added changes to autoconfig to be able to build outside main directory. See [issue 56](https://github.com/intel/qatlib/issues/56). |
+| Implication | A fatal error occurs when trying to build outside main directory. |
+| Resolution | Fixed in 23.11. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General | 
+
+## QATE-93844
+| Title      |        DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.     |
+|----------|:-------------
+| Reference # | QATE-93844 |
+| Description | CompressBound API (cpaDcLZ4SCompressBound()) is intended to return the maximum size of the output buffer. However, this API is not returning the correct value, which can lead to a lz4s buffer overflow. |
+| Implication | Applications may experience buffer overflows even when using the output of compressBound API to allocate output buffers. |
+| Resolution | Fixed in 23.11 |
+| Affected OS | Linux |
+| Driver/Module | QAT IA - Compression |
 
 ## QATE-93278
 | Title      |         GEN - sample_code potential seg-fault, issue #46     |
@@ -277,13 +292,13 @@ in this section.
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
-## QATE-76846
-| Title      |         GEN - Forking and re-initializing use-cases do not work     |
+## QATE-90845
+| Title      |         GEN - QAT service fails to start, issue #38 |
 |----------|:-------------
-| Reference # | QATE-76846 |
-| Description | Forking and re-initializing use-cases do not work:<br>-icp_sal_userStart()/icp_sal_userStop()/icp_sal_userStart() in single process<br>-icp_sal_userStart()/fork()/icp_sal_userStart() in child.<br> This is the use case in openssh + QAT_Engine. |
-| Implication | The process will have undefined behavior in these use-cases. |
-| Resolution | This issue is resolved with the 21.08 release. If using release prior to this release and using these flows, call qaeMemDestroy() immediately after icp_sal_userStop() to prevent this issue. |
+| Reference # | QATE-90845 |
+| Description | QAT service fails to start. The qat service may fail if the kernel driver's initialization is not fully finished when the service starts. See [issue 38](https://github.com/intel/qatlib/issues/38). |
+| Implication | The qatmgr may not detect any or all of the vfio devices. |
+| Resolution | Fixed in 23.08. The service waits until the kernel driver has completed initialization of all PFs before starting the service. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
@@ -297,13 +312,23 @@ in this section.
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Data Compression |
 
+## QATE-76846
+| Title      |         GEN - Forking and re-initializing use-cases do not work     |
+|----------|:-------------
+| Reference # | QATE-76846 |
+| Description | Forking and re-initializing use-cases do not work:<br>-icp_sal_userStart()/icp_sal_userStop()/icp_sal_userStart() in single process<br>-icp_sal_userStart()/fork()/icp_sal_userStart() in child.<br> This is the use case in openssh + QAT_Engine. |
+| Implication | The process will have undefined behavior in these use-cases. |
+| Resolution | Fixed in 21.08. If using release prior to this release and using these flows, call qaeMemDestroy() immediately after icp_sal_userStop() to prevent this issue. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
 ## QATE-12241
 | Title      |         CY - TLS1.2 with secret key lengths greater than 64 are not supported     |
 |----------|:-------------
 | Reference # | QATE-12241 |
 | Description | Algorithms, as with Diffie-Hellman using 8K parameters that can use a secret key length greater than 64 bytes is not supported.|
 | Implication | Key generation would fail for TLS1.2 algorithms that use more than 64 bytes secret length keys. |
-| Resolution | This is resolved with the 22.07 release. |
+| Resolution | Fixed in 22.07. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Crypto |
 

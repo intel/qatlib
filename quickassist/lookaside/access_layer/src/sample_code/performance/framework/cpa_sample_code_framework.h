@@ -229,25 +229,11 @@ extern volatile CpaBoolean keyCorrupt_g;
 extern volatile CpaBoolean enableReadInstance_g;
 CpaStatus setReliability(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
-#ifdef SC_CHAINING_EXT_ENABLED
-typedef struct g_chaining_crc_params_s
-{
-    CpaBoolean setDcCrcParams;
-    CpaBoolean setCyCrcParams;
-    CpaCrcControlData dcSessionCrcControlData;
-    CpaCrcControlData cySessionCrcControlData;
-} g_chaining_crc_params_t;
-extern g_chaining_crc_params_t gDcCyCrcParams;
-CpaStatus setDcCrcParams(Cpa32U crcPolyIndex,
-                    Cpa32U crcInitialValue,
-                    Cpa32U crcPolyReflect,
-                    Cpa32U crcXor);
-CpaStatus setCyCrcParams(Cpa32U crcPolyIndex,
-                    Cpa32U crcInitialValue,
-                    Cpa32U crcPolyReflect,
-                    Cpa32U crcXor);
-#endif
 
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+CpaStatus setDcNsFlag(CpaBoolean val);
+extern volatile CpaBoolean isNsRequest_g;
+#endif
 CpaStatus printReliability(void);
 
 extern volatile CpaBoolean fineTune_g;

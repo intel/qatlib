@@ -65,8 +65,10 @@
  * @file  cpa_chaining_sample_user.c
  * argv[1], 1 = Enable 0 = Disable -> gDebugParam
  * argv[2], 1 = Enable 0 = Disable -> useHardCodedCrc
- * By default gDebugParam and useHardCodedCrc are enabled
- * Example to run, ./chaining_sample 1 0
+ * argv[3], 1 = Enable 0 = Disable -> useXstorExtensions
+ * By default gDebugParam and useHardCodedCrc are enabled.
+ * By default useXstorExtensions is disabled.
+ * Example to run, ./chaining_sample 1 0 0
  *****************************************************************************/
 #include "cpa.h"
 #include "cpa_cy_sym.h"
@@ -77,17 +79,15 @@
 
 int gDebugParam = 1;
 int useHardCodedCrc = 1;
+int useXstorExtensions = 0;
 
-#ifdef SC_CHAINING_EXT_ENABLED
-extern CpaStatus dcChainXstorSample(void);
-#endif
 extern CpaStatus dcChainSample(void);
 
 int main(int argc, const char **argv)
 {
     CpaStatus stat = CPA_STATUS_SUCCESS;
 
-    if (argc > 1 && argc < 4)
+    if (argc > 1 && argc < 5)
     {
         if (argc == 2)
         {
@@ -97,6 +97,12 @@ int main(int argc, const char **argv)
         {
             gDebugParam = atoi(argv[1]);
             useHardCodedCrc = atoi(argv[2]);
+        }
+        else if (argc == 4)
+        {
+            gDebugParam = atoi(argv[1]);
+            useHardCodedCrc = atoi(argv[2]);
+            useXstorExtensions = atoi(argv[3]);
         }
     }
 
@@ -128,18 +134,6 @@ int main(int argc, const char **argv)
         PRINT_DBG("\nLegacy DC Chaining Sample Code App finished\n");
     }
 
-#ifdef SC_CHAINING_EXT_ENABLED
-    /* Xstor DC Chaining Sample Code */
-    stat = dcChainXstorSample();
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        PRINT_ERR("\nXstor DC Chaining Sample Code App failed\n");
-    }
-    else
-    {
-        PRINT_DBG("\nXstor DC Chaining Sample Code App finished\n");
-    }
-#endif
 
     icp_sal_userStop();
 

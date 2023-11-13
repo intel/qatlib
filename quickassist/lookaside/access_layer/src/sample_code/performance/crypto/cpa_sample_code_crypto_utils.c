@@ -504,12 +504,27 @@ static const Cpa8U q_4096[] = {
 #if CY_API_VERSION_AT_LEAST(3, 0)
 /*  add for SM3 and SM4  */
 smx_key_size_pairs_t cipherSM4TestList[] = {
+#if !defined(QAT_LEGACY_ALGORITHMS) && defined(SC_WITH_QAT20_UPSTREAM)
+    { CPA_CY_SYM_CIPHER_SM4_CBC, KEY_SIZE_128_IN_BYTES, 0, 0 },
+    { CPA_CY_SYM_CIPHER_SM4_CTR, KEY_SIZE_128_IN_BYTES, 0, 0 }
+#else
     { CPA_CY_SYM_CIPHER_SM4_ECB, KEY_SIZE_128_IN_BYTES, 0, 0 },
     { CPA_CY_SYM_CIPHER_SM4_CBC, KEY_SIZE_128_IN_BYTES, 0, 0 },
     { CPA_CY_SYM_CIPHER_SM4_CTR, KEY_SIZE_128_IN_BYTES, 0, 0 }
+#endif
 };
 
 smx_key_size_pairs_t algChainSM4SM3TestList[] = {
+#if !defined(QAT_LEGACY_ALGORITHMS) && defined(SC_WITH_QAT20_UPSTREAM)
+    { CPA_CY_SYM_CIPHER_SM4_CBC,
+      KEY_SIZE_128_IN_BYTES,
+      CPA_CY_SYM_HASH_SM3,
+      SM3_DIGEST_LENGTH_IN_BYTES },
+    { CPA_CY_SYM_CIPHER_SM4_CTR,
+      KEY_SIZE_128_IN_BYTES,
+      CPA_CY_SYM_HASH_SM3,
+      SM3_DIGEST_LENGTH_IN_BYTES }
+#else
     { CPA_CY_SYM_CIPHER_SM4_ECB,
       KEY_SIZE_128_IN_BYTES,
       CPA_CY_SYM_HASH_SM3,
@@ -521,7 +536,8 @@ smx_key_size_pairs_t algChainSM4SM3TestList[] = {
     { CPA_CY_SYM_CIPHER_SM4_CTR,
       KEY_SIZE_128_IN_BYTES,
       CPA_CY_SYM_HASH_SM3,
-      SM3_DIGEST_LENGTH_IN_BYTES },
+      SM3_DIGEST_LENGTH_IN_BYTES }
+#endif
 };
 
 int cipherSM4TestList_count =
@@ -701,28 +717,6 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
     for (i = 0; i < data->numberOfThreads; i++)
     {
         data->performanceStats[i] = tempPerformanceStats[i];
-#ifdef LATENCY_CODE
-        if (latency_enable)
-        {
-            /* accumulate latency for all devices */
-            stats.aveLatency += data->performanceStats[i]->aveLatency;
-            if (data->performanceStats[i]->maxLatency > stats.maxLatency)
-            {
-                stats.maxLatency = data->performanceStats[i]->maxLatency;
-            }
-            if (data->performanceStats[i]->minLatency < stats.minLatency)
-            {
-                stats.minLatency = data->performanceStats[i]->minLatency;
-            }
-            else
-            {
-                if (stats.minLatency == 0)
-                {
-                    stats.minLatency = data->performanceStats[i]->minLatency;
-                }
-            }
-        }
-#endif
     }
     memset(stats2, 0, sizeof(perf_data_t) * (packageIdCount_g + 1));
     stats.averagePacketSizeInBytes = data->packetSize;
@@ -771,32 +765,6 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
             do_div(stats.offloadCycles, data->numberOfThreads);
             PRINT("Avg Offload Cycles    %llu\n", stats.offloadCycles);
         }
-#ifdef LATENCY_CODE
-        if (latency_enable)
-        {
-            perf_cycles_t statsLatency = 0;
-            perf_cycles_t cpuFreqKHz = sampleCodeGetCpuFreq();
-
-            /* Display how long it took on average to process a buffer in uSecs
-             * Also include min/max to show variance */
-            if (cpuFreqKHz != 0)
-            {
-                if (data->numberOfThreads != 0)
-                {
-                    do_div(stats.aveLatency, data->numberOfThreads);
-                    statsLatency = 1000 * stats.minLatency;
-                    do_div(statsLatency, cpuFreqKHz);
-                    PRINT("Min. Latency (uSecs)     %llu\n", statsLatency);
-                    statsLatency = 1000 * stats.aveLatency;
-                    do_div(statsLatency, cpuFreqKHz);
-                    PRINT("Ave. Latency (uSecs)     %llu\n", statsLatency);
-                    statsLatency = 1000 * stats.maxLatency;
-                    do_div(statsLatency, cpuFreqKHz);
-                    PRINT("Max. Latency (uSecs)     %llu\n", statsLatency);
-                }
-            }
-        }
-#endif
 
     }
     qaeMemFree((void **)&stats2);
@@ -2461,6 +2429,7 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
         {
             PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
             qaeMemFree((void **)&instanceInfo2);
+            qaeMemFree((void **)&pPerfData);
             return CPA_STATUS_FAIL;
         }
     }
@@ -2666,6 +2635,11 @@ CpaStatus removeSymSession(CpaInstanceHandle instanceHandle,
                 break;
             }
         } while (1);
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
     }
 #endif
 
@@ -2764,40 +2738,6 @@ void processCallback(void *pCallbackTag)
     }
     /* response has been received */
     pPerfData->responses++;
-#ifdef LATENCY_CODE
-    if (latency_enable && pPerfData->response_times != NULL)
-    {
-        /* Have we sampled too many buffer operations? */
-        if (pPerfData->latencyCount > MAX_LATENCY_COUNT)
-        {
-            PRINT_ERR("pPerfData latencyCount > MAX_LATENCY_COUNT\n");
-            return;
-        }
-
-        /* Is this the buffer we calculate latency on?
-         * And have we calculated too many for array? */
-        if (pPerfData->responses == pPerfData->nextCount)
-        {
-            int i = pPerfData->latencyCount;
-            /* Now get the end timestamp - before any print outs */
-            pPerfData->response_times[i] = sampleCodeTimestamp();
-
-            pPerfData->nextCount += pPerfData->countIncrement;
-
-            if (latency_debug)
-                PRINT("%s: responses=%u, latencyCount=%d, end[i]:%llu, "
-                      "start[i]:%llu, nextCount=%u\n",
-                      __FUNCTION__,
-                      (unsigned int)pPerfData->responses,
-                      i,
-                      pPerfData->response_times[i],
-                      pPerfData->start_times[i],
-                      pPerfData->nextCount);
-
-            pPerfData->latencyCount++;
-        }
-    }
-#endif // LATENCY_CODE
     if (iaCycleCount_g)
     {
         /*if we have received half our number of submissions back,
@@ -2825,6 +2765,7 @@ CpaStatus allocArrayOfPointers(CpaInstanceHandle instanceHandle,
                                Cpa32U numBuffs)
 {
     Cpa32U node = 0;
+    Cpa32U numBytes = 0;
     CpaStatus status = CPA_STATUS_SUCCESS;
     status = sampleCodeCyGetNode(instanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
@@ -2832,11 +2773,11 @@ CpaStatus allocArrayOfPointers(CpaInstanceHandle instanceHandle,
         PRINT_ERR("Could not get Node\n");
         return CPA_STATUS_FAIL;
     }
-    *buf =
-        qaeMemAllocNUMA((sizeof(void *) * numBuffs), node, BYTE_ALIGNMENT_64);
+    numBytes = sizeof(void **) * numBuffs;
+    *buf = qaeMemAllocNUMA(numBytes, node, BYTE_ALIGNMENT_64);
     if (NULL != *buf)
     {
-        memset(*buf, 0, (sizeof(void *) * numBuffs));
+        memset(*buf, 0, numBytes);
     }
     else
     {
@@ -2848,10 +2789,12 @@ CpaStatus allocArrayOfPointers(CpaInstanceHandle instanceHandle,
 
 CpaStatus allocArrayOfVirtPointers(void **buf, Cpa32U numBuffs)
 {
-    *buf = qaeMemAlloc((sizeof(void *) * numBuffs));
+    Cpa32U numBytes = 0;
+    numBytes = sizeof(void **) * numBuffs;
+    *buf = qaeMemAlloc(numBytes);
     if (NULL != *buf)
     {
-        memset(*buf, 0, (sizeof(void *) * numBuffs));
+        memset(*buf, 0, numBytes);
     }
     else
     {
@@ -3462,16 +3405,6 @@ void accumulateSymPerfData(Cpa32U numberOfThreads,
             {
                 stats->offloadCycles += performanceStats[i]->offloadCycles;
             }
-#ifdef LATENCY_CODE
-            if (latency_enable)
-            {
-                /* Accumulate over all tests. Before using later we divide
-                 * by number of threads: data->numberOfThreads*/
-                stats->minLatency += performanceStats[i]->minLatency;
-                stats->aveLatency += performanceStats[i]->aveLatency;
-                stats->maxLatency += performanceStats[i]->maxLatency;
-            }
-#endif
         }
         stats->responses += performanceStats[i]->responses;
         /*is the data was submitted in multiple buffers per list, then the
@@ -3649,14 +3582,6 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
         {
             stats.offloadCycles += stats2[i].offloadCycles;
         }
-#ifdef LATENCY_CODE
-        if (latency_enable)
-        {
-            stats.minLatency += stats2[i].minLatency;
-            stats.aveLatency += stats2[i].aveLatency;
-            stats.maxLatency += stats2[i].maxLatency;
-        }
-#endif
     }
 
     printSymTestType(setup);
@@ -3689,28 +3614,6 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
         }
 
 
-#ifdef LATENCY_CODE
-        if (latency_enable)
-        {
-            perf_cycles_t statsLatency = 0;
-            perf_cycles_t cpuFreqKHz = sampleCodeGetCpuFreq();
-
-            /*Display how long it took on average to process a buffer in uSecs.
-             *Also include min/max to show variance */
-            do_div(stats.minLatency, data->numberOfThreads);
-            statsLatency = 1000 * stats.minLatency;
-            do_div(statsLatency, cpuFreqKHz);
-            PRINT("Min. Latency (uSecs)     %llu\n", statsLatency);
-            do_div(stats.aveLatency, data->numberOfThreads);
-            statsLatency = 1000 * stats.aveLatency;
-            do_div(statsLatency, cpuFreqKHz);
-            PRINT("Ave. Latency (uSecs)     %llu\n", statsLatency);
-            do_div(stats.maxLatency, data->numberOfThreads);
-            statsLatency = 1000 * stats.maxLatency;
-            do_div(statsLatency, cpuFreqKHz);
-            PRINT("Max. Latency (uSecs)     %llu\n", statsLatency);
-        }
-#endif
         if (iaCycleCount_g)
         {
             do_div(stats.offloadCycles, data->numberOfThreads);

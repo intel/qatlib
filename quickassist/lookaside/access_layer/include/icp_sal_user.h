@@ -788,11 +788,68 @@ CpaBoolean icp_sal_userIsQatAvailable(void);
  */
 CpaStatus icp_sal_cnv_simulate_error(CpaInstanceHandle dcInstance,
                                      CpaDcSessionHandle pSessionHandle);
+
+/*
+ * icp_sal_ns_cnv_simulate_error
+ *
+ * @description:
+ *  This function enables the CnVError injection for the
+ *  No-Session case. All Compression requests sent
+ *  to the dcInstance that is  passed in as a parameter,
+ *  are injected with CnV errors. This CnV error injection
+ *  does not apply to Data Plane API.
+ *  This function is for GEN4 devices.
+ * @context
+ *      This function is called from the user process context
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] dcInstance             Instance Handle
+ *
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_SUCCESS        No error
+ *
+ */
+CpaStatus icp_sal_ns_cnv_simulate_error(CpaInstanceHandle dcInstance);
+
+/*
+ * icp_sal_ns_cnv_reset_error
+ *
+ * @description:
+ *  This function resets the CnVError injection for the
+ *  specific dcInstance that is passed in as a parameter
+ *  for the No-Session operations.
+ * @context
+ *      This function is called from the user process context
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] dcInstance             Instance Handle
+ *
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_SUCCESS        No error
+ *
+ */
+CpaStatus icp_sal_ns_cnv_reset_error(CpaInstanceHandle dcInstance);
+
 #endif /* ICP_DC_ERROR_SIMULATION */
 
 #ifdef __cplusplus
 } /* close the extern "C" { */
-
 #endif
 
 #endif

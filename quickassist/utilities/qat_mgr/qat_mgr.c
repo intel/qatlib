@@ -109,6 +109,13 @@ struct ucred
     gid_t gid; /* group ID of the sending process */
 };
 
+/*
+ * This array does not need to be global, it is only used locally to main().
+ * However, it is global to avoid excessive use of stack memory and potential
+ * stack-overflow in this function.
+ */
+static struct qatmgr_dev_data dev_list[MAX_DEVS];
+
 void *handle_client(void *arg)
 {
     int bytes_r;
@@ -409,7 +416,6 @@ int main(int argc, char **argv)
     struct ucred ucred;
     unsigned len;
     unsigned num_devices;
-    struct qatmgr_dev_data dev_list[MAX_DEVS];
     unsigned list_size = ARRAY_SIZE(dev_list);
     int i;
     const char *mgr_opts = "hvd:p:f";
@@ -591,8 +597,15 @@ int main(int argc, char **argv)
 
         ret = pthread_create(
             &client_tid, NULL, handle_client, (void *)(intptr_t)connect_fd);
-        pthread_detach(client_tid);
-        qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_tid);
+        if (ret == 0)
+        {
+            pthread_detach(client_tid);
+            qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_tid);
+        }
+        else
+        {
+            perror("pthread_create error");
+        }
     }
 
     destroy_section_data_mutex();

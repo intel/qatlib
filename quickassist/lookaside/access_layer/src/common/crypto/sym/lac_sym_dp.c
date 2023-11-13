@@ -219,6 +219,8 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
             case CPA_CY_SYM_CIPHER_DES_CBC:
             case CPA_CY_SYM_CIPHER_3DES_CBC:
             case CPA_CY_SYM_CIPHER_AES_F8:
+            case CPA_CY_SYM_CIPHER_SM4_CTR:
+            case CPA_CY_SYM_CIPHER_SM4_CBC:
             {
                 Cpa32U ivLenInBytes = LacSymQat_CipherIvSizeBytesGet(
                     pSessionDesc->cipherAlgorithm);
@@ -312,6 +314,7 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
             case CPA_CY_SYM_CIPHER_AES_F8:
             case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+            case CPA_CY_SYM_CIPHER_SM4_CTR:
                 /* No action needed */
                 break;
             default:

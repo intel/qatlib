@@ -141,7 +141,7 @@ typedef enum
     ICP_QAT_HW_AUTH_ALGO_KASUMI_F9 = 12,       /*!< Kasumi F9 hashing */
     ICP_QAT_HW_AUTH_ALGO_SNOW_3G_UIA2 = 13,    /*!< UIA2/SNOW_3G F9 hashing */
     ICP_QAT_HW_AUTH_ALGO_ZUC_3G_128_EIA3 = 14, /*!< 128_EIA3/ZUC_3G hashing */
-    ICP_QAT_HW_AUTH_RESERVED_1 = 15,           /*!< Reserved */
+    ICP_QAT_HW_AUTH_ALGO_SM3 = 15,             /*!< SM3 hashing */
     ICP_QAT_HW_AUTH_ALGO_SHA3_224 = 16,        /*!< SHA3-224 hashing */
     ICP_QAT_HW_AUTH_ALGO_SHA3_256 = 17,        /*!< SHA3-256 hashing */
     ICP_QAT_HW_AUTH_ALGO_SHA3_384 = 18,        /*!< SHA3-384 hashing */
@@ -581,6 +581,9 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_ZUC_3G_EIA3_STATE1_SZ 8
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for EIA3 */
+#define ICP_QAT_HW_SM3_STATE1_SZ 32
+/**< @ingroup icp_cpm_hw_defs
+ * State1 block size for SM3 */
 #define ICP_QAT_HW_SHA3_STATEFUL_STATE1_SZ 200
 /** <@ingroup icp_cpm_hw_defs
  * State1 block size for stateful SHA3 processing*/
@@ -657,6 +660,9 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_GALOIS_E_CTR0_SZ 16
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for Galois Encrypted Counter 0 */
+#define ICP_QAT_HW_SM3_STATE2_SZ 32
+/**< @ingroup icp_qat_hw_defs
+ * State2 block size for SM3 */
 
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -784,7 +790,7 @@ typedef enum
     ICP_QAT_HW_CIPHER_ALGO_KASUMI = 7,             /*!< Kasumi */
     ICP_QAT_HW_CIPHER_ALGO_SNOW_3G_UEA2 = 8,       /*!< Snow_3G */
     ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3 = 9,    /*!< ZUC_3G */
-    ICP_QAT_HW_CIPHER_ALGO_RESERVED = 10,          /*!< RESERVED for SM4 */
+    ICP_QAT_HW_CIPHER_ALGO_SM4 = 10,               /*!< SM4 ciphering */
     ICP_QAT_HW_CIPHER_ALGO_CHACHA20_POLY1305 = 11, /*!< CHACHA POLY SPC AEAD */
     ICP_QAT_HW_CIPHER_DELIMITER = 12               /**< Delimiter type */
 } icp_qat_hw_cipher_algo_t;
@@ -1105,6 +1111,15 @@ typedef enum {
 #define ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR 2
 /**< @ingroup icp_cpm_hw_defs
  * Number of the HW register to clear in F8 mode */
+#define ICP_QAT_HW_SM4_BLK_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * Define the processing block size for SM4 */
+#define ICP_QAT_HW_SM4_KEY_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * Define the key size for SM4 */
+#define ICP_QAT_HW_SM4_IV_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * Define the IV size for SM4 */
 /**< @ingroup icp_qat_hw_defs
  * Define the State/ Initialization Vector size for CHACHAPOLY */
 #define ICP_QAT_HW_CHACHAPOLY_KEY_SZ 32

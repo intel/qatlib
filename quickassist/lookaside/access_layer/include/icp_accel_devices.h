@@ -182,6 +182,7 @@ typedef enum device_type_e
     DEVICE_4XXXVF
 } device_type_t;
 
+#define QAT_GEN4_STR "4xxx"
 /*
  * Macro for checking if given device_type_t enum value
  * belongs to QAT 4 generation.
@@ -237,5 +238,13 @@ typedef struct accel_dev_s
     Cpa32U arb_mask;
     void *ioPriv;
 } icp_accel_dev_t;
+
+typedef struct accel_pf_info_s
+{
+    Cpa32U pkg_id;
+    Cpa16U domain;
+    Cpa16U bdf;
+    char device_gen[ADF_DEVICE_TYPE_LENGTH + 1];
+} icp_accel_pf_info_t;
 
 #endif /* ICP_ACCEL_HANDLE_H_ */

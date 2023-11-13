@@ -100,6 +100,7 @@
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
 #include "dc_session.h"
+#include "dc_ns_datapath.h"
 
 static OsalMutex sync_lock;
 #define START_REF_COUNT_MAX 64
@@ -197,8 +198,10 @@ CpaStatus icp_sal_userStart(const char *process_name)
         if (CPA_STATUS_SUCCESS != status)
         {
             LAC_LOG_DEBUG("icp_adf_userProcessToStart failed\n");
-            osalMutexUnlock(&sync_lock);
-            osalMutexDestroy(&sync_lock);
+            if (osalMutexUnlock(&sync_lock))
+                LAC_LOG_ERROR("Mutex unlock failed\n");
+            else
+                osalMutexDestroy(&sync_lock);
             return CPA_STATUS_FAIL;
         }
         status = do_userStart(name);
@@ -209,8 +212,10 @@ CpaStatus icp_sal_userStart(const char *process_name)
         if (start_ref_count >= START_REF_COUNT_MAX)
         {
             LAC_LOG_ERROR("start_ref_count overflow!\n");
-            osalMutexUnlock(&sync_lock);
-            osalMutexDestroy(&sync_lock);
+            if (osalMutexUnlock(&sync_lock))
+                LAC_LOG_ERROR("Mutex unlock failed\n");
+            else
+                osalMutexDestroy(&sync_lock);
             return CPA_STATUS_FAIL;
         }
         else
@@ -221,7 +226,6 @@ CpaStatus icp_sal_userStart(const char *process_name)
     if (osalMutexUnlock(&sync_lock))
     {
         LAC_LOG_ERROR("Mutex unlock failed\n");
-        osalMutexDestroy(&sync_lock);
         return CPA_STATUS_FAIL;
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -284,7 +288,6 @@ CpaStatus icp_sal_userStop()
     if (osalMutexUnlock(&sync_lock))
     {
         LAC_LOG_ERROR("Mutex unlock failed\n");
-        osalMutexDestroy(&sync_lock);
         return CPA_STATUS_FAIL;
     }
     if (0 == start_ref_count)
@@ -336,9 +339,21 @@ CpaStatus icp_sal_cnv_simulate_error(CpaInstanceHandle dcInstance,
 {
     return dcSetCnvError(dcInstance, pSessionHandle);
 }
+
+CpaStatus icp_sal_ns_cnv_simulate_error(CpaInstanceHandle dcInstance)
+{
+    return dcNsSetCnvErrorInj(dcInstance, CPA_TRUE);
+}
+
+CpaStatus icp_sal_ns_cnv_reset_error(CpaInstanceHandle dcInstance)
+{
+    return dcNsSetCnvErrorInj(dcInstance, CPA_FALSE);
+}
+
 #endif /* ICP_DC_ERROR_SIMULATION */
 
 CpaBoolean icp_sal_userIsQatAvailable(void)
 {
     return icp_adf_isDeviceAvailable();
 }
+

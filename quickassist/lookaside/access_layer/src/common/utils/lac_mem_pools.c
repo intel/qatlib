@@ -424,15 +424,7 @@ void Lac_MemPoolStatsShow(void)
     unsigned int index = 0;
     osalLog(OSAL_LOG_LVL_USER,
             OSAL_LOG_DEV_STDOUT,
-            SEPARATOR BORDER "           Memory Pools Stats\n" SEPARATOR,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0);
+            SEPARATOR BORDER "           Memory Pools Stats\n" SEPARATOR);
 
     while (index < LAC_MEM_POOLS_NUM_SUPPORTED)
     {
@@ -451,10 +443,7 @@ void Lac_MemPoolStatsShow(void)
                     lac_mem_pools[index]->numElementsInPool,
                     lac_mem_pools[index]->blkSizeInBytes,
                     lac_mem_pools[index]->blkAlignmentInBytes,
-                    lac_mem_pools[index]->availBlks,
-                    0,
-                    0,
-                    0);
+                    lac_mem_pools[index]->availBlks);
         }
         index++;
     }

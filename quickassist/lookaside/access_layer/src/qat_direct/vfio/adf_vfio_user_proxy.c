@@ -105,7 +105,7 @@ void adf_io_userProcessStop(void)
     struct qatmgr_msg_rsp rsp = {0};
 
     assert(sizeof(req.name) == sizeof(currentProcess));
-    ICP_STRNCPY(req.name, currentProcess, sizeof(req.name));
+    ICP_STRLCPY(req.name, currentProcess, sizeof(req.name));
 
     qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_PUT);
 
