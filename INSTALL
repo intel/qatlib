@@ -431,7 +431,9 @@ Compilation and installation - detailed instructions
                 will be allocated one VF from each PF, so 4 VFs. It will have
                 2 sym;asym VFs, so 4 sym instances and 4 asym instances
                 and 2 dc VFs, so 8 dc instances.
-                The maximum number of processes is 8. N sockets will have 8 * N.
+                The maximum number of processes is 16. With N sockets,
+                the maximum number of processes is still 16, each will have
+                instances as above * N.
 
             Scalability and flexibility
                 POLICY=2. ServicesEnabled unset. Each process will be
