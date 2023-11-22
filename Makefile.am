@@ -283,7 +283,8 @@ pkginclude_HEADERS = \
 	quickassist/lookaside/access_layer/include/icp_sal_user.h \
 	quickassist/lookaside/access_layer/include/icp_sal.h \
 	quickassist/lookaside/access_layer/include/icp_sal_versions.h \
-	quickassist/utilities/libusdm_drv/qae_mem.h
+	quickassist/utilities/libusdm_drv/qae_mem.h \
+	quickassist/utilities/libusdm_drv/include/qae_mem_utils.h
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = qatlib.pc libqat.pc libusdm.pc
