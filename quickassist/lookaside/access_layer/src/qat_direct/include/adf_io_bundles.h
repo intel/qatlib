@@ -148,4 +148,14 @@ void adf_io_free_bundle(struct adf_io_user_bundle *bundle);
 int adf_io_populate_bundle(icp_accel_dev_t *accel_dev,
                            struct adf_io_user_bundle *bundle);
 
+/**
+ * @ingroup adf_io
+ *
+ * @description
+ *      Send restarting complete message from vf to pf
+ *
+ * @param[in] accel_dev    Pointer to an icp_accel_dev_t structure.
+ */
+void adf_io_vf2pf_notify_restarting_complete(icp_accel_dev_t *accel_dev);
+
 #endif

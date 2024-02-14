@@ -449,6 +449,29 @@ void Lac_MemPoolStatsShow(void)
     }
 }
 
+CpaStatus Lac_MemPoolInitDcCookies(lac_memory_pool_id_t poolID)
+{
+    lac_mem_pool_hdr_t *pPoolID = (lac_mem_pool_hdr_t *)poolID;
+    lac_mem_blk_t *pCurrentBlk = NULL;
+    Cpa32U count = 0;
+
+    if (NULL == pPoolID)
+    {
+        LAC_LOG_ERROR("Invalid Pool ID");
+        return CPA_STATUS_FAIL;
+    }
+
+    if (pPoolID->trackBlks != NULL)
+    {
+        for (count = 0; count < pPoolID->numElementsInPool; count++)
+        {
+            pCurrentBlk = pPoolID->trackBlks[count];
+            pCurrentBlk->opaque = ICP_ADF_INVALID_SEND_SEQ;
+        }
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
 #ifndef ICP_DC_ONLY
 static void Lac_MemPoolInitSymCookies(lac_sym_cookie_t *pSymCookie)
 {
@@ -568,7 +591,7 @@ CpaStatus Lac_MemPoolInitDcCookiePhyAddr(lac_memory_pool_id_t poolID)
             pCurrentBlk = pCurrentBlk->pNext;
 
             // pCookie->dcReqParamsBufferPhyAddr =
-            //    LAC_OS_VIRT_TO_PHYS_INTERNAL(pCookie->dcReqParamsBuffer);
+            LAC_OS_VIRT_TO_PHYS_INTERNAL(pCookie->dcReqParamsBuffer);
         }
     }
     else

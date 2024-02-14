@@ -214,7 +214,8 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     CpaBufferList bufferListSrcArray[NUM_SAMPLE_DATA_BUFFERS];
     CpaBufferList bufferListDstArray[NUM_SAMPLE_DATA_BUFFERS];
     CpaBufferList bufferListDstArray2[NUM_SAMPLE_DATA_BUFFERS];
-    Cpa32U bufferSize = SAMPLE_MAX_BUFF;
+    Cpa32U srcBufferSize = SAMPLE_MAX_BUFF;
+    Cpa32U dstBufferSize = srcBufferSize;
     Cpa32U numBuffers = NUM_SAMPLE_DATA_BUFFERS;
     Cpa32U bufferNum = 0;
     Cpa32U bufferMetaSize = 0;
@@ -273,8 +274,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         if (CPA_STATUS_SUCCESS == status)
         {
             status = PHYS_CONTIG_ALLOC(
-                &bufferListSrcArray[bufferNum].pBuffers->pData, bufferSize);
-            bufferListSrcArray[bufferNum].pBuffers->dataLenInBytes = bufferSize;
+                &bufferListSrcArray[bufferNum].pBuffers->pData, srcBufferSize);
+            bufferListSrcArray[bufferNum].pBuffers->dataLenInBytes =
+                srcBufferSize;
         }
 
         /* Destination buffer size is set as sizeof(sampelData) for a
@@ -286,7 +288,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         if (CPA_STATUS_SUCCESS == status)
         {
             status = cpaDcDeflateCompressBound(
-                dcInstHandle, sd.huffType, bufferSize, &bufferSize);
+                dcInstHandle, sd.huffType, srcBufferSize, &dstBufferSize);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR(
@@ -300,21 +302,22 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         if (CPA_STATUS_SUCCESS == status)
         {
             status = PHYS_CONTIG_ALLOC(
-                &bufferListDstArray[bufferNum].pBuffers->pData, bufferSize);
-            bufferListDstArray[bufferNum].pBuffers->dataLenInBytes = bufferSize;
+                &bufferListDstArray[bufferNum].pBuffers->pData, dstBufferSize);
+            bufferListDstArray[bufferNum].pBuffers->dataLenInBytes =
+                dstBufferSize;
         }
         if (CPA_STATUS_SUCCESS == status)
         {
             status = PHYS_CONTIG_ALLOC(
-                &bufferListDstArray2[bufferNum].pBuffers->pData, bufferSize);
+                &bufferListDstArray2[bufferNum].pBuffers->pData, srcBufferSize);
             bufferListDstArray2[bufferNum].pBuffers->dataLenInBytes =
-                bufferSize;
+                srcBufferSize;
         }
         if (CPA_STATUS_SUCCESS == status)
         {
             memcpy(bufferListSrcArray[bufferNum].pBuffers->pData,
-                   sampleData + (bufferNum * bufferSize),
-                   bufferSize);
+                   sampleData + (bufferNum * srcBufferSize),
+                   srcBufferSize);
         }
     }
     if (CPA_STATUS_SUCCESS == status)

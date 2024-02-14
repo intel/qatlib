@@ -81,6 +81,13 @@ extern "C" {
 
 /**
  *****************************************************************************
+ * ICP API version history
+ *  v1.0: Base version
+ *  v1.1: addition of icp_sal_get_num_pfs() and icp_sal_get_num_pfs()
+ *****************************************************************************/
+
+/**
+ *****************************************************************************
  * @ingroup SalVersions
  *      ICP Major Version Number
  * 
@@ -105,7 +112,7 @@ extern "C" {
  *      this interface.
  *
  *****************************************************************************/
-#define ICP_API_VERSION_NUM_MINOR (0)
+#define ICP_API_VERSION_NUM_MINOR (1)
 
 /**< Check for ICP API version (at least) */
 #define ICP_API_VERSION_AT_LEAST(major, minor)                                 \
@@ -119,6 +126,11 @@ extern "C" {
      (ICP_API_VERSION_NUM_MAJOR == major &&                                    \
       ICP_API_VERSION_NUM_MINOR < minor))
 
+/**
+*******************************************************************************
+* SAL software, firmware and hardware versions
+*****************************************************************************/
+
 #define ICP_SAL_VERSIONS_FW_VERSION_SIZE 16
 /**< Max length of firmware version string */
 #define ICP_SAL_VERSIONS_SW_VERSION_SIZE 16
@@ -129,8 +141,8 @@ extern "C" {
 /**< Max length of hardware version string */
 
 /* Part name and number of the accelerator device  */
-#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 23
-#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 11
+#define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 24
+#define SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER 2
 #define SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER 0
 #define SAL_INFO2_DRIVER_SW_VERSION_TYPE "in-tree"
 

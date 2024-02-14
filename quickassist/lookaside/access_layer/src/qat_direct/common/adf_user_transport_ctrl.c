@@ -151,6 +151,13 @@ STATIC CpaStatus reinit_bank_from_accel(icp_accel_dev_t *accel_dev,
     {
         return CPA_STATUS_FAIL;
     }
+
+    if (adf_io_populate_bundle(accel_dev, bundle))
+    {
+        adf_io_free_bundle(bundle);
+        return CPA_STATUS_FAIL;
+    }
+
     bank->csr_addr = (uint32_t *)bundle->ptr;
     ICP_MEMSET(bank->csr_addr_shadow, 0, ICP_BUNDLE_SIZE);
     bank->bundle = bundle;
@@ -1062,7 +1069,7 @@ CpaStatus adf_pollRing(icp_accel_dev_t *accel_dev,
  * via the ISR method.
  * N.B. response quota is per ring.
  */
-CpaStatus icp_sal_pollBank(Cpa32U accelId,
+CpaStatus icp_adf_pollBank(Cpa32U accelId,
                            Cpa32U bank_number,
                            Cpa32U response_quota)
 {
@@ -1155,7 +1162,7 @@ CpaStatus icp_sal_pollBank(Cpa32U accelId,
  * via the ISR method.
  * N.B. response_quota is per ring.
  */
-CpaStatus icp_sal_pollAllBanks(Cpa32U accelId, Cpa32U response_quota)
+CpaStatus icp_adf_pollAllBanks(Cpa32U accelId, Cpa32U response_quota)
 {
     CpaStatus status = CPA_STATUS_RETRY;
     icp_accel_dev_t *accel_dev = NULL;
@@ -1175,21 +1182,7 @@ CpaStatus icp_sal_pollAllBanks(Cpa32U accelId, Cpa32U response_quota)
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    if (icp_adf_isDevInError(accel_dev))
-    {
-        ADF_DEBUG("Pollbank: generate dummy responses\n");
-#ifndef ICP_DC_ONLY
-        status = Lac_CyPollAllBanks_GenResponses(accel_dev);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            ADF_ERROR("Failed to generate responses by polling bank\n");
-            return status;
-        }
-#endif
-        return CPA_STATUS_RETRY;
-    }
-
-    /* Loop over banks and call icp_sal_pollBank. */
+    /* Loop over banks and call icp_adf_pollBank. */
     banks = accel_dev->banks;
 
     for (bank_num = 0; bank_num < accel_dev->maxNumBanks; bank_num++)
@@ -1201,20 +1194,93 @@ CpaStatus icp_sal_pollAllBanks(Cpa32U accelId, Cpa32U response_quota)
         {
             continue;
         }
-        status = icp_sal_pollBank(accelId, bank_num, response_quota);
+        status = icp_adf_pollBank(accelId, bank_num, response_quota);
         if (CPA_STATUS_SUCCESS == status)
         {
             stat_total++;
         }
     }
-    /* Return SUCCESS if icp_sal_pollBank returned SUCCESS
-     * at any stage. icp_sal_pollBank cannot
+    /* Return SUCCESS if icp_adf_pollBank returned SUCCESS
+     * at any stage. icp_adf_pollBank cannot
      * return fail in the above case. */
     if (stat_total)
     {
         return CPA_STATUS_SUCCESS;
     }
     return CPA_STATUS_RETRY;
+}
+
+static CpaStatus SalCtrl_DevErr_GenResponses(icp_accel_dev_t *accel_dev)
+{
+    CpaStatus status = CPA_STATUS_RETRY;
+    Cpa32U enabled_services = 0;
+
+    status = SalCtrl_GetEnabledServices(accel_dev, &enabled_services);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        ADF_ERROR("Failed to get supported services\n");
+        return status;
+    }
+    ADF_DEBUG("Pollbank: generate dummy responses\n");
+    status = SalCtrl_DcDevErr_GenResponses(accel_dev, enabled_services);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        ADF_ERROR("Failed to generate DC responses by polling bank\n");
+        return status;
+    }
+#ifndef ICP_DC_ONLY
+    status = SalCtrl_CyDevErr_GenResponses(accel_dev, enabled_services);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        ADF_ERROR("Failed to generate CY responses by polling bank\n");
+        return status;
+    }
+#endif
+    return status;
+}
+
+CpaStatus icp_sal_pollBank(Cpa32U accelId,
+                           Cpa32U bank_number,
+                           Cpa32U response_quota)
+{
+    return icp_adf_pollBank(accelId, bank_number, response_quota);
+}
+
+/*
+ * This function allows the user to poll all the response rings
+ * belonging to a process per device.
+ * This method is used as an alternative to the reading messages
+ * via the ISR method.
+ * N.B. response_quota is per ring.
+ */
+CpaStatus icp_sal_pollAllBanks(Cpa32U accelId, Cpa32U response_quota)
+{
+    CpaStatus status = CPA_STATUS_RETRY;
+    icp_accel_dev_t *accel_dev = NULL;
+
+    /* Find the accel device associated with the accelId
+     * passed in.
+     */
+    accel_dev = adf_devmgrGetAccelDevByAccelId(accelId);
+    if (!accel_dev)
+    {
+        ADF_ERROR("There is no accel device associated"
+                  " with this accel id.\n");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if (icp_adf_isDevInError(accel_dev))
+    {
+        status = SalCtrl_DevErr_GenResponses(accel_dev);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            ADF_ERROR("Failed to generate dummy responses for banks\n");
+        }
+        return status;
+    }
+
+    status = icp_adf_pollAllBanks(accelId, response_quota);
+    return status;
 }
 
 /*

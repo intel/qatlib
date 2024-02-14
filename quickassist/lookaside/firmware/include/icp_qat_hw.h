@@ -149,7 +149,12 @@ typedef enum
     ICP_QAT_HW_AUTH_RESERVED_4 = 20,           /*!< Reserved */
     ICP_QAT_HW_AUTH_RESERVED_5 = 21,           /*!< Reserved */
     ICP_QAT_HW_AUTH_ALGO_POLY = 22,            /*!< POLY hashing */
-    ICP_QAT_HW_AUTH_ALGO_DELIMITER = 23        /**< Delimiter type */
+    ICP_QAT_HW_AUTH_ALGO_AES_192_CMAC = 23,    /*!< AES-192 CMAC */
+    ICP_QAT_HW_AUTH_ALGO_AES_256_CMAC = 24,    /*!< AES-256 CMAC */
+    ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_32 = 25,  /*!< ZUC-256 MAC-32 hashing */
+    ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_64 = 26,  /*!< ZUC-256 MAC-64 hashing */
+    ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_128 = 27, /*!< ZUC-256 MAC-128 hashing */
+    ICP_QAT_HW_AUTH_ALGO_DELIMITER = 28        /**< Delimiter type */
 } icp_qat_hw_auth_algo_t;
 
 /**
@@ -587,6 +592,18 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_SHA3_STATEFUL_STATE1_SZ 200
 /** <@ingroup icp_cpm_hw_defs
  * State1 block size for stateful SHA3 processing*/
+#define ICP_QAT_HW_ZUC_256_MAC_32_STATE1_SZ 16
+/**< @ingroup icp_cpm_hw_defs
+ * State1 block size for ZUC-256 with 32-bit MAC */
+#define ICP_QAT_HW_ZUC_256_MAC_64_STATE1_SZ 16
+/**< @ingroup icp_cpm_hw_defs
+ * State1 block size for ZUC-256 with 64-bit MAC */
+#define ICP_QAT_HW_ZUC_256_MAC_128_STATE1_SZ 16
+/**< @ingroup icp_cpm_hw_defs
+ * State1 block size for ZUC-256 with 128-bit MAC */
+#define ICP_QAT_HW_AES_CMAC_STATE1_SZ 16
+/**< @ingroup icp_cpm_hw_defs
+ * State1 block size for AES-128/192/256 CMAC */
 
 /* State2 */
 #define ICP_QAT_HW_NULL_STATE2_SZ 32
@@ -663,6 +680,15 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_SM3_STATE2_SZ 32
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for SM3 */
+#define ICP_QAT_HW_ZUC_256_STATE2_SZ 56
+/**< @ingroup icp_qat_hw_defs
+ * State2 block size for ZUC-256 with 32/64/128 bit MAC */
+#define ICP_QAT_HW_AES_192_CMAC_STATE2_SZ 24
+/**< @ingroup icp_qat_hw_defs
+ * State2 block size for AES-192 CMAC */
+#define ICP_QAT_HW_AES_256_CMAC_STATE2_SZ 32
+/**< @ingroup icp_qat_hw_defs
+ * State2 block size for AES-256 CMAC */
 
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -792,7 +818,8 @@ typedef enum
     ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3 = 9,    /*!< ZUC_3G */
     ICP_QAT_HW_CIPHER_ALGO_SM4 = 10,               /*!< SM4 ciphering */
     ICP_QAT_HW_CIPHER_ALGO_CHACHA20_POLY1305 = 11, /*!< CHACHA POLY SPC AEAD */
-    ICP_QAT_HW_CIPHER_DELIMITER = 12               /**< Delimiter type */
+    ICP_QAT_HW_CIPHER_ALGO_ZUC_256 = 12,           /*!< ZUC-256 */
+    ICP_QAT_HW_CIPHER_DELIMITER = 13               /**< Delimiter type */
 } icp_qat_hw_cipher_algo_t;
 
 /**
@@ -1028,6 +1055,9 @@ typedef enum {
 #define ICP_QAT_HW_ZUC_3G_BLK_SZ 8
 /**< @ingroup icp_qat_hw_defs
  * Define the processing block size for ZUC_3G */
+#define ICP_QAT_HW_ZUC_256_BLK_SZ 8
+/**< @ingroup icp_qat_hw_defs
+ * Define the processing block size for ZUC-256 */
 #define ICP_QAT_HW_NULL_KEY_SZ 256
 /**< @ingroup icp_qat_hw_defs
  * Define the key size for NULL */
@@ -1143,6 +1173,12 @@ typedef enum {
 #define ICP_QAT_HW_CHACHAPOLY_AAD_MAX_LOG 14
 /**< @ingroup icp_qat_hw_defs
  * Define the key size for CHACHA20-Poly1305*/
+#define ICP_QAT_HW_ZUC_256_KEY_SZ 32
+/**< @ingroup icp_cpm_hw_defs
+ * Define the key size for ZUC-256 */
+#define ICP_QAT_HW_ZUC_256_IV_SZ 24
+/**< @ingroup icp_cpm_hw_defs
+ * Define the iv size for ZUC-256 */
 /*
  * SHRAM constants definitions
  */

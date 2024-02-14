@@ -518,8 +518,8 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
         struct z_stream_s stream = {0};
         Cpa8U *pDecompBuffer = NULL;
         Cpa8U *pHWCompBuffer = NULL;
-        Cpa8U *pSWCompBuffer = NULL;
-        Cpa32U bufferLength = 0;
+        Cpa32U decompBufferLength = 0;
+        Cpa32U compBufferLength = 0;
 
         status = inflate_init(&stream);
         if (CPA_STATUS_SUCCESS != status)
@@ -527,22 +527,20 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
             PRINT("zlib stream initialize failed");
         }
 
-        bufferLength = pBufferListSrc->numBuffers *
-                       pBufferListSrc->pBuffers->dataLenInBytes;
+        decompBufferLength = pBufferListSrc->numBuffers *
+                             pBufferListSrc->pBuffers->dataLenInBytes;
+
+        compBufferLength = pBufferListDst->numBuffers *
+                           pBufferListDst->pBuffers->dataLenInBytes;
 
         if (CPA_STATUS_SUCCESS == status)
         {
-            status = PHYS_CONTIG_ALLOC(&pDecompBuffer, bufferLength);
+            status = PHYS_CONTIG_ALLOC(&pDecompBuffer, decompBufferLength);
         }
 
         if (CPA_STATUS_SUCCESS == status)
         {
-            status = PHYS_CONTIG_ALLOC(&pHWCompBuffer, bufferLength);
-        }
-
-        if (CPA_STATUS_SUCCESS == status)
-        {
-            status = PHYS_CONTIG_ALLOC(&pSWCompBuffer, bufferLength);
+            status = PHYS_CONTIG_ALLOC(&pHWCompBuffer, compBufferLength);
         }
 
         if (CPA_STATUS_SUCCESS == status)
@@ -554,9 +552,9 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
         {
             status = inflate_decompress(&stream,
                                         pHWCompBuffer,
-                                        bufferLength,
+                                        compBufferLength,
                                         pDecompBuffer,
-                                        bufferLength);
+                                        decompBufferLength);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("Decompress data on zlib stream failed\n");
@@ -579,7 +577,6 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
 
         inflate_destroy(&stream);
 
-        PHYS_CONTIG_FREE(pSWCompBuffer);
         PHYS_CONTIG_FREE(pHWCompBuffer);
         PHYS_CONTIG_FREE(pDecompBuffer);
     }

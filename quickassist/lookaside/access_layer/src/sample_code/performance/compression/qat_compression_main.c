@@ -487,6 +487,9 @@ void dcPerformance(single_thread_test_data_t *testSetup)
               (testSetup->logicalQaInstance) % numInstances);
         QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
     }
+
+
+
 #if DC_API_VERSION_AT_LEAST(3, 1)
     if ((CPA_DC_STATELESS == tmpSetup->setupData.sessState) &&
         (CPA_DC_LZ4 == tmpSetup->setupData.compType) &&

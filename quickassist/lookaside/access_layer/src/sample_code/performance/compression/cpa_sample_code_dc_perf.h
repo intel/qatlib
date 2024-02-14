@@ -324,15 +324,6 @@ typedef struct compression_test_params_s
 #endif
     /*the logicalQaInstance for the cipher to use*/
     Cpa32U logicalQaInstance;
-#if (defined SC_CHAINING_EXT_ENABLED ||                                        \
-     (DC_API_VERSION_AT_LEAST(3, 2) && defined(SC_WITH_QAT20)))
-    /**<The Crc control data used for this session's data integrity
-     * computations  */
-    CpaCrcControlData dcSessionCrcControlData;
-    /**<The Crc control data used for this session's data integrity
-     * computations  */
-    CpaCrcControlData cySessionCrcControlData;
-#endif
     /*stores the setup data thread running symmetric operations*/
     CpaCySymSessionSetupData symSetupData;
     sample_code_semaphore_t comp;

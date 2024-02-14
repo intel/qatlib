@@ -33,8 +33,8 @@
  * 
  *
  *****************************************************************************/
-#ifndef PF_H
-#define PF_H
+#ifndef ADF_VFIO_PF_H
+#define ADF_VFIO_PF_H
 
 #include "cpa_types.h"
 #include "icp_accel_devices.h"

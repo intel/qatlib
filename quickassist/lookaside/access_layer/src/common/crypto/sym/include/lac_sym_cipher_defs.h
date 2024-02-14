@@ -196,6 +196,16 @@
 /* Macro to check if the Algorithm is ZUC EEA3 */
 #define LAC_CIPHER_IS_ZUC_EEA3(algo) (algo == CPA_CY_SYM_CIPHER_ZUC_EEA3)
 
+/* Macro to check if the Algorithm is ZUC-128 EEA3 */
+#define LAC_CIPHER_IS_ZUC_128_EEA3(algo, keySize)                              \
+    ((algo == CPA_CY_SYM_CIPHER_ZUC_EEA3) &&                                   \
+     (keySize == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ))
+
+/* Macro to check if the Algorithm is ZUC-256 */
+#define LAC_CIPHER_IS_ZUC_256(algo, keySize)                                   \
+    ((algo == CPA_CY_SYM_CIPHER_ZUC_EEA3) &&                                   \
+     (keySize == ICP_QAT_HW_ZUC_256_KEY_SZ))
+
 /* Macro to check if the Algorithm is NULL */
 #define LAC_CIPHER_IS_NULL(algo) (algo == CPA_CY_SYM_CIPHER_NULL)
 

@@ -110,7 +110,7 @@ osalLog(OsalLogLevel level, OsalLogDevice device, char *format, ...)
         if (OSAL_LOG_OUTPUT_SYSLOG == osalCurrOutput)
         {
             mask = setlogmask(0);
-            mask = setlogmask(mask | LOG_MASK(LOG_INFO));
+            setlogmask(mask | LOG_MASK(LOG_INFO));
             if (level != OSAL_LOG_LVL_USER)
             {
                 syslog(LOG_INFO, "%s", traceHeaders[level - 1]);

@@ -85,6 +85,11 @@
 #include <errno.h>
 #include <limits.h>
 #include <time.h>
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+#include <sys/random.h>
+#endif
 
 #define EPOLL_MAX_EVENTS 1
 #define _4K_PAGE_SIZE (4 * 1024)
@@ -275,10 +280,23 @@ Cpa32U sampleCodeGetCpuFreq()
 void generateRandomData(Cpa8U *pWriteRandData, Cpa32U lengthOfRand)
 {
     Cpa32U i = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
     srand(sampleCoderdtsc());
+#endif
     for (i = 0; i < lengthOfRand; i++)
     {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+        ssize_t status =
+            getrandom(&pWriteRandData[i], sizeof(Cpa8U), GRND_NONBLOCK);
+        if (status == -1)
+        {
+            PRINT_ERR("generateRandomData failed, Error Code: %d - %s\n",
+                      errno,
+                      strerror(errno));
+        }
+#else
         pWriteRandData[i] = (Cpa8U)rand();
+#endif
     }
 }
 

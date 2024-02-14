@@ -90,6 +90,9 @@
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
 #include "qat_perf_buffer_utils.h"
+extern int
+    latency_single_buffer_mode; /* set to 1 for single buffer processing */
+extern char *cpaStatusToString(CpaStatus status); /* for more readable debug */
 
 /* Backoff timer implementation variables*/
 extern volatile CpaBoolean backoff_timer_g;
@@ -154,6 +157,48 @@ void dcDpCallbackFunction(CpaDcDpOpData *pOpData)
     /* increment responses */
     pPerfData->responses++;
 
+    if (latency_enable)
+    {
+        /* Did the latency function setup the array pointer? */
+        if (NULL == pPerfData->response_times)
+        {
+            if (latency_debug)
+                PRINT("%s: Callback for non-latency code\n", __FUNCTION__);
+        }
+        else
+        {
+            /* Have we sampled too many buffer operations? */
+            if (pPerfData->latencyCount > MAX_LATENCY_COUNT)
+            {
+                PRINT_ERR("pPerfData latencyCount > MAX_LATENCY_COUNT\n");
+                return;
+            }
+
+            /* Is this the buffer we calculate latency on?
+             * And have we calculated too many for array? */
+            if (pPerfData->responses == pPerfData->nextCount)
+            {
+                int i = pPerfData->latencyCount;
+
+                /* Now get the end timestamp - before any print outs */
+                pPerfData->response_times[i] = sampleCodeTimestamp();
+
+                pPerfData->nextCount += pPerfData->countIncrement;
+
+                if (latency_debug)
+                    PRINT("%s: responses=%u, latencyCount=%d, end[i]:%llu, "
+                          "start[i]:%llu, nextCount=%u\n",
+                          __FUNCTION__,
+                          (unsigned int)pPerfData->responses,
+                          i,
+                          pPerfData->response_times[i],
+                          pPerfData->start_times[i],
+                          pPerfData->nextCount);
+
+                pPerfData->latencyCount++;
+            }
+        }
+    }
 
     if (CPA_DC_WDOG_TIMER_ERR == (Cpa8S)pResults->status)
     {
@@ -626,6 +671,17 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
     /* backoff timer parameters initialization */
     Cpa32U backoff = 0;
 
+    /* Counts the number of buffers submitted for compression. Only
+     * MAX_LATENCY_COUNT of these will be 'latency buffers' whose
+     * times are measured */
+    Cpa32U submissions = 0;
+
+    /* set when the latency buffer is sent to accelerator */
+    perf_cycles_t *request_submit_start = NULL;
+
+    /* set in completion service routine dcPerformCallback() */
+    perf_cycles_t *request_respnse_time = NULL;
+    const Cpa32U request_mem_sz = sizeof(perf_cycles_t) * MAX_LATENCY_COUNT;
     Cpa32U numFiles = getNumFilesInCorpus(setup->corpus);
 
     /* Zero performance stats */
@@ -641,6 +697,47 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
     perfData->numLoops = setup->numLoops;
     coo_init(perfData, perfData->numOperations);
 
+    if (latency_enable)
+    {
+        if (perfData->numOperations > LATENCY_SUBMISSION_LIMIT)
+        {
+            PRINT_ERR("Error max submissions for latency  must be <= %d\n",
+                      LATENCY_SUBMISSION_LIMIT);
+            return CPA_STATUS_FAIL;
+        }
+
+        request_submit_start = qaeMemAlloc(request_mem_sz);
+        request_respnse_time = qaeMemAlloc(request_mem_sz);
+        if (request_submit_start == NULL || request_respnse_time == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for submission and response "
+                      "times\n");
+            return CPA_STATUS_FAIL;
+        }
+        memset(request_submit_start, 0, request_mem_sz);
+        memset(request_respnse_time, 0, request_mem_sz);
+
+        /* Calculate how many buffer submissions between latency measurements..
+         */
+        perfData->countIncrement =
+            (setup->numberOfBuffers[0] * setup->numLoops) / MAX_LATENCY_COUNT;
+
+        /* .. and set the next trigger count to this */
+        perfData->nextCount = perfData->countIncrement;
+
+        /* How many latency measurements of the MAX_LATENCY_COUNT have been
+         * taken so far */
+        perfData->latencyCount = 0;
+
+        /* Completion routine sets end times in the array indirectly */
+        perfData->response_times = request_respnse_time;
+        perfData->start_times = request_submit_start; /* for debug */
+
+        if (latency_debug)
+            PRINT("LATENCY_CODE: Initial nextCount %u, countIncrement %u\n",
+                  perfData->nextCount,
+                  perfData->countIncrement);
+    }
     /* this Barrier will waits until all the threads get to this point */
     sampleCodeBarrier();
 
@@ -672,6 +769,33 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
 
                 do
                 {
+                    if (latency_enable)
+                    {
+                        if (submissions + 1 == perfData->nextCount)
+                        {
+                            int i = perfData->latencyCount;
+
+                            /* When this buffer has been processed the
+                             * 'submissions'
+                             * count will be incremented and checked in the
+                             * dcPerformCallback()
+                             * routine. So we grab it's start time now.
+                             */
+                            if (latency_debug)
+                                PRINT("%s: status=%s submissions=%u, "
+                                      "nextCount=%u, latencyCount=%d\n",
+                                      __FUNCTION__,
+                                      cpaStatusToString(status),
+                                      submissions,
+                                      perfData->nextCount,
+                                      i);
+
+                            /* Must do this after any print outs */
+                            /* NOTE: Will be overwritten if CPA_STATUS_RETRY */
+                            request_submit_start[perfData->latencyCount] =
+                                sampleCodeTimestamp();
+                        }
+                    }
                     coo_req_start(perfData);
 
                     status = cpaDcDpEnqueueOp(compressionOpData[i][j],
@@ -761,6 +885,30 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                         }
                     }
                 } while (CPA_STATUS_RETRY == status);
+                if (latency_enable)
+                {
+                    /* Another buffer has been submitted to the accelerator */
+                    submissions++;
+
+                    /* Have we been requested to process one buffer at a time.
+                     * This
+                     * will result in no retries and so the best latency times.
+                     */
+                    if (latency_single_buffer_mode != 0)
+                    {
+                        /* Must now wait until this buffer is processed by the
+                         * CPM */
+                        while (perfData->responses != submissions)
+                        {
+                            /* Keep polling until compression of the buffer
+                             * completes
+                             * and dcPerformCallback() increments
+                             * perfData->responses */
+                            icp_sal_DcPollDpInstance(setup->dcInstanceHandle,
+                                                     0);
+                        }
+                    }
+                }
                 if (CPA_CC_BUSY_LOOPS == iaCycleCount_g && performOpNowFlag)
                 {
                     if (busyLoopValue > 0)
@@ -860,6 +1008,49 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                setup->performanceStats->responses);
     }
 
+    if (latency_enable)
+    {
+        if (latency_debug)
+            PRINT("%s: Calculating min, max and ave latencies...\n",
+                  __FUNCTION__);
+
+        perfData->minLatency = MAX_LATENCY_LIMIT; /* Will be less than this */
+        perfData->maxLatency = 0;                 /* Will be more than this */
+        /* Let's accumulate in 'aveLatency' all the individual 'latency'
+         * times. Typically, there should be MAX_LATENCY_COUNT of these.
+         * We also calculate min/max so we can get a sense of the variance.
+         */
+
+        for (i = 0; i < perfData->latencyCount; i++)
+        {
+            perf_cycles_t latency =
+                perfData->response_times[i] - request_submit_start[i];
+            perfData->aveLatency += latency;
+
+            if (latency < perfData->minLatency)
+                perfData->minLatency = latency;
+            if (latency > perfData->maxLatency)
+                perfData->maxLatency = latency;
+
+            if (latency_debug)
+                PRINT("%d, end[i]:%llu, start[i]:%llu, min:%llu, ave:%llu, "
+                      "max:%llu\n",
+                      i,
+                      perfData->response_times[i],
+                      request_submit_start[i],
+                      perfData->minLatency,
+                      perfData->aveLatency,
+                      perfData->maxLatency);
+        }
+        if (perfData->latencyCount > 0)
+        {
+            /* Then scale down this accumulated value to get the average.
+             * This will be reported by dcPrintStats() at the end of the test */
+            do_div(perfData->aveLatency, perfData->latencyCount);
+        }
+        qaeMemFree((void **)&request_respnse_time);
+        qaeMemFree((void **)&request_submit_start);
+    }
     coo_average(perfData);
     coo_deinit(perfData);
 
@@ -887,6 +1078,12 @@ static CpaStatus PerformOp(compression_test_params_t *setup,
             {
                 status =
                     performDcDpEnqueueOp(setup, compressionOpData, perfData);
+                if ((latency_enable) && (latency_debug))
+                {
+                    PRINT("%s: performDcDpEnqueueOp() returns=%d\n",
+                          __FUNCTION__,
+                          (int)status);
+                }
             }
             else
             {
@@ -1398,6 +1595,12 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
         /* Setup and init Session */
         status = cpaDcDpInitSession(
             setup->dcInstanceHandle, pSessionHandle, &(setup->setupData));
+        if ((latency_enable) && (latency_debug))
+        {
+            PRINT("%s: cpaDcDpInitSession() returns=%d\n",
+                  __FUNCTION__,
+                  (int)status);
+        }
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("Problem in session creation: status = %d \n", status);
@@ -1416,6 +1619,10 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     /* Register a callback function */
     status = cpaDcDpRegCbFunc(setup->dcInstanceHandle,
                               (CpaDcDpCallbackFn)dcDpCallbackFunction);
+    if ((latency_enable) && (latency_debug))
+    {
+        PRINT("%s: cpaDcDpRegCbFunc() returns=%d\n", __FUNCTION__, (int)status);
+    }
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Unable to register callback fn, status = %d \n", status);
@@ -1631,6 +1838,10 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
     }
 
     status = PerformOp(setup, compressionOpData, decompressionOpData, perfData);
+    if ((latency_enable) && (latency_debug))
+    {
+        PRINT("%s: PerformOp() returns=%d\n", __FUNCTION__, (int)status);
+    }
     if (CPA_STATUS_SUCCESS != status)
     {
         status = CPA_STATUS_FAIL;
@@ -1689,6 +1900,7 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
     CpaInstanceHandle *instances = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     CpaDcInstanceCapabilities capabilities = {0};
+
     CpaInstanceInfo2 *instanceInfo = NULL;
 #if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
     int fd = -1;
@@ -1777,6 +1989,8 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
      * use % to wrap around the max number of instances*/
     dcSetup.dcInstanceHandle =
         instances[(testSetup->logicalQaInstance) % numInstances];
+
+
 
     /*check if dynamic compression is supported*/
     status = cpaDcQueryCapabilities(dcSetup.dcInstanceHandle, &capabilities);

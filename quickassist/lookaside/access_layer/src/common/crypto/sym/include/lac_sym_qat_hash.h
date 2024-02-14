@@ -334,19 +334,24 @@ CpaStatus LacSymQat_HashRequestParamsPopulate(
  *      This fn returns the QAT values for hash algorithm and nested fields
  *
  *
- * @param[in] pInstance              Pointer to service instance.
+ * @param[in] pInstance               Pointer to service instance.
  *
- * @param[in] qatHashMode            value for hash mode on the fw qat
+ * @param[in] qatHashMode             Value for hash mode on the fw qat
  *interface.
  *
- * @param[in] apiHashMode            value for hash mode on the QA API.
+ * @param[in] apiHashMode             Value for hash mode on the QA API.
  *
- * @param[in] apiHashAlgorithm       value for hash algorithm on the QA API.
+ * @param[in] apiHashAlgorithm        Value for hash algorithm on the QA API.
  *
- * @param[out] pQatAlgorithm         Pointer to return fw qat value for
+ * @param[out] pQatAlgorithm          Pointer to return fw qat value for
  *algorithm.
- *
- * @param[out] pQatNested            Pointer to return fw qat value for nested.
+ * @param[in]  authKeyLenInBytes      Length of the authentication key in bytes.
+ *                                    only used for ZUC-EIA/AES_CMAC algorithms.
+ *                                    default value 0 for the other algorithms.
+ * @param[in]  digestResultLenInBytes Length of the hash result in bytes
+ *                                    only used for ZUC-EIA/AES_CMAC algorithms.
+ *                                    default value 0 for the other algorithms.
+ * @param[out] pQatNested             Pointer to return fw qat value for nested.
  *
  *
  * @return
@@ -358,7 +363,9 @@ void LacSymQat_HashGetCfgData(CpaInstanceHandle pInstance,
                               CpaCySymHashMode apiHashMode,
                               CpaCySymHashAlgorithm apiHashAlgorithm,
                               icp_qat_hw_auth_algo_t *pQatAlgorithm,
-                              CpaBoolean *pQatNested);
+                              CpaBoolean *pQatNested,
+                              Cpa32U authKeyLenInBytes,
+                              Cpa32U digestResultLenInBytes);
 
 void LacSymQat_HashSetupReqParamsMetaData(
     icp_qat_la_bulk_req_ftr_t *pMsg,

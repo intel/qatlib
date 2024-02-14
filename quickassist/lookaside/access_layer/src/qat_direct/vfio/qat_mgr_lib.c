@@ -61,6 +61,7 @@
 #define QAT_4XXXVF_DEVICE_ID 0x4941
 #define QAT_401XXVF_DEVICE_ID 0x4943
 #define QAT_402XXVF_DEVICE_ID 0x4945
+#define QAT_420XXVF_DEVICE_ID 0x4947
 
 
 #define IOMMUGROUP_DEV_DIR "/sys/kernel/iommu_groups/%s/devices/"
@@ -70,13 +71,13 @@
 #define VENDOR_FILE IOMMUGROUP_DEV_DIR "%s/vendor"
 
 #define VFIO_ENTRY "vfio"
+#define PF_INFO_UNINITIALISED (-1)
 
 static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
+STATIC icp_accel_pf_info_t pf_data[ADF_MAX_PF_DEVICES] = { 0 };
+STATIC int32_t num_pfs = PF_INFO_UNINITIALISED;
 
-
-STATIC icp_accel_pf_info_t pf_data[ADF_MAX_DEVICES] = { 0 };
-STATIC int32_t num_pfs = 0;
 
 static pthread_mutex_t section_data_mutex;
 /* message name within array should lives at index determined by it's
@@ -92,6 +93,8 @@ static const char *qatmgr_msgtype_str[] = {
     "QATMGR_MSGTYPE_INSTANCE_INFO", /* string for instance info msg*/
     "QATMGR_MSGTYPE_INSTANCE_NAME", /* string for instance name msg*/
     "QATMGR_MSGTYPE_VFIO_FILE",     /* string for vfio file path msg*/
+    "QATMGR_MSGTYPE_NUM_PF_DEVS  ", /* string for pf number msg*/
+    "QATMGR_MSGTYPE_PF_DEV_INFO",   /* string for pf device info msg*/
 };
 
 #define QATMGR_MSGTYPES_STR_MAX                                                \
@@ -149,6 +152,7 @@ static int is_qat_device(int device_id)
     case QAT_4XXXVF_DEVICE_ID:
     case QAT_401XXVF_DEVICE_ID:
     case QAT_402XXVF_DEVICE_ID:
+    case QAT_420XXVF_DEVICE_ID:
         return 1;
     default:
         return 0;
@@ -163,6 +167,8 @@ static int qat_device_type(int device_id)
     case QAT_401XXVF_DEVICE_ID:
     case QAT_402XXVF_DEVICE_ID:
         return DEVICE_4XXXVF;
+    case QAT_420XXVF_DEVICE_ID:
+        return DEVICE_420XXVF;
     default:
         return 0;
     }
@@ -178,6 +184,8 @@ static char *qat_device_name(int device_id)
         return "401xxvf";
     case QAT_402XXVF_DEVICE_ID:
         return "402xxvf";
+    case QAT_420XXVF_DEVICE_ID:
+        return "420xxvf";
     default:
         return "unknown";
     }
@@ -656,6 +664,38 @@ static int calculate_bank_number(struct qatmgr_device_data *device,
     }
 }
 
+/**
+ * Search for PF index from pf_info data for given vf_bdf
+ * returns 0 on success and -1 on failure. If pf_info array
+ * is empty (if qatlib is running inside VM) then assigns max value of pkg_id
+ * and returns 0
+ */
+static int get_pkg_id(unsigned vf_bdf, uint16_t *vf_pkg_id)
+{
+    uint16_t pkg_id = 0;
+    uint16_t pf_bdf;
+
+    if (!num_pfs)
+    {
+        *vf_pkg_id = VM_PACKAGE_ID_NONE;
+        return 0;
+    }
+
+    /* remove device and func */
+    pf_bdf = BDF_PF(vf_bdf);
+
+    for (pkg_id = 0; pkg_id < num_pfs; pkg_id++)
+    {
+        if (pf_data[pkg_id].bdf == pf_bdf)
+        {
+            *vf_pkg_id = pkg_id;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
 int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                        const int num_vf_devices,
                        int policy,
@@ -684,19 +724,23 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     int section_num_sym_inst = 0;
     int section_num_asym_inst = 0;
     int section_num_dc_inst = 0;
+    uint16_t vf_pkg_id = 0;
 
     if (!num_vf_devices)
         return -EINVAL;
 
     num_procs = get_nprocs();
 
-    num_pfs =
-        adf_vfio_init_pfs_info(pf_data, sizeof(pf_data) / sizeof(pf_data[0]));
-
-    if (num_pfs < 0)
+    if (num_pfs == PF_INFO_UNINITIALISED)
     {
-        qat_log(LOG_LEVEL_ERROR, "Unable to init pfs info\n");
-        return -EINVAL;
+        num_pfs = adf_vfio_init_pfs_info(pf_data,
+                                         sizeof(pf_data) / sizeof(pf_data[0]));
+    }
+
+    if (num_pfs < 0 || num_pfs > ADF_MAX_PF_DEVICES)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Invalid number Pfs\n");
+        return -1;
     }
 
     if (!num_pfs)
@@ -869,6 +913,22 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             device_data->accelid = j;
             device_data->node = BDF_NODE(dev_list[vf_idx].bdf);
 
+            if (get_pkg_id(dev_list[vf_idx].bdf, &vf_pkg_id))
+            {
+                qat_log(LOG_LEVEL_ERROR,
+                        "Failed to find pkg_id for the device\n");
+                qat_mgr_cleanup_cfg();
+                return -EAGAIN;
+            }
+
+            /* since sample code uses package id for gathering info from devices
+             * this overrides pkg id to accel id if qatlib is running on VM */
+            if (vf_pkg_id == VM_PACKAGE_ID_NONE)
+            {
+                vf_pkg_id = device_data->accelid;
+            }
+
+            device_data->pkg_id = vf_pkg_id;
             devid = dev_list[vf_idx].devid;
 
                 device_data->max_banks = 4;
@@ -1094,8 +1154,6 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 cy_inst->asym.accelid = device_data->accelid;
                 cy_inst->asym.service_type = SERV_TYPE_ASYM;
 
-                devid = dev_list[vf_idx].devid;
-
                     cy_inst->asym.bank_number = calculate_bank_number(
                         device_data, cy_inst->asym.service_type, k);
                     cy_inst->asym.ring_tx = 0;
@@ -1136,7 +1194,6 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 dc_inst->accelid = device_data->accelid;
                 dc_inst->service_type = SERV_TYPE_DC;
 
-                devid = dev_list[vf_idx].devid;
                     dc_inst->bank_number = calculate_bank_number(
                         device_data, dc_inst->service_type, k);
                     dc_inst->ring_tx = 0;
@@ -1406,7 +1463,7 @@ static int handle_get_device_info(struct qatmgr_msg_req *req,
         section->device_data[device_num].max_rings_per_bank;
     rsp->device_info.arb_mask = section->device_data[device_num].arb_mask;
     rsp->device_info.services = section->device_data[device_num].services;
-    rsp->device_info.pkg_id = section->device_data[device_num].accelid;
+    rsp->device_info.pkg_id = section->device_data[device_num].pkg_id;
     rsp->device_info.node_id = section->device_data[device_num].node;
     rsp->device_info.device_pci_id = section->device_data[device_num].pci_id;
     rsp->device_info.num_cy_instances =
@@ -2035,6 +2092,90 @@ static int handle_section_release(struct qatmgr_msg_req *req,
     return 0;
 }
 
+static int handle_get_num_pf_devices(struct qatmgr_msg_req *req,
+                                     struct qatmgr_msg_rsp *rsp)
+{
+    ICP_CHECK_FOR_NULL_PARAM(req);
+    ICP_CHECK_FOR_NULL_PARAM(rsp);
+
+    if (req->hdr.len != sizeof(req->hdr))
+    {
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
+        err_msg(rsp, "Inconsistent length");
+        return -1;
+    }
+
+    dump_message(req, "Request");
+
+    if (num_pfs == PF_INFO_UNINITIALISED)
+    {
+        num_pfs = adf_vfio_init_pfs_info(pf_data,
+                                         sizeof(pf_data) / sizeof(pf_data[0]));
+    }
+
+    if (num_pfs < 0 || num_pfs > ADF_MAX_PF_DEVICES)
+    {
+        err_msg(rsp, "Unable to init pfs info");
+        qat_log(LOG_LEVEL_ERROR, "Invalid number Pfs\n");
+        return -1;
+    }
+
+    /* num_pfs will be a positive number and less then ADF_MAX_PF_DEVICES */
+    rsp->num_devices = num_pfs;
+    build_msg_header(rsp, QATMGR_MSGTYPE_NUM_PF_DEVS, sizeof(rsp->num_devices));
+
+    dump_message(rsp, "Response");
+    return 0;
+}
+
+static int handle_get_pf_device_info(struct qatmgr_msg_req *req,
+                                     struct qatmgr_msg_rsp *rsp)
+{
+    uint16_t device_num;
+    ICP_CHECK_FOR_NULL_PARAM(req);
+    ICP_CHECK_FOR_NULL_PARAM(rsp);
+
+    if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
+    {
+        qat_log(LOG_LEVEL_ERROR, "Bad length\n");
+        err_msg(rsp, "Inconsistent length");
+        return -1;
+    }
+
+    dump_message(req, "Request");
+
+    if (num_pfs == PF_INFO_UNINITIALISED)
+    {
+        num_pfs = adf_vfio_init_pfs_info(pf_data,
+                                         sizeof(pf_data) / sizeof(pf_data[0]));
+    }
+
+    if (num_pfs < 0 || num_pfs > ADF_MAX_PF_DEVICES)
+    {
+        err_msg(rsp, "Unable to init pfs info");
+        qat_log(LOG_LEVEL_ERROR, "Invalid number Pfs\n");
+        return -1;
+    }
+
+    device_num = req->device_num;
+
+    if (device_num >= num_pfs)
+    {
+        qat_log(LOG_LEVEL_ERROR,
+                "Invalid device number %d from %d devices\n",
+                device_num,
+                num_pfs);
+        err_msg(rsp, "Invalid device number");
+        return -1;
+    }
+
+    memcpy(&rsp->pf_info, &pf_data[device_num], sizeof(rsp->pf_info));
+    build_msg_header(rsp, QATMGR_MSGTYPE_PF_DEV_INFO, sizeof(rsp->pf_info));
+
+    dump_message(rsp, "Response");
+    return 0;
+}
+
 int handle_message(struct qatmgr_msg_req *req,
                    struct qatmgr_msg_rsp *rsp,
                    char **section_name,
@@ -2079,6 +2220,10 @@ int handle_message(struct qatmgr_msg_req *req,
             return handle_get_instance_name(req, rsp, *index);
         case QATMGR_MSGTYPE_VFIO_FILE:
             return handle_get_vfio_name(req, rsp, *index);
+        case QATMGR_MSGTYPE_NUM_PF_DEVS:
+            return handle_get_num_pf_devices(req, rsp);
+        case QATMGR_MSGTYPE_PF_DEV_INFO:
+            return handle_get_pf_device_info(req, rsp);
         default:
             err_msg(rsp, "Unknown message");
     }

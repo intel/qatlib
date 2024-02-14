@@ -287,14 +287,21 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
         /* First, copy the original key to pState2 */
         memcpy(pState2, pAuthKey, authKeyLenInBytes);
         /* Then precompute */
-        status = LacSymHash_AesECBPreCompute(instanceHandle,
-                                             hashAlgorithm,
-                                             authKeyLenInBytes,
-                                             pAuthKey,
-                                             pWorkingBuffer,
-                                             pState2,
-                                             callbackFn,
-                                             pCallbackTag);
+        if (authKeyLenInBytes == ICP_QAT_HW_AES_128_KEY_SZ)
+        {
+            status = LacSymHash_AesECBPreCompute(instanceHandle,
+                                                 hashAlgorithm,
+                                                 authKeyLenInBytes,
+                                                 pAuthKey,
+                                                 pWorkingBuffer,
+                                                 pState2,
+                                                 callbackFn,
+                                                 pCallbackTag);
+        }
+        else
+        {
+            callbackFn(pCallbackTag);
+        }
     }
     else if (CPA_CY_SYM_HASH_AES_CCM == hashAlgorithm)
     {
@@ -412,9 +419,15 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
          * The Inner Hash Initial State2 should contain the key
          * and zero the rest of the state.
          */
-        LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_3G_EIA3_STATE2_SZ);
+        if (authKeyLenInBytes == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
+        {
+            LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_3G_EIA3_STATE2_SZ);
+        }
+        else
+        {
+            LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_256_STATE2_SZ);
+        }
         memcpy(pState2, pAuthKey, authKeyLenInBytes);
-
         /* There is no request sent to the QAT for this operation,
          * so just invoke the user's callback directly to signal
          * completion of the precompute
@@ -494,7 +507,11 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
     }
 
     LacSymQat_HashAlgLookupGet(
-        instanceHandle, pHashSetupData->hashAlgorithm, &pHashAlgInfo);
+        instanceHandle,
+        pHashSetupData->hashAlgorithm,
+        &pHashAlgInfo,
+        pHashSetupData->authModeSetupData.authKeyLenInBytes,
+        pHashSetupData->digestResultLenInBytes);
 
     /* note: nested hash mode checks digest length against outer algorithm */
     if ((CPA_CY_SYM_HASH_MODE_PLAIN == pHashSetupData->hashMode) ||
@@ -624,7 +641,6 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
             }
         }
         else if (CPA_CY_SYM_HASH_AES_XCBC == pHashSetupData->hashAlgorithm ||
-                 CPA_CY_SYM_HASH_AES_CMAC == pHashSetupData->hashAlgorithm ||
                  CPA_CY_SYM_HASH_AES_CBC_MAC == pHashSetupData->hashAlgorithm)
         {
             /* ensure auth key len is valid (128-bit keys supported) */
@@ -635,12 +651,28 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
+        else if (CPA_CY_SYM_HASH_AES_CMAC == pHashSetupData->hashAlgorithm)
+        {
+            /* ensure auth key len is valid (128/192/256-bit keys supported) */
+            if ((pHashSetupData->authModeSetupData.authKeyLenInBytes !=
+                 ICP_QAT_HW_AES_128_KEY_SZ) &&
+                (pHashSetupData->authModeSetupData.authKeyLenInBytes !=
+                 ICP_QAT_HW_AES_192_KEY_SZ) &&
+                (pHashSetupData->authModeSetupData.authKeyLenInBytes !=
+                 ICP_QAT_HW_AES_256_KEY_SZ))
+            {
+                LAC_INVALID_PARAM_LOG("authKeyLenInBytes");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+        }
         else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pHashSetupData->hashAlgorithm)
         {
 
-            /* QAT-FW only supports 128 bits Integrity Key size for ZUC */
-            if (pHashSetupData->authModeSetupData.authKeyLenInBytes !=
-                ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
+            /* QAT-FW only supports 128/256 bits Integrity Key size for ZUC */
+            if ((pHashSetupData->authModeSetupData.authKeyLenInBytes !=
+                 ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ) &&
+                (pHashSetupData->authModeSetupData.authKeyLenInBytes !=
+                 ICP_QAT_HW_ZUC_256_KEY_SZ))
             {
                 LAC_INVALID_PARAM_LOG("authKeyLenInBytes");
                 return CPA_STATUS_INVALID_PARAM;
@@ -648,8 +680,10 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
             /* For ZUC EIA3 hash aad field contains IV - it needs to be 16
              * bytes long
              */
-            if (pHashSetupData->authModeSetupData.aadLenInBytes !=
-                ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ)
+            if ((pHashSetupData->authModeSetupData.aadLenInBytes !=
+                 ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ) &&
+                (pHashSetupData->authModeSetupData.aadLenInBytes !=
+                 ICP_QAT_HW_ZUC_256_IV_SZ))
             {
                 LAC_INVALID_PARAM_LOG("aadLenInBytes");
                 return CPA_STATUS_INVALID_PARAM;
@@ -710,7 +744,9 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
         LacSymQat_HashAlgLookupGet(
             instanceHandle,
             pHashSetupData->nestedModeSetupData.outerHashAlgorithm,
-            &pOuterHashAlgInfo);
+            &pOuterHashAlgInfo,
+            pHashSetupData->authModeSetupData.authKeyLenInBytes,
+            pHashSetupData->digestResultLenInBytes);
 
         /* Check Digest Length is permitted by the algorithm  */
         if ((0 == pHashSetupData->digestResultLenInBytes) ||
@@ -846,8 +882,11 @@ CpaStatus LacHash_PerformParamCheck(CpaInstanceHandle instanceHandle,
     if ((CPA_CY_SYM_PACKET_TYPE_PARTIAL == pOpData->packetType) &&
         (CPA_CY_SYM_OP_HASH == symOperation))
     {
-        LacSymQat_HashAlgLookupGet(
-            instanceHandle, hashAlgorithm, &pHashAlgInfo);
+        LacSymQat_HashAlgLookupGet(instanceHandle,
+                                   pSessionDesc->hashAlgorithm,
+                                   &pHashAlgInfo,
+                                   pSessionDesc->authKeyLenInBytes,
+                                   pSessionDesc->hashResultSize);
 
         /* check if the message is a multiple of the block size. */
         if (pOpData->messageLenToHashInBytes % pHashAlgInfo->blockLength != 0)

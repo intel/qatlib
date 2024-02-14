@@ -6,7 +6,7 @@ Reference
 =========
 
 
- - Intel® Communications Chipset 4xxx Series Software for Linux*
+ - Intel® Communications Chipset 4xxx/4xxxx Series Software for Linux*
    Getting Started Guide
 
 ===============================================================================
@@ -70,13 +70,15 @@ Check System Prerequisites
         4xxx  : Use "lspci -d 8086:4940" to check Physical Function (PF)
                 devices are present.
         401xx : Use "lspci -d 8086:4942" to check PF devices are present.
+        420xx : Use "lspci -d 8086:4946" to check PF devices are present.
         Note: Later, after "systemctl start qat" or "make install" steps, the
         corresponding Virtual Function devices will also be visible and bound
         to the vfio-pci driver.
         4xxx  : Use "lspci -d 8086:4941" to check VF devices have been created.
         401xx : Use "lspci -d 8086:4943" to check VF devices have been created.
+        420xx : Use "lspci -d 8086:4947" to check VF devices have been created.
      * firmware must be available
-        Check that these files exist:
+        For 4xxx or 401xx devices check that these files exist:
         /lib/firmware/qat_4xxx.bin or /lib/firmware/qat_4xxx.bin.xz
         /lib/firmware/qat_4xxx_mmp.bin or /lib/firmware/qat_4xxx_mmp.bin.xz
         If not, download the firmware images from linux-firmware and copy them
@@ -85,17 +87,23 @@ Check System Prerequisites
         wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qat_4xxx_mmp.bin
         sudo mv qat_4xxx.bin /lib/firmware
         sudo mv qat_4xxx_mmp.bin /lib/firmware
-        On updating these files run "sudo dracut --force" to update initramfs.
+	For 420xx, these firmware files are needed:
+		/lib/firmware/qat_420xx.bin
+		/lib/firmware/qat_420xx_mmp.bin
+	If not present please contact qat-linux@intel.com
+        On updating any firmware files run "sudo dracut --force" to update
+        initramfs.
      * kernel driver must be running
         Use "lsmod | grep qat" to check that these kernel modules are running:
         intel_qat
-        qat_4xxx
+        qat_4xxx or qat_420xx
         They should load by default if using any of the following:
         * A recent Linux kernel (see https://intel.github.io/quickassist/qatlib/requirements.html#kernel-firmware-requirements )
-        * Fedora 36+
+        * Fedora 36+ (39+ for 420xx)
         * RHEL 8.4+ (for compression use 9.0+)
-     * each PF device must be bound to the 4xxx driver
-        Use "ls /sys/bus/pci/drivers/4xxx/" to show the BDFs of each bound PF
+     * each PF device must be bound to the 4xxx or 420xx driver
+        Use "cd /sys/bus/pci/drivers; ls 4xxx; ls 420xx"  to show the BDFs of
+        each bound PF
      * BIOS settings
         Intel VT-d and SR-IOV must be enabled in the platform BIOS.
         Consult your platform guide on how to do this.
@@ -367,7 +375,9 @@ Compilation and installation - detailed instructions
 
         In Managed mode, qatmgr manages allocation of the VF resources to
         each process on process startup.
-        The following parameters can be set in /etc/sysconfig/qat:
+        A sample config file can be found in quickassist/utilities/service/qat.
+        it can be copied to /etc/sysconfig/qat and used to set the following
+        parameters:
 
         POLICY
             Indicates how many VFs will be assigned to each process.
@@ -572,7 +582,7 @@ Compilation and installation - detailed instructions
                 continue
             fi
 
-            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ]; then
+            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ] && [ "$did" != "0x4947" ]; then
                 continue
             fi
 
@@ -661,6 +671,9 @@ Full list of Configuration options
         --enable-dc-error-simulation
                 Enables Data Compression Error Simulation.
 
+        --enable-hb-error-simulation
+                Enables Heartbeat Error Simulation.
+
         --enable-legacy-lib-names
                 Enables legacy names for libraries.
 
@@ -719,10 +732,12 @@ Common issues
         bound to qat_4xxx:
         sudo lspci -vvd:4940 | grep "Kernel driver in use".
         sudo lspci -vvd:4942 | grep "Kernel driver in use"
+        sudo lspci -vvd:4946 | grep "Kernel driver in use"
         upgrade to a recent Linux Kernel.
         (2) No VFs available. Check VFs are available and bound to vfio-pci
         sudo lspci -vvd:4941 | grep "Kernel driver in use"
         sudo lspci -vvd:4943 | grep "Kernel driver in use"
+        sudo lspci -vvd:4947 | grep "Kernel driver in use"
 
     Issue: On running ./autogen.sh following warning appears:
         aclocal: warning: couldn't open directory 'm4': No such file or dir...
@@ -785,6 +800,14 @@ Common issues
     Likely cause: There was a name change between 21.11 and 22.07, note the
         extra 's'. Sorry if it causes confusion.
     Fix: sudo make samples-uninstall
+
+    Issue: on Ubuntu on make install, this error may be seen:
+        “Failed to start qat.service: Unit qat.service not found.”
+    Likely cause: The qat.service file is not installed by Ubuntu in the
+        expected directory
+    Fix: Explicitly configure the systemd path to where Ubuntu has installed
+        the qat.service, e.g.
+        ./configure --enable-service systemdsystemunitdir=/lib/systemd/system/
 
 ===============================================================================
 

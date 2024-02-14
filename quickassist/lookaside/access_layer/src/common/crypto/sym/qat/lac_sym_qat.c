@@ -391,7 +391,9 @@ CpaBoolean LacSymQat_UseSymConstantsTable(lac_session_desc_t *pSession,
                                  pSession->hashMode,
                                  pSession->hashAlgorithm,
                                  &algorithm,
-                                 &nested);
+                                 &nested,
+                                 pSession->authKeyLenInBytes,
+                                 pSession->hashResultSize);
 
         /* Check if config data is available in table. */
         LacSymQat_ConstantsGetAuthOffset(pSession->pInstance,

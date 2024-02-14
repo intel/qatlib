@@ -1,4 +1,4 @@
-/*****************************************************************************
+/******************************************************************************
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
@@ -60,73 +60,57 @@
  *
  *****************************************************************************/
 
-/*****************************************************************************
- * @file icp_adf_poll.h
- *
- * @description
- *      File contains Public API Definitions for the polling method.
+/**
+ ******************************************************************************
+ * @file  cpa_zuc_sample_user.c
  *
  *****************************************************************************/
-#ifndef ICP_ADF_POLL_H
-#define ICP_ADF_POLL_H
+#include "cpa_sample_utils.h"
+#include "icp_sal_user.h"
 
-#include "cpa.h"
-/*
- * icp_adf_pollInstance
- *
- * Description:
- * Poll an instance. In order to poll an instance
- * sal will pass in a table of trans handles from which
- * the ring to be polled can be obtained and subsequently
- * polled.
- *
- * Returns:
- *   CPA_STATUS_SUCCESS   on polling a ring with data
- *   CPA_STATUS_FAIL      on failure
- *   CPA_STATUS_RETRY     if ring has no data on it
- *                        or ring is already being polled.
- */
-CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
-                               Cpa32U num_transHandles,
-                               Cpa32U response_quota);
+extern CpaStatus algChainSample(void);
 
-/*
- * icp_adf_check_RespInstance
- *
- * Description:
- * Check whether an instance is empty or has remaining responses on it. In
- * order to check an instance for the remaining responses, sal will pass in
- * a table of trans handles from which the instance to be checked can be
- * obtained and subsequently checked.
- *
- * Returns:
- *   CPA_STATUS_SUCCESS         if response ring is empty
- *   CPA_STATUS_FAIL            on failure
- *   CPA_STATUS_RETRY           if response ring is not empty
- *   CPA_STATUS_INVALID_PARAM   Invalid parameter passed in
- */
-CpaStatus icp_adf_check_RespInstance(icp_comms_trans_handle *trans_hnd,
-                                     Cpa32U num_transHandles);
-/*
- * This function allows the user to check ring error bit status
- */
-CpaStatus icp_adf_checkRingError(icp_comms_trans_handle *trans_hnd,
-                                 Cpa32U num_transHandles);
+int gDebugParam = 1;
 
-/*
- * This function polls the rings on the given bank to determine
- * if any of the rings contain messages to be read. The
- * response quota is per ring.
- */
-CpaStatus icp_adf_pollBank(Cpa32U accelId,
-                           Cpa32U bank_number,
-                           Cpa32U response_quota);
+int main(int argc, const char **argv)
+{
+    CpaStatus stat = CPA_STATUS_SUCCESS;
 
-/*
- * This function polls the rings on all banks to determine
- * if any of the rings contain messages to be read. The
- * response quota is per ring.
- */
-CpaStatus icp_adf_pollAllBanks(Cpa32U accelId, Cpa32U response_quota);
+    if (argc > 1)
+    {
+        gDebugParam = atoi(argv[1]);
+    }
 
-#endif /* ICP_ADF_POLL_H */
+    PRINT_DBG("Starting ZUC Sample Code App ...\n");
+
+    stat = qaeMemInit();
+    if (CPA_STATUS_SUCCESS != stat)
+    {
+        PRINT_ERR("Failed to initialize memory driver\n");
+        return (int)stat;
+    }
+
+    stat = icp_sal_userStartMultiProcess("SSL", CPA_FALSE);
+    if (CPA_STATUS_SUCCESS != stat)
+    {
+        PRINT_ERR("Failed to start user process SSL\n");
+        qaeMemDestroy();
+        return (int)stat;
+    }
+
+    stat = algChainSample();
+    if (CPA_STATUS_SUCCESS != stat)
+    {
+        PRINT_ERR("\nZUC Sample Code App failed\n");
+    }
+    else
+    {
+        PRINT_DBG("\nZUC Sample Code App finished\n");
+    }
+
+    icp_sal_userStop();
+
+    qaeMemDestroy();
+
+    return (int)stat;
+}

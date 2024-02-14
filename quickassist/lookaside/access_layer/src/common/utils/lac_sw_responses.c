@@ -89,6 +89,8 @@
 #define ASYM_NOT_SUPPORTED
 #endif
 
+#include "dc_datapath.h"
+
 static OsalAtomic lac_sw_resp_num_pools_busy = ATOMIC_INIT(0);
 /**< @ingroup LacSwResponses
  * Number of busy memory pools
@@ -210,7 +212,26 @@ void LacSwResp_MemBlkBucketDestroy(lac_memblk_bucket_t *pBucket)
     return;
 }
 
-CpaStatus LacSwResp_Asym_CallbackWake(lac_memory_pool_id_t lac_mem_pool)
+STATIC
+CpaStatus LacSwResp_GenRespMsgCallback(lac_memblk_bucket_t *pBucket,
+                                       sal_service_type_t type)
+{
+    CpaStatus status = CPA_STATUS_RETRY;
+
+    if (SAL_SERVICE_TYPE_COMPRESSION == type)
+    {
+        status = dcCompression_SwRespMsgCallback(pBucket);
+    }
+    else
+    {
+        status = LacPke_SwRespMsgCallback(pBucket);
+    }
+
+    return status;
+}
+
+CpaStatus LacSwResp_GenResp(lac_memory_pool_id_t lac_mem_pool,
+                            sal_service_type_t type)
 {
     CpaStatus status = CPA_STATUS_RETRY;
     lac_mem_pool_hdr_t *pPoolID = (lac_mem_pool_hdr_t *)lac_mem_pool;
@@ -247,10 +268,11 @@ CpaStatus LacSwResp_Asym_CallbackWake(lac_memory_pool_id_t lac_mem_pool)
             LAC_LOG_ERROR("Failed to create pBucket!");
             return CPA_STATUS_RESOURCE;
         }
-        status = LacPke_SwRespMsgCallback(pBucket);
+
+        status = LacSwResp_GenRespMsgCallback(pBucket, type);
         if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
         {
-            LAC_LOG_ERROR("Failed to generate PKE dummy responses!");
+            LAC_LOG_ERROR("Failed to generate dummy responses!");
         }
         LacSwResp_MemBlkBucketDestroy(pBucket);
     }

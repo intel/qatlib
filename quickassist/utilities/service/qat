@@ -1,0 +1,22 @@
+# /etc/sysconfig/qat
+# 
+# Optional file for qatlib configuration
+#
+# To change config from the default, update and uncomment the variables below,
+# install the file and restart the service, i.e.
+#
+# sudo cp /etc/sysconfig/qat  /etc/sysconfig/qat.bak
+# sudo cp qat /etc/sysconfig/qat
+# sudo chmod 640 /etc/sysconfig/qat
+# sudo systemctl stop qat
+# sudo systemctl start qat
+#
+# See https://intel.github.io/quickassist/qatlib/configuration.html for more details
+#
+
+# 'POLICY' indicates how many VFs will be assigned to each process.
+#POLICY=
+
+# 'ServicesEnabled' tells the kernel driver which Services to enable on PFs.
+# All VFs on a PF have the same service.
+#ServicesEnabled=

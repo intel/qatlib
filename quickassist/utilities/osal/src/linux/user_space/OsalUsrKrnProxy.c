@@ -574,8 +574,7 @@ OSAL_PUBLIC OSAL_STATUS osalMemInitialize(char *path)
         offs = MIN(offs, sizeof(mem_path));
         offs += snprintf(mem_path + offs, sizeof(mem_path) - offs, "%s", path);
         offs = MIN(offs, sizeof(mem_path));
-        offs += snprintf(
-            mem_path + offs, sizeof(mem_path) - offs, "%s", DEV_MEM_NAME);
+        snprintf(mem_path + offs, sizeof(mem_path) - offs, "%s", DEV_MEM_NAME);
 
         offs = snprintf(
             mempage_path, sizeof(mempage_path), "%s", OS_DEV_DIRECTORY);
@@ -583,10 +582,10 @@ OSAL_PUBLIC OSAL_STATUS osalMemInitialize(char *path)
         offs += snprintf(
             mempage_path + offs, sizeof(mempage_path) - offs, "%s", path);
         offs = MIN(offs, sizeof(mempage_path));
-        offs += snprintf(mempage_path + offs,
-                         sizeof(mempage_path) - offs,
-                         "%s",
-                         DEV_MEM_NAME_PAGE);
+        snprintf(mempage_path + offs,
+                 sizeof(mempage_path) - offs,
+                 "%s",
+                 DEV_MEM_NAME_PAGE);
     }
 
     fd = open((path) ? mem_path : DEV_MEM_PATH, O_RDWR);

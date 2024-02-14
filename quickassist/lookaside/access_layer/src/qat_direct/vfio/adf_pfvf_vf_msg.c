@@ -121,6 +121,27 @@ void adf_vf2pf_notify_shutdown(struct adf_pfvf_dev_data *dev)
     }
 }
 
+void adf_vf2pf_notify_restarting_complete(struct adf_pfvf_dev_data *dev)
+{
+    ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
+    struct pfvf_message msg = { .type = ADF_VF2PF_MSGTYPE_RESTARTING_COMPLETE };
+
+    if (!adf_vf2pf_available())
+        return;
+
+    if (dev->pfvf_initialized)
+    {
+        if (adf_send_vf2pf_msg(dev, msg))
+        {
+            qat_log(LOG_LEVEL_ERROR,
+                    "Failed to send Restarting complete event to PF\n");
+            adf_set_vf2pf_available(VF2PF_NOT_AVAILABLE);
+        }
+        else
+            dev->pfvf_initialized = 0;
+    }
+}
+
 int adf_vf2pf_check_compat_version(struct adf_pfvf_dev_data *dev)
 {
     int ret;
@@ -158,10 +179,41 @@ int adf_vf2pf_check_compat_version(struct adf_pfvf_dev_data *dev)
 
     if (resp.compat != ADF_PF2VF_VF_COMPATIBLE)
     {
-        qat_log(LOG_LEVEL_ERROR,
-                "VF is not compatible with PF, due to the reason %d\n",
-                resp.compat);
-        return -EFAULT;
+        if (resp.compat == ADF_PF2VF_VF_COMPAT_UNKNOWN)
+        {
+            /* The PF driver has an older compat version than qatlib so it’s up
+             * to qatlib to decide if it can work with the PF or not. The intree
+             * kernel on gen4 started with ADF_PFVF_COMPAT_RING_TO_SVC_MAP
+             * so no need to handle earlier versions. Note, earlier kernels
+             * would not have responded to COMPAT message, qatlib doesn’t treat
+             * them as incompatible, instead works with them based on assuming
+             * default config. */
+            if (resp.version >= ADF_PFVF_COMPAT_RING_TO_SVC_MAP &&
+                resp.version < ADF_PFVF_COMPAT_THIS_VERSION)
+            {
+                qat_log(LOG_LEVEL_INFO, "Running in compatibility mode\n");
+                qat_log(LOG_LEVEL_INFO,
+                        " PF version %d, VF version %d\n",
+                        resp.version,
+                        compat_req.version);
+            }
+            else
+            {
+                qat_log(LOG_LEVEL_ERROR,
+                        "VF version %d is incompatible with PF version %d\n",
+                        compat_req.version,
+                        resp.version);
+                return -EFAULT;
+            }
+        }
+        else
+        {
+            qat_log(LOG_LEVEL_ERROR,
+                    "PF version %d is incompatible with VF version %d\n",
+                    resp.version,
+                    compat_req.version);
+            return -EFAULT;
+        }
     }
 
     dev->compat_version = resp.version;

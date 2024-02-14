@@ -173,7 +173,9 @@ void LacSymQat_HashGetCfgData(CpaInstanceHandle pInstance,
                               CpaCySymHashMode apiHashMode,
                               CpaCySymHashAlgorithm apiHashAlgorithm,
                               icp_qat_hw_auth_algo_t *pQatAlgorithm,
-                              CpaBoolean *pQatNested)
+                              CpaBoolean *pQatNested,
+                              Cpa32U authKeyLenInBytes,
+                              Cpa32U digestResultLenInBytes)
 {
     lac_sym_qat_hash_defs_t *pHashDefs = NULL;
 
@@ -181,7 +183,11 @@ void LacSymQat_HashGetCfgData(CpaInstanceHandle pInstance,
     LAC_ENSURE_NOT_NULL(pQatAlgorithm);
     LAC_ENSURE_NOT_NULL(pQatNested);
 
-    LacSymQat_HashDefsLookupGet(pInstance, apiHashAlgorithm, &pHashDefs);
+    LacSymQat_HashDefsLookupGet(pInstance,
+                                apiHashAlgorithm,
+                                &pHashDefs,
+                                authKeyLenInBytes,
+                                digestResultLenInBytes);
 
     LAC_ENSURE_NOT_NULL(pHashDefs);
     *pQatAlgorithm = pHashDefs->qatInfo->algoEnc;
@@ -223,6 +229,9 @@ void LacSymQat_HashContentDescInit(
     lac_sym_qat_hash_defs_t *pHashDefs = NULL;
     lac_sym_qat_hash_defs_t *pOuterHashDefs = NULL;
     Cpa32U hashSetupBlkSize = 0;
+    Cpa32U authKeyLenInBytes =
+        pHashSetupData->authModeSetupData.authKeyLenInBytes;
+    Cpa32U digestResultLenInBytes = pHashSetupData->digestResultLenInBytes;
 
     LAC_ENSURE_NOT_NULL(pHashSetupData);
     LAC_ENSURE_NOT_NULL(pHwBlockBase);
@@ -234,8 +243,11 @@ void LacSymQat_HashContentDescInit(
     ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
     ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_AUTH);
 
-    LacSymQat_HashDefsLookupGet(
-        instanceHandle, pHashSetupData->hashAlgorithm, &pHashDefs);
+    LacSymQat_HashDefsLookupGet(instanceHandle,
+                                pHashSetupData->hashAlgorithm,
+                                &pHashDefs,
+                                authKeyLenInBytes,
+                                digestResultLenInBytes);
 
     LAC_ENSURE_NOT_NULL(pHashDefs);
 
@@ -316,7 +328,11 @@ void LacSymQat_HashContentDescInit(
                 ? pHashSetupData->nestedModeSetupData.outerHashAlgorithm
                 : pHashSetupData->hashAlgorithm;
 
-        LacSymQat_HashDefsLookupGet(instanceHandle, outerAlg, &pOuterHashDefs);
+        LacSymQat_HashDefsLookupGet(instanceHandle,
+                                    outerAlg,
+                                    &pOuterHashDefs,
+                                    authKeyLenInBytes,
+                                    digestResultLenInBytes);
 
         LAC_ENSURE_NOT_NULL(pOuterHashDefs);
 
@@ -405,7 +421,9 @@ void LacSymQat_HashSetupReqParamsMetaData(
     icp_qat_fw_auth_cd_ctrl_hdr_t *cd_ctrl = NULL;
     icp_qat_la_auth_req_params_t *pHashReqParams = NULL;
     lac_sym_qat_hash_defs_t *pHashDefs = NULL;
-
+    Cpa32U authKeyLenInBytes =
+        pHashSetupData->authModeSetupData.authKeyLenInBytes;
+    Cpa32U digestResultLenInBytes = pHashSetupData->digestResultLenInBytes;
     LAC_ENSURE_NOT_NULL(pMsg);
     LAC_ENSURE_NOT_NULL(pHashSetupData);
 
@@ -413,8 +431,11 @@ void LacSymQat_HashSetupReqParamsMetaData(
     pHashReqParams =
         (icp_qat_la_auth_req_params_t *)(&(pMsg->serv_specif_rqpars));
 
-    LacSymQat_HashDefsLookupGet(
-        instanceHandle, pHashSetupData->hashAlgorithm, &pHashDefs);
+    LacSymQat_HashDefsLookupGet(instanceHandle,
+                                pHashSetupData->hashAlgorithm,
+                                &pHashDefs,
+                                authKeyLenInBytes,
+                                digestResultLenInBytes);
 
     LAC_ENSURE_NOT_NULL(pHashDefs);
 

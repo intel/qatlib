@@ -224,7 +224,11 @@ CpaStatus LacSymHash_HmacPreComputes(CpaInstanceHandle instanceHandle,
     Cpa32U i = 0;
     Cpa32U padLenBytes = 0;
 
-    LacSymQat_HashAlgLookupGet(instanceHandle, hashAlgorithm, &pHashAlgInfo);
+    LacSymQat_HashAlgLookupGet(instanceHandle,
+                               hashAlgorithm,
+                               &pHashAlgInfo,
+                               authKeyLenInBytes,
+                               LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
     pHmacIpadOpData->stateSize = pHashAlgInfo->stateSize;
     pHmacOpadOpData->stateSize = pHashAlgInfo->stateSize;
 
@@ -289,8 +293,11 @@ CpaStatus LacSymHash_AesECBPreCompute(CpaInstanceHandle instanceHandle,
     {
         Cpa8U *in = pWorkingMemory;
         Cpa8U *out = pState;
-        LacSymQat_HashAlgLookupGet(
-            instanceHandle, hashAlgorithm, &pHashAlgInfo);
+        LacSymQat_HashAlgLookupGet(instanceHandle,
+                                   hashAlgorithm,
+                                   &pHashAlgInfo,
+                                   authKeyLenInBytes,
+                                   LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
         stateSize = pHashAlgInfo->stateSize;
         memcpy(pWorkingMemory, pHashAlgInfo->initState, stateSize);
 
@@ -313,8 +320,11 @@ CpaStatus LacSymHash_AesECBPreCompute(CpaInstanceHandle instanceHandle,
         Cpa8U *ptr = NULL;
         size_t i = 0;
         stateSize = LAC_HASH_CMAC_BLOCK_SIZE;
-        LacSymQat_HashAlgLookupGet(
-            instanceHandle, hashAlgorithm, &pHashAlgInfo);
+        LacSymQat_HashAlgLookupGet(instanceHandle,
+                                   hashAlgorithm,
+                                   &pHashAlgInfo,
+                                   authKeyLenInBytes,
+                                   LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
         /* Original state size includes K, K1 and K2 which are of equal length.
          * For precompute state size is only of the length of K which is equal
          * to the block size for CPA_CY_SYM_HASH_AES_CMAC.

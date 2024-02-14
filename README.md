@@ -26,12 +26,13 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| February 2024 | 012 | 24.02 | - Added Heartbeat support. <br> - Added support for QAT GEN 5 devices, including support for a range of crypto wireless algorithms. <br> - RAS - Device error reset and recovery handling. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | November 2023 | 011 | 23.11 | - Support DC NS (NoSession) APIs.  <br> - Support  DC compressBound APIs. <br> - Support Symmetric Crypto SM3 & SM4. <br> - Support Asymmetric Crypto SM2. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
-| August 2023 | 010 | 23.08 | - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
+| August 2023 | 010 | 23.08 | - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). <br> - The shared object version is changed from 3->4. |
 | February 2023 | 009 | 23.02 | - Added configuration option --enable-legacy-algorithms to use these insecure crypto algorithms and disabled them by default (AES-ECB, SHA-1, SHA2-224, SHA3-224, RSA512/1024/1536, DSA)<br>- Refactored code in quickassist/utilities/libusdm_drv<br>- Bugfixes<br>- Updated documentation with configuration and tuning information |
 | November 2022 | 008 | 22.07.2 | - Changed from yasm to nasm for assembly compilation<br> - Added configuration option to use C implementation of soft CRC implementation instead of asm<br>- Added support for pkg-config<br>- Added missing lock around accesses to some global data in qatmgr |
 | October 2022 | 007 | 22.07.1 | - Fix for QATE-86605 |
-| July 2022 | 006 | 22.07 | - Added support for lz4/lz4s compression algorithms<br>- Added support for Compression End-to-end (E2E) integrity check<br>- Added support for PKE generic point multiply<br>- Updated QAT APIs<br>- Enabled CPM2.0b<br>- Split rpm package |
+| July 2022 | 006 | 22.07 | - Added support for lz4/lz4s compression algorithms<br>- Added support for Compression End-to-end (E2E) integrity check<br>- Added support for PKE generic point multiply<br>- Updated QAT APIs (as a result the shared object version  changed from 2->3). <br>- Enabled CPM2.0b<br>- Split rpm package |
 | November 2021 | 005 | 21.11 | - Added qatlib-tests rpm package<br>- Added option to configure script to skip building sample code |
 | August 2021 | 004 | 21.08 | - Added support for deflate compression - Compress and Verify (CnV) and Compress and Verify and Recover (CnVnR)<br>- Added Physical Function to Virtual Function (PFVF) communication support |
 | May 2021 | 003 | 21.05 | - Added support for AES-CCM 192/265<br>- Added support for SHA3-224/384/512 (no partials support)<br>- Added support for ChaCha20-Poly1305<br>- Added support for PKE 8K (RSA, DH, ModExp, ModInv)<br>- Fixed device enumeration on different nodes<br>- Fixed pci_vfio_set_command for 32 bit builds |
@@ -61,7 +62,7 @@ The following services are available in qatlib via the QuickAssist API:
     SM4-CBC, SM4-CTR)
   * Message digest/hash ([SHA1](#insecure-algorithms), SHA2 ([224](#insecure-algorithms)/256/384/512),
     SHA3 ([224](#insecure-algorithms)/256/384/512) (no partials support), SM3) and
-    authentication (AES-CBC-MAC, AES-XCBC-MAC)
+    authentication (AES-CBC-MAC, AES-XCBC-MAC, AES-CMAC-128)
   * Algorithm chaining (one cipher and one hash in a single operation)
   * Authenticated encryption (CCM-128 (no partials support),
     GCM (128/192/256) (no partials support), GMAC (no partials support)
@@ -90,6 +91,9 @@ The following services are available in qatlib via the QuickAssist API:
   * DC NS (No Session) APIs
 * Compression Chaining (Deflate only)
   * Hash then compress
+* Wireless Algorithms (supported on QAT GEN 5 devices)
+  * Ciphers (SNOW3G-UEA2, ZUC-128, ZUC-256, AES-F8)
+  * Message digest/hash (SNOW3G-UIA2, ZUC-128, ZUC-256) and authentication (AES-CMAC-128, AES-CMAC-192, AES-CMAC-256)
 
 This package includes:
 * libqat: user space library for QAT devices exposed via the vfio kernel driver
@@ -120,7 +124,8 @@ To enable these algorithms, use the following configuration option:
 Please refer to [INSTALL](INSTALL) for details on installing the library.
 
 ## Supported Devices
-* 4xxx (QAT gen 4 devices)
+* 4xxx (QAT GEN 4 devices)
+* 420xx (QAT GEN 5 devices)
 
 Earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) are not
 supported.
@@ -187,7 +192,7 @@ where: \<Component\> is one of the following:
 | QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
 | QATE-76698 | [GEN - Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
-| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup.](#qate-94369) |
+| QATE-98551 | [GEN - On a multi-socket platform, there can be a performance degradation on the remote sockets.](#qate-98551) |
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -230,15 +235,15 @@ where: \<Component\> is one of the following:
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
-## QATE-94369
-| Title      |       GEN - SELinux Preventing QAT Service Startup        |
+## QATE-98551
+| Title      |        GEN - On a multi-socket platform, there can be a performance degradation on the remote sockets. |
 |----------|:-------------
-| Reference # | QATE-94369 |
-| Description | The qat service fails to start due to SELinux preventing the qat_init.sh script and qatmgr from accessing resources. The issue occurs when the system is running with SELinux enabled, causing insufficient permissions for the qat_init.sh script and qatmgr to function correctly. |
-| Implication | This issue affects the proper functioning of the qat service on systems with SELinux enabled, potentially preventing QAT virtual functions (VFs) from functioning. |
-| Resolution | None available. |
+| Reference # | QATE-98551 |
+| Description | On a multi-socket platform, there can be a performance degradation on remote sockets. This can arise when either the threads are not affinitised to the core on the socket the device is on and/or the memory is not allocated on the appropriate NUMA node. |
+| Implication | Performance on socket 0 is as expected, but does not scale proportionally on remote sockets. |
+| Resolution | This will be fixed in a future release. In the meantime, applications on a multi-socket platform should configure threads using a QAT VF device on a remote socket to be affinitised to the core on that remote socket. Then the memory allocations are more likely to be done on the remote socket, with minimal performance impact. |
 | Affected OS | Linux |
-| Driver/Module | QAT Linux Upstream - User |
+| Driver/Module | CPM-IA - General |
 
 ## Resolved Issues
 Resolved issues relating to the Intel® QAT software are described
@@ -246,6 +251,8 @@ in this section.
 
 | Issue ID | Description |
 |-------------|------------|
+| QATE-97977 | [DC - 'Unable to get the physical address of Data Integrity buffer' error may be observed when using user-provided address translation functions.](#qate-97977) |
+| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup.](#qate-94369) |
 | QATE-94286 | [GEN - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
 | QATE-95905 | [GEN - Fix build when building outside of main directory, issue #56](#qate-95905) |
 | QATE-93844 | [DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.](#qate-93844)
@@ -254,6 +261,28 @@ in this section.
 | QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-78459) |
 | QATE-76846 | [GEN - Forking and re-initializing use-cases do not work](#qate-76846) |
 | QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
+
+## QATE-97977
+| Title      |       DC - 'Unable to get the physical address of Data Integrity buffer' error may be observed when using user-provided address translation functions.        |
+|----------|:-------------
+| Reference # | QATE-97977 |
+| Description | When using Integrity CRC feature (integrityCrcCheck in CpaDcOpData) and also user provided address translation functions (cpaDcSetAddressTranslation) the above error may be observed. |
+| Implication | Compression request operations may fail in this scenario. |
+| Resolution | Fixed in 24.02 |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - Data Compression |
+
+
+
+## QATE-94369
+| Title      |       GEN - SELinux Preventing QAT Service Startup        |
+|----------|:-------------
+| Reference # | QATE-94369 |
+| Description | The qat service fails to start due to SELinux preventing the qat_init.sh script and qatmgr from accessing resources. The issue occurs when the system is running with SELinux enabled, causing insufficient permissions for the qat_init.sh script and qatmgr to function correctly. |
+| Implication | This issue affects the proper functioning of the qat service on systems with SELinux enabled, potentially preventing QAT virtual functions (VFs) from functioning. |
+| Resolution | The fix is not in the scope of qatlib. Instead there are three possible methods to handle this issue: <br> 1) Update selinux-policy as seen in https://github.com/fedora-selinux/selinux-policy/pull/1992 <br>2) Disable SElinux <br>3) Update mode to SElinux mode to permissive using following commands: <br>semanage permissive -a qatlib_exec_t<br>semanage permissive -a qatlib_t<br>The audit warnings may be generated, but qatlib will be allowed access to vfio devices. |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
 
 ## QATE-94286
 | Title      |       GEN - Compression services not detected when crypto-capable VFs are also added to VM.        |

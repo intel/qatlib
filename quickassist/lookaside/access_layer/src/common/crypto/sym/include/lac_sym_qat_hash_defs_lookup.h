@@ -90,6 +90,26 @@
 *****************************************************************************/
 #define CPA_CY_HASH_ALG_END CPA_CY_SYM_HASH_SHA3_512
 
+/**
+******************************************************************************
+* @ingroup LacSymQatHashDefsLookup
+*      Default authKeyLenInBytes
+* @description
+*      This define the default value for authKeyLenInBytes used in
+*      LacSymQat_HashAlgLookupGet and LacSymQat_HashDefsLookupGet
+*****************************************************************************/
+#define LAC_SYM_HASH_DEFAULT_AUTHKEY_LENS 0
+
+/**
+******************************************************************************
+* @ingroup LacSymQatHashDefsLookup
+*      Default digestResultLenInBytes
+* @description
+*      This define the default value for digestResultLenInBytes used in
+*      LacSymQat_HashAlgLookupGet and LacSymQat_HashDefsLookupGet
+*****************************************************************************/
+#define LAC_SYM_HASH_DEFAULT_DIGEST_LENS 0
+
 /***************************************************************************/
 
 /**
@@ -166,15 +186,23 @@ CpaStatus LacSymQat_HashLookupInit(CpaInstanceHandle instanceHandle);
 *      containing data specific to a hash algorithm. The hashAlgorithm enum
 *      value MUST be in the correct range prior to calling this function.
 *
-* @param[in]  hashAlgorithm     Hash Algorithm
-* @param[out] ppHashAlgInfo     Hash Alg Info structure
+* @param[in]  hashAlgorithm          Hash Algorithm
+* @param[in]  authKeyLenInBytes      Length of the authentication key in bytes.
+*                                    only used for ZUC-EIA/AES_CMAC algorithms.
+*                                    default value 0 for the other algorithms.
+* @param[in]  digestResultLenInBytes Length of the hash result in bytes
+*                                    only used for ZUC-EIA/AES_CMAC algorithms.
+*                                    default value 0 for the other algorithms.
+* @param[out] ppHashAlgInfo          Hash Alg Info structure
 *
 * @return None
 *
 *****************************************************************************/
 void LacSymQat_HashAlgLookupGet(CpaInstanceHandle instanceHandle,
                                 CpaCySymHashAlgorithm hashAlgorithm,
-                                lac_sym_qat_hash_alg_info_t **ppHashAlgInfo);
+                                lac_sym_qat_hash_alg_info_t **ppHashAlgInfo,
+                                Cpa32U authKeyLenInBytes,
+                                Cpa32U digestResultLenInBytes);
 
 /**
 *******************************************************************************
@@ -187,14 +215,22 @@ void LacSymQat_HashAlgLookupGet(CpaInstanceHandle instanceHandle,
 *      algorithm specific info and qat specific infro. The hashAlgorithm enum
 *      value MUST be in the correct range prior to calling this function.
 *
-* @param[in]  hashAlgorithm     Hash Algorithm
-* @param[out] ppHashDefsInfo    Hash Defs structure
+* @param[in]  hashAlgorithm          Hash Algorithm
+* @param[in]  authKeyLenInBytes      Length of the authentication key in bytes.
+*                                    only used for ZUC-EIA/AES_CMAC algorithms.
+*                                    default value 0 for the other algorithms.
+* @param[in]  digestResultLenInBytes Length of the hash result in bytes
+*                                    only used for ZUC-EIA/AES_CMAC algorithms.
+*                                    default value 0 for the other algorithms.
+* @param[out] ppHashDefsInfo         Hash Defs structure
 *
 * @return void
 *
 *****************************************************************************/
 void LacSymQat_HashDefsLookupGet(CpaInstanceHandle instanceHandle,
                                  CpaCySymHashAlgorithm hashAlgorithm,
-                                 lac_sym_qat_hash_defs_t **ppHashDefsInfo);
+                                 lac_sym_qat_hash_defs_t **ppHashDefsInfo,
+                                 Cpa32U authKeyLenInBytes,
+                                 Cpa32U digestResultLenInBytes);
 
 #endif /* LAC_SYM_QAT_HASH_DEFS_LOOKUP_P_H */

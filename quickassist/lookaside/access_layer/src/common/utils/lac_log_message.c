@@ -141,7 +141,7 @@ void set_osal_log_debug_level(void)
     {
         /* enable output from LAC_LOG_DEBUG */
         /* LAC_LOG_LVL_DEBUG1 = 6, DEBUG2=7, DEBUG3=8 */
-        previous_level = osalLogLevelSet(conf_osal_log_level_debug);
+        osalLogLevelSet(conf_osal_log_level_debug);
     }
     else
     {

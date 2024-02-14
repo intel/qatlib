@@ -108,6 +108,7 @@
 #include "icp_qat_fw_comp.h"
 #include "icp_qat_hw_20_comp_defs.h"
 #include "icp_sal_versions.h"
+#include "lac_sw_responses.h"
 
 #ifndef ICP_DC_ONLY
 #include "dc_chain.h"
@@ -161,17 +162,17 @@ STATIC int SalCtrl_CompresionDebug(void *private_data,
         (long long unsigned int)dcStats.numCompCompletedErrors);
 
     /* Perform Info */
-    len += snprintf(
-        data + len,
-        size - len,
-        BORDER " DC decomp Requests:             %16llu " BORDER "\n" BORDER
-               " DC decomp Request Errors:       %16llu " BORDER "\n" BORDER
-               " DC decomp Completed:            %16llu " BORDER "\n" BORDER
-               " DC decomp Completed Errors:     %16llu " BORDER "\n" SEPARATOR,
-        (long long unsigned int)dcStats.numDecompRequests,
-        (long long unsigned int)dcStats.numDecompRequestsErrors,
-        (long long unsigned int)dcStats.numDecompCompleted,
-        (long long unsigned int)dcStats.numDecompCompletedErrors);
+    snprintf(data + len,
+             size - len,
+             BORDER
+             " DC decomp Requests:             %16llu " BORDER "\n" BORDER
+             " DC decomp Request Errors:       %16llu " BORDER "\n" BORDER
+             " DC decomp Completed:            %16llu " BORDER "\n" BORDER
+             " DC decomp Completed Errors:     %16llu " BORDER "\n" SEPARATOR,
+             (long long unsigned int)dcStats.numDecompRequests,
+             (long long unsigned int)dcStats.numDecompRequestsErrors,
+             (long long unsigned int)dcStats.numDecompCompleted,
+             (long long unsigned int)dcStats.numDecompCompletedErrors);
     return 0;
 }
 
@@ -308,6 +309,8 @@ SalCtrl_CompressionInit_CompData(icp_accel_dev_t *device,
             break;
         case DEVICE_4XXX:
         case DEVICE_4XXXVF:
+        case DEVICE_420XX:
+        case DEVICE_420XXVF:
             if ((device->accelCapabilitiesMask &
                  ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY) ||
                 (device->accelCapabilitiesMask &
@@ -428,6 +431,46 @@ SalCtrl_CompressionInit_CompData(icp_accel_dev_t *device,
     return CPA_STATUS_SUCCESS;
 }
 
+/* Disabling memory pool when the device is in error state */
+STATIC void SalCtrl_DcMemPoolDisable(sal_service_t *service)
+{
+    sal_compression_service_t *pCompService =
+        (sal_compression_service_t *)service;
+
+    Lac_MemPoolDisable(pCompService->compression_mem_pool);
+
+    return;
+}
+
+STATIC void SalCtrl_DcUpdatePoolsBusy(sal_service_t *service)
+{
+    CpaBoolean isInstanceStarted = service->isInstanceStarted;
+    sal_compression_service_t *pCompService =
+        (sal_compression_service_t *)service;
+
+    if (CPA_TRUE == isInstanceStarted)
+    {
+        LacSwResp_IncNumPoolsBusy(pCompService->compression_mem_pool);
+    }
+    return;
+}
+
+/* Generates dummy responses when the device is in error state */
+STATIC
+CpaStatus SalCtrl_DcGenResponses(sal_compression_service_t *dc_handle)
+{
+    CpaStatus status = CPA_STATUS_RETRY;
+    status = LacSwResp_GenResp(dc_handle->compression_mem_pool,
+                               dc_handle->generic_service_info.type);
+
+    if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
+    {
+        LAC_LOG_ERROR1("Failed to generate SW responses with status %d\n",
+                       status);
+    }
+    return status;
+}
+
 STATIC CpaStatus SalCtrl_DcCheckRespInstance(sal_service_t *service)
 {
     sal_compression_service_t *dc_handle = (sal_compression_service_t *)service;
@@ -459,7 +502,7 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     /* Get Config Info: Accel Num, bank Num, packageID,
                             coreAffinity, nodeAffinity and response mode */
 
-    pCompressionService->acceleratorNum = 0;
+    pCompressionService->acceleratorNum = device->accelId;
 
     status =
         Sal_StringParsing(SAL_CFG_DC,
@@ -882,7 +925,7 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
                                (numCompConcurrentReq + 1),
                                sizeof(dc_compression_cookie_t),
                                LAC_64BYTE_ALIGNMENT,
-                               CPA_FALSE,
+                               CPA_TRUE,
                                pCompressionService->nodeAffinity);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -897,6 +940,9 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
         LAC_LOG_ERROR("Failed to initialize compression statistics\n");
         goto cleanup;
     }
+
+    /* Initialize Data Compression Cookies */
+    Lac_MemPoolInitDcCookies(pCompressionService->compression_mem_pool);
 
     status = SalCtrl_DcDebugInit(device, service);
     if (CPA_STATUS_SUCCESS != status)
@@ -1240,6 +1286,9 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
         goto cleanup;
     }
 
+    /* enabling memory pool for generating dummy reposonse */
+    Lac_MemPoolEnable(pCompressionService->compression_mem_pool);
+
     status = SalCtrl_DcDebugInit(device, service);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -1274,6 +1323,9 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
     pCompressionService->generic_service_info.dcExtendedFeatures =
         device->dcExtendedFeatures;
     pCompressionService->generic_service_info.state = SAL_SERVICE_STATE_RUNNING;
+
+    /* Initialize Data Compression Cookies */
+    Lac_MemPoolInitDcCookies(pCompressionService->compression_mem_pool);
 
     return status;
 
@@ -1311,28 +1363,31 @@ CpaStatus SalCtrl_CompressionError(icp_accel_dev_t *device,
         (sal_compression_service_t *)service;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-    if ((SAL_SERVICE_STATE_RUNNING !=
-         pCompressionService->generic_service_info.state) &&
-        (SAL_SERVICE_STATE_ERROR !=
-         pCompressionService->generic_service_info.state))
-    {
-        LAC_LOG_ERROR("Not in the correct state to call ERROR");
-        return CPA_STATUS_FAIL;
-    }
+    SalCtrl_DcMemPoolDisable(service);
+    SalCtrl_DcUpdatePoolsBusy(service);
 
-    /* There is no need to add a judgment condition like in
-     * SalCtrl_CryptoError() function as the compression
-     * service doesn't support dummy response */
-    status = SalCtrl_DcCheckRespInstance(service);
-
-    /* The polling functions would be prevented to poll due to
-     * SAL_RUNNING_CHECK check which may cause missing retrieving in-flight
-     * responses. Hence the error status is only set after there are no
-     * remained responses on the response ring. */
-    if (CPA_STATUS_SUCCESS == status)
+    /* Considering the detachment of the VFs, the device is still alive and
+     * can generate responses normally. After the state of the service is
+     * set to ERROR, if it goes to the function to check responses in such
+     * cases, it will indicate there are some responses on the ring. However,
+     * icp_sal_DcPollInstance() function will only call
+     * SalCtrl_DcGenResponses() to generate dummy responses not poll the
+     * instance with icp_adf_pollInstance() as the service has been set to
+     * ERROR. So adding a judgment condition here to avoid to check the
+     * response ring again. */
+    if (SAL_SERVICE_STATE_ERROR !=
+        pCompressionService->generic_service_info.state)
     {
-        pCompressionService->generic_service_info.state =
-            SAL_SERVICE_STATE_ERROR;
+        status = SalCtrl_DcCheckRespInstance(service);
+        /* The polling functions would be prevented to poll due to
+         * SAL_RUNNING_CHECK check which may cause missing retrieving in-flight
+         * responses. Hence the error status is only set after there are no
+         * remained responses on the response ring. */
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            pCompressionService->generic_service_info.state =
+                SAL_SERVICE_STATE_ERROR;
+        }
     }
     return status;
 }
@@ -1428,16 +1483,6 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
     CpaFlatBuffer *pClientCurrFlatBuffer = NULL;
     icp_buffer_list_desc_t *pBufferListDesc = NULL;
     icp_flat_buffer_desc_t *pCurrFlatBufDesc = NULL;
-/* Structure initializer is supported by C99, but it is
- * not supported by some former Intel compilers.
- */
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(disable : 188)
-#endif
-    CpaInstanceInfo2 info = {0};
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(enable)
-#endif
     icp_accel_dev_t *dev = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_compression_service_t *pService = NULL;
@@ -1464,22 +1509,20 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
     }
     LAC_CHECK_NULL_PARAM(insHandle);
 
-    status = cpaDcInstanceGetInfo2(insHandle, &info);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Can not get instance info\n");
-        return status;
-    }
+    pService = (sal_compression_service_t *)insHandle;
 
-    dev = icp_adf_getAccelDevByAccelId(info.physInstId.packageId);
+    dev = icp_adf_getAccelDevByAccelId(pService->acceleratorNum);
     if (NULL == dev)
     {
         LAC_LOG_ERROR("Can not find device for the instance\n");
         return CPA_STATUS_FAIL;
     }
 
+    pService = (sal_compression_service_t *)insHandle;
+
     if (NULL == pIntermediateBufferPtrsArray)
     {
+        pService->generic_service_info.isInstanceStarted = CPA_TRUE;
         /* Increment dev ref counter and return - DRAM is not used */
         icp_adf_qaDevGet(dev);
         return CPA_STATUS_SUCCESS;
@@ -1487,12 +1530,11 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
 
     if (0 == numBuffers)
     {
+        pService->generic_service_info.isInstanceStarted = CPA_TRUE;
         /* Increment dev ref counter and return - DRAM is not used */
         icp_adf_qaDevGet(dev);
         return CPA_STATUS_SUCCESS;
     }
-
-    pService = (sal_compression_service_t *)insHandle;
 
 /* Check parameters */
 #ifdef ICP_PARAM_CHECK
@@ -1691,18 +1733,7 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
 CpaStatus cpaDcStopInstance(CpaInstanceHandle instanceHandle)
 {
     CpaInstanceHandle insHandle = NULL;
-/* Structure initializer is supported by C99, but it is
- * not supported by some former Intel compilers.
- */
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(disable : 188)
-#endif
-    CpaInstanceInfo2 info = {0};
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(enable)
-#endif
     icp_accel_dev_t *dev = NULL;
-    CpaStatus status = CPA_STATUS_SUCCESS;
     sal_compression_service_t *pService = NULL;
 
 #ifdef ICP_TRACE
@@ -1730,13 +1761,7 @@ CpaStatus cpaDcStopInstance(CpaInstanceHandle instanceHandle)
 
     pService->pInterBuffPtrsArrayPhyAddr = 0;
 
-    status = cpaDcInstanceGetInfo2(insHandle, &info);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Can not get instance info\n");
-        return status;
-    }
-    dev = icp_adf_getAccelDevByAccelId(info.physInstId.packageId);
+    dev = icp_adf_getAccelDevByAccelId(pService->acceleratorNum);
     if (NULL == dev)
     {
         LAC_LOG_ERROR("Can not find device for the instance\n");
@@ -1887,35 +1912,6 @@ CpaStatus cpaDcGetInstances(Cpa16U numInstances, CpaInstanceHandle *dcInstances)
         }
     }
 
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        index = 0;
-        for (i = 0; i < num_accel_dev; i++)
-        {
-            dev_addr = (icp_accel_dev_t *)pAdfInsts[i];
-            /* Note dev_addr cannot be NULL here as numInstances=0
-               is not valid and if dev_addr=NULL then index=0 (which
-               is less than numInstances and status is set to _RESOURCE
-               above */
-            base_addr = dev_addr->pSalHandle;
-            if (NULL != base_addr)
-            {
-                list_temp = base_addr->compression_services;
-                while (NULL != list_temp)
-                {
-                    if (index > (numInstances - 1))
-                    {
-                        break;
-                    }
-
-                    dcInstances[index] = SalList_getObject(list_temp);
-                    list_temp = SalList_next(list_temp);
-                    index++;
-                }
-            }
-        }
-    }
-
     osalMemFree(pAdfInsts);
 
     return status;
@@ -1977,7 +1973,7 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
         pCompressionService->acceleratorNum;
     pInstanceInfo2->physInstId.executionEngineId = 0;
     pInstanceInfo2->physInstId.busAddress =
-        icp_adf_getBusAddress(pInstanceInfo2->physInstId.packageId);
+        icp_adf_getBusAddress(pInstanceInfo2->physInstId.acceleratorId);
 
     /* set coreAffinity to zero before use */
     LAC_OS_BZERO(pInstanceInfo2->coreAffinity,
@@ -2010,7 +2006,7 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
 
     pInstanceInfo2->isOffloaded = CPA_TRUE;
     /* Get the instance name and part name from the config file */
-    dev = icp_adf_getAccelDevByAccelId(pCompressionService->pkgID);
+    dev = icp_adf_getAccelDevByAccelId(pCompressionService->acceleratorNum);
     if (NULL == dev)
     {
         LAC_LOG_ERROR("Can not find device for the instance\n");
@@ -2279,7 +2275,6 @@ CpaStatus icp_sal_DcPollInstance(CpaInstanceHandle instanceHandle_in,
     }
 
     LAC_CHECK_NULL_PARAM(dc_handle);
-    SAL_RUNNING_CHECK(dc_handle);
 
     gen_handle = &(dc_handle->generic_service_info);
     if (SAL_SERVICE_TYPE_COMPRESSION != gen_handle->type)
@@ -2287,6 +2282,19 @@ CpaStatus icp_sal_DcPollInstance(CpaInstanceHandle instanceHandle_in,
         LAC_LOG_ERROR("The instance handle is the wrong type");
         return CPA_STATUS_FAIL;
     }
+
+    if ((Sal_ServiceIsInError(dc_handle)))
+    {
+        LAC_LOG_DEBUG("PollDcInstance: generate dummy responses\n");
+        status = SalCtrl_DcGenResponses(dc_handle);
+        if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
+        {
+            LAC_LOG_ERROR("Failed to generate SW responses for DC\n");
+        }
+        return status;
+    }
+
+    SAL_RUNNING_CHECK(dc_handle);
 
     /*
      * From the instanceHandle we must get the trans_handle and send
@@ -2298,6 +2306,55 @@ CpaStatus icp_sal_DcPollInstance(CpaInstanceHandle instanceHandle_in,
     /* Call adf to do the polling. */
     status =
         icp_adf_pollInstance(trans_hndTable, DC_NUM_RX_RINGS, response_quota);
+    return status;
+}
+
+/* Polling DC instances' memory pool in progress of all banks for one device */
+STATIC CpaStatus SalCtrl_DcService_GenResponses(sal_list_t **services)
+{
+    CpaInstanceHandle dcInstance = NULL;
+    sal_list_t *sal_service = NULL;
+    sal_compression_service_t *dc_handle = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    LAC_CHECK_NULL_PARAM(services);
+
+    sal_service = *services;
+    while (sal_service)
+    {
+        dcInstance = (void *)SalList_getObject(sal_service);
+        dc_handle = (sal_compression_service_t *)dcInstance;
+        LAC_CHECK_NULL_PARAM(dc_handle);
+
+        status = SalCtrl_DcGenResponses(dc_handle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            break;
+        }
+        sal_service = SalList_next(sal_service);
+    }
+    return status;
+}
+
+CpaStatus SalCtrl_DcDevErr_GenResponses(icp_accel_dev_t *accel_dev,
+                                        Cpa32U enabled_services)
+{
+    sal_t *service_container = NULL;
+    CpaStatus status = CPA_STATUS_INVALID_PARAM;
+    service_container = accel_dev->pSalHandle;
+
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_COMPRESSION))
+    {
+        status = SalCtrl_DcService_GenResponses(
+            &service_container->compression_services);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            LAC_LOG_ERROR("Failed to generate dummy responses for Data "
+                          "Compression service");
+            return status;
+        }
+    }
     return status;
 }
 

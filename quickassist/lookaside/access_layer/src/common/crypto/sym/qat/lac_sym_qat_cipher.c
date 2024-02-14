@@ -274,7 +274,42 @@ static const uint8_t key_size_f8[] = {
     0,
     ICP_QAT_HW_CIPHER_ALGO_AES256 /* ICP_QAT_HW_AES_256_F8_KEY_SZ */
 };
-
+/* LAC_CIPHER_IS_ZUC_EEA3 */
+static const uint8_t key_size_zuc_eea3[] = {
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3, /* ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ */
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    ICP_QAT_HW_CIPHER_ALGO_ZUC_256 /* ICP_QAT_HW_ZUC_256_KEY_SZ */
+};
 /* This array must be kept aligned with CpaCySymCipherAlgorithm enum but
  * offset by -1 as that enum starts at 1. LacSymQat_CipherGetCfgData()
  * below relies on that alignment and uses that enum -1 to index into this
@@ -481,8 +516,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         ICP_QAT_HW_CIPHER_ECB_MODE,
         { ICP_QAT_HW_CIPHER_KEY_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
         { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
-        IS_KEY_DEP_NO,
-        NULL,
+        IS_KEY_DEP_YES,
+        key_size_zuc_eea3,
     },
     /* CPA_CY_SYM_CIPHER_CHACHA */
     {
@@ -586,8 +621,20 @@ void LacSymQat_CipherCtrlBlockWrite(icp_qat_la_bulk_req_ftr_t *pMsg,
         /* For ZUC EEA3 content descriptor key size is
            key size plus iv size */
         case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-            cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
-                ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ + ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
+            /* For ZUC-128 EEA3 and ZUC-256, the content descriptor
+           key size is key size plus iv size */
+            if (ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ == targetKeyLenInBytes)
+            {
+                cd_ctrl->cipher_key_sz =
+                    LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ +
+                                           ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
+            }
+            /* ICP_QAT_HW_ZUC_256_KEY_SZ assumed */
+            else
+            {
+                cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
+                    ICP_QAT_HW_ZUC_256_KEY_SZ + ICP_QAT_HW_ZUC_256_IV_SZ);
+            }
             break;
         default:
             cd_ctrl->cipher_key_sz =
@@ -598,6 +645,13 @@ void LacSymQat_CipherCtrlBlockWrite(icp_qat_la_bulk_req_ftr_t *pMsg,
         LAC_BYTES_TO_QUADWORDS(LacSymQat_CipherIvSizeBytesGet(cipherAlgorithm));
 
     cd_ctrl->cipher_cfg_offset = cipherCfgOffsetInQuadWord;
+
+    /* Amend obtained IV size for ZUC-256 */
+    if (LAC_CIPHER_IS_ZUC_256(cipherAlgorithm, targetKeyLenInBytes))
+    {
+        cd_ctrl->cipher_state_sz =
+            LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_ZUC_256_IV_SZ);
+    }
 
     ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
     ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_CIPHER);
@@ -846,11 +900,22 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
             break;
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             {
-                /* For ZUC zero area after the key for FW */
-                LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
-                             ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
+                if (targetKeyLenInBytes == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
+                {
+                    /* For ZUC zero area after the key for FW */
+                    LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
+                                 ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
 
-                *pSizeInBytes += ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
+                    *pSizeInBytes += ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
+                }
+                else if (targetKeyLenInBytes == ICP_QAT_HW_ZUC_256_KEY_SZ)
+                {
+                    /* For ZUC zero area after the key for FW */
+                    LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
+                                 ICP_QAT_HW_ZUC_256_IV_SZ);
+
+                    *pSizeInBytes += ICP_QAT_HW_ZUC_256_IV_SZ;
+                }
             }
             break;
             case CPA_CY_SYM_CIPHER_AES_XTS:
