@@ -866,7 +866,11 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
 
     pService = (sal_crypto_service_t *)instanceHandle;
     /* Get hash alg info */
-    LacSymQat_HashAlgLookupGet(instanceHandle, hashAlgorithm, &pHashAlgInfo);
+    LacSymQat_HashAlgLookupGet(instanceHandle,
+                               hashAlgorithm,
+                               &pHashAlgInfo,
+                               LAC_SYM_HASH_DEFAULT_AUTHKEY_LENS,
+                               LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
 
     /* Allocate the cookie */
     do

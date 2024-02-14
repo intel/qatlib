@@ -75,6 +75,8 @@
 
 #include "cpa_sample_code_sm2_perf.h"
 
+extern int
+    latency_single_buffer_mode; /* set to 1 for single buffer processing */
 
 extern Cpa32U packageIdCount_g;
 

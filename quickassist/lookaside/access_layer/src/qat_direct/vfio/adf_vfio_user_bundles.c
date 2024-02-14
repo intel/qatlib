@@ -49,6 +49,7 @@
 #include "adf_kernel_types.h"
 #include "adf_user_cfg.h"
 #include "adf_pfvf_vf_msg.h"
+#include "adf_io_cfg.h"
 #include "vfio_lib.h"
 #include "qat_mgr.h"
 #include "qat_log.h"
@@ -149,7 +150,10 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
 
 int adf_io_accel_dev_exist(int dev_id)
 {
-    return 1;
+    if (adf_io_cfgGetBusAddress(dev_id) == ADF_IO_OPERATION_FAIL_CPA16U)
+        return 0;
+    else
+        return 1;
 }
 
 static int vfio_container_fd = 0;
@@ -196,7 +200,7 @@ int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
         goto accel_fail;
 
-    ICP_STRLCPY(device_id, rsp.name, sizeof(device_id));
+    ICP_STRLCPY(device_id, rsp.device_id, sizeof(device_id));
 
     /* Get vfio device file name */
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_VFIO_FILE))
@@ -208,7 +212,10 @@ int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
     pci_did = (*accel_dev)->pciDevId;
     ret = open_vfio_dev(vfio_file, device_id, group_fd, pci_did, vfio_dev);
     if (ret)
+    {
+        ADF_ERROR("Open vfio file %s failed!\n", vfio_file);
         goto accel_fail;
+    }
 
     vfio_container_fd = vfio_dev->vfio_container_fd;
 
@@ -232,7 +239,10 @@ accel_fail:
 
 int adf_io_reinit_accel(icp_accel_dev_t **accel_dev, int dev_id)
 {
-    vfio_dev_info_t *vfio_dev;
+    void *pSalHandle = NULL;
+    void *pQatStats = NULL;
+    void *banks = NULL;
+    vfio_dev_info_t *vfio_dev = NULL;
 
     if (!accel_dev)
         return -ENOMEM;
@@ -243,10 +253,18 @@ int adf_io_reinit_accel(icp_accel_dev_t **accel_dev, int dev_id)
     if (!(*accel_dev)->ioPriv)
         return -ENOMEM;
 
+    pSalHandle = (*accel_dev)->pSalHandle;
+    pQatStats = (*accel_dev)->pQatStats;
+    banks = (*accel_dev)->banks;
     vfio_dev = (vfio_dev_info_t *)(*accel_dev)->ioPriv;
 
     if (adf_vfio_populate_accel_dev(dev_id, *accel_dev))
         goto accel_fail;
+
+    (*accel_dev)->pSalHandle = pSalHandle;
+    (*accel_dev)->pQatStats = pQatStats;
+    (*accel_dev)->banks = banks;
+    (*accel_dev)->ioPriv = vfio_dev;
 
     return CPA_STATUS_SUCCESS;
 
@@ -279,4 +297,35 @@ void adf_io_destroy_accel(icp_accel_dev_t *accel_dev)
 
 free_accel:
     ICP_FREE(accel_dev);
+}
+
+/*  For vfio device, after handling the RESTARTING event, qatlib needs to
+ *  send RESTARTING_COMPLETE msg to kernel. The kernel checks if all VFs
+ *  which map to the same recovering PF have completed RAS flows.
+ *  After sending RESTARTING_COMPLETE msg, qatlib should close vfio
+ *  dev immediately. Once the kernel receives the RESTARTING_COMPLETE, it
+ *  disables sriov and VF/vfio devces disappear.
+ */
+void adf_io_vf2pf_notify_restarting_complete(icp_accel_dev_t *accel_dev)
+{
+    vfio_dev_info_t *vfio_dev = NULL;
+
+    ICP_CHECK_FOR_NULL_PARAM_VOID(accel_dev);
+    if (!accel_dev->ioPriv)
+        return;
+
+    vfio_dev = accel_dev->ioPriv;
+    adf_vf2pf_notify_restarting_complete(&vfio_dev->pfvf);
+    qaeUnregisterDevice(vfio_dev->vfio_container_fd);
+    close_vfio_dev(accel_dev->ioPriv);
+    /*  This function is triggered by the RESTARTING event
+     *  detected by pollProxyEvent.
+     *  If the time interval to the next pollProxyEvent is too short
+     *  the VF devs may not yet be gone, that would be misinterpreted
+     *  that the reset is already complete.
+     *  To prevent this add a sleep time here.
+     *  This helps qatlib to make sure that next pollProxyEvent call
+     *  happens after the kernel has disabled sriov.
+     */
+    sleep(1);
 }

@@ -225,7 +225,7 @@
 #define LAC_HASH_CMAC_BLOCK_SIZE 16
 /**< @ingroup LacHashDefs
  *  AES CMAC block size in bytes */
-#define LAC_HASH_CMAC_128_DIGEST_SIZE 16
+#define LAC_HASH_CMAC_DIGEST_SIZE 16
 /**< @ingroup LacHashDefs
  *  AES CMAC digest length in bytes */
 
@@ -275,6 +275,30 @@
 #define LAC_HASH_ZUC_EIA3_DIGEST_SIZE 4
 /**< @ingroup LacHashDefs
  *  ZUC EIA3 digest size in bytes */
+
+/* constants for ZUC-256 with 32 bit MAC */
+#define LAC_HASH_ZUC_256_MAC_32_BLOCK_SIZE 4
+/**< @ingroup LacHashDefs
+ *  ZUC-256 with 32 bit MAC block size in bytes */
+#define LAC_HASH_ZUC_256_MAC_32_DIGEST_SIZE 4
+/**< @ingroup LacHashDefs
+ *  ZUC-256 with 32 bit MAC digest size in bytes */
+
+/* constants for ZUC-256 with 64 bit MAC */
+#define LAC_HASH_ZUC_256_MAC_64_BLOCK_SIZE 4
+/**< @ingroup LacHashDefs
+ *  ZUC-256 with 64 bit MAC block size in bytes */
+#define LAC_HASH_ZUC_256_MAC_64_DIGEST_SIZE 8
+/**< @ingroup LacHashDefs
+ *  ZUC-256 with 64 bit MAC digest size in bytes */
+
+/* constants for ZUC-256 with 128 bit MAC */
+#define LAC_HASH_ZUC_256_MAC_128_BLOCK_SIZE 4
+/**< @ingroup LacHashDefs
+ *  ZUC-256 with 128 bit MAC block size in bytes */
+#define LAC_HASH_ZUC_256_MAC_128_DIGEST_SIZE 16
+/**< @ingroup LacHashDefs
+ *  ZUC-256 with 128 bit MAC digest size in bytes */
 
 /* constants for AES GCM ICV allowed sizes */
 #define LAC_HASH_AES_GCM_ICV_SIZE_8 8

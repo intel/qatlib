@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [23.11.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [24.02.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,7 +11,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [5:0:1])
+AC_SUBST([LIBQAT_VERSION], [6:0:2])
 AC_SUBST([LIBUSDM_VERSION], [1:0:1])
 
 # Checks for programs.
@@ -219,6 +219,13 @@ AC_ARG_ENABLE(dc-error-simulation,
     [dc_error_simulation=true], [dc_error_simulation=false]
 )
 AM_CONDITIONAL([ICP_DC_ERROR_SIMULATION_AC], [test x$dc_error_simulation = xtrue])
+
+# ICP_HB_ERROR_SIMULATION
+AC_ARG_ENABLE(hb-error-simulation,
+    AS_HELP_STRING([--enable-hb-error-simulation], [Enables Heartbeat Error Simulation.]),
+    [hb_error_simulation=true], [hb_error_simulation=false]
+)
+AM_CONDITIONAL([ICP_HB_ERROR_SIMULATION_AC], [test x$hb_error_simulation = xtrue])
 
 AC_ARG_ENABLE(legacy-lib-names,
     AS_HELP_STRING([--enable-legacy-lib-names], [Enables legacy names for libraries.]),

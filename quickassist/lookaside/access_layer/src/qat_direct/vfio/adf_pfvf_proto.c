@@ -194,6 +194,7 @@ int adf_send_vf2pf_req(struct adf_pfvf_dev_data *dev,
     unsigned long retries = 0;
     int err;
     int response_received = 0;
+    int status = -EIO;
 
     ICP_CHECK_FOR_NULL_PARAM(dev);
     ICP_CHECK_FOR_NULL_PARAM(resp);
@@ -212,11 +213,11 @@ int adf_send_vf2pf_req(struct adf_pfvf_dev_data *dev,
         if ((*resp).type != 0)
         {
             response_received = 1;
-            return 0;
+            status = 0;
         }
     } while (!response_received && retries++ < ADF_PFVF_MSG_RESP_RETRIES);
 
-    return -EIO;
+    return status;
 }
 
 STATIC int adf_vf2pf_blkmsg_data_req(struct adf_pfvf_dev_data *dev,

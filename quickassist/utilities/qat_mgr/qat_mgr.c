@@ -90,8 +90,6 @@ static int parent_pipe = 0;
 #define QUEUE_LENGTH 5
 #define MAX_CLIENTS 3
 
-#define MAX_DEVS 256
-
 #define POLICY_MIN 0
 #define POLICY_MAX MAX_DEVS
 

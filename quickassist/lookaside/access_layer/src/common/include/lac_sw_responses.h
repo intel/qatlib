@@ -101,6 +101,7 @@
 #define LAC_SW_RESPONSES_H
 
 #include "lac_mem_pools.h"
+#include "lac_sal_types.h"
 
 /**
  *******************************************************************************
@@ -152,12 +153,10 @@ void LacSwResp_InitNumPoolsBusy(void);
  ******************************************************************************/
 Cpa16U LacSwResp_GetNumPoolsBusy(void);
 
-#ifndef ICP_DC_ONLY
-#ifndef ASYM_NOT_SUPPORTED
 /**
  *******************************************************************************
  * @ingroup LacSwResponses
- * This function searches the pke request memory pool to find all in-flight
+ * This function searches the DC /PKE request memory pool to find all inflight
  * requests and extracts the callback function from request data which will be
  * called to generate dummy responses.
  *
@@ -168,14 +167,18 @@ Cpa16U LacSwResp_GetNumPoolsBusy(void);
  * @threadSafe
  *      No
  * @param[in] lac_mem_pool           The ID of the specific pool
+ * @param[in] type                   SAL_SERVICE Type
  *
  *
  * @retval CPA_STATUS_FAIL           The function failed to retrieve all the
  *                                   in-flight requests in the memory pool.
  * @retval CPA_STATUS_SUCCESS        function executed successfully
+ * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_FATAL          A serious error has occurred.
+ * @retval CPA_STATUS_RETRY          function retried to generate response.
  *
  ******************************************************************************/
-CpaStatus LacSwResp_Asym_CallbackWake(lac_memory_pool_id_t lac_mem_pool);
-#endif
-#endif
+CpaStatus LacSwResp_GenResp(lac_memory_pool_id_t lac_mem_pool,
+                            sal_service_type_t type);
 #endif /* LAC_SW_RESPONSES_H */

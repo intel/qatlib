@@ -1410,8 +1410,8 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
     {
         /* Get physical address of E2E CRC buffer */
         pMsg->comp_pars.crc.crc_data_addr =
-            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-                pService->generic_service_info, &pCookie->dataIntegrityCrcs);
+            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                &pCookie->dataIntegrityCrcs);
 
         if (!pMsg->comp_pars.crc.crc_data_addr)
         {
@@ -1576,6 +1576,20 @@ STATIC CpaStatus dcNsCompDecompData(sal_compression_service_t *pService,
         if (status == CPA_STATUS_SUCCESS)
         {
             status = LacSync_CreateSyncCookie(&pSyncCallbackData);
+            if (NULL == pSyncCallbackData)
+            {
+                LAC_LOG_ERROR("cannot create a sync cookie for compression.");
+                status = CPA_STATUS_RESOURCE;
+
+                /* Free the memory pool */
+                if (pCookie != NULL)
+                {
+                    Lac_MemPoolEntryFree(pCookie);
+                    pCookie = NULL;
+                }
+
+                return status;
+            }
 
             callbackFn = LacSync_GenWakeupSyncCaller;
 

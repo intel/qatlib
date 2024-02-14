@@ -220,8 +220,8 @@ quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_dev_ring_ct
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_devmgr.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_init.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform.h
-quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_acceldev_4xxx.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_acceldev_common.h
+quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_acceldev_gen4.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_common.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_transport_ctrl.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_user.h
@@ -303,6 +303,8 @@ quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/symdp_sample/cpa_sym_dp_sample.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/symdp_sample/cpa_sym_dp_sample_user.c
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/cpa_zuc_sample.c
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/cpa_zuc_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/performance/common/cpa_sample_code_event_manager.c
 quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.c
 quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_buffer_utils.h
@@ -417,6 +419,7 @@ quickassist/utilities/osal/src/linux/user_space/OsalUsrKrnProxy.c
 quickassist/utilities/osal/src/linux/user_space/include/OsalDevDrv.h
 quickassist/utilities/osal/src/linux/user_space/include/OsalOsTypes.h
 quickassist/utilities/qat_mgr/qat_mgr.c
+quickassist/utilities/service/qat
 quickassist/utilities/service/qat.service.in
 quickassist/utilities/service/qat_init.sh.in
 versionfile

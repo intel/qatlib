@@ -77,6 +77,7 @@
 #include "cpa_dc.h"
 #include "dc_session.h"
 #include "sal_types_compression.h"
+#include "lac_mem_pools.h"
 
 #define LAC_QAT_DC_REQ_SZ_LW 32
 #define LAC_QAT_DC_RESP_SZ_LW 8
@@ -275,6 +276,25 @@ CpaStatus dcCheckOpData(sal_compression_service_t *pService,
                         CpaDcOpData *pOpData);
 #endif
 #endif
+
+/**
+ ***************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Generates DC dummy response
+ *
+ * @description
+ *      This function is called during the error state of the device to
+ * generate dummy responses from the DC request memory pool.
+ *
+ * @param[in] pBucket               pointer to the bucket of memblks
+ *
+ * @retval CPA_STATUS_SUCCESS       Successfully polled a memory pool with data
+ *                                  that generate dummy responses.
+ * @retval CPA_STATUS_RETRY         There are no inflight requests in the
+ *                                  memory pool associated with the instance
+ *
+ ***************************************************************************/
+CpaStatus dcCompression_SwRespMsgCallback(lac_memblk_bucket_t *pBucket);
 
 /**
 *****************************************************************************

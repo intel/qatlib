@@ -207,7 +207,7 @@ int open_vfio_dev(const char *vfio_file,
         dev->vfio_group_fd = open(vfio_file, O_RDWR);
         if (dev->vfio_group_fd < 0)
         {
-            ADF_ERROR("Cannot open %s\n", vfio_file);
+            ADF_DEBUG("Cannot open %s\n", vfio_file);
             return -1;
         }
     }
@@ -255,7 +255,7 @@ int open_vfio_dev(const char *vfio_file,
     dev->vfio_dev_fd = ioctl(dev->vfio_group_fd, VFIO_GROUP_GET_DEVICE_FD, bdf);
     if (dev->vfio_dev_fd < 0)
     {
-        ADF_ERROR("VFIO_GROUP_GET_DEVICE_FD ioctl failed\n");
+        ADF_DEBUG("VFIO_GROUP_GET_DEVICE_FD ioctl failed\n");
         remove_and_close_group(dev);
         return -1;
     }

@@ -309,9 +309,9 @@ CpaStatus icp_sal_poll_device_events(void)
     return icp_adf_pollDeviceEvents();
 }
 
-CpaStatus icp_sal_check_device(Cpa32U accelId)
+CpaStatus icp_sal_check_device(Cpa32U packageId)
 {
-    return icp_adf_userCheckDevice(accelId);
+    return icp_adf_userCheckDevice(packageId);
 }
 
 CpaStatus icp_sal_check_all_devices(void)
@@ -320,12 +320,21 @@ CpaStatus icp_sal_check_all_devices(void)
 }
 
 #ifdef ICP_HB_FAIL_SIM
-CpaStatus icp_sal_heartbeat_simulate_failure(Cpa32U accelId)
+CpaStatus icp_sal_heartbeat_simulate_failure(Cpa32U packageId)
 {
-    return icp_adf_heartbeatSimulateFailure(accelId);
+    return icp_adf_heartbeatSimulateFailure(packageId);
+}
+#endif
+
+CpaStatus icp_sal_get_num_pfs(Cpa16U *pNumPFs)
+{
+    return icp_adf_userGetNumPfs(pNumPFs);
 }
 
-#endif
+CpaStatus icp_sal_get_pf_info(CpaPfInfo *pPf_info)
+{
+    return icp_adf_userGetPfInfo((icp_accel_pf_info_t *)pPf_info);
+}
 
 
 CpaStatus icp_sal_reset_device(Cpa32U accelId)

@@ -897,6 +897,67 @@ void dcCompression_ProcessCallback(void *pRespMsg)
     }
 }
 
+CpaStatus dcCompression_SwRespMsgCallback(lac_memblk_bucket_t *pBucket)
+{
+    lac_mem_blk_t **pBucketBlk = NULL;
+    lac_mem_blk_t *pCurrentBlk = NULL;
+    Cpa32U numBucketBlks = 0;
+    Cpa32U numSwResp = 0;
+    Cpa32U startIndex = 0;
+    Cpa32U iter = 0;
+    dc_compression_cookie_t *pCookie = NULL;
+    CpaDcCallbackFn pCbFunc = NULL;
+    CpaStatus status = CPA_STATUS_RETRY;
+#ifndef DISABLE_STATS
+    sal_compression_service_t *pService = NULL;
+#endif
+
+    LAC_ASSERT_NOT_NULL(pBucket);
+    pBucketBlk = pBucket->mem_blk;
+    LAC_ASSERT_NOT_NULL(pBucketBlk);
+    startIndex = pBucket->startIndex;
+    numBucketBlks = pBucket->numBucketBlks;
+    numSwResp = pBucket->numBlksInRing;
+
+    for (iter = 0; iter < numSwResp; iter++)
+    {
+        pCurrentBlk = pBucketBlk[(startIndex + iter) % numBucketBlks];
+        pCookie = (dc_compression_cookie_t *)((LAC_ARCH_UINT)(pCurrentBlk) +
+                                              sizeof(lac_mem_blk_t));
+        LAC_LOG_DEBUG1("DC dummy response index = %llx", pCurrentBlk->opaque);
+
+#ifndef DISABLE_STATS
+        pService = (sal_compression_service_t *)(pCookie->dcInstance);
+        /* extract fields from request data struct */
+        if (DC_COMPRESSION_REQUEST == pCookie->compDecomp)
+        {
+            COMPRESSION_STAT_INC(numCompCompletedErrors, pService);
+        }
+        else
+        {
+            COMPRESSION_STAT_INC(numDecompCompletedErrors, pService);
+        }
+#endif
+        if (CPA_DC_STATELESS == pCookie->pSessionDesc->sessState)
+        {
+            osalAtomicDec(&(pCookie->pSessionDesc->pendingStatelessCbCount));
+        }
+        else
+        {
+            osalAtomicDec(&(pCookie->pSessionDesc->pendingStatefulCbCount));
+        }
+        pCbFunc = pCookie->pSessionDesc->pCompressionCb;
+        pCbFunc(pCookie->callbackTag, CPA_STATUS_FAIL);
+        Lac_MemPoolEntryFree(pCookie);
+    }
+
+    if (0 != numSwResp)
+    {
+        status = CPA_STATUS_SUCCESS;
+    }
+    return status;
+}
+
 #ifdef ICP_PARAM_CHECK
 /**
  *****************************************************************************
@@ -1462,8 +1523,8 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
     {
         /* Get physical address of E2E CRC buffer */
         pMsg->comp_pars.crc.crc_data_addr =
-            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-                pService->generic_service_info, &pCookie->dataIntegrityCrcs);
+            (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                &pCookie->dataIntegrityCrcs);
 
         if (!pMsg->comp_pars.crc.crc_data_addr)
         {
@@ -1668,13 +1729,14 @@ STATIC CpaStatus dcSendRequest(dc_compression_cookie_t *pCookie,
                                dc_request_dir_t compDecomp)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa64U seq_num = ICP_ADF_INVALID_SEND_SEQ;
 
     /* Send to QAT */
     status = SalQatMsg_transPutMsg(pService->trans_handle_compression_tx,
                                    (void *)&(pCookie->request),
                                    LAC_QAT_DC_REQ_SZ_LW,
                                    LAC_LOG_MSG_DC,
-                                   NULL);
+                                   &seq_num);
 
     if ((CPA_DC_STATEFUL == pSessionDesc->sessState) &&
         (CPA_STATUS_RETRY == status))
@@ -1683,6 +1745,8 @@ STATIC CpaStatus dcSendRequest(dc_compression_cookie_t *pCookie,
          * the stateful request */
         pSessionDesc->requestType = pSessionDesc->previousRequestType;
     }
+
+    LAC_MEM_POOL_BLK_SET_OPAQUE(pCookie, seq_num);
 
     return status;
 }
@@ -1813,6 +1877,7 @@ STATIC CpaStatus dcCompDecompData(sal_compression_service_t *pService,
         {
             LAC_LOG_ERROR("Cannot get mem pool entry for compression");
             status = CPA_STATUS_RESOURCE;
+            return status;
         }
         else if ((void *)CPA_STATUS_RETRY == pCookie)
         {

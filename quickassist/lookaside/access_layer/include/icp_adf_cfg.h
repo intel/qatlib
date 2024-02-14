@@ -136,8 +136,8 @@ CpaStatus icp_adf_cfgGetRingNumber(icp_accel_dev_t *accel_dev,
 
 /*
  * icp_adf_getBusAddress
- * Gets the B.D.F. of the physical device
+ * Gets the B.D.F. of the accelerator device.
  */
-Cpa16U icp_adf_getBusAddress(Cpa16U packageId);
+Cpa16U icp_adf_getBusAddress(Cpa16U accelId);
 
 #endif /* ICP_ADF_CFG_H */

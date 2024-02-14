@@ -46,14 +46,14 @@ CpaStatus icp_adf_cfgGetParamValue(icp_accel_dev_t *accel_dev,
         accel_dev, pSection, pParamName, pParamValue);
 }
 
-Cpa32S icp_adf_cfgGetDomainAddress(Cpa16U packageId)
+Cpa32S icp_adf_cfgGetDomainAddress(Cpa16U accelId)
 {
-    return adf_io_cfgGetDomainAddress(packageId);
+    return adf_io_cfgGetDomainAddress(accelId);
 }
 
-Cpa16U icp_adf_cfgGetBusAddress(Cpa16U packageId)
+Cpa16U icp_adf_cfgGetBusAddress(Cpa16U accelId)
 {
-    return adf_io_cfgGetBusAddress(packageId);
+    return adf_io_cfgGetBusAddress(accelId);
 }
 
 CpaStatus icp_adf_resetDevice(Cpa32U accelId)

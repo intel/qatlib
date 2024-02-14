@@ -44,6 +44,7 @@
 
 #include "adf_user.h"
 #include "adf_io_cfg.h"
+#include "adf_io_bundles.h"
 
 #define ADF_DEV_EVENT_TIMEOUT 10
 
@@ -71,6 +72,11 @@ STATIC icp_accel_dev_t *accel_tbl[ADF_MAX_DEVICES] = {0};
  * Need to keep track of what device is currently in error
  */
 STATIC char accel_dev_error_stat[ADF_MAX_DEVICES] = {0};
+
+/*
+ * Need to keep track of what device is currently in restarting
+ */
+STATIC char accel_dev_restarting_state[ADF_MAX_DEVICES] = { 0 };
 
 /*
  * Mutex guarding access to accel_tbl on exit
@@ -157,7 +163,6 @@ int32_t adf_clean_device(int32_t dev_id)
 
 
     stat = adf_user_transport_clean(dev);
-    num_of_instances--;
     ICP_MUTEX_UNLOCK(&accel_tbl_mutex);
 
     return stat;
@@ -318,7 +323,7 @@ STATIC CpaStatus subsystem_notify(Cpa32U accelId, Cpa32U event)
     icp_accel_dev_t *accel_dev;
 
     accel_dev = accel_tbl[accelId];
-    if (!accel_dev && event != ADF_EVENT_RESTARTED)
+    if (!accel_dev)
         return CPA_STATUS_INVALID_PARAM;
 
     switch (event)
@@ -340,11 +345,14 @@ STATIC CpaStatus subsystem_notify(Cpa32U accelId, Cpa32U event)
             stat_proxy = adf_cleanup_device(accel_dev->accelId);
             break;
         case ADF_EVENT_RESTARTING:
+            accel_dev_restarting_state[accel_dev->accelId] = 1;
             adf_stop_system(accel_dev);
             stat = adf_subsystemRestarting(accel_dev);
             stat_proxy = adf_clean_device(accel_dev->accelId);
+            adf_io_vf2pf_notify_restarting_complete(accel_dev);
             break;
         case ADF_EVENT_RESTARTED:
+            accel_dev_restarting_state[accel_dev->accelId] = 0;
             stat_restart = adf_proxy_restart_device(accelId);
             if (CPA_STATUS_SUCCESS == stat_restart)
             {
@@ -476,7 +484,6 @@ STATIC int32_t adf_proxy_restart_device(int dev_id)
     {
         goto adf_proxy_restart_device_init_failed;
     }
-    num_of_instances++;
 
 
     return 0;
@@ -635,105 +642,60 @@ CpaBoolean icp_adf_isDevInError(icp_accel_dev_t *accel_dev)
 }
 
 /*
- * icp_adf_userCheckDevice_by_fd
- * Function checks the status of the firmware/hardware for a given device
- * provided the fd has already been opened.
+ * icp_adf_isDevInRestarting
+ * Check if device is in restarting state.
  */
-STATIC CpaStatus icp_adf_userCheckDevice_by_fd(int fd, Cpa32U accelId)
+CpaBoolean icp_adf_isDevInRestarting(icp_accel_dev_t *accel_dev)
 {
-    struct adf_dev_heartbeat_status_ctl hb_status = {0};
+    return (CpaBoolean)accel_dev_restarting_state[accel_dev->accelId];
+}
 
-    if (fd < 0)
+CpaStatus icp_adf_userGetNumPfs(Cpa16U *pNumPFs)
+{
+    Cpa16U number_pfs;
+
+    ICP_CHECK_FOR_NULL_PARAM(pNumPFs);
+
+    number_pfs = adf_io_getNumPfs();
+    if (number_pfs == ADF_IO_OPERATION_FAIL_CPA16U)
+    {
+        ADF_ERROR("Failed to get number PFs\n");
+        *pNumPFs = 0;
         return CPA_STATUS_FAIL;
-
-    hb_status.device_id = accelId;
-    if (ioctl(fd, IOCTL_HEARTBEAT_ACCEL_DEV, &hb_status))
-        return CPA_STATUS_FAIL;
-
-    switch (hb_status.status)
-    {
-        case DEV_HB_ALIVE:
-            return CPA_STATUS_SUCCESS;
-        case DEV_HB_UNSUPPORTED:
-            return CPA_STATUS_UNSUPPORTED;
-        case DEV_HB_UNRESPONSIVE:
-        default:
-            return CPA_STATUS_FAIL;
     }
 
-    return CPA_STATUS_FAIL;
+    *pNumPFs = number_pfs;
+
+    return CPA_STATUS_SUCCESS;
 }
 
-/*
- * icp_adf_get_num_devices_by_fd
- * Function get the number of accel devices for a given device
- * provided the fd has already been opened.
- */
-STATIC CpaStatus icp_adf_get_num_devices_by_fd(int fd, Cpa32U *num_devices)
+CpaStatus icp_adf_userGetPfInfo(icp_accel_pf_info_t *pPf_info)
 {
-    int res = 0;
-    Cpa32U num_dev = 0;
-    CpaStatus status = CPA_STATUS_FAIL;
-
-    if (fd < 0)
-    {
-        return CPA_STATUS_UNSUPPORTED;
-    }
-
-    /* send the request down to get the device
-     * information from kernel space. */
-    res = ioctl(fd, IOCTL_GET_NUM_DEVICES, &num_dev);
-    if (!res)
-    {
-        *num_devices = num_dev;
-        status = CPA_STATUS_SUCCESS;
-    }
-
-    return status;
+    return adf_io_getPfInfo(pPf_info);
 }
 
-/*
- * icp_adf_userCheckDevice
- * Function checks the status of the firmware/hardware for a given device.
- */
-CpaStatus icp_adf_userCheckDevice(Cpa32U accelId)
+CpaStatus icp_adf_userCheckDevice(Cpa32U packageId)
 {
-    CpaStatus ret = CPA_STATUS_FAIL;
-    int fd = open(ADF_CTL_DEVICE_NAME, O_RDONLY);
-    if (fd < 0)
-        return CPA_STATUS_UNSUPPORTED;
-
-    ret = icp_adf_userCheckDevice_by_fd(fd, accelId);
-    close(fd);
-    return ret;
+    return adf_io_getHeartBeatStatus(packageId);
 }
 
-/*
- * icp_adf_userCheckAllDevices
- * Function checks the status of the firmware/hardware for all devices.
- */
 CpaStatus icp_adf_userCheckAllDevices(void)
 {
-    Cpa32U i;
-    Cpa32U num_dev = 0;
+    Cpa16U number_pfs, i;
     CpaStatus res = CPA_STATUS_FAIL;
     CpaBoolean all_unsup = CPA_TRUE;
     CpaBoolean any_dev = CPA_FALSE;
 
-    int fd = open(ADF_CTL_DEVICE_NAME, O_RDONLY);
-    if (fd < 0)
-        return CPA_STATUS_UNSUPPORTED;
-
-    if (icp_adf_get_num_devices_by_fd(fd, &num_dev))
+    if (icp_adf_userGetNumPfs(&number_pfs) != CPA_STATUS_SUCCESS)
     {
-        close(fd);
+        ADF_ERROR("Failed to get number PFs\n");
         return CPA_STATUS_FAIL;
     }
 
-    for (i = 0; i < num_dev; i++)
+    for (i = 0; i < number_pfs; i++)
     {
         any_dev = CPA_TRUE;
-        res = icp_adf_userCheckDevice_by_fd(fd, i);
+        res = adf_io_getHeartBeatStatus(i);
 
         if (CPA_STATUS_UNSUPPORTED != res)
         {
@@ -744,13 +706,10 @@ CpaStatus icp_adf_userCheckAllDevices(void)
                 ADF_ERROR("Device Check failed for "
                           "device %d\n",
                           i);
-                close(fd);
                 return res;
             }
         }
     }
-
-    close(fd);
 
     if (CPA_TRUE == any_dev && CPA_TRUE == all_unsup)
         return CPA_STATUS_UNSUPPORTED;
@@ -759,23 +718,9 @@ CpaStatus icp_adf_userCheckAllDevices(void)
 }
 
 #ifdef ICP_HB_FAIL_SIM
-/*
- * icp_adf_heartbeatSimulateFailure
- * Function simulates a heartbeat failure for a given device.
- */
-CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U accelId)
+CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U packageId)
 {
-    CpaStatus ret = CPA_STATUS_SUCCESS;
-    int fd = open(ADF_CTL_DEVICE_NAME, O_RDONLY);
-
-    if (fd < 0)
-        return CPA_STATUS_UNSUPPORTED;
-
-    if (ioctl(fd, IOCTL_HEARTBEAT_SIM_FAIL, accelId))
-        ret = CPA_STATUS_FAIL;
-
-    close(fd);
-    return ret;
+    return adf_io_heartbeatSimulateFailure(packageId);
 }
 
 #endif

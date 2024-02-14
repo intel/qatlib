@@ -57,7 +57,6 @@
 
 #define QAT_ENV_POLICY "QAT_POLICY"
 #define MAX_DEVS_NO_POLICY 6
-#define MAX_DEVS_STATIC_CFG 256
 
 static int qatmgr_sock = -1;
 static OsalMutex qatmgr_mutex;
@@ -68,7 +67,7 @@ static OsalMutex qatmgr_mutex;
  * However, it is global to avoid excessive use of stack memory and potential
  * stack-overflow in this function.
  */
-static struct qatmgr_dev_data dev_list[MAX_DEVS_STATIC_CFG];
+static struct qatmgr_dev_data dev_list[MAX_DEVS];
 
 static int qatmgr_socket_open(void)
 {
@@ -124,8 +123,7 @@ static int adf_vfio_build_sconfig()
     if (env)
     {
         devs = strtoll(env, &fin, 10);
-        if (errno == ERANGE || *fin != 0 || devs < 0 ||
-            devs > MAX_DEVS_STATIC_CFG)
+        if (errno == ERANGE || *fin != 0 || devs < 0 || devs > MAX_DEVS)
         {
             qat_log(LOG_LEVEL_ERROR, "Invalid environment value \"%s\"\n", env);
             return -EINVAL;
@@ -138,9 +136,9 @@ static int adf_vfio_build_sconfig()
      * them (qat_mgr_build_data might fail when devices are opened)
      * if QAT_POLICY is set to >0, reserve the first n devices */
     if (devs < 0)
-        ret = qat_mgr_get_dev_list(&n, dev_list, MAX_DEVS_STATIC_CFG, 1);
+        ret = qat_mgr_get_dev_list(&n, dev_list, MAX_DEVS, 1);
     else if (devs == 0)
-        ret = qat_mgr_get_dev_list(&n, dev_list, MAX_DEVS_STATIC_CFG, 0);
+        ret = qat_mgr_get_dev_list(&n, dev_list, MAX_DEVS, 0);
     else
         ret = qat_mgr_get_dev_list(&n, dev_list, devs, 1);
 
@@ -254,11 +252,13 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             size_tx = strnlen(req->name, sizeof(req->name) - 1) + 1;
             break;
         case QATMGR_MSGTYPE_NUM_DEVICES:
+        case QATMGR_MSGTYPE_NUM_PF_DEVS:
             size_tx = 0;
             break;
         case QATMGR_MSGTYPE_DEVICE_INFO:
         case QATMGR_MSGTYPE_DEVICE_ID:
         case QATMGR_MSGTYPE_VFIO_FILE:
+        case QATMGR_MSGTYPE_PF_DEV_INFO:
             size_tx = sizeof(req->device_num);
             break;
         case QATMGR_MSGTYPE_INSTANCE_INFO:
@@ -338,6 +338,7 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             size_rx = 0;
             break;
         case QATMGR_MSGTYPE_NUM_DEVICES:
+        case QATMGR_MSGTYPE_NUM_PF_DEVS:
             size_rx = sizeof(rsp->num_devices);
             break;
         case QATMGR_MSGTYPE_DEVICE_INFO:
@@ -345,6 +346,9 @@ int qatmgr_query(struct qatmgr_msg_req *req,
             break;
         case QATMGR_MSGTYPE_DEVICE_ID:
             size_rx = strnlen(rsp->device_id, sizeof(rsp->device_id));
+            break;
+        case QATMGR_MSGTYPE_PF_DEV_INFO:
+            size_rx = sizeof(rsp->pf_info);
             break;
         case QATMGR_MSGTYPE_INSTANCE_INFO:
             size_rx = sizeof(rsp->instance_info);

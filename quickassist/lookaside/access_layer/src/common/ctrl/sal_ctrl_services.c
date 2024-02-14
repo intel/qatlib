@@ -609,7 +609,8 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         }
         pInst->debug_parent_dir = debug_dir;
         pInst->capabilitiesMask = device->accelCapabilitiesMask;
-        pInst->isGen4 = IS_QAT_4XXX(device->deviceType);
+        pInst->isGen4 = IS_QAT_GEN4(device->deviceType);
+        pInst->isGen4_2 = IS_QAT_GEN4_2(device->deviceType);
         pInst->ns_isCnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
         status = SalList_add(services, &tail_list, pInst);
         if (CPA_STATUS_SUCCESS != status)
@@ -1025,7 +1026,7 @@ STATIC int SalCtrl_VersionDebug(void *private_data,
                     CPA_DC_API_VERSION_NUM_MAJOR,
                     CPA_DC_API_VERSION_NUM_MINOR);
 
-    len += snprintf(data + len, size - len, SEPARATOR);
+    snprintf(data + len, size - len, SEPARATOR);
     return 0;
 }
 

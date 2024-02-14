@@ -40,6 +40,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include "icp_sal_versions.h"
+#include "icp_accel_devices.h"
 
 /* The running qatlib/qatmgr pair must be from the same package.
  * There's no requirement for backwards compatibility if
@@ -67,6 +68,8 @@
 #define QATMGR_MSGTYPE_INSTANCE_INFO 7
 #define QATMGR_MSGTYPE_INSTANCE_NAME 8
 #define QATMGR_MSGTYPE_VFIO_FILE 9
+#define QATMGR_MSGTYPE_NUM_PF_DEVS 10
+#define QATMGR_MSGTYPE_PF_DEV_INFO 11
 #define QATMGR_MSGTYPE_UNKNOWN 998
 #define QATMGR_MSGTYPE_BAD 999
 
@@ -76,12 +79,15 @@
 #define MAX_SERVICES 4
 #define RPS_PER_4XXX_VF 4
 #define INSTANCES_PER_DEVICE RPS_PER_4XXX_VF
+#define VM_PACKAGE_ID_NONE 0xFFFF
 #define BIT(n) (1 << n)
 #ifndef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #endif
 #define MAX_PAYLOAD_SIZE                                                       \
     MAX(sizeof(struct qatmgr_msg_req), sizeof(struct qatmgr_msg_rsp))
+
+#define MAX_DEVS 512
 
 enum serv_type
 {
@@ -107,6 +113,7 @@ struct qatmgr_msg_req
     union {
         /* QATMGR_MSGTYPE_SECTION_PUT */
         /* QATMGR_MSGTYPE_NUM_DEVICES */
+        /* QATMGR_MSGTYPE_NUM_PF_DEVS */
         /* No data */
 
         /* QATMGR_MSYPE_SECTION_GET */
@@ -114,7 +121,8 @@ struct qatmgr_msg_req
 
         /* QATMGR_MSGTYPE_DEVICE_INFO */
         /* QATMGR_MSGTYPE_DEVICE_ID */
-        /* QATMGR_MSGTYPE_VFIO_FILE*/
+        /* QATMGR_MSGTYPE_VFIO_FILE */
+        /* QATMGR_MSGTYPE_PF_DEV_INFO */
         uint16_t device_num;
 
         /* QATMGR_MSGTYPE_INSTANCE_INFO */
@@ -162,6 +170,7 @@ struct qatmgr_msg_rsp
         } vfio_file;
 
         /* QATMGR_MSGTYPE_NUM_DEVICES */
+        /* QATMGR_MSGTYPE_NUM_PF_DEVS */
         uint16_t num_devices;
 
         /* QATMGR_MSGTYPE_DEVICE_INFO */
@@ -200,6 +209,9 @@ struct qatmgr_msg_rsp
                 struct ring_info dc;
             };
         } instance_info;
+
+        /* QATMGR_MSGTYPE_PF_DEV_INFO */
+        icp_accel_pf_info_t pf_info;
     };
 };
 
@@ -227,6 +239,8 @@ struct qatmgr_device_data
     uint64_t extended_capabilities;
     int device_type;
     uint16_t pci_id;
+    /* PF index, describes which device it comes from */
+    uint16_t pkg_id;
     uint16_t services;
     /* This includes all cy insts whether asym-only, sym-only ro sym+asym */
     int num_cy_inst;
@@ -275,6 +289,11 @@ int qatmgr_close(void);
 #define BDF_BUS(bdf) (bdf >> 8 & 0xFF)
 #define BDF_DEV(bdf) (bdf >> 3 & 0x1F)
 #define BDF_FUN(bdf) (bdf & 0x7)
+/* This is the actual PF BDF. */
+#define BDF_PF(bdf) (bdf & 0xFFFFFF00)
+/* This is the PF BDF shifted >>8 and used as an index for hashing and for
+ * capability caching.
+ */
 #define PF(bdf) (BDF_BUS(bdf) + (BDF_NODE(bdf) << 8))
 
 void qat_mgr_cleanup_cfg(void);

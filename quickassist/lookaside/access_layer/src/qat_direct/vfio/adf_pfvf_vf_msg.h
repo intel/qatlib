@@ -66,6 +66,16 @@ void adf_vf2pf_notify_shutdown(struct adf_pfvf_dev_data *dev);
  * @ingroup adf_vf2pf
  *
  * @description
+ *      This function sends restarting complete message from VF to PF.
+ *
+ * @param[in] dev	Pointer to VF's pfvf data struct.
+ */
+void adf_vf2pf_notify_restarting_complete(struct adf_pfvf_dev_data *dev);
+
+/**
+ * @ingroup adf_vf2pf
+ *
+ * @description
  *      This function sends compatibility version request message and waits for
  * response. Received compatiility version will be set in VF's pfvf data struct.
  *

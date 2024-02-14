@@ -114,29 +114,28 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
  * @ingroup adf_io
  *
  * @description
- *      This function returns the domain address associated to an accelerator
- *      package.
+ *      This function returns the domain address associated to an accelerator.
  *
- * @param[in] packageId      Id of the package.
+ * @param[in] accelId        Id of the accelerator.
  *
  * @retval Cpa32S            Domain address of the accelerator.
  * @retval -1                Function failed.
  */
-Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId);
+Cpa32S adf_io_cfgGetDomainAddress(Cpa16U accelId);
 
 /**
  * @ingroup adf_io
  *
  * @description
  *      This function returns the Bus Device Function (BDF) encoded in two
- *      bytes associated to an accelerator package.
+ *      bytes associated to an accelerator.
  *
- * @param[in] packageId      Id of the package.
+ * @param[in] accelId        Id of the accelerator.
  *
  * @retval Cpa16U            Bus Device Function of the accelerator.
- * @retval -1                Function failed.
+ * @retval 0xFFFF            Function failed.
  */
-Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId);
+Cpa16U adf_io_cfgGetBusAddress(Cpa16U accelId);
 
 /**
  * @ingroup adf_io
@@ -164,5 +163,61 @@ CpaStatus adf_io_reset_device(Cpa32U accelId);
  * @retval CPA_FALSE         No available devices found.
  */
 CpaBoolean adf_io_isDeviceAvailable(void);
+
+/**
+ * @ingroup adf_io
+ *
+ * @description
+ *      Function returns the number of PFs in the system
+ *
+ * @retval Cpa16U            The number of PFs.
+ */
+Cpa16U adf_io_getNumPfs(void);
+
+/**
+ * @ingroup adf_io
+ *
+ * @description
+ *      Populates a pre-allocated list of PF info, only returned if the process
+ *      has privileges to access the QAT debugfs/sysfs entries.
+ *
+ * @param[out] pPfInfo               Pre-allocated list of PF info, the size of
+ *                                   this should match the number of PFs on
+ *                                   the platform.
+ *
+ * @retval CPA_STATUS_FAIL           No PFs detected.
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ */
+CpaStatus adf_io_getPfInfo(icp_accel_pf_info_t *pPfInfo);
+
+/**
+ * @ingroup adf_io
+ *
+ * @description
+ *      Function checks the status of the firmware/hardware
+ *
+ * @param[in] accelId        Id of the accelerator device.
+ *
+ * @retval CPA_STATUS_UNSUPPORTED    This function is not supported.
+ * @retval CPA_STATUS_FAIL           Device is Non-Responsive.
+ * @retval CPA_STATUS_SUCCESS        Device is Alive.
+ */
+CpaStatus adf_io_getHeartBeatStatus(Cpa32U packageId);
+
+#ifdef ICP_HB_FAIL_SIM
+/**
+ * @ingroup adf_io
+ *
+ * @description
+ *      Function helps simulate heartbeat failure
+ *
+ * @param[in] accelId        Id of the accelerator device.
+ *
+ * @retval CPA_STATUS_UNSUPPORTED    This function is not supported.
+ * @retval CPA_STATUS_FAIL           Failure simulation failed for device.
+ * @retval CPA_STATUS_SUCCESS        Failure simulation successful for device.
+ */
+CpaStatus adf_io_heartbeatSimulateFailure(Cpa32U packageId);
+#endif
 
 #endif

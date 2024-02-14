@@ -527,7 +527,7 @@ CpaStatus icp_sal_find_new_devices(void);
 CpaStatus icp_sal_poll_device_events(void);
 
 /*
- * icp_adf_userCheckDevice
+ * icp_sal_check_device
  *
  * @description:
  *  This function checks the status of the firmware/hardware for a given device.
@@ -545,14 +545,17 @@ CpaStatus icp_sal_poll_device_events(void);
  * @threadSafe
  *      Yes
  *
- * @param[in] accelId                Device Id
+ * @param[in] packageId              The package Id can be found by calling
+ *                                   cpaCyInstanceGetInfo2() or
+ *                                   cpaDcInstanceGetInfo2().
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
  */
-CpaStatus icp_sal_check_device(Cpa32U accelId);
+CpaStatus icp_sal_check_device(Cpa32U packageId);
 
 /*
- * icp_adf_userCheckAllDevices
+ * icp_sal_check_all_devices
  *
  * @description:
  *  This function checks the status of the firmware/hardware for all devices.
@@ -572,6 +575,7 @@ CpaStatus icp_sal_check_device(Cpa32U accelId);
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
  */
 CpaStatus icp_sal_check_all_devices(void);
 
@@ -594,13 +598,74 @@ CpaStatus icp_sal_check_all_devices(void);
  * @threadSafe
  *      Yes
  *
- * @param[in] accelId                Device Id
+ * @param[in] packageId              The package Id can be found by calling
+ *                                   cpaCyInstanceGetInfo2() or
+ *                                   cpaDcInstanceGetInfo2().
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
  */
-CpaStatus icp_sal_heartbeat_simulate_failure(Cpa32U accelId);
+CpaStatus icp_sal_heartbeat_simulate_failure(Cpa32U packageId);
 
 #endif
+
+#define CPA_DEVICE_GEN_LEN 16
+typedef struct _CpaPfInfo
+{
+    Cpa32U pkg_id;
+    Cpa16U domain;
+    Cpa16U bdf;
+    char device_gen[CPA_DEVICE_GEN_LEN + 1];
+} CpaPfInfo;
+
+/*
+ * icp_sal_get_num_pfs
+ *
+ * @description:
+ *  Returns the number of PFs in the system, only returned if the process has
+ *  privileges to access the QAT debugfs/sysfs entries.
+ *
+ * @context
+ *      This function is called from the user process context
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[out] pNumPFs               The number of PFs in the system.
+ * @retval CPA_STATUS_SUCCESS        No error
+ * @retval CPA_STATUS_FAIL           Operation failed
+ */
+CpaStatus icp_sal_get_num_pfs(Cpa16U *pNumPFs);
+
+/*
+ * icp_sal_get_pf_info
+ *
+ * @description:
+ *  This function populates a pre-allocated list of PF info, only returned
+ *  if the process has privileges to access the QAT debugfs/sysfs entries.
+ *
+ * @context
+ *      This function is called from the user process context
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[out] pPfInfo               Pre-allocated list of PF info, the size of
+ *                                   this should match the number of PFs on
+ *                                   the platform.
+ * @retval CPA_STATUS_SUCCESS        No error
+ * @retval CPA_STATUS_FAIL           Operation failed
+ */
+CpaStatus icp_sal_get_pf_info(CpaPfInfo *pPf_info);
 
 
 /*

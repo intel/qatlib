@@ -128,6 +128,7 @@ perf_data_t *perfStats_g[MAX_THREAD_VARIATION];
 CpaBoolean perfStatsInit_g = CPA_FALSE;
 
 int useStaticPrime = 1;
+int useUnalignedBuffer = 0;
 
 
 volatile CpaBoolean isChangingThreadQaInstanceRequired_g = CPA_FALSE;
@@ -236,12 +237,9 @@ volatile CpaBoolean enableReadInstance_g = CPA_FALSE;
 /* DC chaining specific variable to enable S/W write chaining operation */
 volatile CpaBoolean swWrite_g = CPA_FALSE;
 
-#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
 volatile CpaBoolean isNsRequest_g = CPA_FALSE;
-#endif
 int verboseOutput = 1;
 
-#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
 CpaStatus setDcNsFlag(CpaBoolean val)
 {
     if (val != 0)
@@ -256,7 +254,6 @@ CpaStatus setDcNsFlag(CpaBoolean val)
 }
 EXPORT_SYMBOL(isNsRequest_g);
 EXPORT_SYMBOL(setDcNsFlag);
-#endif
 CpaStatus setDataIntegrity(CpaBoolean val)
 {
     dataIntegrity_g = val;
@@ -286,6 +283,20 @@ CpaStatus setReliability(CpaBoolean val)
     }
     return CPA_STATUS_SUCCESS;
 }
+
+CpaStatus setUnalignedBuffer(CpaBoolean val)
+{
+    if (val != 0)
+    {
+        useUnalignedBuffer = CPA_TRUE;
+    }
+    else
+    {
+        useUnalignedBuffer = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(useUnalignedBuffer);
 
 CpaStatus setUseStaticPrime(int val)
 {
@@ -366,6 +377,7 @@ CpaStatus enableReadInstance(CpaBoolean val)
 
 EXPORT_SYMBOL(reliability_g);
 EXPORT_SYMBOL(setReliability);
+EXPORT_SYMBOL(setUnalignedBuffer);
 EXPORT_SYMBOL(setUseStaticPrime);
 EXPORT_SYMBOL(printReliability);
 EXPORT_SYMBOL(hwVerify_g);

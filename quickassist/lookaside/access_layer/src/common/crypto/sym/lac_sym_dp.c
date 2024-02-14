@@ -273,7 +273,16 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
             break;
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             {
-                if (ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ != pRequest->ivLenInBytes)
+                if ((ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ != pRequest->ivLenInBytes) &&
+                    (ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ ==
+                     pSessionDesc->cipherKeyLenInBytes))
+                {
+                    LAC_INVALID_PARAM_LOG("invalid cipher IV size");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+                if ((ICP_QAT_HW_ZUC_256_IV_SZ != pRequest->ivLenInBytes) &&
+                    (ICP_QAT_HW_ZUC_256_KEY_SZ ==
+                     pSessionDesc->cipherKeyLenInBytes))
                 {
                     LAC_INVALID_PARAM_LOG("invalid cipher IV size");
                     return CPA_STATUS_INVALID_PARAM;
@@ -1236,7 +1245,6 @@ CpaStatus cpaCySymDpEnqueueOpBatch(const Cpa32U numberRequests,
 
     trans_handle = ((sal_crypto_service_t *)pRequests[0]->instanceHandle)
                        ->trans_handle_sym_tx;
-    pSessionDesc = LAC_SYM_SESSION_DESC_FROM_CTX_GET(pRequests[0]->sessionCtx);
 
     icp_adf_getQueueMemory(
         trans_handle, numberRequests, (void **)&pCurrentQatMsg);

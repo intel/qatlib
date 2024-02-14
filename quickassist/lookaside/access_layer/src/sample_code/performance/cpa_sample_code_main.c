@@ -375,14 +375,6 @@ int main(int argc, char *argv[])
     computeOffloadCost = optArray[GET_OFFLOAD_COST_POS].optValue;
     includeLZ4 = optArray[RUN_LZ4_TEST_POS].optValue;
 
-    /* If Latency support is not compiled in and the user asks
-     * for latency computation, flag the warning.
-     */
-    if (computeLatency != 0)
-    {
-        PRINT("Warning! Latency computation is not supported\n");
-        computeLatency = 0;
-    }
 
     if (computeLatency != 0 && computeOffloadCost != 0)
     {
@@ -398,7 +390,6 @@ int main(int argc, char *argv[])
          * a smaller value*/
         cyAsymLoops = 100;
     }
-
     if (computeLatency != 0 || computeOffloadCost != 0)
     {
         const char *const op = computeLatency != 0 ? "Latency" : "Offload Cost";
@@ -430,6 +421,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    enableLatencyMeasurements(computeLatency != 0 ? 1 : 0);
 
     if (computeOffloadCost != 0)
     {
@@ -558,11 +550,11 @@ int main(int argc, char *argv[])
                 qaeMemFree((void **)&info);
                 return status;
             }
-            if (prevDevId == info->physInstId.packageId)
+            if (prevDevId == info->physInstId.acceleratorId)
             {
                 continue;
             }
-            prevDevId = info->physInstId.packageId;
+            prevDevId = info->physInstId.acceleratorId;
             printDriverVersion(prevDevId);
         }
         qaeMemFree((void **)&info);
@@ -764,11 +756,11 @@ int main(int argc, char *argv[])
                 qaeMemFree((void **)&info);
                 return status;
             }
-            if (prevDevId == info->physInstId.packageId)
+            if (prevDevId == info->physInstId.acceleratorId)
             {
                 continue;
             }
-            prevDevId = info->physInstId.packageId;
+            prevDevId = info->physInstId.acceleratorId;
             printDriverVersion(prevDevId);
         }
         qaeMemFree((void **)&info);

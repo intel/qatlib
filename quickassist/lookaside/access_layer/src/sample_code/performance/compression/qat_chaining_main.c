@@ -112,6 +112,9 @@ static CpaStatus qatDcChainInduceOverflow(compression_test_params_t *setup,
                                           CpaDcChainRqResults *resultArray,
                                           CpaDcChainOpData *chainOpDataArray);
 
+extern int latency_enable;
+extern int latency_debug;
+extern int latency_single_buffer_mode;
 
 
 
@@ -188,6 +191,7 @@ extern Cpa32U dcPollingInterval_g;
 
 #define DOUBLE_SUBMISSIONS (2)
 
+extern char *cpaStatusToString(CpaStatus status);
 
 static CpaStatus checkAdler32Checksum(Cpa8U *inputBuff,
                                       Cpa32U inputBufferLen,

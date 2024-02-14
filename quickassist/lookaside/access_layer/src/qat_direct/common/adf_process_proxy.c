@@ -344,11 +344,11 @@ void icp_adf_userProcessStop(void)
 /*
  * icp_adf_getBusAddress
  *
- *  This function gets the bus address of the device.
+ *  This function gets the bdf of the device.
  */
-Cpa16U icp_adf_getBusAddress(Cpa16U packageId)
+Cpa16U icp_adf_getBusAddress(Cpa16U accelId)
 {
-    return icp_adf_cfgGetBusAddress(packageId);
+    return icp_adf_cfgGetBusAddress(accelId);
 }
 
 /*

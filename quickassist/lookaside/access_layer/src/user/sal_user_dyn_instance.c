@@ -480,7 +480,6 @@ STATIC CpaStatus do_userInstancesAlloc(Cpa32U numInstances,
                 /* Try the next device */
                 continue;
             }
-            pServiceContainer = pDevice->pSalHandle;
 
             /* Get enabled services from device cfg data */
             status = SalCtrl_GetEnabledServices(pDevice, &enabledServices);
@@ -599,6 +598,11 @@ STATIC CpaStatus do_userInstancesAlloc(Cpa32U numInstances,
                 }
             }
             pDevice = (icp_accel_dev_t *)pAdfInsts[x];
+            if (NULL == pDevice->pSalHandle)
+            {
+                /* Try the next device */
+                continue;
+            }
             pServiceContainer = pDevice->pSalHandle;
 #ifndef ICP_DC_ONLY
             if (SAL_SERVICE_TYPE_CRYPTO == serviceType)

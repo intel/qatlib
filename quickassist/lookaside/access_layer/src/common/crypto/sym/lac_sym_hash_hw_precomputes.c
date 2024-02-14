@@ -254,7 +254,11 @@ CpaStatus LacSymHash_HmacPrecompInit(CpaInstanceHandle instanceHandle)
         pContentDesc = NULL;
         pHashAlgInfo = NULL;
 
-        LacSymQat_HashAlgLookupGet(instanceHandle, i, &pHashAlgInfo);
+        LacSymQat_HashAlgLookupGet(instanceHandle,
+                                   i,
+                                   &pHashAlgInfo,
+                                   LAC_SYM_HASH_DEFAULT_AUTHKEY_LENS,
+                                   LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
 
         status = LAC_OS_CAMALLOC(&pContentDesc,
                                  LAC_SYM_QAT_MAX_HASH_SETUP_BLK_SZ,
@@ -335,7 +339,11 @@ LacSymHash_HmacPreCompute(CpaInstanceHandle instanceHandle,
     /* Convenience pointer */
     lac_sym_hash_hmac_precomp_qat_t *pHmacQatData = &pHashOpData->u.hmacQatData;
 
-    LacSymQat_HashAlgLookupGet(instanceHandle, hashAlgorithm, &pHashAlgInfo);
+    LacSymQat_HashAlgLookupGet(instanceHandle,
+                               hashAlgorithm,
+                               &pHashAlgInfo,
+                               LAC_SYM_HASH_DEFAULT_AUTHKEY_LENS,
+                               LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
 
     hashStateBufferInfo.pData = pHmacQatData->hashStateStorage;
     hashStateBufferInfo.pDataPhys =
@@ -437,7 +445,11 @@ CpaStatus LacSymHash_HmacPreComputes(CpaInstanceHandle instanceHandle,
     Cpa32U wordIndex = 0;
     Cpa32U padLenBytes = 0;
 
-    LacSymQat_HashAlgLookupGet(instanceHandle, hashAlgorithm, &pHashAlgInfo);
+    LacSymQat_HashAlgLookupGet(instanceHandle,
+                               hashAlgorithm,
+                               &pHashAlgInfo,
+                               authKeyLenInBytes,
+                               LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
 
     /* Initialise opsPending to the number of operations
      * needed to complete this precompute
@@ -528,8 +540,11 @@ CpaStatus LacSymHash_AesECBPreCompute(CpaInstanceHandle instanceHandle,
     {
         lac_sym_qat_hash_alg_info_t *pHashAlgInfo = NULL;
 
-        LacSymQat_HashAlgLookupGet(
-            instanceHandle, hashAlgorithm, &pHashAlgInfo);
+        LacSymQat_HashAlgLookupGet(instanceHandle,
+                                   hashAlgorithm,
+                                   &pHashAlgInfo,
+                                   authKeyLenInBytes,
+                                   LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
         stateSize = pHashAlgInfo->stateSize;
 
         memcpy(pAesQatData->data, pHashAlgInfo->initState, stateSize);
@@ -538,8 +553,11 @@ CpaStatus LacSymHash_AesECBPreCompute(CpaInstanceHandle instanceHandle,
     {
         lac_sym_qat_hash_alg_info_t *pHashAlgInfo = NULL;
 
-        LacSymQat_HashAlgLookupGet(
-            instanceHandle, hashAlgorithm, &pHashAlgInfo);
+        LacSymQat_HashAlgLookupGet(instanceHandle,
+                                   hashAlgorithm,
+                                   &pHashAlgInfo,
+                                   authKeyLenInBytes,
+                                   LAC_SYM_HASH_DEFAULT_DIGEST_LENS);
         /* Original state size includes K, K1 and K2 which are of equal length.
          * For precompute state size is only of the length of K which is equal
          * to the block size for CPA_CY_SYM_HASH_AES_CMAC. */

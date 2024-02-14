@@ -165,9 +165,11 @@ STATIC INLINE CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC INLINE CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
-                                           Cpa32U inputSize,
-                                           Cpa32U *outputSize)
+STATIC INLINE CpaStatus
+dcDeflateBoundGen4(const sal_compression_service_t *pService,
+                   CpaDcHuffType huffType,
+                   Cpa32U inputSize,
+                   Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
@@ -181,13 +183,24 @@ STATIC INLINE CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
                              DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_STATIC;
             break;
         case CPA_DC_HT_FULL_DYNAMIC:
-            /* Formula for GEN4 dynamic deflate:
-             * Ceil ((9*sourceLen)/8) +
-             * ((((8/7) * sourceLen)/ 16KB) * (150+5)) + 512
-             */
             outputSizeLong = DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_DYN;
             outputSizeLong += CPA_DC_CEIL_DIV(9 * inputSizeLong, 8);
-            outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (16 * 1024);
+            if (pService->generic_service_info.isGen4_2)
+            {
+                /* Formula for GEN4 dynamic deflate:
+                 * Ceil ((9*sourceLen)/8) +
+                 * ((((8/7) * sourceLen)/ 4KB) * (150+5)) + 512
+                 */
+                outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (4 * 1024);
+            }
+            else
+            {
+                /* Formula for GEN4 dynamic deflate:
+                 * Ceil ((9*sourceLen)/8) +
+                 * ((((8/7) * sourceLen)/ 16KB) * (150+5)) + 512
+                 */
+                outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (16 * 1024);
+            }
             break;
         default:
             return CPA_STATUS_INVALID_PARAM;
@@ -240,7 +253,7 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
     pService = (sal_compression_service_t *)insHandle;
     if (pService->generic_service_info.isGen4)
     {
-        status = dcDeflateBoundGen4(huffType, inputSize, outputSize);
+        status = dcDeflateBoundGen4(pService, huffType, inputSize, outputSize);
     }
     else
     {

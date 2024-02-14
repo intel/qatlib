@@ -108,6 +108,10 @@ extern volatile CpaBoolean digestAppended_g;
 extern int signOfLife;
 
 extern Cpa32U packageIdCount_g;
+extern int
+    latency_single_buffer_mode; /* set to 1 for single buffer processing */
+extern char *cpaStatusToString(CpaStatus status); /* for more readable debug */
+extern CpaCySymCipherDirection getCipherDirection(void);
 /* For Backoff timer implementation for symmetric DataPlain */
 extern volatile CpaBoolean backoff_timer_g;
 extern volatile CpaBoolean backoff_dynamic_g;
@@ -405,11 +409,14 @@ static void symDpPerformMemFree(symmetric_test_params_t *setup,
      * removing the sessions */
     if (NULL != pSessionCtx)
     {
-        if (NULL != *pSessionCtx)
+        if (reliability_g)
         {
-            for (m = 0; m < setup->numSessions; m++)
+            if (NULL != *pSessionCtx)
             {
-                qaeMemFreeNUMA((void **)&pSessionCtx[m]);
+                for (m = 0; m < setup->numSessions; m++)
+                {
+                    qaeMemFreeNUMA((void **)&pSessionCtx[m]);
+                }
             }
         }
         qaeMemFree((void **)&pSessionCtx);
@@ -460,6 +467,46 @@ void symDpPerformCallback(CpaCySymDpOpData *pOpData,
      * */
     perf_data_t *pPerfData = pOpData->pCallbackTag;
     pPerfData->responses++;
+    if (latency_enable)
+    {
+        /* Did we setup the array pointer? */
+        if (NULL == pPerfData->response_times)
+        {
+            PRINT_ERR("pPerfData response_times is null\n");
+            return;
+        }
+
+        /* Have we sampled too many buffer operations? */
+        if (pPerfData->latencyCount > MAX_LATENCY_COUNT)
+        {
+            PRINT_ERR("pPerfData latencyCount > MAX_LATENCY_COUNT\n");
+            return;
+        }
+
+        /* Is this the buffer we calculate latency on?
+         * And have we calculated too many for array? */
+        if (pPerfData->responses == pPerfData->nextCount)
+        {
+            int i = pPerfData->latencyCount;
+
+            /* Now get the end timestamp - before any print outs */
+            pPerfData->response_times[i] = sampleCodeTimestamp();
+
+            pPerfData->nextCount += pPerfData->countIncrement;
+
+            if (latency_debug)
+                PRINT("%s: responses=%u, latencyCount=%d, end[i]:%llu, "
+                      "start[i]:%llu, nextCount=%u\n",
+                      __FUNCTION__,
+                      (unsigned int)pPerfData->responses,
+                      i,
+                      pPerfData->response_times[i],
+                      pPerfData->start_times[i],
+                      pPerfData->nextCount);
+
+            pPerfData->latencyCount++;
+        }
+    }
     /*if we have received the pre-set numOperations, then get the clock cycle
      * as a timestamp and post the Semaphore to release parent thread*/
     if (pPerfData->numOperations == pPerfData->responses)
@@ -834,8 +881,19 @@ static CpaStatus symmetricDpPerformOpDataSetup(
             setup->setupData.cipherSetupData.cipherAlgorithm ==
                 CPA_CY_SYM_CIPHER_SM4_CTR)
         {
-            pOpdata[createCount]->ivLenInBytes =
-                IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
+            if (setup->setupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_ZUC_EEA3 &&
+                setup->setupData.cipherSetupData.cipherKeyLenInBytes ==
+                    KEY_SIZE_256_IN_BYTES)
+            {
+                pOpdata[createCount]->ivLenInBytes =
+                    IV_LEN_FOR_24_BYTE_BLOCK_CIPHER;
+            }
+            else
+            {
+                pOpdata[createCount]->ivLenInBytes =
+                    IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
+            }
             /* If 0 use default else use value passed. */
             if (0 != setup->ivLength)
             {
@@ -1035,6 +1093,11 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     /* backoff timer parameters initialization */
     Cpa32U k = 0;
     Cpa32U backoff = 0;
+    Cpa32U submissions = 0;
+    Cpa32U i = 0;
+    perf_cycles_t *request_submit_start = NULL;
+    perf_cycles_t *request_respnse_time = NULL;
+    const Cpa32U request_mem_sz = sizeof(perf_cycles_t) * MAX_LATENCY_COUNT;
     Cpa32U busyLoopValue = 0;
     Cpa32U staticAssign = 0, busyLoopCount = 0, j = 0;
     perf_cycles_t startBusyLoop = 0, endBusyLoop = 0, totalBusyLoopCycles = 0;
@@ -1076,6 +1139,46 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
     pSymData->responses = 0;
 
     pSymData->retries = 0;
+    if (latency_enable)
+    {
+        if (pSymData->numOperations > LATENCY_SUBMISSION_LIMIT)
+        {
+            PRINT_ERR("Error max submissions for latency  must be <= %d\n",
+                      LATENCY_SUBMISSION_LIMIT);
+            return CPA_STATUS_FAIL;
+        }
+        request_submit_start = qaeMemAlloc(request_mem_sz);
+        request_respnse_time = qaeMemAlloc(request_mem_sz);
+        if (request_submit_start == NULL || request_respnse_time == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for submission and response "
+                      "times\n");
+            return CPA_STATUS_FAIL;
+        }
+        memset(request_submit_start, 0, request_mem_sz);
+        memset(request_respnse_time, 0, request_mem_sz);
+
+        /* Calculate how many buffer submissions between latency measurements..
+         */
+        pSymData->countIncrement =
+            (Cpa32U)pSymData->numOperations / MAX_LATENCY_COUNT;
+
+        /* .. and set the next trigger count to this */
+        pSymData->nextCount = pSymData->countIncrement;
+
+        /* How many latency measurements of the MAX_LATENCY_COUNT have been
+         * taken so far */
+        pSymData->latencyCount = 0;
+
+        /* Completion routine sets end times in the array indirectly */
+        pSymData->response_times = request_respnse_time;
+        pSymData->start_times = request_submit_start; /* for debug */
+
+        if (latency_debug)
+            PRINT("LATENCY_CODE: Initial nextCount %u, countIncrement %u\n",
+                  pSymData->nextCount,
+                  pSymData->countIncrement);
+    }
 
     /* Check if numRequests:
      * the number of requests should no more than numbuffer*/
@@ -1144,6 +1247,35 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
             }
             do
             {
+                if (latency_enable)
+                {
+                    // Ensures we get a callback for each submissions
+                    performNowFlag = CPA_TRUE;
+
+                    if (submissions + 1 == pSymData->nextCount)
+                    {
+                        int i = pSymData->latencyCount;
+
+                        /* When this buffer has been processed the 'submissions'
+                         * count will be incremented and checked in the
+                         * symDpPerformCallback()
+                         * routine. So we grab it's start time now.
+                         */
+                        if (latency_debug)
+                            PRINT("%s: status=%s submissions=%u, nextCount=%u, "
+                                  "latencyCount=%d\n",
+                                  __FUNCTION__,
+                                  cpaStatusToString(status),
+                                  submissions,
+                                  pSymData->nextCount,
+                                  i);
+
+                        /* Must do this after any print outs */
+                        /* NOTE: Will be overwritten if CPA_STATUS_RETRY */
+                        request_submit_start[pSymData->latencyCount] =
+                            sampleCodeTimestamp();
+                    }
+                }
                 coo_req_start(pSymData);
                 /* Enqueue a single symmetric crypto request, perform later*/
                 status = cpaCySymDpEnqueueOp(ppOpData[insideLoopCount],
@@ -1232,6 +1364,29 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
             {
                 break;
             }
+            if (latency_enable)
+            {
+                /* Another buffer has been submitted to the accelerator */
+                submissions++;
+
+                /* Have we been requested to process one buffer at a time. This
+                 * will result in no retries and so the best latency times.
+                 */
+                if (latency_single_buffer_mode != 0)
+                {
+                    /* Must now wait until this buffer is processed by the CPM
+                     */
+                    while (pSymData->responses != submissions)
+                    {
+                        /* Keep polling until compression of the buffer
+                         * completes
+                         * and dcPerformCallback() increments
+                         * perfData->responses */
+                        icp_sal_CyPollDpInstance(setup->cyInstanceHandle, 0);
+                        AVOID_SOFTLOCKUP;
+                    }
+                }
+            }
             /*If reach the limitation,
              * system will poll all requests in the queue*/
             ++numOps;
@@ -1263,6 +1418,50 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
             pSymData, setup->cyInstanceHandle, pSymData->numOperations);
     }
 
+    if (latency_enable)
+    {
+        if (latency_debug)
+            PRINT("%s: Calculating min, max and ave latencies...\n",
+                  __FUNCTION__);
+
+        pSymData->minLatency = MAX_LATENCY_LIMIT; /* Will be less than this */
+        pSymData->maxLatency = 0;                 /* Will be more than this */
+
+        /* Let's accumulate in 'aveLatency' all the individual 'latency'
+         * times. Typically, there should be MAX_LATENCY_COUNT of these.
+         * We also calculate min/max so we can get a sense of the variance.
+         */
+
+        for (i = 0; i < pSymData->latencyCount; i++)
+        {
+            perf_cycles_t latency =
+                pSymData->response_times[i] - request_submit_start[i];
+            pSymData->aveLatency += latency;
+
+            if (latency < pSymData->minLatency)
+                pSymData->minLatency = latency;
+            if (latency > pSymData->maxLatency)
+                pSymData->maxLatency = latency;
+
+            if (latency_debug)
+                PRINT("%d, end[i]:%llu, start[i]:%llu, min:%llu, ave:%llu, "
+                      "max:%llu\n",
+                      i,
+                      pSymData->response_times[i],
+                      request_submit_start[i],
+                      pSymData->minLatency,
+                      pSymData->aveLatency,
+                      pSymData->maxLatency);
+        }
+        if (pSymData->latencyCount > 0)
+        {
+            /* Then scale down this accumulated value to get the average.
+             * This will be reported by dcPrintStats() at the end of the test */
+            do_div(pSymData->aveLatency, pSymData->latencyCount);
+        }
+        qaeMemFree((void **)&request_respnse_time);
+        qaeMemFree((void **)&request_submit_start);
+    }
 
     if (CPA_CC_BUSY_LOOPS == iaCycleCount_g)
     {
@@ -2315,6 +2514,8 @@ CpaStatus setupSymmetricDpTest(
     symmetricSetup->setupData.cipherSetupData.cipherAlgorithm = cipherAlg;
     symmetricSetup->setupData.cipherSetupData.cipherDirection =
         cipherDirection_g;
+    symmetricSetup->setupData.cipherSetupData.cipherDirection =
+        getCipherDirection();
     symmetricSetup->setupData.cipherSetupData.cipherKeyLenInBytes =
         cipherKeyLengthInBytes;
     symmetricSetup->setupData.hashSetupData.hashAlgorithm = hashAlg;

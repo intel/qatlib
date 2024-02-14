@@ -114,6 +114,18 @@ CpaStatus icp_adf_resetDev(icp_accel_dev_t *accel_dev,
 CpaBoolean icp_adf_isDevInError(icp_accel_dev_t *accel_dev);
 
 /*
+ * icp_adf_isDevInRestarting
+ *
+ * Description:
+ * Check if device is in restarting state.
+ *
+ * Returns:
+ *   CPA_TRUE   device is in restarting state
+ *   CPA_FALSE  device is not in restarting state
+ */
+CpaBoolean icp_adf_isDevInRestarting(icp_accel_dev_t *accel_dev);
+
+/*
  * icp_adf_getNumInstances
  *
  * Description:

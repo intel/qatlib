@@ -718,6 +718,11 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
     if (CPA_STATUS_SUCCESS != status)
     {
         status = cpaDcChainRemoveSession(dcInstance, pSessionHandle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            LAC_LOG_ERROR1("cpaDcChainRemoveSession returned %d status",
+                           status);
+        }
         LAC_LOG_ERROR("generate chained command failure\n");
         return CPA_STATUS_FAIL;
     }

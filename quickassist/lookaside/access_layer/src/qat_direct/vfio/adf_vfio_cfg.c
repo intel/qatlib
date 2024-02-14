@@ -35,6 +35,9 @@
  *****************************************************************************/
 #include <string.h>
 #include <stdint.h>
+#include <dirent.h>
+#include <linux/vfio.h>
+
 #include "adf_kernel_types.h"
 
 #include "adf_io_cfg.h"
@@ -43,8 +46,14 @@
 #include "icp_platform.h"
 #include "qat_mgr.h"
 #include "qat_log.h"
+#include "adf_vfio_pf.h"
 
-#define MAX_DEVS_STATIC_CFG 256
+#define HEARTBEAT_DIR "/sys/kernel/debug/qat_%s_%s/heartbeat/"
+
+#define HB_STATUS_FILE HEARTBEAT_DIR "status"
+#define HB_SIM_FILE HEARTBEAT_DIR "inject_error"
+#define HB_ALIVE "0"
+#define HB_SIM_FAIL "1\n"
 
 CpaStatus adf_io_getNumDevices(unsigned int *num_devices)
 {
@@ -510,13 +519,13 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
     return CPA_STATUS_FAIL;
 }
 
-Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId)
+Cpa32S adf_io_cfgGetDomainAddress(Cpa16U accelId)
 {
     struct qatmgr_msg_req req = {0};
     struct qatmgr_msg_rsp rsp = {0};
     unsigned node, b, d, f;
 
-    req.device_num = packageId;
+    req.device_num = accelId;
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
     {
         ADF_ERROR("Failed to get DEVICE_INFO response from qatmgr\n");
@@ -531,14 +540,14 @@ Cpa32S adf_io_cfgGetDomainAddress(Cpa16U packageId)
     return node;
 }
 
-Cpa16U adf_io_cfgGetBusAddress(Cpa16U packageId)
+Cpa16U adf_io_cfgGetBusAddress(Cpa16U accelId)
 {
     struct qatmgr_msg_req req = {0};
     struct qatmgr_msg_rsp rsp = {0};
     unsigned n, b, d, f;
     unsigned bdf = 0;
 
-    req.device_num = packageId;
+    req.device_num = accelId;
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
     {
         ADF_ERROR("Failed to get DEVICE_INFO response from qatmgr\n");
@@ -566,3 +575,174 @@ CpaBoolean adf_io_isDeviceAvailable(void)
 {
     return qat_mgr_is_dev_available();
 }
+
+Cpa16U adf_io_getNumPfs(void)
+{
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
+
+    if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_NUM_PF_DEVS))
+    {
+        ADF_ERROR("Failed to get NUM_PF_DEVS response from qatmgr\n");
+        return ADF_IO_OPERATION_FAIL_CPA16U;
+    }
+
+    return rsp.num_devices;
+}
+
+CpaStatus adf_io_getPfInfo(icp_accel_pf_info_t *pPfInfo)
+{
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
+    ICP_CHECK_FOR_NULL_PARAM(pPfInfo);
+
+    Cpa16U pf_number, i;
+    icp_accel_pf_info_t *p;
+    pf_number = adf_io_getNumPfs();
+    if (pf_number == ADF_IO_OPERATION_FAIL_CPA16U)
+    {
+        ADF_ERROR("No PFs found, assuming running inside VM!\n");
+        return CPA_STATUS_RESOURCE;
+    }
+
+    for (i = 0; i < pf_number; i++)
+    {
+        req.device_num = i;
+        p = pPfInfo + i;
+        if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_PF_DEV_INFO))
+        {
+            ADF_ERROR("Failed to get PF_DEV_INFO response from qatmgr\n");
+            return CPA_STATUS_FAIL;
+        }
+
+        memcpy(p, &rsp.pf_info, sizeof(rsp.pf_info));
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus adf_io_getHeartBeatStatus(Cpa32U packageId)
+{
+    char devName[ADF_CFG_MAX_STR_LEN] = { 0 };
+    char *buff = NULL;
+    char device_id[DEVICE_NAME_SIZE];
+    size_t lineSize = 0;
+    FILE *fp = NULL;
+    CpaStatus ret_status = CPA_STATUS_SUCCESS;
+
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
+
+    if (packageId == VM_PACKAGE_ID_NONE)
+    {
+        ADF_ERROR("This API is not supported on a VM");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    req.device_num = packageId;
+
+    if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_PF_DEV_INFO))
+    {
+        ADF_ERROR("Failed to get PF_DEV_INFO response from qatmgr\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    snprintf(device_id,
+             sizeof(device_id),
+             "%04x:%02x:%02x.%01x",
+             rsp.pf_info.domain,
+             BDF_BUS(rsp.pf_info.bdf),
+             BDF_DEV(rsp.pf_info.bdf),
+             BDF_FUN(rsp.pf_info.bdf));
+
+    /* Open /sys/kernel/debug/<qat_device>/heartbeat/status */
+    if (snprintf(devName,
+                 ADF_CFG_MAX_STR_LEN,
+                 HB_STATUS_FILE,
+                 rsp.pf_info.device_gen,
+                 device_id) < 0)
+    {
+        ADF_ERROR("Failed to build device path %s\n", devName);
+        return CPA_STATUS_FAIL;
+    }
+
+    fp = fopen(devName, "r");
+    if (NULL == fp)
+    {
+        ADF_ERROR("No heartbeat directory found, "
+                  "you may need to update your QAT kernel driver\n");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (getline(&buff, &lineSize, fp) <= 0)
+        ret_status = CPA_STATUS_FAIL;
+    if (strncmp(buff, HB_ALIVE, strlen(HB_ALIVE)))
+        ret_status = CPA_STATUS_FAIL;
+
+    free(buff);
+    fclose(fp);
+
+    return ret_status;
+}
+
+#ifdef ICP_HB_FAIL_SIM
+CpaStatus adf_io_heartbeatSimulateFailure(Cpa32U packageId)
+{
+    char devName[ADF_CFG_MAX_STR_LEN] = { 0 };
+    char device_id[DEVICE_NAME_SIZE];
+    int fp = 0;
+
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
+
+    if (packageId == VM_PACKAGE_ID_NONE)
+    {
+        ADF_ERROR("This API is not supported on a VM");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    req.device_num = packageId;
+
+    if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_PF_DEV_INFO))
+    {
+        ADF_ERROR("Failed to get PF_DEV_INFO response from qatmgr\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    snprintf(device_id,
+             sizeof(device_id),
+             "%04x:%02x:%02x.%01x",
+             rsp.pf_info.domain,
+             BDF_BUS(rsp.pf_info.bdf),
+             BDF_DEV(rsp.pf_info.bdf),
+             BDF_FUN(rsp.pf_info.bdf));
+
+    /* Open /sys/kernel/debug/<qat_device>/heartbeat/inject_error */
+    if (snprintf(devName,
+                 ADF_CFG_MAX_STR_LEN,
+                 HB_SIM_FILE,
+                 rsp.pf_info.device_gen,
+                 device_id) < 0)
+    {
+        ADF_ERROR("Failed to build device path %s\n", devName);
+        return CPA_STATUS_FAIL;
+    }
+
+    fp = open(devName, O_WRONLY);
+    if (0 > fp)
+    {
+        ADF_ERROR("No heartbeat directory found, "
+                  "you may need to update your QAT kernel driver\n");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (write(fp, HB_SIM_FAIL, strlen(HB_SIM_FAIL)) < 0)
+    {
+        close(fp);
+        ADF_ERROR("Failed to set status\n");
+        return CPA_STATUS_FAIL;
+    }
+    close(fp);
+    return CPA_STATUS_SUCCESS;
+}
+#endif

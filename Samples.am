@@ -358,11 +358,22 @@ ec_montedwds_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/
 	$(COMMON_FLAGS)
 ec_montedwds_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 
+noinst_PROGRAMS += zuc_sample
+zuc_sample_SOURCES = \
+	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/cpa_zuc_sample.c \
+	quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/cpa_zuc_sample_user.c
+zuc_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+	$(COMMON_SAMPLE_INCLUDES) \
+	$(COMMON_SAMPLE_CFLAGS) \
+	$(COMMON_FLAGS)
+zuc_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
+
 samples: $(lib_LTLIBRARIES) cpa_sample_code dc_dp_sample dc_stateless_sample \
 	dc_stateless_multi_op_sample algchaining_sample ccm_sample \
 	cipher_sample gcm_sample hash_file_sample hash_sample ipsec_sample \
 	ssl_sample sym_dp_sample dh_sample prime_sample hkdf_sample \
-	ec_montedwds_sample eddsa_sample chaining_sample
+	ec_montedwds_sample eddsa_sample chaining_sample zuc_sample
 
 samples-install: samples
 	@install -D -m 755 $(srcdir)/.libs/cpa_sample_code $(DESTDIR)$(bindir)/cpa_sample_code
@@ -384,6 +395,7 @@ samples-install: samples
 	@install -D -m 755 $(srcdir)/.libs/prime_sample $(DESTDIR)$(bindir)/prime_sample
 	@install -D -m 755 $(srcdir)/.libs/hkdf_sample $(DESTDIR)$(bindir)/hkdf_sample
 	@install -D -m 755 $(srcdir)/.libs/ec_montedwds_sample $(DESTDIR)$(bindir)/ec_montedwds_sample
+	@install -D -m 755 $(srcdir)/.libs/zuc_sample $(DESTDIR)$(bindir)/zuc_sample
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary $(DESTDIR)$(datadir)/qat/calgary
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary32 $(DESTDIR)$(datadir)/qat/calgary32
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/canterbury $(DESTDIR)$(datadir)/qat/canterbury
@@ -413,6 +425,7 @@ samples-uninstall:
 	@rm -rf $(DESTDIR)$(bindir)/prime_sample
 	@rm -rf $(DESTDIR)$(bindir)/hkdf_sample
 	@rm -rf $(DESTDIR)$(bindir)/ec_montedwds_sample
+	@rm -rf $(DESTDIR)$(bindir)/zuc_sample
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary32
 	@rm -rf $(DESTDIR)$(datadir)/qat/canterbury

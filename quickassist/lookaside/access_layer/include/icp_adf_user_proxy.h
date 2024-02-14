@@ -70,6 +70,8 @@
  *****************************************************************************/
 #ifndef ICP_ADF_USER_PROXY_H
 #define ICP_ADF_USER_PROXY_H
+#include "cpa.h"
+#include "icp_accel_devices.h"
 
 /*
  * icp_adf_userProcessToStart
@@ -150,6 +152,31 @@ CpaStatus icp_adf_userFindNewDevices(void);
 CpaStatus icp_adf_pollDeviceEvents(void);
 
 /*
+ * icp_adf_userGetNumPfs
+ *
+ * Description:
+ *  Returns the number of PFs in the system, only returned if the process has
+ *  privileges to access the QAT debugfs/sysfs entries.
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS   on success
+ *   CPA_STATUS_FAIL      on failure
+ */
+CpaStatus icp_adf_userGetNumPfs(Cpa16U *pNumPFs);
+
+/*
+ * icp_adf_userGetPfInfo
+ *
+ * Description:
+ *  Populates a pre-allocated list of PF info.
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS   on success
+ *   CPA_STATUS_FAIL      on failure
+ */
+CpaStatus icp_adf_userGetPfInfo(icp_accel_pf_info_t *pPfInfo);
+
+/*
  * icp_adf_userCheckDevice
  *
  * Description:
@@ -157,10 +184,11 @@ CpaStatus icp_adf_pollDeviceEvents(void);
  *  This function is used as part of the heartbeat functionality.
  *
  * Returns:
- *   CPA_STATUS_SUCCESS   on success
- *   CPA_STATUS_FAIL      on failure
+ *   CPA_STATUS_SUCCESS     on success
+ *   CPA_STATUS_FAIL        on failure
+ *   CPA_STATUS_UNSUPPORTED on unsupported
  */
-CpaStatus icp_adf_userCheckDevice(Cpa32U accelId);
+CpaStatus icp_adf_userCheckDevice(Cpa32U packageId);
 
 /*
  * icp_adf_userCheckAllDevices
@@ -170,8 +198,9 @@ CpaStatus icp_adf_userCheckDevice(Cpa32U accelId);
  *  This function is used as part of the heartbeat functionality.
  *
  * Returns:
- *   CPA_STATUS_SUCCESS   on success
- *   CPA_STATUS_FAIL      on failure
+ *   CPA_STATUS_SUCCESS     on success
+ *   CPA_STATUS_FAIL        on failure
+ *   CPA_STATUS_UNSUPPORTED on unsupported
  */
 CpaStatus icp_adf_userCheckAllDevices(void);
 
@@ -188,7 +217,7 @@ CpaStatus icp_adf_userCheckAllDevices(void);
  *   CPA_STATUS_SUCCESS   on success
  *   CPA_STATUS_FAIL      on failure
  */
-CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U accelId);
+CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U packageId);
 
 #endif
 

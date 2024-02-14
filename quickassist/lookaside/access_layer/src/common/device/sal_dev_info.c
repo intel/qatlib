@@ -132,7 +132,7 @@ CpaStatus cpaGetDeviceInfo(Cpa16U device, CpaDeviceInfo *deviceInfo)
     if (NULL == pDevice)
     {
         LAC_LOG_ERROR("Failed to retrieve device");
-        return status;
+        return CPA_STATUS_FAIL;
     }
 
     /* Device of interest is found, retrieve the information for it */

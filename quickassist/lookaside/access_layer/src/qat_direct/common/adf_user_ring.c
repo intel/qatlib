@@ -40,7 +40,7 @@
 #include <qae_mem.h>
 #include <adf_platform_common.h>
 #include <adf_platform_acceldev_common.h>
-#include <adf_platform_acceldev_4xxx.h>
+#include <adf_platform_acceldev_gen4.h>
 #include <icp_platform.h>
 #include "adf_transport_ctrl.h"
 #include "adf_io_ring.h"
@@ -259,12 +259,12 @@ int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *ring)
 
     /* if generation is not supporting ring error reporting assume there was no
      * error */
-    if (!IS_QAT_4XXX(deviceType))
+    if (!IS_QAT_GEN4(deviceType))
         return 0;
 
     csr_base_addr = ((uint8_t *)ring->csr_addr);
 
-    ring_stat = READ_CSR_RING_STATUS_4XXX(csr_base_addr, ring->bank_offset);
+    ring_stat = READ_CSR_RING_STATUS_GEN4(csr_base_addr, ring->bank_offset);
 
     if (ring_stat & CSR_RING_STAT_RL_EXCEPTION_MASK)
         return -EINTR;
@@ -423,13 +423,13 @@ static int32_t adf_init_ring_internal(adf_dev_ring_handle_t *ring,
             ring_size_cfg, nearly_full_wm, nearly_empty_wm);
     }
 
-    if (IS_QAT_4XXX(deviceType))
+    if (IS_QAT_GEN4(deviceType))
     {
         ring_base_cfg =
-            BUILD_RING_BASE_ADDR_4XXX(ring->ring_phys_base_addr, ring_size_cfg);
-        WRITE_CSR_RING_BASE_4XXX(
+            BUILD_RING_BASE_ADDR_GEN4(ring->ring_phys_base_addr, ring_size_cfg);
+        WRITE_CSR_RING_BASE_GEN4(
             csr_base_addr, ring->bank_offset, ring->ring_num, ring_base_cfg);
-        WRITE_CSR_RING_CONFIG_4XXX(
+        WRITE_CSR_RING_CONFIG_GEN4(
             csr_base_addr, ring->bank_offset, ring->ring_num, ring_config);
     }
     else
@@ -519,11 +519,11 @@ static void adf_clean_ring(adf_dev_ring_handle_t *ring)
     adf_io_disable_ring(ring);
 
     /* Clear CSR configuration */
-    if (IS_QAT_4XXX(deviceType))
+    if (IS_QAT_GEN4(deviceType))
     {
-        WRITE_CSR_RING_CONFIG_4XXX(
+        WRITE_CSR_RING_CONFIG_GEN4(
             csr_base_addr, ring->bank_offset, ring->ring_num, 0);
-        WRITE_CSR_RING_BASE_4XXX(
+        WRITE_CSR_RING_BASE_GEN4(
             csr_base_addr, ring->bank_offset, ring->ring_num, 0);
     }
     else

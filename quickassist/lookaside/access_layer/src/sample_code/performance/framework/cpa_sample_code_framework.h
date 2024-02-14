@@ -217,6 +217,7 @@ typedef struct single_thread_test_data_s
 } single_thread_test_data_t;
 
 extern int useStaticPrime;
+extern int useUnalignedBuffer;
 extern volatile CpaBoolean reliability_g;
 extern volatile CpaBoolean cnverr_g;
 extern volatile CpaBoolean cnvnrerr_g;
@@ -228,12 +229,11 @@ extern volatile CpaBoolean swWrite_g;
 extern volatile CpaBoolean keyCorrupt_g;
 extern volatile CpaBoolean enableReadInstance_g;
 CpaStatus setReliability(CpaBoolean val);
+CpaStatus setUnalignedBuffer(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
 
-#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
 CpaStatus setDcNsFlag(CpaBoolean val);
 extern volatile CpaBoolean isNsRequest_g;
-#endif
 CpaStatus printReliability(void);
 
 extern volatile CpaBoolean fineTune_g;

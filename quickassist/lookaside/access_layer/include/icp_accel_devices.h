@@ -88,6 +88,9 @@
 #define ADF_CFG_MAX_VAL_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
 #define ADF_CFG_MAX_SECTION_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
 #define ADF_MAX_DEVICES (32 * 32)
+/* Max PFs = 8 sockets x 4 PFs per socket */
+#define ADF_MAX_PF_DEVICES 32
+
 enum dev_sku_info
 {
     DEV_SKU_1 = 0,
@@ -153,6 +156,9 @@ typedef enum
     ICP_ACCEL_CAPABILITIES_LZ4S_COMPRESSION = 0x2000000,
     ICP_ACCEL_CAPABILITIES_AES_V2 = 0x4000000,
     ICP_ACCEL_CAPABILITIES_KPT2 = 0x8000000,
+    /* Reserved capability for CIPHER_CRC */
+    ICP_ACCEL_CAPABILITIES_ZUC_256 = 0x20000000,
+    ICP_ACCEL_CAPABILITIES_WIRELESS_CRYPTO_EXT = 0x40000000,
 } icp_accel_capabilities_t;
 
 /**
@@ -179,7 +185,9 @@ typedef enum device_type_e
     DEVICE_C4XXX,
     DEVICE_C4XXXVF,
     DEVICE_4XXX,
-    DEVICE_4XXXVF
+    DEVICE_4XXXVF,
+    DEVICE_420XX,
+    DEVICE_420XXVF
 } device_type_t;
 
 #define QAT_GEN4_STR "4xxx"
@@ -187,13 +195,23 @@ typedef enum device_type_e
  * Macro for checking if given device_type_t enum value
  * belongs to QAT 4 generation.
  */
-#ifdef IS_QAT_4XXX
-#undef IS_QAT_4XXX
+#ifdef IS_QAT_GEN4
+#undef IS_QAT_GEN4
 #endif
-#define IS_QAT_4XXX(dev_type)                                                  \
+#define IS_QAT_GEN4(dev_type)                                                  \
     ({                                                                         \
         int _dt = dev_type;                                                    \
-        _dt == DEVICE_4XXX || _dt == DEVICE_4XXXVF;                            \
+        _dt == DEVICE_4XXX || _dt == DEVICE_4XXXVF || _dt == DEVICE_420XX ||   \
+            _dt == DEVICE_420XXVF;                                             \
+    })
+
+#ifdef IS_QAT_GEN4_2
+#undef IS_QAT_GEN4_2
+#endif
+#define IS_QAT_GEN4_2(dev_type)                                                \
+    ({                                                                         \
+        int _dt = dev_type;                                                    \
+        _dt == DEVICE_420XX || _dt == DEVICE_420XXVF;                          \
     })
 
 /*
@@ -239,6 +257,10 @@ typedef struct accel_dev_s
     void *ioPriv;
 } icp_accel_dev_t;
 
+/*
+ * This structure must be identical to CpaPfInfo which
+ * defined in "icp_sal_user.h"
+ */
 typedef struct accel_pf_info_s
 {
     Cpa32U pkg_id;

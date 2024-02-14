@@ -231,6 +231,7 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
     const CpaCySymHashSetupData *const pHashSetupData =
         &pSessionSetupData->hashSetupData;
 
+    Cpa32U mask = ((sal_service_t *)instanceHandle)->capabilitiesMask;
     CpaCySymCapabilitiesInfo capInfo;
     CpaCyCapabilitiesInfo cyCapInfo;
     status = SalCtrl_CySymQueryCapabilities(instanceHandle, &capInfo);
@@ -256,8 +257,17 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
             LAC_UNSUPPORTED_PARAM_LOG("UnSupported cipherAlgorithm");
             return CPA_STATUS_UNSUPPORTED;
         }
+        if (pCipherSetupData->cipherAlgorithm == CPA_CY_SYM_CIPHER_ZUC_EEA3)
+        {
+            if (!(mask & ICP_ACCEL_CAPABILITIES_ZUC_256) &&
+                (pCipherSetupData->cipherKeyLenInBytes ==
+                 ICP_QAT_HW_ZUC_256_KEY_SZ))
+            {
+                LAC_INVALID_PARAM_LOG("Cipher algorithm ZUC_256 unsupported.");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+        }
     }
-
     /* Ensure hash algorithm is correct and supported */
     if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
         (CPA_CY_SYM_OP_HASH == pSessionSetupData->symOperation))
@@ -274,6 +284,29 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
         {
             LAC_UNSUPPORTED_PARAM_LOG("UnSupported hashAlgorithm");
             return CPA_STATUS_UNSUPPORTED;
+        }
+        if (pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3)
+        {
+            if (!(mask & ICP_ACCEL_CAPABILITIES_ZUC_256) &&
+                (pHashSetupData->authModeSetupData.authKeyLenInBytes ==
+                 ICP_QAT_HW_ZUC_256_KEY_SZ))
+            {
+                LAC_INVALID_PARAM_LOG("Hash algorithm ZUC_256 unsupported.");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+        }
+        if (pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_AES_CMAC)
+        {
+            if (!(mask & ICP_ACCEL_CAPABILITIES_WIRELESS_CRYPTO_EXT) &&
+                (pHashSetupData->authModeSetupData.authKeyLenInBytes ==
+                     ICP_QAT_HW_AES_192_KEY_SZ ||
+                 pHashSetupData->authModeSetupData.authKeyLenInBytes ==
+                     ICP_QAT_HW_AES_256_KEY_SZ))
+            {
+                LAC_INVALID_PARAM_LOG("Hash algorithm AES_CMAC with 192/256"
+                                      "bits key unsupported.");
+                return CPA_STATUS_UNSUPPORTED;
+            }
         }
     }
 

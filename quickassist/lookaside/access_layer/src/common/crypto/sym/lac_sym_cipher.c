@@ -277,7 +277,8 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
         {
 #ifdef ICP_PARAM_CHECK
             LAC_CHECK_NULL_PARAM(pOpData->pIv);
-            if (pOpData->ivLenInBytes != ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ)
+            if ((pOpData->ivLenInBytes != ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ) &&
+                (pOpData->ivLenInBytes != ICP_QAT_HW_ZUC_256_IV_SZ))
             {
                 LAC_INVALID_PARAM_LOG("invalid cipher IV size");
                 return CPA_STATUS_INVALID_PARAM;
@@ -406,8 +407,10 @@ CpaStatus LacCipher_SessionSetupDataCheck(
                 break;
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
                 /* ZUC EEA3 */
-                if (pCipherSetupData->cipherKeyLenInBytes !=
-                    ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
+                if ((pCipherSetupData->cipherKeyLenInBytes !=
+                     ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ) &&
+                    (pCipherSetupData->cipherKeyLenInBytes !=
+                     ICP_QAT_HW_ZUC_256_KEY_SZ))
                 {
                     LAC_INVALID_PARAM_LOG("Invalid ZUC cipher key length");
                     return CPA_STATUS_INVALID_PARAM;

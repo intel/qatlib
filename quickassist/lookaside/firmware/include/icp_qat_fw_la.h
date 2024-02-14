@@ -480,7 +480,7 @@ typedef struct icp_qat_fw_la_bulk_req_s
  *  + ===== + --- + --- + --- + --- + --- + --- + --- + ---- +
  *  | Bit   |  7  |  6  | 5   |  4  |  3  |  2  |  1  |   0  |
  *  + ===== + --- + --- + --- + --- + --- + --- + --- + ---- +
- *  | Flags | Rsv | Rsv | Rsv | Rsv | Rsv | Rsv | Rsv | Ext  |
+ *  | Flags | Rsv | Rsv | Rsv | Rsv | WAT | WCP | Rsv | Ext  |
  *  |       |     |     |     |     |     |     |     | Prot |
  *  |       |     |     |     |     |     |     |     | Flags|
  *  + ===== + --- + --- + --- + --- + --- + --- + --- + ---- +
@@ -499,6 +499,31 @@ typedef struct icp_qat_fw_la_bulk_req_s
 #define QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS_MASK 0x1
 /**< @ingroup icp_qat_fw_la
  * One bit mask used to determine the use of Extended Protocol Flags. */
+
+#define QAT_LA_USE_WCP_SLICE_BITPOS 2
+/**< @ingroup icp_cpm_fw_la
+ * Bit position defining the Wireless Cipher (WCP) slice flag */
+
+#define QAT_LA_USE_WCP_SLICE 1
+/**< @ingroup icp_cpm_fw_la
+ * Value indicating the use of the Wireless Cipher (WCP) slice */
+
+#define QAT_LA_USE_WCP_SLICE_MASK 0x1
+/**< @ingroup icp_qat_fw_la
+ * One bit mask used to determine the use of the Wireless Cipher (WCP) slice */
+
+#define QAT_LA_USE_WAT_SLICE_BITPOS 3
+/**< @ingroup icp_cpm_fw_la
+ * Bit position defining the Wireless Authentication (WAT) slice flag */
+
+#define QAT_LA_USE_WAT_SLICE 1
+/**< @ingroup icp_cpm_fw_la
+ * Value indicating the use of the Wireless Authentication (WAT) slice */
+
+#define QAT_LA_USE_WAT_SLICE_MASK 0x1
+/**< @ingroup icp_qat_fw_la
+ * One bit mask used to determine the use of the Wireless Authentication (WAT)
+ * slice */
 
 /* The table below defines the meaning of the prefix_addr & hash_state_sz in
  * the case of partial processing. See the HLD for further details
@@ -954,18 +979,49 @@ typedef struct icp_qat_fw_la_bulk_req_s
                   QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS_MASK)
 
 /**
-******************************************************************************
-* @ingroup icp_qat_fw_la
-*
-* @description
-*        Macro for setting the "slice type" field in la flags
-*
-* @param flags      Flags to set the slice type
-* @param val        Value of the slice type to be set.
-*
-*****************************************************************************/
+ ******************************************************************************
+ * @ingroup icp_qat_fw_la
+ *
+ * @description
+ *        Macro for setting the "slice type" field in la flags
+ *
+ * @param flags      Flags to set the slice type
+ * @param val        Value of the slice type to be set.
+ *
+ *****************************************************************************/
 #define ICP_QAT_FW_LA_SLICE_TYPE_SET(flags, val)                               \
     QAT_FIELD_SET(flags, val, QAT_LA_SLICE_TYPE_BITPOS, QAT_LA_SLICE_TYPE_MASK)
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_la
+ *
+ * @description
+ *        Macro for setting the Wireless Cipher (WCP) slice flag to enable
+ *        extended crypto capabilities on supported platforms
+ *
+ * @param flags      Extended Command Flags
+ * @param val        Value of the flag
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_USE_WCP_SLICE_SET(flags, val)                               \
+    QAT_FIELD_SET(                                                             \
+        flags, val, QAT_LA_USE_WCP_SLICE_BITPOS, QAT_LA_USE_WCP_SLICE_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_la
+ *
+ * @description
+ *        Macro for setting the Wireless Authentication (WAT) slice flag to
+ *        enable extended crypto capabilities on supported platforms
+ *
+ * @param flags      Extended Command Flags
+ * @param val        Value of the flag
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_USE_WAT_SLICE_SET(flags, val)                               \
+    QAT_FIELD_SET(                                                             \
+        flags, val, QAT_LA_USE_WAT_SLICE_BITPOS, QAT_LA_USE_WAT_SLICE_MASK)
 
 /**
  *****************************************************************************

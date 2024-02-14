@@ -259,8 +259,18 @@ CpaStatus cipherPerform(symmetric_test_params_t *setup,
     CpaBoolean verifyResult = CPA_FALSE;
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U loopCount = 0;
+    Cpa32U submissions = 0;
+    Cpa32U i = 0;
+    perf_cycles_t request_submit_start[100] = {0};
+    perf_cycles_t request_respnse_time[100] = {0};
 
     memset(pSymData, 0, sizeof(perf_data_t));
+    if (((setup->numBuffers * setup->numLoops) / ONE_THOUSAND_RESPONSES) > 100)
+    {
+        PRINT_ERR("Error max submissions for latency  must be <= 1 million\n");
+        return CPA_STATUS_FAIL;
+    }
+    pSymData->response_times = request_respnse_time;
     /*preset the number of ops we plan to submit*/
     pSymData->numOperations = numOfLoops;
     pSymData->retries = 0;
@@ -280,6 +290,10 @@ CpaStatus cipherPerform(symmetric_test_params_t *setup,
          * preallocated loop. */
         do
         {
+            if ((loopCount + 1) % ONE_THOUSAND_RESPONSES == 0)
+            {
+                request_submit_start[submissions] = sampleCodeTimestamp();
+            }
             status = cpaCySymPerformOp(setup->cyInstanceHandle,
                                        pSymData,
                                        ppOpData,
@@ -293,6 +307,10 @@ CpaStatus cipherPerform(symmetric_test_params_t *setup,
                 AVOID_SOFTLOCKUP;
             }
         } while (CPA_STATUS_RETRY == status);
+        if ((loopCount + 1) % ONE_THOUSAND_RESPONSES == 0)
+        {
+            submissions++;
+        }
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCySymPerformOp Error %d\n", status);
@@ -305,6 +323,31 @@ CpaStatus cipherPerform(symmetric_test_params_t *setup,
             pSymData, setup->syncMode, setup->numBuffers, numOfLoops);
     }
 
+    pSymData->minLatency =
+        pSymData->response_times[0] - request_submit_start[0];
+    pSymData->maxLatency = pSymData->minLatency;
+    pSymData->aveLatency = pSymData->minLatency;
+    for (i = 1; i < submissions; i++)
+    {
+        if ((pSymData->response_times[i] - request_submit_start[i]) <
+            pSymData->minLatency)
+        {
+            pSymData->minLatency =
+                pSymData->response_times[i] - request_submit_start[i];
+        }
+        if ((pSymData->response_times[i] - request_submit_start[i]) >
+            pSymData->maxLatency)
+        {
+            pSymData->maxLatency =
+                pSymData->response_times[i] - request_submit_start[i];
+        }
+        pSymData->aveLatency +=
+            pSymData->response_times[i] - request_submit_start[i];
+    }
+    if (submissions > 0)
+    {
+        do_div(pSymData->aveLatency, submissions);
+    }
     /*clean up the callback semaphore*/
     sampleCodeSemaphoreDestroy(&pSymData->comp);
     return status;

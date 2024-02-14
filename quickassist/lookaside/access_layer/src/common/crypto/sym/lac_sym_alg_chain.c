@@ -773,7 +773,8 @@ LacAlgChain_SessionAuthKeyUpdate(lac_session_desc_t *pSessionDesc,
     }
     else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm)
     {
-        Cpa8U *pAuthKey = (Cpa8U *)pOutHashSetup + cipherConfigSize;
+        Cpa8U *pAuthKey =
+            (Cpa8U *)pOutHashSetup + sizeof(icp_qat_hw_cipher_config_t);
         memcpy(pAuthKey, authKey, pSessionDesc->authKeyLenInBytes);
     }
     else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm ||
@@ -831,11 +832,20 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
             if (CPA_CY_SYM_CIPHER_SNOW3G_UEA2 == pSessionDesc->cipherAlgorithm)
             {
                 *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
+                ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                             QAT_LA_USE_WCP_SLICE);
             }
             else if (CPA_CY_SYM_CIPHER_ZUC_EEA3 ==
                      pSessionDesc->cipherAlgorithm)
             {
                 *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
+                ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                             QAT_LA_USE_WCP_SLICE);
+            }
+            else if (CPA_CY_SYM_CIPHER_AES_F8 == pSessionDesc->cipherAlgorithm)
+            {
+                ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                             QAT_LA_USE_WCP_SLICE);
             }
 
             if (LAC_CIPHER_IS_CCM(pSessionDesc->cipherAlgorithm))
@@ -850,10 +860,22 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
             if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm)
             {
                 *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
+                ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                             QAT_LA_USE_WAT_SLICE);
             }
             else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)
             {
                 *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
+                ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                             QAT_LA_USE_WAT_SLICE);
+            }
+            else if ((CPA_CY_SYM_HASH_AES_CMAC ==
+                      pSessionDesc->hashAlgorithm) &&
+                     (ICP_QAT_HW_AES_128_KEY_SZ !=
+                      pSessionDesc->authKeyLenInBytes))
+            {
+                ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                             QAT_LA_USE_WAT_SLICE);
             }
             break;
 
@@ -924,6 +946,8 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
                     *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
                     ICP_QAT_FW_USE_EXTENDED_PROTOCOL_FLAGS_SET(
                         *laExtCmdFlags, QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS);
+                    ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WCP_SLICE);
                 }
                 else if (CPA_CY_SYM_CIPHER_ZUC_EEA3 ==
                          pSessionDesc->cipherAlgorithm)
@@ -931,26 +955,43 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
                     *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
                     ICP_QAT_FW_USE_EXTENDED_PROTOCOL_FLAGS_SET(
                         *laExtCmdFlags, QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS);
+                    ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WCP_SLICE);
                 }
 
                 if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm)
                 {
                     ICP_QAT_FW_USE_EXTENDED_PROTOCOL_FLAGS_SET(
                         *laExtCmdFlags, QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS);
-
                     /* Need to set LW 28 hash flags as well. */
                     ICP_QAT_FW_HASH_FLAG_SNOW3G_UIA2_SET(cd_ctrl->hash_flags,
                                                          QAT_FW_LA_SNOW3G_UIA2);
+                    ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WAT_SLICE);
                 }
                 else if (CPA_CY_SYM_HASH_ZUC_EIA3 ==
                          pSessionDesc->hashAlgorithm)
                 {
                     ICP_QAT_FW_USE_EXTENDED_PROTOCOL_FLAGS_SET(
                         *laExtCmdFlags, QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS);
-
                     /* Need to set LW 28 hash flags as well. */
                     ICP_QAT_FW_HASH_FLAG_ZUC_EIA3_SET(cd_ctrl->hash_flags,
                                                       QAT_FW_LA_ZUC_EIA3);
+                    ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WAT_SLICE);
+                }
+
+                if (CPA_CY_SYM_CIPHER_AES_F8 == pSessionDesc->cipherAlgorithm)
+                {
+                    ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WCP_SLICE);
+                }
+                if ((CPA_CY_SYM_HASH_AES_CMAC == pSessionDesc->hashAlgorithm) &&
+                    (ICP_QAT_HW_AES_128_KEY_SZ !=
+                     pSessionDesc->authKeyLenInBytes))
+                {
+                    ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WAT_SLICE);
                 }
             }
 
@@ -1687,10 +1728,6 @@ CpaStatus LacAlgChain_SessionInit(
                         /* HMAC Hash mode is determined by the config value */
                         pSessionDesc->qatHashMode = pService->qatHmacMode;
                     }
-                }
-                else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pHashData->hashAlgorithm)
-                {
-                    pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE0;
                 }
                 else
                 {

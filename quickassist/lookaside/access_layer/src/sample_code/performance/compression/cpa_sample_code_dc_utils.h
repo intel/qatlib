@@ -146,13 +146,18 @@ CpaStatus disableZeroByteRequest(void);
 
 #define CPA_CRC64_POLYNOMIAL1 0x42F0E1EBA9EA3693ULL
 #define CPA_CRC64_POLYNOMIAL2 0x9A6C9329AC4BC9B5ULL
+#define CPA_CRC32_POLYNOMIAL1 (((Cpa64U)(0x04c11db7)) << 32)
+#define CPA_CRC32_POLYNOMIAL2 (((Cpa64U)(0x1EDC6F41)) << 32)
 
 #define CPA_CRC64_XOROUT_0 0x0ULL
 #define CPA_CRC64_XOROUT_1 0xFFFFFFFFFFFFFFFFULL
 #define CPA_CRC64_XOROUT_2 0x9465776698231213ULL
+#define CPA_CRC32_XOROUT_1 (((Cpa64U)(0xffffffff)) << 32)
+#define CPA_CRC32_XOROUT_2 ((Cpa64U)(0xffffffff))
 
 #define CPA_CRC64_INITIAL_VALUE_0 0x0ULL
 #define CPA_CRC64_INITIAL_VALUE_1 0x6386926455673254ULL
+#define CPA_CRC32_INITIAL_VALUE_1 (((Cpa64U)(0xffffffff)) << 32)
 
 #define CHECK_AND_STOPDCSERVICES()                                             \
     if (dc_service_started_g == CPA_TRUE)                                      \

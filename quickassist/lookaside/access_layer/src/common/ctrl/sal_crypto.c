@@ -325,11 +325,12 @@ CpaStatus SalCtrl_CyGenResponses(sal_crypto_service_t *crypto_handle,
 #ifndef ASYM_NOT_SUPPORTED
         case SAL_SERVICE_TYPE_CRYPTO_ASYM:
             status =
-                LacSwResp_Asym_CallbackWake(crypto_handle->lac_pke_req_pool);
+                LacSwResp_GenResp(crypto_handle->lac_pke_req_pool,
+                                  crypto_handle->generic_service_info.type);
             if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
             {
                 LAC_LOG_ERROR1(
-                    "Failed to perform asym callbacks with status %d\n",
+                    "Failed to generate ASYM SW responses with status %d\n",
                     status);
             }
             break;
@@ -339,11 +340,12 @@ CpaStatus SalCtrl_CyGenResponses(sal_crypto_service_t *crypto_handle,
         case SAL_SERVICE_TYPE_CRYPTO:
 #ifndef ASYM_NOT_SUPPORTED
             status =
-                LacSwResp_Asym_CallbackWake(crypto_handle->lac_pke_req_pool);
+                LacSwResp_GenResp(crypto_handle->lac_pke_req_pool,
+                                  crypto_handle->generic_service_info.type);
             if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
             {
                 LAC_LOG_ERROR1(
-                    "Failed to perform asym callbacks with status %d\n",
+                    "Failed to generate ASYM SW responses with status %d\n",
                     status);
             }
 #endif
@@ -354,7 +356,7 @@ CpaStatus SalCtrl_CyGenResponses(sal_crypto_service_t *crypto_handle,
 
     if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
     {
-        LAC_LOG_ERROR1("Failed to perform cy callbacks with status %d\n",
+        LAC_LOG_ERROR1("Failed to generate SW responses with status %d\n",
                        status);
     }
     return status;
@@ -904,7 +906,7 @@ STATIC CpaStatus SalCtrl_SymReinitTransHandle(icp_accel_dev_t *device,
     /* Parse Sym ring details */
     status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               SAL_CFG_RING_ASYM_TX,
+                               SAL_CFG_RING_SYM_TX,
                                temp_string);
 
     /* Need to free resources in case not _SUCCESS from here */
@@ -928,7 +930,7 @@ STATIC CpaStatus SalCtrl_SymReinitTransHandle(icp_accel_dev_t *device,
 
     status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
-                               SAL_CFG_RING_ASYM_RX,
+                               SAL_CFG_RING_SYM_RX,
                                temp_string);
     LAC_CHECK_STATUS_SYM_INIT(status);
 
@@ -1001,7 +1003,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 (long long unsigned int)symStats.numSessionErrors);
 
             /* Session info */
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1074,7 +1076,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                     dsaStats.numDsaGParamGenCompletedErrors);
 
             /* y parameter generation requests */
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1145,7 +1147,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 (long long unsigned int)dsaStats.numDsaRSSignCompletedErrors);
 
             /* verify requests */
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1216,7 +1218,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 (long long unsigned int)rsaStats.numRsaEncryptCompletedErrors);
 
             /* rsa dec Info */
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1268,7 +1270,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 (long long unsigned int)
                     dhStats.numDhPhase1KeyGenCompletedErrors);
 
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1334,7 +1336,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 (long long unsigned int)keyStats.numTlsKeyGenCompleted,
                 (long long unsigned int)keyStats.numTlsKeyGenCompletedErrors);
 
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1387,7 +1389,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 (long long unsigned int)lnStats.numLnModExpCompletedErrors);
 
             /*  Large Number Modular Inversion operations stats */
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1426,7 +1428,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 "\n" SEPARATOR);
 
             /* Parameter generation requests - PRIME stats */
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1482,7 +1484,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                     ecStats.numEcPointMultiplyCompletedError,
                 (long long unsigned int)
                     ecStats.numEcPointMultiplyCompletedOutputInvalid);
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1515,7 +1517,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                 SEPARATOR BORDER
                 " ECDH Stats                                       " BORDER
                 "\n" SEPARATOR);
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1599,7 +1601,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
                     ecdsaStats.numEcdsaSignRSCompletedErrors,
                 (long long unsigned int)
                     ecdsaStats.numEcdsaSignRSCompletedOutputInvalid);
-            len += snprintf(
+            snprintf(
                 data + len,
                 size - len,
                 BORDER
@@ -1619,7 +1621,7 @@ STATIC int SalCtrl_CryptoDebug(void *private_data,
         }
         default:
         {
-            len += snprintf(data + len, size - len, SEPARATOR);
+            snprintf(data + len, size - len, SEPARATOR);
             return 0;
         }
     }
@@ -2150,7 +2152,7 @@ STATIC CpaStatus SalCtr_InstInit(icp_accel_dev_t *device,
     /* Get Config Info: Accel Num, bank Num, packageID,
                             coreAffinity, nodeAffinity and response mode */
 
-    pCryptoService->acceleratorNum = 0;
+    pCryptoService->acceleratorNum = device->accelId;
 
         switch (service->type)
         {
@@ -2433,7 +2435,7 @@ CpaStatus SalCtrl_CryptoShutdown(icp_accel_dev_t *device,
         (SAL_SERVICE_STATE_RESTARTING !=
          pCryptoService->generic_service_info.state))
     {
-        LAC_LOG_ERROR("Not in the correct state to call shutdown \n");
+        LAC_LOG_ERROR("Not in the correct state to call shutdown\n");
         return CPA_STATUS_FAIL;
     }
 
@@ -2780,6 +2782,11 @@ CpaStatus SalCtrl_CySymQueryCapabilities(sal_service_t *pGenericService,
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_GMAC);
     }
 
+    if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CRYPTO_ZUC)
+    {
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_ZUC_EEA3);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_ZUC_EIA3);
+    }
 
     if (pGenericService->capabilitiesMask & ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3)
     {
@@ -2815,6 +2822,16 @@ CpaStatus SalCtrl_CySymQueryCapabilities(sal_service_t *pGenericService,
 #endif
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_CBC);
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_CTR);
+    }
+
+    if (pGenericService->capabilitiesMask &
+        ICP_ACCEL_CAPABILITIES_WIRELESS_CRYPTO_EXT)
+    {
+#ifdef QAT_LEGACY_ALGORITHMS
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_F8);
+#endif
+        CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SNOW3G_UEA2);
+        CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SNOW3G_UIA2);
     }
 
     return CPA_STATUS_SUCCESS;
@@ -2876,18 +2893,7 @@ CpaStatus cpaCyGetStatusText(const CpaInstanceHandle instanceHandle,
 CpaStatus cpaCyStartInstance(CpaInstanceHandle instanceHandle_in)
 {
     CpaInstanceHandle instanceHandle = NULL;
-
-/* Structure initializer is supported by C99, but it is
- * not supported by some former Intel compilers. */
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(disable : 188)
-#endif
-    CpaInstanceInfo2 info = {0};
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(enable)
-#endif
     icp_accel_dev_t *dev = NULL;
-    CpaStatus status = CPA_STATUS_SUCCESS;
     sal_crypto_service_t *pService = NULL;
 
 #ifdef ICP_TRACE
@@ -2903,16 +2909,14 @@ CpaStatus cpaCyStartInstance(CpaInstanceHandle instanceHandle_in)
         instanceHandle = instanceHandle_in;
     }
     LAC_CHECK_NULL_PARAM(instanceHandle);
+    SAL_CHECK_INSTANCE_TYPE(instanceHandle,
+                            (SAL_SERVICE_TYPE_CRYPTO |
+                             SAL_SERVICE_TYPE_CRYPTO_ASYM |
+                             SAL_SERVICE_TYPE_CRYPTO_SYM));
 
     pService = (sal_crypto_service_t *)instanceHandle;
 
-    status = cpaCyInstanceGetInfo2(instanceHandle, &info);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Can not get instance info\n");
-        return status;
-    }
-    dev = icp_adf_getAccelDevByAccelId(info.physInstId.packageId);
+    dev = icp_adf_getAccelDevByAccelId(pService->acceleratorNum);
     if (NULL == dev)
     {
         LAC_LOG_ERROR("Can not find device for the instance\n");
@@ -2933,18 +2937,7 @@ CpaStatus cpaCyStartInstance(CpaInstanceHandle instanceHandle_in)
 CpaStatus cpaCyStopInstance(CpaInstanceHandle instanceHandle_in)
 {
     CpaInstanceHandle instanceHandle = NULL;
-
-/* Structure initializer is supported by C99, but it is
- * not supported by some former Intel compilers. */
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(disable : 188)
-#endif
-    CpaInstanceInfo2 info = {0};
-#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1300)
-#pragma warning(enable)
-#endif
     icp_accel_dev_t *dev = NULL;
-    CpaStatus status = CPA_STATUS_SUCCESS;
     sal_crypto_service_t *pService = NULL;
 
 #ifdef ICP_TRACE
@@ -2960,21 +2953,19 @@ CpaStatus cpaCyStopInstance(CpaInstanceHandle instanceHandle_in)
         instanceHandle = instanceHandle_in;
     }
     LAC_CHECK_NULL_PARAM(instanceHandle);
+    SAL_CHECK_INSTANCE_TYPE(instanceHandle,
+                            (SAL_SERVICE_TYPE_CRYPTO |
+                             SAL_SERVICE_TYPE_CRYPTO_ASYM |
+                             SAL_SERVICE_TYPE_CRYPTO_SYM));
 
-    status = cpaCyInstanceGetInfo2(instanceHandle, &info);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Can not get instance info\n");
-        return status;
-    }
-    dev = icp_adf_getAccelDevByAccelId(info.physInstId.packageId);
+    pService = (sal_crypto_service_t *)instanceHandle;
+
+    dev = icp_adf_getAccelDevByAccelId(pService->acceleratorNum);
     if (NULL == dev)
     {
         LAC_LOG_ERROR("Can not find device for the instance\n");
         return CPA_STATUS_FAIL;
     }
-
-    pService = (sal_crypto_service_t *)instanceHandle;
 
 
     pService->generic_service_info.isInstanceStarted = CPA_FALSE;
@@ -3160,7 +3151,7 @@ CpaStatus cpaCyInstanceGetInfo2(const CpaInstanceHandle instanceHandle_in,
     pInstanceInfo2->physInstId.executionEngineId =
         pCryptoService->executionEngine;
     pInstanceInfo2->physInstId.busAddress =
-        icp_adf_getBusAddress(pInstanceInfo2->physInstId.packageId);
+        icp_adf_getBusAddress(pInstanceInfo2->physInstId.acceleratorId);
 
     /* set coreAffinity to zero before use */
     LAC_OS_BZERO(pInstanceInfo2->coreAffinity,
@@ -3191,7 +3182,7 @@ CpaStatus cpaCyInstanceGetInfo2(const CpaInstanceHandle instanceHandle_in,
     pInstanceInfo2->isOffloaded = CPA_TRUE;
 
     /* Get the instance name and part name*/
-    dev = icp_adf_getAccelDevByAccelId(pCryptoService->pkgID);
+    dev = icp_adf_getAccelDevByAccelId(pCryptoService->acceleratorNum);
     if (NULL == dev)
     {
         LAC_LOG_ERROR("Can not find device for the instance\n");
@@ -3380,7 +3371,7 @@ CpaStatus icp_sal_CyPollInstance(CpaInstanceHandle instanceHandle_in,
         status = SalCtrl_CyGenResponses(crypto_handle, gen_handle);
         if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
         {
-            LAC_LOG_ERROR("Failed to Generate Responses for CY\n");
+            LAC_LOG_ERROR("Failed to generate SW responses for CY\n");
         }
         return status;
     }
@@ -3536,20 +3527,12 @@ STATIC CpaStatus Lac_CyService_GenResponses(sal_list_t **services)
     return status;
 }
 
-CpaStatus Lac_CyPollAllBanks_GenResponses(icp_accel_dev_t *accel_dev)
+CpaStatus SalCtrl_CyDevErr_GenResponses(icp_accel_dev_t *accel_dev,
+                                        Cpa32U enabled_services)
 {
     sal_t *service_container = NULL;
-    Cpa32U enabled_services = 0;
-    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaStatus status = CPA_STATUS_INVALID_PARAM;
     service_container = accel_dev->pSalHandle;
-
-    status = SalCtrl_GetEnabledServices(accel_dev, &enabled_services);
-
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Failed to get supported services");
-        return status;
-    }
 
     if (SalCtrl_IsServiceEnabled(enabled_services,
                                  SAL_SERVICE_TYPE_CRYPTO_ASYM))
@@ -3662,18 +3645,22 @@ CpaInstanceHandle Lac_GetFirstHandle(sal_service_type_t svc_type)
     CpaInstanceHandle cyInst = NULL;
     Cpa16U num_cy_dev = 0;
     Cpa32U capabilities = 0;
+    char *service = NULL;
 
     switch (svc_type)
     {
         case SAL_SERVICE_TYPE_CRYPTO_ASYM:
             capabilities = ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC;
+            service = "asym";
             break;
         case SAL_SERVICE_TYPE_CRYPTO_SYM:
             capabilities = ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC;
+            service = "sym";
             break;
         case SAL_SERVICE_TYPE_CRYPTO:
             capabilities = ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC;
             capabilities |= ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC;
+            service = "cy";
             break;
         default:
             LAC_LOG_ERROR("Invalid service type\n");
@@ -3684,7 +3671,7 @@ CpaInstanceHandle Lac_GetFirstHandle(sal_service_type_t svc_type)
         capabilities, adfInsts, &num_cy_dev);
     if ((0 == num_cy_dev) || (CPA_STATUS_SUCCESS != status))
     {
-        LAC_LOG_ERROR("No crypto devices enabled in the system\n");
+        LAC_LOG_ERROR_PARAMS("No %s devices enabled in the system\n", service);
         return NULL;
     }
 

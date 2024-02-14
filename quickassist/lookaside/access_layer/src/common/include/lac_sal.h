@@ -694,12 +694,11 @@ CpaBoolean SalCtrl_IsServiceEnabled(Cpa32U enabled_services,
 CpaBoolean SalCtrl_IsServiceSupported(icp_accel_dev_t *device,
                                       sal_service_type_t service);
 
-#ifndef ICP_DC_ONLY
 /**
  *******************************************************************************
  * @ingroup LacMemPool
- * This function searches crypto memory pool of the whole device to find all
- * in-flight requests and extract the callback functions from opaque data to
+ * This function searches DC memory pool of the whole device to find all
+ * inflight requests and extract the callback functions from opaque data to
  * generate dummy responses.
  *
  * @blocking
@@ -710,6 +709,36 @@ CpaBoolean SalCtrl_IsServiceSupported(icp_accel_dev_t *device,
  *      Yes
  *
  * @param[in] accel_dev              A pointer to the acceleration device
+ * @param[in] enabled_services       Enabled service for DC /Crypto
+ *
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_FATAL          A serious error has occurred.
+ * @retval CPA_STATUS_SUCCESS        function executed successfully.
+ * @retval CPA_STATUS_RETRY          function retried to generate response.
+ *
+ ******************************************************************************/
+CpaStatus SalCtrl_DcDevErr_GenResponses(icp_accel_dev_t *accel_dev,
+                                        Cpa32U enabled_services);
+
+#ifndef ICP_DC_ONLY
+/**
+ *******************************************************************************
+ * @ingroup LacMemPool
+ * This function searches crypto memory pool of the whole device to find all
+ * inflight requests and extract the callback functions from opaque data to
+ * generate dummy responses.
+ *
+ * @blocking
+ *      Yes
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] accel_dev              A pointer to the acceleration device
+ * @param[in] enabled_services       Enabled service for DC /Crypto
  *
  * @retval CPA_STATUS_FAIL           Function failed.
  * @retval CPA_STATUS_RESOURCE       Error related to system resources.
@@ -718,6 +747,7 @@ CpaBoolean SalCtrl_IsServiceSupported(icp_accel_dev_t *device,
  * @retval CPA_STATUS_SUCCESS        function executed successfully.
  *
  ******************************************************************************/
-CpaStatus Lac_CyPollAllBanks_GenResponses(icp_accel_dev_t *accel_dev);
+CpaStatus SalCtrl_CyDevErr_GenResponses(icp_accel_dev_t *accel_dev,
+                                        Cpa32U enabled_services);
 #endif
 #endif
