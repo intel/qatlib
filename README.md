@@ -26,6 +26,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| July 2024 | 013 | 24.02 | - Doc update only. Updated this table to say that support for the GEN4 402xx device was added in the 24.02 release. Added link to more details in Supported Devices section. |
 | February 2024 | 012 | 24.02 | - Added Heartbeat support. <br> - Added support for QAT GEN 5 devices, including support for a range of crypto wireless algorithms. <br> - RAS - Device error reset and recovery handling. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | November 2023 | 011 | 23.11 | - Support DC NS (NoSession) APIs.  <br> - Support  DC compressBound APIs. <br> - Support Symmetric Crypto SM3 & SM4. <br> - Support Asymmetric Crypto SM2. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | August 2023 | 010 | 23.08 | - Removal of following insecure algorithms: Diffie-Hellman and Elliptic curves less than 256-bits. <br> - Additional configuration profiles, including sym which facilitates improved symmetric crypto performance. <br> - DC Chaining (Hash then compress) <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). <br> - The shared object version is changed from 3->4. |
@@ -124,11 +125,12 @@ To enable these algorithms, use the following configuration option:
 Please refer to [INSTALL](INSTALL) for details on installing the library.
 
 ## Supported Devices
-* 4xxx (QAT GEN 4 devices)
+* 4xxx, 401xx and 402xx (QAT GEN 4 devices)
 * 420xx (QAT GEN 5 devices)
 
 Earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) are not
-supported.
+supported. Please refer to [QATlib User’s Guide](https://intel.github.io/quickassist/qatlib/requirements.html#supported-devices) for more information
+on supported devices.
 
 ## Limitations
 * If an error occurs on the host driver (Heartbeat, Uncorrectable error) it
@@ -159,8 +161,8 @@ The following assumptions are made concerning the deployment environment:
   memory regions.
 * A QuickAssist kernel driver for the supported device is installed, which has
   discovered and initialized the device, exposing the VFs. This driver is
-  included in the Linux kernel, see [INSTALL](INSTALL) for information about which kernel
-  to use.
+  included in the Linux kernel, see [QATlib User’s Guide](https://intel.github.io/quickassist/RN/In-Tree/in_tree_firmware_RN.html#qat-kernel-driver-releases-features) for information about
+  which kernel to use.
 
 ## Examples
 Example applications that showcase usage of the QAT APIs are included in the
