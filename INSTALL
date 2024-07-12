@@ -66,19 +66,29 @@ Check System Prerequisites
     running from a distro many of these are taken care of, if not here they
     are:
 
-     * platform must have one of the following Intel® Communications devices:
-        4xxx  : Use "lspci -d 8086:4940" to check Physical Function (PF)
-                devices are present.
-        401xx : Use "lspci -d 8086:4942" to check PF devices are present.
-        420xx : Use "lspci -d 8086:4946" to check PF devices are present.
+     * platform must have an Intel® Communications device installed.
+        Supported devices:
+        ---------------------------
+        Driver Name | PFid | VFid
+        ---------------------------
+        4xxx        | 4940 | 4941
+        401xx       | 4942 | 4943
+        402xx       | 4944 | 4945
+        420xx       | 4946 | 4947
+        ---------------------------
+        Examples in this doc are for the 4940 device. See
+        https://intel.github.io/quickassist/qatlib/requirements.html#supported-devices
+        for more details of other devices.
+     * check there's a PF device present
+        lspci -d 8086:<PFid> will return the list of devices installed, e.g.
+        "lspci -d 8086:4940"
         Note: Later, after "systemctl start qat" or "make install" steps, the
         corresponding Virtual Function devices will also be visible and bound
         to the vfio-pci driver.
-        4xxx  : Use "lspci -d 8086:4941" to check VF devices have been created.
-        401xx : Use "lspci -d 8086:4943" to check VF devices have been created.
-        420xx : Use "lspci -d 8086:4947" to check VF devices have been created.
+        lspci -d 8086:<VFid> will list VF devices which have been created, e.g.
+        "lspci -d 8086:4941"
      * firmware must be available
-        For 4xxx or 401xx devices check that these files exist:
+        Check that these files exist:
         /lib/firmware/qat_4xxx.bin or /lib/firmware/qat_4xxx.bin.xz
         /lib/firmware/qat_4xxx_mmp.bin or /lib/firmware/qat_4xxx_mmp.bin.xz
         If not, download the firmware images from linux-firmware and copy them
@@ -87,23 +97,22 @@ Check System Prerequisites
         wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qat_4xxx_mmp.bin
         sudo mv qat_4xxx.bin /lib/firmware
         sudo mv qat_4xxx_mmp.bin /lib/firmware
-	For 420xx, these firmware files are needed:
-		/lib/firmware/qat_420xx.bin
-		/lib/firmware/qat_420xx_mmp.bin
-	If not present please contact qat-linux@intel.com
+        See Supported Devices table linked above for firmware filenames for
+        other devices. If firmware is not present on linux-firmware please
+        contact qat-linux@intel.com
         On updating any firmware files run "sudo dracut --force" to update
         initramfs.
      * kernel driver must be running
         Use "lsmod | grep qat" to check that these kernel modules are running:
         intel_qat
-        qat_4xxx or qat_420xx
+        qat_4xxx (See Supported Devices table for other qat module names)
         They should load by default if using any of the following:
         * A recent Linux kernel (see https://intel.github.io/quickassist/qatlib/requirements.html#kernel-firmware-requirements )
         * Fedora 36+ (39+ for 420xx)
         * RHEL 8.4+ (for compression use 9.0+)
-     * each PF device must be bound to the 4xxx or 420xx driver
-        Use "cd /sys/bus/pci/drivers; ls 4xxx; ls 420xx"  to show the BDFs of
-        each bound PF
+     * each PF device must be bound to a qat kernel module
+        Use ls <Driver name> to show the BDFs of each bound PF, e.g.
+        "cd /sys/bus/pci/drivers; ls 4xxx;"
      * BIOS settings
         Intel VT-d and SR-IOV must be enabled in the platform BIOS.
         Consult your platform guide on how to do this.
@@ -582,7 +591,7 @@ Compilation and installation - detailed instructions
                 continue
             fi
 
-            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ] && [ "$did" != "0x4947" ]; then
+            if [ "$did" != "0x4941" ] && [ "$did" != "0x4943" ] && [ "$did" != "0x4945" ] && [ "$did" != "0x4947" ]; then
                 continue
             fi
 
@@ -619,7 +628,7 @@ Full list of Configuration options
                 ./configure ICP_ANY_PATH=path ICP_ANY_NAME=name --enable-something
 
     Features flags:
-        Enables or disables the additional features supported by 4xxx package
+        Enables or disables the additional features supported by the package
 
         --disable-option-checking
                 Ignores unrecognized configure options when run along with it.
@@ -729,15 +738,11 @@ Common issues
         No device found
         ADF_UIO_PROXY err: icp_adf_userProcessToStart: Failed to start SSL...
     Likely cause: (1) No PF driver available. Check that PFs are available and
-        bound to qat_4xxx:
+        bound to qat_4xxx: (See Supported Devices table for other devices)
         sudo lspci -vvd:4940 | grep "Kernel driver in use".
-        sudo lspci -vvd:4942 | grep "Kernel driver in use"
-        sudo lspci -vvd:4946 | grep "Kernel driver in use"
-        upgrade to a recent Linux Kernel.
+        Upgrade to a recent Linux Kernel.
         (2) No VFs available. Check VFs are available and bound to vfio-pci
         sudo lspci -vvd:4941 | grep "Kernel driver in use"
-        sudo lspci -vvd:4943 | grep "Kernel driver in use"
-        sudo lspci -vvd:4947 | grep "Kernel driver in use"
 
     Issue: On running ./autogen.sh following warning appears:
         aclocal: warning: couldn't open directory 'm4': No such file or dir...
@@ -782,9 +787,11 @@ Common issues
         early in boot process.
     Fix: First make sure you have the firmware installed in /lib/firmware,
         see pre-requisites section above.
-        In order to load the firmware, the driver must be reloaded, i.e. run:
+        In order to load the firmware, the driver must be reloaded, i.e. for
+        4xxx driver run:
         "sudo rmmod qat_4xxx; sudo modprobe qat_4xxx; sudo systemctl start qat".
         For a persistent change (on future reboots) run "sudo dracut --force".
+        See Supported Devices table for other driver names.
 
     Issue: X kernel taint flag seen on SUSE from SLES15-SP4 onwards
         "intel_qat: externally supported module,setting X kernel taint flag."
