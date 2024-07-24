@@ -152,7 +152,7 @@ extern "C" {
 
 #define QAT_SW_VERSION(s1, s2, s3, s4) s1 s2 s3 s4
 
-const static char *__attribute__((used)) qat_sw_version =
+static const char *__attribute__((used)) qat_sw_version =
     QAT_SW_VERSION(VERSION_CONCAT(QAT_SOFTWARE_VERSION, =),
                    VERSION_CONCAT(SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER, .),
                    VERSION_CONCAT(SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER, .),

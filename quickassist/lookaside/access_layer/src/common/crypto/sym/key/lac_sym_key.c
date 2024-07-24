@@ -163,32 +163,32 @@
 /**< macro to check whether the HKDF algorithm can be supported on the device */
 
 /* Sublabel for HKDF TLS Key Generation, as defined in RFC8446. */
-const static Cpa8U key256[] =
+static const Cpa8U key256[] =
     {0, 16, 9, 't', 'l', 's', '1', '3', ' ', 'k', 'e', 'y', 0};
-const static Cpa8U key384[] =
+static const Cpa8U key384[] =
     {0, 32, 9, 't', 'l', 's', '1', '3', ' ', 'k', 'e', 'y', 0};
-const static Cpa8U keyChaChaPoly[] =
+static const Cpa8U keyChaChaPoly[] =
     {0, 32, 9, 't', 'l', 's', '1', '3', ' ', 'k', 'e', 'y', 0};
 /* Sublabel for HKDF TLS IV key Generation, as defined in RFC8446. */
-const static Cpa8U iv256[] =
+static const Cpa8U iv256[] =
     {0, 12, 8, 't', 'l', 's', '1', '3', ' ', 'i', 'v', 0};
-const static Cpa8U iv384[] =
+static const Cpa8U iv384[] =
     {0, 12, 8, 't', 'l', 's', '1', '3', ' ', 'i', 'v', 0};
 /* Sublabel for HKDF TLS RESUMPTION key Generation, as defined in RFC8446. */
-const static Cpa8U resumption256[] = {0,   32,  16,  't', 'l', 's', '1',
+static const Cpa8U resumption256[] = {0,   32,  16,  't', 'l', 's', '1',
                                       '3', ' ', 'r', 'e', 's', 'u', 'm',
                                       'p', 't', 'i', 'o', 'n', 0};
-const static Cpa8U resumption384[] = {0,   48,  16,  't', 'l', 's', '1',
+static const Cpa8U resumption384[] = {0,   48,  16,  't', 'l', 's', '1',
                                       '3', ' ', 'r', 'e', 's', 'u', 'm',
                                       'p', 't', 'i', 'o', 'n', 0};
 /* Sublabel for HKDF TLS FINISHED key Generation, as defined in RFC8446. */
 #ifdef __CLANG_FORMAT__
 /* clang-format off */
 #endif
-const static Cpa8U finished256[] = { 0, 32, 14, 't', 'l', 's', '1',
+static const Cpa8U finished256[] = { 0, 32, 14, 't', 'l', 's', '1',
                                     '3', ' ', 'f', 'i', 'n', 'i', 's',
                                     'h', 'e', 'd', 0};
-const static Cpa8U finished384[] = { 0, 48, 14, 't', 'l', 's', '1',
+static const Cpa8U finished384[] = { 0, 48, 14, 't', 'l', 's', '1',
                                     '3', ' ', 'f', 'i', 'n', 'i', 's',
                                     'h', 'e', 'd', 0};
 #ifdef __CLANG_FORMAT__
