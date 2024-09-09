@@ -187,8 +187,6 @@ typedef struct sal_service_s
     void *debug_parent_dir;
     /**< Pointer to parent proc dir entry */
 
-    CpaBoolean is_dyn;
-
     Cpa32U capabilitiesMask;
     /**< Capabilities mask of the device */
 

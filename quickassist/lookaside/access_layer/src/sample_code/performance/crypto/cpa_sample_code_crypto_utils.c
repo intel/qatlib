@@ -75,6 +75,7 @@
 #include "cpa_sample_code_framework.h"
 #include "cpa_cy_common.h"
 #include "cpa_cy_prime.h"
+#include "cpa_cy_sym.h"
 #include "icp_sal_poll.h"
 
 #define POLL_AND_SLEEP 1
@@ -123,6 +124,22 @@ Cpa16U numInstances_g = 0;
 Cpa16U numPolledInstances_g = 0;
 CpaBoolean allocateMemOnOppositeNode = CPA_FALSE;
 extern Cpa32U packageIdCount_g;
+CpaStatus setCyPollWaitFn(Cpa32U poll_type, Cpa32U sleep_time);
+CpaBoolean isFbALessThanFbB(CpaFlatBuffer *pFbA, CpaFlatBuffer *pFbB);
+void setBusyLoopMethod(Cpa32U method);
+void setTimeStampInLoop(CpaBoolean value);
+CpaCySymCipherDirection getCipherDirection(void);
+void setCipherDirection(CpaCySymCipherDirection direction);
+CpaStatus setDigestAppend(CpaBoolean flag);
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+volatile CpaBoolean asym_polling_started_g = CPA_FALSE;
+CpaInstanceHandle *asymInstances_g = NULL;
+Cpa16U numAsymInstances_g = 0;
+Cpa16U numAsymPolledInstances_g = 0;
+sample_code_thread_t *asymPollingThread_g;
+#endif
+
 
 Cpa32U packetSizes[] = {BUFFER_SIZE_64,
                         BUFFER_SIZE_128,
@@ -610,11 +627,11 @@ Cpa32U getOpsPerSecond(Cpa64U responses, perf_cycles_t cycles)
 }
 EXPORT_SYMBOL(getOpsPerSecond);
 
-void accumulateAsymPerfData(Cpa32U numberOfThreads,
-                            perf_data_t *performanceStats[],
-                            perf_data_t *stats,
-                            Cpa64U *buffersProcessed,
-                            Cpa32U *responsesPerThread)
+static void accumulateAsymPerfData(Cpa32U numberOfThreads,
+                                   perf_data_t *performanceStats[],
+                                   perf_data_t *stats,
+                                   Cpa64U *buffersProcessed,
+                                   Cpa32U *responsesPerThread)
 {
     Cpa32U i = 0;
 
@@ -774,7 +791,6 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
             stats.offloadCycles += stats2[i].offloadCycles;
         }
     }
-    numOfCycles = (stats.endCyclesTimestamp - stats.startCyclesTimestamp);
     PRINT("Number of Threads     %u\n", data->numberOfThreads);
     PRINT("Total Submissions     %llu\n",
           (unsigned long long)stats.numOperations);
@@ -895,7 +911,7 @@ CpaStatus setCyPollInterval(Cpa32U interval)
 }
 EXPORT_SYMBOL(setCyPollInterval);
 
-void sampleCodePoll(CpaInstanceHandle instanceHandle_in)
+static void sampleCodePoll(CpaInstanceHandle instanceHandle_in)
 {
     CpaStatus status = CPA_STATUS_FAIL;
     while (cy_service_started_g == CPA_TRUE)
@@ -1049,6 +1065,30 @@ CpaStatus stopCyServices(void)
         qaeMemFree((void **)&cyInstances_g);
         cyInstances_g = NULL;
     }
+#if CY_API_VERSION_AT_LEAST(3, 0)
+
+    /*free the polling threads*/
+    if (asym_polling_started_g == CPA_TRUE)
+    {
+        /* set polling flag to false */
+        asym_polling_started_g = CPA_FALSE;
+        /* Wait for all threads_g to complete */
+        for (i = 0; i < numAsymPolledInstances_g; i++)
+        {
+            sampleCodeThreadJoin(&asymPollingThread_g[i]);
+        }
+        if (0 < numAsymPolledInstances_g)
+        {
+            qaeMemFree((void **)&asymPollingThread_g);
+            numAsymPolledInstances_g = 0;
+        }
+    }
+    if (asymInstances_g != NULL)
+    {
+        qaeMemFree((void **)&asymInstances_g);
+        asymInstances_g = NULL;
+    }
+#endif
     return returnStatus;
 }
 
@@ -1643,7 +1683,8 @@ CpaBoolean isFbALessThanFbB(CpaFlatBuffer *pFbA, CpaFlatBuffer *pFbB)
 }
 
 /*Function assumes each number is the same length in bytes*/
-CpaFlatBuffer *findSmallestNumber(CpaFlatBuffer *numbers, Cpa32U numNumbers)
+static CpaFlatBuffer *findSmallestNumber(CpaFlatBuffer *numbers,
+                                         Cpa32U numNumbers)
 {
     CpaFlatBuffer *result = numbers;
     Cpa32U i = 0;
@@ -1797,10 +1838,10 @@ static void incrementPrimeCandidate(CpaFlatBuffer *primeCandidate)
     }
 }
 
-void primeCallback(void *pCallbackTag,
-                   CpaStatus status,
-                   void *pOpData,
-                   CpaBoolean testPassed)
+static void primeCallback(void *pCallbackTag,
+                          CpaStatus status,
+                          void *pOpData,
+                          CpaBoolean testPassed)
 {
     perf_data_t *pPerfData = (perf_data_t *)pCallbackTag;
     if (CPA_STATUS_SUCCESS != status)
@@ -1841,7 +1882,8 @@ void primeCallback(void *pCallbackTag,
     }
 }
 
-void generatePrimeCandidates(CpaFlatBuffer *primeCandidate, Cpa32U numCandiates)
+static void generatePrimeCandidates(CpaFlatBuffer *primeCandidate,
+                                    Cpa32U numCandiates)
 {
     Cpa32U i = 0;
     /*generate a random number to test for prime*/
@@ -2505,6 +2547,11 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
     /* Determine size of session context to allocate */
     status = cpaCySymSessionCtxGetSize(
         instanceHandle, &sessionSetupData, &sessionCtxSize);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCySymSessionCtxGetSize failed with status %u\n", status);
+        return CPA_STATUS_FAIL;
+    }
     /* Allocate session context */
     pSessionCtx = qaeMemAllocNUMA(sessionCtxSize, node, BYTE_ALIGNMENT_64);
     if (NULL == pSessionCtx)
@@ -2620,6 +2667,11 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
 
 /* Remove the session - session init has already succeeded */
     status = removeSymSession(instanceHandle, pSessionCtx);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("removeSymSession failed with status %u\n", status);
+        ret = CPA_STATUS_FAIL;
+    }
 
     FREE_CALC_DIGEST_MEM();
 
@@ -3081,6 +3133,7 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
 }
 EXPORT_SYMBOL(cyCreatePollingThreadsIfPollingIsEnabled);
 
+
 CpaBoolean cyCheckAllInstancesArePolled(void)
 {
     CpaInstanceInfo2 *instanceInfo2 = NULL;
@@ -3466,12 +3519,12 @@ void printSymTestType(symmetric_test_params_t *setup)
 
 }
 
-void accumulateSymPerfData(Cpa32U numberOfThreads,
-                           perf_data_t *performanceStats[],
-                           perf_data_t *stats,
-                           symmetric_test_params_t *setup,
-                           Cpa64U *buffersProcessed,
-                           Cpa32U *responsesPerThread)
+static void accumulateSymPerfData(Cpa32U numberOfThreads,
+                                  perf_data_t *performanceStats[],
+                                  perf_data_t *stats,
+                                  symmetric_test_params_t *setup,
+                                  Cpa64U *buffersProcessed,
+                                  Cpa32U *responsesPerThread)
 {
     Cpa32U i = 0;
 
@@ -3540,6 +3593,8 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
     Cpa32U *threadCountPerDevice;
     perf_data_t *stats2;
     perf_data_t **tempPerformanceStats = NULL;
+    Cpa32U numberOfUnsupportedThreads = 0;
+    Cpa32U totalThreadsRan = 0;
     /*
         Cpa32U perfDataDeviceOffsets[packageIdCount_g];
         Cpa32U threadCountPerDevice[packageIdCount_g];
@@ -3591,7 +3646,13 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
     }
     for (i = 0; i < data->numberOfThreads; i++)
     {
-        if (CPA_STATUS_FAIL == data->performanceStats[i]->threadReturnStatus)
+        if (CPA_STATUS_UNSUPPORTED ==
+            data->performanceStats[i]->threadReturnStatus)
+        {
+            numberOfUnsupportedThreads++;
+        }
+        else if (CPA_STATUS_FAIL ==
+                 data->performanceStats[i]->threadReturnStatus)
         {
             qaeMemFree((void **)&stats2);
             qaeMemFree((void **)&perfDataDeviceOffsets);
@@ -3600,10 +3661,21 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
             return CPA_STATUS_FAIL;
         }
     }
+    totalThreadsRan = data->numberOfThreads - numberOfUnsupportedThreads;
+
+    if (totalThreadsRan == 0)
+    {
+        qaeMemFree((void **)&stats2);
+        qaeMemFree((void **)&perfDataDeviceOffsets);
+        qaeMemFree((void **)&threadCountPerDevice);
+        qaeMemFree((void **)&tempPerformanceStats);
+        return CPA_STATUS_FAIL;
+    }
+
     /* Block to re-group the data per device */
     for (j = 0; j < (packageIdCount_g + 1); j++)
     {
-        for (i = 0; i < data->numberOfThreads; i++)
+        for (i = 0; i < totalThreadsRan; i++)
         {
             if (data->performanceStats[i]->packageId == j)
             {
@@ -3611,7 +3683,7 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
             }
         }
     }
-    for (i = 0; i < data->numberOfThreads; i++)
+    for (i = 0; i < totalThreadsRan; i++)
     {
         data->performanceStats[i] = tempPerformanceStats[i];
     }
@@ -3638,7 +3710,7 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
      * same setup executed*/
     getLongestCycleCount2(stats2,
                           data->performanceStats,
-                          data->numberOfThreads,
+                          totalThreadsRan,
                           perfDataDeviceOffsets,
                           threadCountPerDevice);
 
@@ -3690,6 +3762,11 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
               setup->performanceStats->averagePacketSizeInBytes);
     }
     PRINT("Number of Threads     %u\n", data->numberOfThreads);
+    if (numberOfUnsupportedThreads)
+    {
+        PRINT("Unsupported Threads   %u\n", numberOfUnsupportedThreads);
+    }
+    PRINT("Total Threads ran     %u\n", totalThreadsRan);
     PRINT("Total Submissions     %llu\n",
           (unsigned long long)stats.numOperations);
     PRINT("Total Responses       %llu\n", (unsigned long long)stats.responses);
@@ -3715,22 +3792,22 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
 
             /*Display how long it took on average to process a buffer in uSecs.
              *Also include min/max to show variance */
-            do_div(stats.minLatency, data->numberOfThreads);
+            do_div(stats.minLatency, totalThreadsRan);
             statsLatency = 1000 * stats.minLatency;
             do_div(statsLatency, cpuFreqKHz);
             PRINT("Min. Latency (uSecs)     %llu\n", statsLatency);
-            do_div(stats.aveLatency, data->numberOfThreads);
+            do_div(stats.aveLatency, totalThreadsRan);
             statsLatency = 1000 * stats.aveLatency;
             do_div(statsLatency, cpuFreqKHz);
             PRINT("Ave. Latency (uSecs)     %llu\n", statsLatency);
-            do_div(stats.maxLatency, data->numberOfThreads);
+            do_div(stats.maxLatency, totalThreadsRan);
             statsLatency = 1000 * stats.maxLatency;
             do_div(statsLatency, cpuFreqKHz);
             PRINT("Max. Latency (uSecs)     %llu\n", statsLatency);
         }
         if (iaCycleCount_g)
         {
-            do_div(stats.offloadCycles, data->numberOfThreads);
+            do_div(stats.offloadCycles, totalThreadsRan);
             PRINT("Avg Offload Cycles    %llu\n",
                   (long long unsigned int)stats.offloadCycles);
         }
@@ -3875,7 +3952,7 @@ CpaStatus getCyInstanceCapabilities(CpaCyCapabilitiesInfo *pCap)
     CpaStatus status = CPA_STATUS_FAIL;
     CpaInstanceHandle instanceHandle = CPA_INSTANCE_HANDLE_SINGLE;
 
-    status = cpaCyGetInstances(1, &instanceHandle);
+    cpaCyGetInstances(1, &instanceHandle);
     if (instanceHandle == NULL)
     {
         return CPA_STATUS_FAIL;
@@ -3953,13 +4030,11 @@ CpaStatus getSymAsymInstanceCapabilities(CpaCyCapabilitiesInfo *pCap,
 
     if (SYM == instType)
     {
-        status =
-            cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, 1, &instanceHandle);
+        cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, 1, &instanceHandle);
     }
     else
     {
-        status =
-            cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, 1, &instanceHandle);
+        cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, 1, &instanceHandle);
     }
 
     if (instanceHandle == NULL)

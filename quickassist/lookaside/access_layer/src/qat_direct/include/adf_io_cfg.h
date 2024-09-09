@@ -141,6 +141,21 @@ Cpa16U adf_io_cfgGetBusAddress(Cpa16U accelId);
  * @ingroup adf_io
  *
  * @description
+ *      This function checks if user process section
+ *      exists in device cfg.
+ *
+ * @param[in] dev_id           Id of the accelerator device to be checked.
+ * @param[out] pSectionPresent Pointer to the check result.
+ * @retval 0                   Function executed successfully, the result is
+ *                             present in *pSectionPresent.
+ * @retval < 0                 Function failed.
+ */
+int adf_io_cfgCheckUserSection(int dev_id, uint8_t *pSectionPresent);
+
+/**
+ * @ingroup adf_io
+ *
+ * @description
  *      This function resets the accelerator device.
  *
  * @param[in] accelId        Id of the accelerator device to be reset.

@@ -79,6 +79,7 @@
 #include "cpa_cy_dh.h"
 #include "cpa_cy_im.h"
 #include "cpa_cy_key.h"
+#include "cpa_cy_dsa.h"
 #include "qat_perf_utils.h"
 #include "cpa_sample_code_utils.h"
 #include "cpa_sample_code_framework.h"
@@ -2189,6 +2190,7 @@ CpaStatus calcSWDigest(CpaFlatBuffer *msg,
                        CpaFlatBuffer *digest,
                        CpaCySymHashAlgorithm hashAlg);
 
+
 CpaStatus getCyInstanceCapabilities(CpaCyCapabilitiesInfo *pCap);
 
 CpaStatus getCySpecificInstanceCapabilities(CpaInstanceHandle instanceHandle,
@@ -2535,6 +2537,7 @@ CpaStatus waitForResponses(perf_data_t *perfData,
  *****************************************************************************/
 CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void);
 
+
 /**
  *****************************************************************************
  * @ingroup cryptoThreads
@@ -2667,6 +2670,11 @@ CpaStatus sampleCodeSymPollInstance(CpaInstanceHandle instanceHandle,
  * @param[in] data  pointer to test data structure
  ********************************************************************************/
 CpaStatus stopCyServicesFromCallback(thread_creation_data_t *data);
+
+CpaStatus dsaGenZ(CpaInstanceHandle instanceHandle,
+                  CpaFlatBuffer *msg,
+                  CpaCySymHashAlgorithm hashAlg,
+                  CpaFlatBuffer *dsaZ);
 #endif /*_CRYPTO_UTILS_H_*/
 
 /**

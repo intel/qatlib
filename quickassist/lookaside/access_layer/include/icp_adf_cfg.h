@@ -100,8 +100,6 @@
 #define ADF_DEV_NODE_ID ("Device_NodeId")
 /* Device package id, this is accel_dev id */
 #define ADF_DEV_PKG_ID ("Device_PkgId")
-/* String names for the exposed sections of config file. */
-#define DYN_SEC "DYN"
 
 /*
  * icp_adf_cfgGetParamValue

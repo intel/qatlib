@@ -933,7 +933,7 @@ CpaStatus cpaCySymRemoveSession(const CpaInstanceHandle instanceHandle_in,
     if (CPA_STATUS_SUCCESS == status)
     {
         LAC_SPINLOCK_DESTROY(&pSessionDesc->requestQueueLock);
-        LAC_DESTROY_MUTEX(&pSessionDesc->accessLock);
+        osalAtomicSet(0, &pSessionDesc->accessLock);
         if (CPA_FALSE == pSessionDesc->isDPSession)
         {
             LAC_SYM_STAT_INC(numSessionsRemoved, instanceHandle);

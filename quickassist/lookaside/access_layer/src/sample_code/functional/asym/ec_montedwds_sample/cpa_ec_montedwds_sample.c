@@ -228,11 +228,13 @@ static CpaStatus ed448PointSamplePerform(CpaInstanceHandle cyInstHandle)
     status = OS_MALLOC(&pXk, sizeof(CpaFlatBuffer));
     if (CPA_STATUS_SUCCESS == status)
     {
+        pXk->pData = NULL;
+        pXk->dataLenInBytes = dataLenInBytes;
         status = OS_MALLOC(&pYk, sizeof(CpaFlatBuffer));
     }
     if (CPA_STATUS_SUCCESS == status)
     {
-        pXk->dataLenInBytes = dataLenInBytes;
+        pYk->pData = NULL;
         pYk->dataLenInBytes = dataLenInBytes;
         status = PHYS_CONTIG_ALLOC_ALIGNED(
             &pXk->pData, dataLenInBytes, BYTE_ALIGNMENT_64);
@@ -368,11 +370,13 @@ static CpaStatus curve448GeneratorSamplePerform(CpaInstanceHandle cyInstHandle)
     status = OS_MALLOC(&pXk, sizeof(CpaFlatBuffer));
     if (CPA_STATUS_SUCCESS == status)
     {
+        pXk->pData = NULL;
+        pXk->dataLenInBytes = dataLenInBytes;
         status = OS_MALLOC(&pYk, sizeof(CpaFlatBuffer));
     }
     if (CPA_STATUS_SUCCESS == status)
     {
-        pXk->dataLenInBytes = dataLenInBytes;
+        pYk->pData = NULL;
         pYk->dataLenInBytes = dataLenInBytes;
         status = PHYS_CONTIG_ALLOC_ALIGNED(
             &pXk->pData, dataLenInBytes, BYTE_ALIGNMENT_64);
@@ -494,11 +498,13 @@ static CpaStatus curve25519PointSamplePerform(CpaInstanceHandle cyInstHandle)
     status = OS_MALLOC(&pXk, sizeof(CpaFlatBuffer));
     if (CPA_STATUS_SUCCESS == status)
     {
+        pXk->pData = NULL;
+        pXk->dataLenInBytes = dataLenInBytes;
         status = OS_MALLOC(&pYk, sizeof(CpaFlatBuffer));
     }
     if (CPA_STATUS_SUCCESS == status)
     {
-        pXk->dataLenInBytes = dataLenInBytes;
+        pYk->pData = NULL;
         pYk->dataLenInBytes = dataLenInBytes;
         status = PHYS_CONTIG_ALLOC_ALIGNED(
             &pXk->pData, dataLenInBytes, BYTE_ALIGNMENT_64);
@@ -611,7 +617,7 @@ CpaStatus ecMontEdwdsSample(void)
      * In this simplified version of instance discovery, we discover
      * exactly one instance of a crypto service.
      */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleAsymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;

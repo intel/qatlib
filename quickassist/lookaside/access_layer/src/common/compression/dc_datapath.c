@@ -1227,7 +1227,7 @@ STATIC CpaStatus dcCheckDestinationData(sal_compression_service_t *pService,
 #endif
         {
             /* Ensure that the destination buffer size is greater or equal
-             * to devices min output buff size for static compression */
+             * to devices min output buff size */
             if (destBuffSize < pService->comp_device_data.minOutputBuffSize)
             {
                 LAC_INVALID_PARAM_LOG1(

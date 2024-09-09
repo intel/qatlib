@@ -231,6 +231,7 @@ Cpa8U singleInstRequired_g = 0;
 extern Cpa32U packageIdCount_g;
 extern CpaBoolean devicesCounted_g;
 
+
 #ifdef USER_SPACE
 #define MAX_SAMPLE_LOOPS 5
 #define ONE_KILO 1000
@@ -325,6 +326,7 @@ int main(int argc, char *argv[])
     Cpa32U lv_count = 0;
     Cpa16U i = 0;
     Cpa16S prevDevId = -1;
+    Cpa16U testsExecuted = 0;
 #ifdef INCLUDE_COMPRESSION
     Cpa16U numDcInst = 0;
     Cpa32U statefulMultiThreadCoreMap[NUMBER_SIMILTANEOUS_THREADS];
@@ -812,6 +814,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupCipherTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -834,6 +840,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupCipherTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
@@ -864,6 +874,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -891,6 +905,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupAlgChainTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
@@ -924,6 +942,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainDpTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -956,6 +978,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupAlgChainDpTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -982,6 +1008,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupCipherDpTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
@@ -1010,6 +1040,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupCipherDpTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1034,6 +1068,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupCipherDpTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1061,6 +1099,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupCipherDpTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1093,6 +1135,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupAlgChainTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1123,6 +1169,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupAlgChainDpTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1156,6 +1206,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupRsaTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1187,6 +1241,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupKpt2RsaTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1211,6 +1269,10 @@ int main(int argc, char *argv[])
         {
             PRINT_ERR("Error calling setupKpt2EcdsaTest\n");
             return CPA_STATUS_FAIL;
+        }
+        else
+        {
+            testsExecuted++;
         }
         status = createStartandWaitForCompletionCrypto(ASYM);
         if (CPA_STATUS_SUCCESS != status)
@@ -1247,6 +1309,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDhTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1273,6 +1339,10 @@ int main(int argc, char *argv[])
             PRINT_ERR("Error calling setupDsaTest\n");
             return CPA_STATUS_FAIL;
         }
+        else
+        {
+            testsExecuted++;
+        }
         status = createStartandWaitForCompletionCrypto(ASYM);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1297,6 +1367,10 @@ int main(int argc, char *argv[])
         {
             PRINT_ERR("Error calling setupEcdsaTest\n");
             return CPA_STATUS_FAIL;
+        }
+        else
+        {
+            testsExecuted++;
         }
         status = createStartandWaitForCompletionCrypto(ASYM);
         if (CPA_STATUS_SUCCESS != status)
@@ -1348,6 +1422,10 @@ int main(int argc, char *argv[])
                         break;
                 }
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletionCrypto(ASYM);
             if (CPA_STATUS_SUCCESS != status)
@@ -1414,6 +1492,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1434,6 +1516,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupDcTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
@@ -1456,6 +1542,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1475,6 +1565,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupDcTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
@@ -1500,6 +1594,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1520,6 +1618,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1542,6 +1644,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1561,6 +1667,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1587,6 +1697,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1608,6 +1722,10 @@ int main(int argc, char *argv[])
                 if (CPA_STATUS_SUCCESS != status)
                 {
                     PRINT_ERR("Stateful setup failed\n");
+                }
+                else
+                {
+                    testsExecuted++;
                 }
 
                 /*set the array of cores to create threads on*/
@@ -1663,6 +1781,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcDpTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1684,6 +1806,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupDcDpTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
@@ -1707,6 +1833,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcDpTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -1728,6 +1858,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupDcDpTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
@@ -1753,6 +1887,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcDpTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1774,6 +1912,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcDpTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1797,6 +1939,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcDpTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1818,6 +1964,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcDpTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1847,6 +1997,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1867,6 +2021,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1889,6 +2047,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1910,6 +2072,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1930,6 +2096,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -1952,6 +2122,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1973,6 +2147,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1993,6 +2171,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupDcLZ4Test\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletion(COMPRESSION);
                 if (CPA_STATUS_SUCCESS != status)
@@ -2035,6 +2217,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupHashTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -2058,6 +2244,10 @@ int main(int argc, char *argv[])
             {
                 PRINT_ERR("Error calling setupHashDpTest\n");
                 return CPA_STATUS_FAIL;
+            }
+            else
+            {
+                testsExecuted++;
             }
             status = createStartandWaitForCompletionCrypto(SYM);
             if (CPA_STATUS_SUCCESS != status)
@@ -2087,6 +2277,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupAlgChainTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -2111,6 +2305,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupCipherTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
@@ -2145,6 +2343,10 @@ int main(int argc, char *argv[])
                     PRINT_ERR("Error calling setupAlgChainDpTest\n");
                     return CPA_STATUS_FAIL;
                 }
+                else
+                {
+                    testsExecuted++;
+                }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -2172,6 +2374,10 @@ int main(int argc, char *argv[])
                 {
                     PRINT_ERR("Error calling setupCipherDpTest\n");
                     return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
                 }
                 status = createStartandWaitForCompletionCrypto(SYM);
                 if (CPA_STATUS_SUCCESS != status)
@@ -2224,6 +2430,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcChainTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -2256,6 +2466,10 @@ int main(int argc, char *argv[])
                 PRINT_ERR("Error calling setupDcChainTest\n");
                 return CPA_STATUS_FAIL;
             }
+            else
+            {
+                testsExecuted++;
+            }
             status = createStartandWaitForCompletion(COMPRESSION);
             if (CPA_STATUS_SUCCESS != status)
             {
@@ -2278,10 +2492,14 @@ int main(int argc, char *argv[])
     }
     qaeMemDestroy();
 #endif /* USER_SPACE */
-    if (retStatus == CPA_STATUS_SUCCESS)
+    if ((retStatus == CPA_STATUS_SUCCESS) && (testsExecuted > 0))
     {
         PRINT("Sample code completed successfully.\n");
         return CPA_STATUS_SUCCESS;
+    }
+    if (testsExecuted == 0)
+    {
+        PRINT("No tests were executed.\n");
     }
     return retStatus;
 }

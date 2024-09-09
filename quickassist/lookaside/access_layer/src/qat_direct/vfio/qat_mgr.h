@@ -89,6 +89,29 @@
 
 #define MAX_DEVS 512
 
+/* Below definitions are dependent on kernel drivers for creating the same
+ * mapping
+ */
+#define RING_PAIR_SHIFT 3
+#define SVC_MASK 0x7
+#define CFG_SERV_RING_PAIR_1_SHIFT 3
+#define CFG_SERV_RING_PAIR_2_SHIFT 6
+#define CFG_SERV_RING_PAIR_3_SHIFT 9
+#define DEFAULT_RING_TO_SRV_MAP                                                \
+    (ASYM | SYM << CFG_SERV_RING_PAIR_1_SHIFT |                                \
+     ASYM << CFG_SERV_RING_PAIR_2_SHIFT | SYM << CFG_SERV_RING_PAIR_3_SHIFT)
+
+/* enum must be in alignment with the one defined by the kernel drivers */
+enum cfg_service_type
+{
+    UNUSED = 0,
+    CRYPTO,
+    COMP,
+    SYM,
+    ASYM,
+    USED
+};
+
 enum serv_type
 {
     SERV_TYPE_DC = BIT(0),
@@ -185,7 +208,7 @@ struct qatmgr_msg_rsp
             uint16_t max_rings_per_bank;
             uint16_t arb_mask;
             uint16_t services;
-            uint16_t pkg_id;
+            int16_t pkg_id;
             uint16_t node_id;
             uint16_t num_cy_instances;
             uint16_t num_dc_instances;
@@ -240,7 +263,7 @@ struct qatmgr_device_data
     int device_type;
     uint16_t pci_id;
     /* PF index, describes which device it comes from */
-    uint16_t pkg_id;
+    int16_t pkg_id;
     uint16_t services;
     /* This includes all cy insts whether asym-only, sym-only ro sym+asym */
     int num_cy_inst;
@@ -276,6 +299,14 @@ struct qatmgr_dev_data
     char vfio_file[32];
     int group_fd;
     unsigned devid;
+    int numa_node;
+};
+
+struct qatmgr_cpu_data
+{
+    int idx;
+    int *cpu;
+    int cores_in_node;
 };
 
 int qatmgr_query(struct qatmgr_msg_req *req,
@@ -285,16 +316,14 @@ int qatmgr_open(void);
 int qatmgr_close(void);
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
-#define BDF_NODE(bdf) (bdf >> 16)
+#define BDF_DOMAIN(bdf) (bdf >> 16)
 #define BDF_BUS(bdf) (bdf >> 8 & 0xFF)
 #define BDF_DEV(bdf) (bdf >> 3 & 0x1F)
 #define BDF_FUN(bdf) (bdf & 0x7)
-/* This is the actual PF BDF. */
-#define BDF_PF(bdf) (bdf & 0xFFFFFF00)
 /* This is the PF BDF shifted >>8 and used as an index for hashing and for
  * capability caching.
  */
-#define PF(bdf) (BDF_BUS(bdf) + (BDF_NODE(bdf) << 8))
+#define PF(bdf) (BDF_BUS(bdf) + (BDF_DOMAIN(bdf) << 8))
 
 void qat_mgr_cleanup_cfg(void);
 int qat_mgr_get_dev_list(unsigned *num_devices,

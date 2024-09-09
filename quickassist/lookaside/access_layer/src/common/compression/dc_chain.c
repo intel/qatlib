@@ -680,7 +680,7 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
                     LAC_CHECK_NULL_PARAM(pCySessDesc);
 #endif
                     LAC_SPINLOCK_DESTROY(&pCySessDesc->requestQueueLock);
-                    LAC_DESTROY_MUTEX(&pCySessDesc->accessLock);
+                    osalAtomicSet(0, &pCySessDesc->accessLock);
                 }
                 LAC_LOG_ERROR("Init compression session failure\n");
                 return status;
@@ -857,7 +857,7 @@ CpaStatus cpaDcChainRemoveSession(const CpaInstanceHandle dcInstance,
     LAC_CHECK_NULL_PARAM(pCySessDesc);
 #endif
     LAC_SPINLOCK_DESTROY(&pCySessDesc->requestQueueLock);
-    LAC_DESTROY_MUTEX(&pCySessDesc->accessLock);
+    osalAtomicSet(0, &pCySessDesc->accessLock);
 
     return status;
 }

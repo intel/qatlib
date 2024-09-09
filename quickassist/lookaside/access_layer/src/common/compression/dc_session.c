@@ -472,6 +472,18 @@ STATIC void dcCompHwBlockPopulateGen4(
                 ? ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_ENABLED
                 : ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_DISABLED;
 
+        if ((CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType) &&
+            (CPA_DC_DEFLATE == pSessionDesc->compType) &&
+            (CPA_DC_L10 == pSessionDesc->compLevel ||
+             CPA_DC_L11 == pSessionDesc->compLevel ||
+             CPA_DC_L12 == pSessionDesc->compLevel))
+        {
+            /* Enable Adaptive Block Drop with dynamic deflate
+             * compression when levels 10-12 are selected.
+             * This field is ignored by firmware for devices that
+             * do not support adaptive block drop */
+            hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_20_ABD_ABD_ENABLED;
+        }
         /* Hard-coded HW-specific values */
         hw_comp_upper_csr.nice =
             ICP_QAT_HW_COMP_20_CONFIG_CSR_NICE_PARAM_DEFAULT_VAL;

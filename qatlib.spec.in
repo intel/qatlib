@@ -11,7 +11,7 @@ Summary:          Intel QuickAssist user space library
 License:          BSD-3-Clause AND ( BSD-3-Clause OR GPL-2.0-only )
 URL:              https://github.com/intel/%{name}
 Source0:          https://github.com/intel/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
-BuildRequires:    systemd gcc make autoconf automake libtool systemd-devel openssl-devel zlib-devel nasm
+BuildRequires:    systemd gcc make autoconf automake libtool systemd-devel openssl-devel zlib-devel nasm numactl-devel
 Requires(pre):    shadow-utils
 Recommends:       qatlib-service
 # https://bugzilla.redhat.com/show_bug.cgi?id=1897661
@@ -132,6 +132,10 @@ exit 0
 %{_mandir}/man8/qat_init.sh.8*
 
 %changelog
+* Thu Sep 05 2024 Berenike Bronikowska <berenike.bronikowska@intel.com> - 24.09.0-1
+- Add dependency on numactl-devel.
+- Update to qatlib 24.09.0
+
 * Thu Feb 08 2024 Xinghong Chen <xinghong.chen@intel.com> - 24.02.0-1
 - Add the zuc_sample to tests package.
 - Update to qatlib 24.02.0

@@ -71,20 +71,18 @@
  ***************************************************************************/
 #include <linux/vfio.h>
 #include "qae_mem_utils_common.h"
-
-/* Check for process pid caching availability */
-#ifdef MADV_WIPEONFORK
-#define CACHE_PID
+#ifdef ICP_THREAD_SPECIFIC_USDM
+#include "qae_mem_multi_thread.h"
+#else
+#include "qae_mem_lib_utils.h"
 #endif
 
 #ifdef CACHE_PID
-STATIC void *cache_pid = NULL;
+void *cache_pid = NULL;
 #endif
-
 /**************************************************************************
                                    macro
 **************************************************************************/
-
 #ifdef __x86_64__
 #define IOVA_BITS 39
 #else
@@ -99,6 +97,16 @@ STATIC void *cache_pid = NULL;
 #define FIRST_IOVA IOVA_SLAB_SIZE
 #define NUM_IOVA_SLABS (1 << (IOVA_BITS - SLAB_BITS))
 #define MAX_IOVA ((1ll << IOVA_BITS) - IOVA_SLAB_SIZE)
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+/* Needed to protect iova allocation for GEN2 devices */
+pthread_mutex_t iova_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif /* ICP_THREAD_SPECIFIC_USDM */
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+#define PINNED 1
+#define NOT_PINNED 0
+#endif
 
 /**************************************************************************
     static variable
@@ -171,12 +179,32 @@ static int iova_reserve(uint64_t iova, uint32_t size)
 
 static void iova_release(uint64_t iova, uint32_t size)
 {
-    unsigned slab = IOVA_IDX(iova);
+    unsigned slab = 0;
     int count;
-    int num_slabs = (size + (1 << SLAB_BITS) - 1) >> SLAB_BITS;
+    int num_slabs = 0;
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    if (unlikely(mem_mutex_lock(&iova_mutex)))
+    {
+        CMD_ERROR(
+            "%s:%d Error on thread iova_mutex lock\n", __func__, __LINE__);
+        return;
+    }
+#endif
+
+    slab = IOVA_IDX(iova);
+    num_slabs = (size + (1 << SLAB_BITS) - 1) >> SLAB_BITS;
 
     for (count = 0; count < num_slabs; count++, slab++)
         clear_bit(iova_used, slab);
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    if (unlikely(mem_mutex_unlock(&iova_mutex)))
+    {
+        CMD_ERROR(
+            "%s:%d Error on thread iova_mutex unlock\n", __func__, __LINE__);
+    }
+#endif
 }
 
 static inline int dma_map_slab(const void *virt,
@@ -217,7 +245,7 @@ static inline int dma_unmap_slab(const uint64_t iova, const size_t size)
     ret = mem_ioctl(vfio_container_fd, VFIO_IOMMU_UNMAP_DMA, &dma_umap);
     if (ret)
         CMD_ERROR(
-            "%s:%d VFIO_IOMMU_UMAP_DMA failed iova=%llx size%lx -- errno=%d\n",
+            "%s:%d VFIO_IOMMU_UNMAP_DMA failed iova=%llx size%lx -- errno=%d\n",
             __func__,
             __LINE__,
             dma_umap.iova,
@@ -237,6 +265,9 @@ static inline void ioctl_free_slab(const int fd, dev_mem_info_t *memInfo)
         return;
 
     dma_unmap_slab(memInfo->phy_addr, memInfo->size);
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    memInfo->flag_pinned = NOT_PINNED;
+#endif
 }
 
 API_LOCAL
@@ -251,12 +282,26 @@ void __qae_finish_free_slab(const int fd, dev_mem_info_t *slab)
 
 static inline int qaeInitProcess(void)
 {
-    if (check_pid())
+    if (is_new_process())
     {
+#ifndef ICP_THREAD_SPECIFIC_USDM
         __qae_ResetControl();
+#else
+        free_page_table_fptr(&g_page_table);
+        memset(&g_page_table, 0, sizeof(g_page_table));
+        qae_key = 0;
+        qae_mem_inited = 0;
+        qae_key_once = PTHREAD_ONCE_INIT;
+        g_slab_tmp_list.head = NULL;
+        g_slab_tmp_list.tail = NULL;
+#endif
         memset(&iova_used, 0, sizeof(iova_used));
         next_iova = FIRST_IOVA;
+#ifdef CACHE_PID
+        cache_process_id();
+#endif /* CACHE_PID */
     }
+
     return 0;
 }
 
@@ -270,19 +315,7 @@ API_LOCAL
 int __qae_free_special(void)
 {
 #ifdef CACHE_PID
-    int ret = 0;
-    if (cache_pid != NULL)
-    {
-        ret = qae_munmap(cache_pid, getpagesize());
-        if (ret)
-        {
-            CMD_ERROR("%s:%d munmap call for cache failed, ret = %d\n",
-                      __func__,
-                      __LINE__,
-                      ret);
-        }
-        cache_pid = NULL;
-    }
+    uncache_process_id();
 #endif
     return 0;
 }
@@ -291,6 +324,15 @@ uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
 {
     uint64_t iova;
     unsigned tryCount;
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    if (unlikely(mem_mutex_lock(&iova_mutex)))
+    {
+        CMD_ERROR(
+            "%s:%d Error on thread iova_mutex lock %s\n", __func__, __LINE__);
+        return 0;
+    }
+#endif
 
     /* IOVA alignment must be minimum of IOVA_SLAB_SIZE but may be greater */
     alignment = round_up(alignment, IOVA_SLAB_SIZE);
@@ -309,9 +351,27 @@ uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
             next_iova = iova + round_up(size, IOVA_SLAB_SIZE);
             if (next_iova > MAX_IOVA)
                 next_iova = FIRST_IOVA;
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+            if (unlikely(mem_mutex_unlock(&iova_mutex)))
+            {
+                CMD_ERROR("%s:%d Error on thread iova_mutex unlock %s\n",
+                          __func__,
+                          __LINE__);
+                return 0;
+            }
+#endif
             return iova;
         }
     }
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    if (unlikely(mem_mutex_unlock(&iova_mutex)))
+    {
+        CMD_ERROR(
+            "%s:%d Error on thread iova_mutex unlock %s\n", __func__, __LINE__);
+    }
+#endif
 
     return 0;
 }
@@ -323,10 +383,13 @@ static inline void *mmap_alloc(const size_t size)
 
     ptr = qae_mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0);
 
-    if (qae_madvise(ptr, size, MADV_DONTFORK))
+    if (ptr != MAP_FAILED)
     {
-        munmap(ptr, size);
-        ptr = MAP_FAILED;
+        if (qae_madvise(ptr, size, MADV_DONTFORK))
+        {
+            munmap(ptr, size);
+            ptr = MAP_FAILED;
+        }
     }
 
     return (ptr == MAP_FAILED) ? NULL : ptr;
@@ -383,13 +446,48 @@ static inline dev_mem_info_t *ioctl_alloc_slab(const int fd,
 
     slab->type = type;
 
-    /* Defer IOMMU map until container is registered. */
+    /* Defer IOMMU map until container is registered.
+     * This is a use-case where qaeMemAllocNUMA() is invoked before
+     * process start up.
+     * NOTE: Regardless of when it is invoked, the
+     * qaeRegisterDevice()/qaeUnregsiterDevice() would get invoked
+     * as many number of times as the number of devices found in the
+     * QAT hardware. However, the pinning and un-pinning occur only
+     * once based on the value of vfio_container_fd.
+     */
     if (vfio_container_fd < 0)
+    {
+#ifdef ICP_THREAD_SPECIFIC_USDM
+        /* Save the slab in a TMP list for the deferred pinning. */
+        slab->flag_pinned = NOT_PINNED;
+        save_slab_to_tmp_list(slab);
+#endif
+        /* This is required for adding into hash table.*/
         return slab;
+    }
 
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    /* In the case of thread specific implementation, the slabs that are
+     * allocated from different threads should be kept in a global array
+     * for getting the slab information at the time of pinning and
+     * un-pinning which is done in qaeRegisterDevice()/qaeUnregisterDevice()
+     * functions.
+     * NOTE: A new variable 'flag_pinned' is introduced. As the TMP list is
+     * being employed to keep all the slabs, we need a marker to later
+     * identify among the slabs in the TMP list that are already pinned!
+     * The pinning will take place for the slab in this ioctl_alloc_slab()
+     * itself if there is a vfio_container_fd active). This flag is required
+     * to skip those slabs while doing deferred pinning at the
+     * qaeRegisterDevice() time.
+     */
+    save_slab_to_tmp_list(slab);
+#endif
     if (dma_map_slab(slab->virt_addr, slab->phy_addr, slab->size))
         goto error;
 
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    slab->flag_pinned = PINNED;
+#endif
     return slab;
 
 error:
@@ -406,6 +504,7 @@ error:
     return NULL;
 }
 
+#ifndef ICP_THREAD_SPECIFIC_USDM
 API_LOCAL
 dev_mem_info_t *__qae_alloc_slab(const int fd,
                                  const size_t size,
@@ -417,21 +516,68 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
 
     slab = ioctl_alloc_slab(fd, size, alignment, node, type);
 
-    /* Store a slab into the hash table for a fast lookup. */
+    /* Store a slab into the hash table for a fast lookup.
+     * NOTE: this is not the free list. This hash table is used
+     * for finding the slab info from virt address quickly
+     * at the time of qaeMemFreeNUMA code flow. The free list
+     * is accessed by push_slab()/pop_slab() functions (uses
+     * tls_ptr->pUserCacheHead/Tail).
+     */
     if (slab)
         add_slab_to_hash(slab);
 
     return slab;
 }
+#else  /* ICP_THREAD_SPECIFIC_USDM */
+API_LOCAL
+dev_mem_info_t *__qae_alloc_slab(const int fd,
+                                 const size_t size,
+                                 const uint32_t alignment,
+                                 const int node,
+                                 enum slabType type,
+                                 qae_mem_info_t *tls_ptr)
+{
+    dev_mem_info_t *slab = NULL;
+
+    slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+
+    /* Store a slab into the hash table for a fast lookup.
+     * NOTE: this is not the free list. This hash table is used
+     * for finding the slab info from virt address quickly
+     * at the time of qaeMemFreeNUMA code flow. The free list
+     * is accessed by push_slab()/pop_slab() functions (uses
+     * tls_ptr->pUserCacheHead/Tail).
+     */
+    if (slab)
+        add_slab_to_hash(slab, tls_ptr);
+
+    return slab;
+}
+#endif /* ICP_THREAD_SPECIFIC_USDM */
 
 static int dma_map_slabs(dev_mem_info_t *pList)
 {
     dev_mem_info_t *slab;
 
-    for (slab = pList; slab != NULL; slab = slab->pNext_user)
+    for (slab = pList; slab != NULL;)
     {
+#ifdef ICP_THREAD_SPECIFIC_USDM
+        /* Do the deferred pinning only on slabs in the TMP list that
+         * are NOT pinned at ioctl_alloc_slab()
+         */
+        if (slab->flag_pinned == NOT_PINNED)
+        {
+            if (dma_map_slab(slab->virt_addr, slab->phy_addr, slab->size))
+                return 1;
+            /* now that slab has been PINNED, mark it */
+            slab->flag_pinned = PINNED;
+        }
+        slab = slab->pNext_user_vfiotmp;
+#else
         if (dma_map_slab(slab->virt_addr, slab->phy_addr, slab->size))
             return 1;
+        slab = slab->pNext_user;
+#endif
     }
     return 0;
 }
@@ -440,10 +586,22 @@ static int dma_unmap_slabs(dev_mem_info_t *pList)
 {
     dev_mem_info_t *slab;
 
-    for (slab = pList; slab != NULL; slab = slab->pNext_user)
+    for (slab = pList; slab != NULL;)
     {
+#ifdef ICP_THREAD_SPECIFIC_USDM
+        if (slab->flag_pinned == PINNED)
+        {
+            if (dma_unmap_slab(slab->phy_addr, slab->size))
+                return 1;
+
+            slab->flag_pinned = NOT_PINNED;
+        }
+        slab = slab->pNext_user_vfiotmp;
+#else
         if (dma_unmap_slab(slab->phy_addr, slab->size))
             return 1;
+        slab = slab->pNext_user;
+#endif
     }
     return 0;
 }
@@ -551,6 +709,7 @@ static int filter_dma_ranges(int fd)
 }
 #endif
 
+#ifndef ICP_THREAD_SPECIFIC_USDM
 int qaeRegisterDevice(int fd)
 {
     int ret = 0;
@@ -561,10 +720,15 @@ int qaeRegisterDevice(int fd)
 
     if (qaeInitProcess())
     {
-        CMD_ERROR("Failed to init qae process \n");
+        CMD_ERROR("Failed to init qae process\n");
         return -1;
     }
 
+    /* When a new process is spawned then that means that
+     * a new container is brought up, so we need to do
+     * necessary actions, like, pinning memory of that process
+     * to IOMMU (associate memory to the new container).
+     */
     if (pid != vfio_pid)
     {
         vfio_pid = pid;
@@ -630,3 +794,125 @@ int qaeUnregisterDevice(int fd)
     }
     return ret;
 }
+#else  /* ICP_THREAD_SPECIFIC_USDM */
+/* The memory pinning operation is usually performed at the memory allocation
+ * time itself but there are use cases where the application may allocate
+ * memory before it has registered with USDM. In such cases, the pinning
+ * will be deferred until a container_fd is active (the fd argument
+ * to the qaeRegisterDevice() is exactly that). The expectation is that the
+ * allocated memory is then pinned within qaeRegisterDevice() so that it
+ * can be used for DMA.
+ */
+int qaeRegisterDevice(int fd)
+{
+    int ret = 0;
+    dev_mem_info_t *slab;
+
+    pid_t pid = getpid();
+
+    if (filter_dma_ranges(fd))
+        return -1;
+
+    if (qaeInitProcess())
+    {
+        CMD_ERROR("Failed to init qae process\n");
+        return -1;
+    }
+
+    /* When a new process is spawned then that means that
+     * a new container is brought up, so we need to do
+     * necessary actions, like, pinning memory of that process
+     * to IOMMU (associate memory to the new container).
+     */
+    if (pid != vfio_pid)
+    {
+        vfio_pid = pid;
+        vfio_container_fd = -1;
+        vfio_container_ref = 0;
+    }
+
+    if (vfio_container_fd < 0)
+    {
+        vfio_container_fd = fd;
+
+        /* Do the memory pinning by referring to the TMP list */
+        if (unlikely(mem_mutex_lock(&mutex_tmp_list)))
+        {
+            CMD_ERROR("%s:%d Error on temp mutex lock\n", __func__, __LINE__);
+            return -EIO;
+        }
+        slab = g_slab_tmp_list.head;
+        if (slab != NULL)
+        {
+            if (dma_map_slabs(slab))
+            {
+                vfio_container_fd = -1;
+                ret = 1;
+            }
+        }
+        if (unlikely(mem_mutex_unlock(&mutex_tmp_list)))
+        {
+            CMD_ERROR(
+                "%s:%d Error on temp mutex unlock %s\n", __func__, __LINE__);
+            return -EIO;
+        }
+        if (ret)
+            return 1;
+    }
+
+    if (fd == vfio_container_fd)
+    {
+        vfio_container_ref++;
+    }
+    else
+    {
+        CMD_ERROR("%s:%d Invalid container fd %d != %d\n",
+                  __func__,
+                  __LINE__,
+                  fd,
+                  vfio_container_fd);
+        ret = 1;
+    }
+
+    return ret;
+}
+
+int qaeUnregisterDevice(int fd)
+{
+    int ret = 0;
+    dev_mem_info_t *slab;
+
+    pid_t pid = getpid();
+
+    if (vfio_container_ref <= 0 || vfio_container_fd != fd)
+        return 1;
+
+    if (pid != vfio_pid)
+        return 0;
+
+    if (--vfio_container_ref == 0)
+    {
+        /* Do the memory un-pinning by referring to the TMP list */
+        if (unlikely(mem_mutex_lock(&mutex_tmp_list)))
+        {
+            CMD_ERROR("%s:%d Error on temp mutex lock\n", __func__, __LINE__);
+            return -EIO;
+        }
+        slab = g_slab_tmp_list.head;
+        if (slab != NULL)
+        {
+            if (dma_unmap_slabs(slab))
+                ret = 1;
+        }
+        if (unlikely(mem_mutex_unlock(&mutex_tmp_list)))
+        {
+            CMD_ERROR(
+                "%s:%d Error on temp mutex unlock %s\n", __func__, __LINE__);
+            return -EIO;
+        }
+        vfio_container_fd = -1;
+    }
+
+    return ret;
+}
+#endif /* ICP_THREAD_SPECIFIC_USDM */

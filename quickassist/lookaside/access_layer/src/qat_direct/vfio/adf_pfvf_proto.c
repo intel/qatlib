@@ -67,7 +67,7 @@
 
 struct adf_pfvf_dev_data adf_init_pfvf_dev_data(void *pmiscbar_addr, int dev_id)
 {
-    struct adf_pfvf_dev_data dev = {0};
+    struct adf_pfvf_dev_data dev = { 0 };
 
     if (pmiscbar_addr == NULL)
     {
@@ -157,7 +157,7 @@ int adf_send_vf2pf_msg(struct adf_pfvf_dev_data *dev, struct pfvf_message msg)
 struct pfvf_message adf_pfvf_gen4_recv(struct adf_pfvf_dev_data *dev)
 {
     uint32_t val;
-    struct pfvf_message msg = {0};
+    struct pfvf_message msg = { 0 };
 
     if (dev == NULL)
     {
@@ -226,7 +226,7 @@ STATIC int adf_vf2pf_blkmsg_data_req(struct adf_pfvf_dev_data *dev,
                                      uint8_t *data,
                                      uint8_t is_crc)
 {
-    struct pfvf_message req = {0};
+    struct pfvf_message req = { 0 };
     struct pf2vf_blkmsg_resp resp;
     uint16_t max_payload_size;
     int err;
@@ -334,12 +334,13 @@ static const unsigned char pfvf_crc8_table[] = {
     0x14, 0x83, 0xAD, 0x3A, 0xF1, 0x66, 0x48, 0xDF, 0x10, 0x87, 0xA9, 0x3E,
     0xF5, 0x62, 0x4C, 0xDB, 0x4D, 0xDA, 0xF4, 0x63, 0xA8, 0x3F, 0x11, 0x86,
     0xAA, 0x3D, 0x13, 0x84, 0x4F, 0xD8, 0xF6, 0x61, 0xF7, 0x60, 0x4E, 0xD9,
-    0x12, 0x85, 0xAB, 0x3C};
+    0x12, 0x85, 0xAB, 0x3C
+};
 
 static uint8_t adf_pfvf_crc(uint8_t start_crc, uint8_t *buf, uint8_t len)
 {
     uint8_t crc = start_crc;
-    
+
     ICP_CHECK_FOR_NULL_PARAM(buf);
 
     while (len-- > 0)

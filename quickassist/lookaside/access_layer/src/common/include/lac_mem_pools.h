@@ -421,25 +421,6 @@ CpaStatus Lac_MemPoolInitAsymCookies(lac_memory_pool_id_t poolID,
 /**
  *******************************************************************************
  * @ingroup LacMemPool
- * This function initialises the physical addresses of the compression cookie
- *
- * @blocking
- *      No
- * @reentrant
- *      No
- * @threadSafe
- *      No
- * @param[in] poolID   ID of the pool
- *
- * @retval CPA_STATUS_FAIL           function failed
- * @retval CPA_STATUS_SUCCESS        function executed successfully
- *
- ******************************************************************************/
-CpaStatus Lac_MemPoolInitDcCookiePhyAddr(lac_memory_pool_id_t poolID);
-
-/**
- *******************************************************************************
- * @ingroup LacMemPool
  * This function setting the opaque field in each cookie buffer to
  * ICP_ADF_INVALID_SEND_SEQ.
  *

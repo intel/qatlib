@@ -304,7 +304,7 @@ CpaStatus symDpSample(void)
      * In this simplified version of instance discovery, we discover
      * exactly one instance of a crypto service.
      */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleSymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
         OS_FREE(info2);

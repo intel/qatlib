@@ -182,7 +182,7 @@ static CpaStatus sampleDhPerformOp(CpaInstanceHandle cyInstHandle)
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
     void *pCallbackTagPh2 = (void *)&complete;
 
     /** Pointer that will contain the public value (returned by
@@ -412,7 +412,7 @@ CpaStatus dhSample(void)
      * In this simplified version of instance discovery, we discover
      * exactly one instance of a crypto service.
      */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleAsymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;

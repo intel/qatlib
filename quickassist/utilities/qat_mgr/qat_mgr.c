@@ -121,11 +121,12 @@ void *handle_client(void *arg)
     int index = -1;
     pid_t tid;
     int conn_fd;
-    struct qatmgr_msg_req msgreq;
-    struct qatmgr_msg_rsp msgrsp;
+    struct qatmgr_msg_req msgreq = { 0 };
+    struct qatmgr_msg_rsp msgrsp = { 0 };
     char *section_name = NULL;
     struct pollfd fd;
     int ret = -1;
+    int write_errno = 0;
 
     conn_fd = (intptr_t)arg;
     tid = pthread_self();
@@ -155,7 +156,9 @@ void *handle_client(void *arg)
             handle_message(&msgreq, &msgrsp, &section_name, tid, &index);
 
             /* Send response */
+            errno = 0;
             bytes_w = write(conn_fd, (const void *)&msgrsp, msgrsp.hdr.len);
+            write_errno = errno;
             if (bytes_w < 0)
                 break;
 
@@ -178,7 +181,8 @@ void *handle_client(void *arg)
 
         if (bytes_r < 0 || bytes_w < 0)
         {
-            qat_log(LOG_LEVEL_ERROR, "Socket read/write error %d\n", errno);
+            qat_log(
+                LOG_LEVEL_ERROR, "Socket read/write error %d\n", write_errno);
         }
         else if (bytes_r == 0)
         {
@@ -386,6 +390,7 @@ static int parse_and_validate_arg(char *arg, int *val, int min, int max)
         return -EINVAL;
 
     char *end_ptr;
+    errno = 0;
     long long temp = strtoll(arg, &end_ptr, 10);
 
     if (errno == ERANGE || *arg == 0 || *end_ptr != 0 || temp < min ||
@@ -417,12 +422,11 @@ int main(int argc, char **argv)
     unsigned list_size = ARRAY_SIZE(dev_list);
     int i;
     const char *mgr_opts = "hvd:p:f";
-    const struct option mgr_optl[] = {{"help", 0, NULL, 'h'},
-                                      {"version", 0, NULL, 'v'},
-                                      {"debug", 1, NULL, 'd'},
-                                      {"policy", 1, NULL, 'p'},
-                                      {"foreground", 0, NULL, 'f'},
-                                      {NULL, 0, NULL, 0}};
+    const struct option mgr_optl[] = {
+        { "help", 0, NULL, 'h' },       { "version", 0, NULL, 'v' },
+        { "debug", 1, NULL, 'd' },      { "policy", 1, NULL, 'p' },
+        { "foreground", 0, NULL, 'f' }, { NULL, 0, NULL, 0 }
+    };
     int opt;
     int policy = 0;
     int foreground = 0;
@@ -520,7 +524,7 @@ int main(int argc, char **argv)
                 "Device %d, %X,  %04x:%02x:%02x.%01x\n",
                 i,
                 dev_list[i].bdf,
-                BDF_NODE(dev_list[i].bdf),
+                BDF_DOMAIN(dev_list[i].bdf),
                 BDF_BUS(dev_list[i].bdf),
                 BDF_DEV(dev_list[i].bdf),
                 BDF_FUN(dev_list[i].bdf));

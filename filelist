@@ -212,7 +212,6 @@ quickassist/lookaside/access_layer/src/qat_direct/common/adf_process_proxy.c
 quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_ETring_mgr_dp.c
 quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_cfg.c
 quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_device.c
-quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_dyn.c
 quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_init.c
 quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_ring.c
 quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_transport_ctrl.c
@@ -223,7 +222,6 @@ quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_acceldev_common.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_acceldev_gen4.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_platform_common.h
-quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_transport_ctrl.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_user.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_user_arbiter.h
 quickassist/lookaside/access_layer/src/qat_direct/common/include/adf_user_cfg.h
@@ -397,7 +395,11 @@ quickassist/lookaside/firmware/include/icp_qat_hw_20_comp.h
 quickassist/lookaside/firmware/include/icp_qat_hw_20_comp_defs.h
 quickassist/utilities/libusdm_drv/include/qae_mem_utils.h
 quickassist/utilities/libusdm_drv/qae_mem.h
+quickassist/utilities/libusdm_drv/user_space/qae_mem_common.c
 quickassist/utilities/libusdm_drv/user_space/qae_mem_hugepage_utils.h
+quickassist/utilities/libusdm_drv/user_space/qae_mem_lib_utils.h
+quickassist/utilities/libusdm_drv/user_space/qae_mem_multi_thread.h
+quickassist/utilities/libusdm_drv/user_space/qae_mem_multi_thread_utils.c
 quickassist/utilities/libusdm_drv/user_space/qae_mem_user_utils.h
 quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.c
 quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.h

@@ -92,6 +92,8 @@
 #if CY_API_VERSION_AT_LEAST(2, 3)
 extern Cpa32U packageIdCount_g;
 
+void ecMontEdwdsPerformance(single_thread_test_data_t *testSetup);
+
 CpaBoolean isECMontEdwdsSupported(void)
 {
     CpaStatus status = CPA_STATUS_FAIL;

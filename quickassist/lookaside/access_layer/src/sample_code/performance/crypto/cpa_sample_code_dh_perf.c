@@ -108,6 +108,8 @@
 #include "qat_perf_cycles.h"
 extern Cpa32U packageIdCount_g;
 
+void dhPerformance(single_thread_test_data_t *testSetup);
+
 /*****************************************************************************
  * @ingroup dhThreads
  *
@@ -133,8 +135,8 @@ void dhCallback(void *pCallbackTag,
  * phase 1 operation ie x in PublicValue = g^x mod p
  *
  ****************************************************************************/
-void dhPhase1GenX(CpaCyDhPhase1KeyGenOpData *pCpaDhOpDataP1,
-                  asym_test_params_t *setup)
+static void dhPhase1GenX(CpaCyDhPhase1KeyGenOpData *pCpaDhOpDataP1,
+                         asym_test_params_t *setup)
 {
     /*Choose x by some random method, where 0 < x < p-1*/
     generateRandomData(pCpaDhOpDataP1->privateValueX.pData,
@@ -1207,7 +1209,7 @@ static CpaStatus dhPerform(asym_test_params_t *setup)
  * @description
  * Print the diffie hellman performance stats
  *****************************************************************************/
-CpaStatus dhPrintStats(thread_creation_data_t *data)
+static CpaStatus dhPrintStats(thread_creation_data_t *data)
 {
     if (DH_PHASE_1 == ((asym_test_params_t *)data->setupPtr)->phase)
     {
@@ -1313,7 +1315,8 @@ void dhPerformance(single_thread_test_data_t *testSetup)
 
 #ifdef SC_DEV_INFO_ENABLED
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo->physInstId.packageId, &deviceInfo);
+    status =
+        cpaGetDeviceInfo(instanceInfo->physInstId.acceleratorId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);

@@ -43,6 +43,7 @@
 #include "icp_adf_user_proxy.h"
 
 #include "adf_user.h"
+#include "adf_user_cfg.h"
 #include "adf_io_cfg.h"
 #include "adf_io_bundles.h"
 
@@ -61,17 +62,17 @@ typedef struct adf_event_queue_s
     adf_event_node_t *tail;
 } adf_event_queue_t;
 
-STATIC adf_event_queue_t adf_event_queue[ADF_MAX_DEVICES] = {{0}};
+STATIC adf_event_queue_t adf_event_queue[ADF_MAX_DEVICES] = { { 0 } };
 
 /*
  * User space copy of acceleration devices
  */
-STATIC icp_accel_dev_t *accel_tbl[ADF_MAX_DEVICES] = {0};
+STATIC icp_accel_dev_t *accel_tbl[ADF_MAX_DEVICES] = { 0 };
 
 /*
  * Need to keep track of what device is currently in error
  */
-STATIC char accel_dev_error_stat[ADF_MAX_DEVICES] = {0};
+STATIC char accel_dev_error_stat[ADF_MAX_DEVICES] = { 0 };
 
 /*
  * Need to keep track of what device is currently in restarting
@@ -153,12 +154,6 @@ int32_t adf_clean_device(int32_t dev_id)
         return CPA_STATUS_FAIL;
     }
 
-    if (accel_tbl[dev_id] == NULL)
-    {
-        ICP_MUTEX_UNLOCK(&accel_tbl_mutex);
-        return 0;
-    }
-
     dev = accel_tbl[dev_id];
 
 
@@ -206,7 +201,7 @@ int32_t adf_init_devices(void)
  * adf_stop_system
  * Sets the user proxy running state to stopped
  */
-STATIC inline void adf_stop_system(icp_accel_dev_t *accel_dev)
+STATIC INLINE void adf_stop_system(icp_accel_dev_t *accel_dev)
 {
     accel_dev->adfSubsystemStatus = 0;
 }
@@ -215,7 +210,7 @@ STATIC inline void adf_stop_system(icp_accel_dev_t *accel_dev)
  * adf_start_system
  * Sets the user proxy running state to started
  */
-STATIC inline void adf_start_system(icp_accel_dev_t *accel_dev)
+STATIC INLINE void adf_start_system(icp_accel_dev_t *accel_dev)
 {
     accel_dev->adfSubsystemStatus = 1;
 }
@@ -242,7 +237,6 @@ STATIC void adf_event_queue_head(Cpa32U accelId,
 {
     *event = adf_event_queue[accelId].head->event;
     event_start->secs = adf_event_queue[accelId].head->start.secs;
-    return;
 }
 
 /*
@@ -426,6 +420,7 @@ STATIC void adf_poll_enqueued_events(void)
 STATIC int32_t adf_proxy_get_device(int dev_id)
 {
     int32_t err;
+    uint8_t is_section_present = 0;
 
     if ((dev_id >= ADF_MAX_DEVICES) || (NULL != accel_tbl[dev_id]))
         return 0; /* Invalid dev_id or Already created. */
@@ -433,11 +428,19 @@ STATIC int32_t adf_proxy_get_device(int dev_id)
     if (!adf_io_accel_dev_exist(dev_id))
         return 0;
 
-    if (adf_io_create_accel(&accel_tbl[dev_id], dev_id))
-    {
-        err = ENOMEM;
-        goto adf_proxy_get_device_exit;
-    }
+    err = icp_adf_cfgCheckUserSection(dev_id, &is_section_present);
+    if (err)
+        return err;
+
+    if (!is_section_present)
+        /* If user section is not present in dev_id cfg, then
+         * don't populate accel_tbl[dev_id] as it is redundant.
+         */
+        return 0;
+
+    err = adf_io_create_accel(&accel_tbl[dev_id], dev_id);
+    if (err)
+        return err;
 
     err = adf_user_transport_init(accel_tbl[dev_id]);
     if (0 != err)
@@ -451,9 +454,8 @@ STATIC int32_t adf_proxy_get_device(int dev_id)
     return 0;
 
 adf_proxy_get_device_init_failed:
-    free(accel_tbl[dev_id]);
+    adf_io_destroy_accel(accel_tbl[dev_id]);
     accel_tbl[dev_id] = NULL;
-adf_proxy_get_device_exit:
     return err;
 }
 
@@ -490,7 +492,7 @@ STATIC int32_t adf_proxy_restart_device(int dev_id)
 
 adf_proxy_restart_device_init_failed:
     adf_user_transport_exit(accel_tbl[dev_id]);
-    free(accel_tbl[dev_id]);
+    adf_io_destroy_accel(accel_tbl[dev_id]);
     accel_tbl[dev_id] = NULL;
 adf_proxy_restart_device_exit:
     return err;
@@ -498,7 +500,7 @@ adf_proxy_restart_device_exit:
 
 STATIC int adf_proxy_get_dev_events(int dev_id)
 {
-    enum adf_event event[] = {ADF_EVENT_INIT, ADF_EVENT_START};
+    enum adf_event event[] = { ADF_EVENT_INIT, ADF_EVENT_START };
     size_t i = 0;
 
     if (accel_tbl[dev_id] != NULL)
@@ -550,6 +552,12 @@ CpaStatus icp_adf_pollDeviceEvents(void)
             ADF_ERROR("Invalid accelId (%d) from event poll\n", accelId);
             continue;
         }
+        if (!accel_tbl[accelId])
+            /* accel_tbl[accelId] is populated only if the accelId cfg has the
+             * user process section started by the application, else it will
+             * continue to be NULL. So, events on this accelId can be ignored.
+             */
+            continue;
 
         if (adf_event_queue_is_empty(accelId))
         {
@@ -583,7 +591,6 @@ CpaStatus icp_adf_pollDeviceEvents(void)
 void icp_adf_qaDevGet(icp_accel_dev_t *pAccelDev)
 {
     __sync_fetch_and_add(&pAccelDev->usageCounter, 1);
-    return;
 }
 
 /*
@@ -593,7 +600,6 @@ void icp_adf_qaDevGet(icp_accel_dev_t *pAccelDev)
 void icp_adf_qaDevPut(icp_accel_dev_t *pAccelDev)
 {
     __sync_fetch_and_sub(&pAccelDev->usageCounter, 1);
-    return;
 }
 
 /*

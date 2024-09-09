@@ -93,9 +93,12 @@
 #define HASH_ALG_NUM (13)
 #define ALGCHAIN_CIPHER_NUM (18)
 #define ALGCHAIN_HASH_NUM (17)
+
+
 #define SIZE_BIT_IN_BYTES(bits) ((bits + 7) / 8)
 #define DIGEST_LENGTH_16 (16)
 #define DIGEST_LENGTH_4 (4)
+#define DIGEST_LENGTH_8 (8)
 
 #if CY_API_VERSION_AT_LEAST(2, 2)
 // Test config struct

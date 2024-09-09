@@ -62,7 +62,6 @@
 #include "adf_kernel_types.h"
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
-#include "adf_transport_ctrl.h"
 #include "adf_platform.h"
 #include "adf_dev_ring_ctl.h"
 #include "adf_user_transport.h"
@@ -75,7 +74,7 @@
 #include "adf_user_arbiter.h"
 #include "adf_user_cfg.h"
 
-STATIC Cpa32U *ringInflights[ADF_MAX_DEVICES] = {NULL};
+STATIC Cpa32U *ringInflights[ADF_MAX_DEVICES] = { NULL };
 
 extern void *adf_get_bank_base_addr(int accelId,
                                     int bankid,
@@ -250,14 +249,11 @@ void adf_proxy_depopulate_bank_ring_info(icp_accel_dev_t *accel_dev)
     device_id = accel_dev->accelId;
     ICP_FREE(accel_dev->banks);
     ICP_FREE(ringInflights[device_id]);
-
-    return;
 }
 
 void adf_proxy_depopulate_device_info(icp_accel_dev_t *accel_dev)
 {
     adf_proxy_depopulate_bank_ring_info(accel_dev);
-    return;
 }
 
 STATIC INLINE int adf_dev_bank_handle_get(adf_dev_bank_handle_t *bank)
@@ -302,7 +298,6 @@ STATIC void adf_free_bundle(adf_dev_bank_handle_t *bank)
         ICP_FREE(bank->csr_addr_shadow);
         bank->csr_addr_shadow = NULL;
     }
-    return;
 }
 
 STATIC void adf_clean_bundle(adf_dev_bank_handle_t *bank)
@@ -315,7 +310,6 @@ STATIC void adf_clean_bundle(adf_dev_bank_handle_t *bank)
         bank->bundle = NULL;
         bank->rings = NULL;
     }
-    return;
 }
 
 STATIC CpaStatus
@@ -337,7 +331,6 @@ adf_populate_ring_info_internal(adf_dev_ring_handle_t *pRingHandle,
     Cpa32U in_flight_index = 0;
 
     pRingHandle->is_wireless = 0;
-    pRingHandle->is_dyn = 0;
     pRingHandle->ringResponseQuota = 0;
     pRingHandle->coal_write_count = 0;
     pRingHandle->csrTailOffset = 0;
@@ -549,7 +542,7 @@ CpaStatus icp_adf_transCreateHandle(icp_accel_dev_t *accel_dev,
     adf_dev_bank_handle_t *bank = &banks[bank_nr];
     int nodeid = accel_dev->numa_node;
     int ring_rnum = 0;
-    char val[ADF_CFG_MAX_VAL_LEN_IN_BYTES];
+    char val[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = { '\0' };
 
     /* here init the bank: get a free bundle from UIO and mmap it
      * It's not suitable to put it into device init stage,
@@ -706,7 +699,7 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
     adf_dev_bank_handle_t *bank = &banks[bank_nr];
     int nodeid = accel_dev->numa_node;
     int ring_rnum = 0;
-    char val[ADF_CFG_MAX_VAL_LEN_IN_BYTES];
+    char val[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = { '\0' };
 
     pRingHandle = *trans_handle;
 
@@ -928,10 +921,12 @@ CpaStatus icp_adf_transResetHandle(icp_comms_trans_handle trans_handle)
     adf_reset_ring(pRingHandle);
     if (NULL != pRingHandle->service_name)
     {
-        ICP_MEMSET(
-            pRingHandle->service_name, 0, strlen(pRingHandle->service_name));
-        ICP_MEMSET(
-            pRingHandle->section_name, 0, strlen(pRingHandle->section_name));
+        ICP_MEMSET(pRingHandle->service_name,
+                   0,
+                   strnlen(pRingHandle->service_name, ICP_MAX_STR_LEN) + 1);
+        ICP_MEMSET(pRingHandle->section_name,
+                   0,
+                   strnlen(pRingHandle->section_name, ICP_MAX_STR_LEN) + 1);
     }
 
     pbanks = accel_dev->banks;
@@ -960,6 +955,7 @@ CpaStatus icp_adf_transGetRingNum(icp_comms_trans_handle trans_handle,
 
     ICP_CHECK_FOR_NULL_PARAM(trans_handle);
     pRingHandle = (adf_dev_ring_handle_t *)trans_handle;
+    ICP_CHECK_FOR_NULL_PARAM(pRingHandle->accel_dev);
     *ringNum =
         (pRingHandle->bank_num * pRingHandle->accel_dev->maxNumRingsPerBank) +
         pRingHandle->ring_num;

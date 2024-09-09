@@ -97,6 +97,11 @@ unsigned int useCpuid = 1;
 
 uint32_t busyLoopCounter_g = 0;
 
+void setUseCpuid(unsigned int a);
+void testBusyLoop(uint32_t n);
+void testBusyLoop2(uint32_t n);
+void setBusyLoopCounter(uint32_t busyLoopCounter);
+
 #ifdef USER_SPACE
 void __attribute__((noinline)) busyLoop(uint32_t n, volatile uint32_t *var)
 {

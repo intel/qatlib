@@ -116,51 +116,6 @@ typedef void *icp_comms_trans_handle;
 typedef void (*icp_trans_callback)(void *pMsg);
 
 /*
- * icp_adf_getDynInstance
- *
- * Description:
- * Get an available instance from dynamic instance pool
- *
- * Returns:
- *   CPA_STATUS_SUCCESS   on success
- *   CPA_STATUS_FAIL      on failure
- *
- */
-CpaStatus icp_adf_getDynInstance(icp_accel_dev_t *accel_dev,
-                                 adf_service_type_t stype,
-                                 Cpa32U *pinstance_id);
-
-/*
- * icp_adf_putDynInstance
- *
- * Description:
- * Put back an instance to dynamic instance pool
- *
- * Returns:
- *   CPA_STATUS_SUCCESS   on success
- *   CPA_STATUS_FAIL      on failure
- *
- */
-CpaStatus icp_adf_putDynInstance(icp_accel_dev_t *accel_dev,
-                                 adf_service_type_t stype,
-                                 Cpa32U instance_id);
-
-/*
- * icp_adf_getNumAvailDynInstance
- *
- * Description:
- * Get the number of the available dynamic instances
- *
- * Returns:
- *   CPA_STATUS_SUCCESS   on success
- *   CPA_STATUS_FAIL      on failure
- *
- */
-CpaStatus icp_adf_getNumAvailDynInstance(icp_accel_dev_t *accel_dev,
-                                         adf_service_type_t stype,
-                                         Cpa32U *num);
-
-/*
  * icp_adf_transGetFdForHandle
  *
  * Description:

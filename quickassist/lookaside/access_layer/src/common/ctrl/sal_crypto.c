@@ -681,12 +681,7 @@ STATIC CpaStatus SalCtrl_AsymCreateTransHandle(icp_accel_dev_t *device,
     {
         rx_resp_type = ICP_RESP_TYPE_POLL;
     }
-
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     /* Parse Asym ring details first */
     status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
@@ -752,12 +747,7 @@ STATIC CpaStatus SalCtrl_AsymReinitTransHandle(icp_accel_dev_t *device,
     {
         rx_resp_type = ICP_RESP_TYPE_POLL;
     }
-
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     /* Parse Asym ring details first */
     status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
@@ -825,12 +815,7 @@ STATIC CpaStatus SalCtrl_SymCreateTransHandle(icp_accel_dev_t *device,
     {
         rx_resp_type = ICP_RESP_TYPE_POLL;
     }
-
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     /* Parse Sym ring details */
     status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
@@ -897,12 +882,7 @@ STATIC CpaStatus SalCtrl_SymReinitTransHandle(icp_accel_dev_t *device,
     {
         rx_resp_type = ICP_RESP_TYPE_POLL;
     }
-
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     /* Parse Sym ring details */
     status = Sal_StringParsing(SAL_CFG_CY,
                                pCryptoService->generic_service_info.instance,
@@ -1678,13 +1658,7 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
     Cpa32U numAsymConcurrentReq = 0;
     char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
-    char *section = DYN_SEC;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
+    char *section = icpGetProcessName();
 
     /* get num concurrent requests from config file */
     if (CPA_STATUS_SUCCESS !=
@@ -1822,13 +1796,7 @@ STATIC CpaStatus SalCtrl_AsymReinit(icp_accel_dev_t *device,
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U numAsymConcurrentReq = 0;
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
-    char *section = DYN_SEC;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
+    char *section = icpGetProcessName();
 
     /* get num concurrent requests from config file */
     if (CPA_STATUS_SUCCESS !=
@@ -1872,13 +1840,7 @@ STATIC CpaStatus SalCtrl_SymInit(icp_accel_dev_t *device,
     Cpa32U numSymConcurrentReq = 0;
     char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
-    char *section = DYN_SEC;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
+    char *section = icpGetProcessName();
 
 
     /* Set default value of HMAC mode */
@@ -1965,13 +1927,7 @@ STATIC CpaStatus SalCtrl_SymReinit(icp_accel_dev_t *device,
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U numSymConcurrentReq = 0;
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
-    char *section = DYN_SEC;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
+    char *section = icpGetProcessName();
 
 
     /* Register callbacks for the symmetric services
@@ -2052,13 +2008,7 @@ STATIC CpaStatus SalCtrl_DebugInit(icp_accel_dev_t *device,
     sal_statistics_collection_t *pStatsCollection =
         (sal_statistics_collection_t *)device->pQatStats;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    char *section = DYN_SEC;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
+    char *section = icpGetProcessName();
 
     if (CPA_TRUE == pStatsCollection->bStatsEnabled)
     {
@@ -2139,14 +2089,8 @@ STATIC CpaStatus SalCtr_InstInit(icp_accel_dev_t *device,
     char temp_string2[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    char *section = DYN_SEC;
+    char *section = icpGetProcessName();
     Cpa32S strSize = 0;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
 
 
     /* Get Config Info: Accel Num, bank Num, packageID,
@@ -3102,7 +3046,7 @@ CpaStatus cpaCyInstanceGetInfo2(const CpaInstanceHandle instanceHandle_in,
     CpaStatus status = CPA_STATUS_SUCCESS;
     char keyStr[ADF_CFG_MAX_KEY_LEN_IN_BYTES] = {0};
     char valStr[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-    char *section = DYN_SEC;
+    char *section = NULL;
     Cpa32S strSize = 0;
 
 #ifdef ICP_TRACE
@@ -3200,12 +3144,7 @@ CpaStatus cpaCyInstanceGetInfo2(const CpaInstanceHandle instanceHandle_in,
                                SAL_CFG_NAME,
                                keyStr);
     LAC_CHECK_STATUS(status);
-
-    if (CPA_FALSE == pCryptoService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     status = icp_adf_cfgGetParamValue(dev, section, keyStr, valStr);
     LAC_CHECK_STATUS(status);
 
@@ -3531,7 +3470,7 @@ CpaStatus SalCtrl_CyDevErr_GenResponses(icp_accel_dev_t *accel_dev,
                                         Cpa32U enabled_services)
 {
     sal_t *service_container = NULL;
-    CpaStatus status = CPA_STATUS_INVALID_PARAM;
+    CpaStatus status = CPA_STATUS_SUCCESS;
     service_container = accel_dev->pSalHandle;
 
     if (SalCtrl_IsServiceEnabled(enabled_services,

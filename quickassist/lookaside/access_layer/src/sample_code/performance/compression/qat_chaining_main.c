@@ -826,7 +826,6 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
             fileArray[setup->corpusFileIndex].corpusBinaryDataLen,
             testBufferSize);
     }
-
     /* Initialize the compression session to use */
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -950,14 +949,18 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                     }
                     for (listNum = 0; listNum < setup->numLists; listNum++)
                     {
-                        status = calcSWDigest(
-                            srcBufferListArray[listNum].pBuffers,
-                            pSWDigestBuffer,
-                            setup->symSetupData.hashSetupData.hashAlgorithm);
-                        if (CPA_STATUS_SUCCESS != status)
                         {
-                            PRINT_ERR("calcSWDigest returned status %d\n",
-                                      status);
+                            status = calcSWDigest(
+                                srcBufferListArray[listNum].pBuffers,
+                                pSWDigestBuffer,
+                                setup->symSetupData.hashSetupData
+                                    .hashAlgorithm);
+
+                            if (CPA_STATUS_SUCCESS != status)
+                            {
+                                PRINT_ERR("calcSWDigest returned status %d\n",
+                                          status);
+                            }
                         }
                         if (CPA_STATUS_SUCCESS == status)
                         {
@@ -994,12 +997,18 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                                                             destBufferListArray,
                                                             testBufferSize,
                                                             CPA_FALSE);
+                        QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS(
+                            "qatCompressResetBufferList resets de-compression "
+                            "bufferlist",
+                            status);
                         status = qatCompressResetBufferList(setup,
                                                             cmpBufferListArray,
                                                             testBufferSize,
                                                             CPA_TRUE);
                         QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS(
-                            "qatCompressResetBufferList", status);
+                            "qatCompressResetBufferList resets compression "
+                            "bufferlist",
+                            status);
                     }
                     for (listNum = 0; listNum < setup->numLists; listNum++)
                     {
@@ -1018,7 +1027,13 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                                         .pBuffers->dataLenInBytes,
                                     &resultArray[listNum],
                                     &softChecksum);
-
+                                if (CPA_STATUS_SUCCESS != status)
+                                {
+                                    PRINT_ERR(
+                                        "checkCrc32Checksum returned status %d "
+                                        "for CPA_DC_CRC32 checksum\n",
+                                        status);
+                                }
                                 break;
 
                             case CPA_DC_ADLER32:
@@ -1030,7 +1045,13 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                                         .pBuffers->dataLenInBytes,
                                     &resultArray[listNum],
                                     &softChecksum);
-
+                                if (CPA_STATUS_SUCCESS != status)
+                                {
+                                    PRINT_ERR(
+                                        "checkAdler32Checksum returned status "
+                                        "%d for CPA_DC_ADLER32 checksum\n",
+                                        status);
+                                }
                                 break;
 
                             case CPA_DC_CRC32_ADLER32:
@@ -1042,6 +1063,13 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                                         .pBuffers->dataLenInBytes,
                                     &resultArray[listNum],
                                     &softChecksum);
+                                if (CPA_STATUS_SUCCESS != status)
+                                {
+                                    PRINT_ERR(
+                                        "checkCrc32Checksum returned status %d "
+                                        "for CPA_DC_CRC32_ADLER32 checksum\n",
+                                        status);
+                                }
 
                                 softChecksum = 1;
                                 status = checkAdler32Checksum(
@@ -1050,7 +1078,13 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup)
                                         .pBuffers->dataLenInBytes,
                                     &resultArray[listNum],
                                     &softChecksum);
-
+                                if (CPA_STATUS_SUCCESS != status)
+                                {
+                                    PRINT_ERR("checkAdler32Checksum returned "
+                                              "status %d for "
+                                              "CPA_DC_CRC32_ADLER32 checksum\n",
+                                              status);
+                                }
                                 break;
 #if DC_API_VERSION_AT_LEAST(3, 0)
                             default:

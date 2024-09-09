@@ -103,9 +103,31 @@ int adf_io_accel_dev_exist(int dev_id);
  *                          parameter.
  * @retval -ENOMEM          The function failed allocating memory.
  * @retval -EINVAL          The function failed due to an invalid dev_id.
+ * @retval -1               The function failed due to internal communication
+ *                          with external modules ie qatmgr.
  */
 int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id);
 
+/**
+ * @ingroup adf_io
+ *
+ * @description
+ *      Checks if accelerator with given id exists and reinitialises *accel_dev
+ *      with the parameters associated to the requested accelerator.
+ *
+ * @param[in,out] accel_dev Pointer to a pointer to an icp_accel_dev_t
+ *                          structure. In case of success *accel_dev is
+ *                          reinitialised with a icp_accel_dev_t structure
+ *                          content related to given accelerator
+ *
+ * @param[in] dev_id        Id of the accelerator.
+ *
+ * @retval 0                The function executed successfully.
+ *                          An icp_accel_dev_t structure has been updated
+ *                          and returned through the accel_dev in-out
+ *                          parameter.
+ * @retval -EINVAL          The function failed due to an invalid dev_id.
+ */
 int adf_io_reinit_accel(icp_accel_dev_t **accel_dev, int dev_id);
 
 /**

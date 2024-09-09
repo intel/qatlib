@@ -91,6 +91,10 @@
 #define STATIC static
 #endif
 
+#ifndef INLINE
+#define INLINE inline
+#endif
+
 #define ICP_MMAP(addr, len, prot, flags, fd, offset)                           \
     mmap(addr, len, prot, flags, fd, offset)
 #define ICP_MUNMAP(addr_v, len) munmap(addr_v, len)

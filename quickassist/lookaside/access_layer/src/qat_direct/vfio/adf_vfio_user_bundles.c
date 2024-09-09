@@ -100,8 +100,8 @@ int adf_io_populate_bundle(icp_accel_dev_t *accel_dev,
 
 static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
 {
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
     int device_name_len;
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
@@ -116,6 +116,9 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
     accel_dev->accelId = rsp.device_info.device_num;
     accel_dev->maxNumBanks = rsp.device_info.max_banks;
     accel_dev->accelCapabilitiesMask = rsp.device_info.capability_mask;
+    accel_dev->cipherCapabilitiesMask = 0U;
+    accel_dev->hashCapabilitiesMask = 0U;
+    accel_dev->asymCapabilitiesMask = 0U;
     accel_dev->dcExtendedFeatures = rsp.device_info.extended_capabilities;
     accel_dev->numa_node = rsp.device_info.node_id;
     accel_dev->deviceType = rsp.device_info.device_type;
@@ -131,14 +134,14 @@ static int adf_vfio_populate_accel_dev(int dev_id, icp_accel_dev_t *accel_dev)
                               sizeof(rsp.device_info.device_name));
     if (device_name_len < sizeof(accel_dev->deviceName))
     {
-#if defined(__GNUC__) && (__GNUC__ < 10)
+#if defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
 #endif
         ICP_STRLCPY(accel_dev->deviceName,
                     rsp.device_info.device_name,
                     sizeof(accel_dev->deviceName));
-#if defined(__GNUC__) && (__GNUC__ < 10)
+#if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
     }
@@ -166,8 +169,8 @@ int get_vfio_fd(void)
 int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
 {
     CpaStatus status = CPA_STATUS_FAIL;
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
     char vfio_file[QATMGR_MAX_STRLEN];
     char device_id[QATMGR_MAX_STRLEN];
     int ret;

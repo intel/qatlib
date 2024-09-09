@@ -47,7 +47,6 @@
 #include "icp_accel_devices.h"
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
-#include "adf_transport_ctrl.h"
 #include "adf_platform.h"
 #include "adf_dev_ring_ctl.h"
 
@@ -202,13 +201,13 @@ CpaStatus icp_adf_pollQueue(icp_comms_trans_handle trans_hnd,
                      pRingHandle->head);
 
     /* If there are valid messages then process them */
-    while ((*msg != EMPTY_RING_ENTRY_SIG) && (msg_counter < response_quota))
+    while ((*msg != EMPTY_RING_SIG_WORD) && (msg_counter < response_quota))
     {
         /* Invoke the callback for the message */
         pRingHandle->callback((Cpa32U *)msg);
 
         /* Mark the message as processed */
-        *msg = EMPTY_RING_ENTRY_SIG;
+        *msg = EMPTY_RING_SIG_WORD;
 
         /* Advance the head offset and handle wraparound */
         pRingHandle->head =

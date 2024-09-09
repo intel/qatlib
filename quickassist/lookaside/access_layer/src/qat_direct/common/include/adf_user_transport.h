@@ -45,45 +45,6 @@
 
 #include "adf_dev_ring_ctl.h"
 
-/*
- * adf_user_put_msg
- *
- * Description
- * Function puts the message onto the ring
- */
-CpaStatus adf_user_put_msg(adf_dev_ring_handle_t *pRingHandle,
-                           Cpa32U *inBuf,
-                           uint64_t *seq_num);
-/*
- * adf_user_notify_msgs
- *
- * Description
- * Function notifies client that there is response message
- */
-CpaStatus adf_user_notify_msgs(adf_dev_ring_handle_t *pRingHandle);
-
-/*
- * adf_user_check_ring_error
- *
- * Description
- * Function checks if the rp_exception or rp_halt bits are set in RINGSTAT
- * register
- *
- * Return value
- * -EINTR if the rp_exception bit is set
- * -EL2HLT if the rp_halt bit is set
- * -EFAULT if the RINGSTAT rp_exception is not supported
- *  0 if the rp_exception bit is not set
- */
-int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *pRingHandle);
-
-/*
- * adf_user_notify_msgs_poll
- *
- * Description
- * Function notifies client that there is response message on polling rings
- */
-CpaStatus adf_user_notify_msgs_poll(adf_dev_ring_handle_t *pRingHandle);
 
 /*
  * adf_user_unmap_rings

@@ -146,6 +146,18 @@ Cpa8U rsaPublicExponent_g[] = {0x01, 0x00, 0x01};
 // Cpa8U rsaPublicExponent_g[] = {0x11};
 extern Cpa32U packageIdCount_g;
 
+void sampleRsaThreadSetup(single_thread_test_data_t *testSetup);
+CpaStatus setupRsaBackpressureTest(Cpa32U numLoops);
+CpaStatus setAsymPollingInterval(Cpa64U pollingInterval);
+#if CY_API_VERSION_AT_LEAST(3, 0)
+#ifdef SC_KPT2_ENABLED
+void kpt2RsaCallback(void *pCallbackTag,
+                     CpaStatus status,
+                     void *pOpdata,
+                     CpaFlatBuffer *pOut);
+#endif
+#endif
+
 
 /******************************************************************************
  * @ingroup sampleRSACode
@@ -154,11 +166,11 @@ extern Cpa32U packageIdCount_g;
  * Callback for RSA KeyGen operations, we declare function signature as per the
  *  API but we only use the pCallbackTag parameter
  * ****************************************************************************/
-void rsaKeyGenCallback(void *pCallbackTag,
-                       CpaStatus status,
-                       void *pKeyGenOpData,
-                       CpaCyRsaPrivateKey *pPrivateKey,
-                       CpaCyRsaPublicKey *pPublicKey)
+static void rsaKeyGenCallback(void *pCallbackTag,
+                              CpaStatus status,
+                              void *pKeyGenOpData,
+                              CpaCyRsaPrivateKey *pPrivateKey,
+                              CpaCyRsaPublicKey *pPublicKey)
 {
     perf_data_t *pPerfData = (perf_data_t *)pCallbackTag;
 
@@ -187,10 +199,10 @@ void rsaKeyGenCallback(void *pCallbackTag,
  * Callback for RSA operations, we declare function signature as per the API
  * but we only use the pCallbackTag parameter
  * ****************************************************************************/
-void rsaCallback(void *pCallbackTag,
-                 CpaStatus status,
-                 void *pOpdata,
-                 CpaFlatBuffer *pOut)
+static void rsaCallback(void *pCallbackTag,
+                        CpaStatus status,
+                        void *pOpdata,
+                        CpaFlatBuffer *pOut)
 {
     processCallback(pCallbackTag);
 }
@@ -310,14 +322,14 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
         /*allocate space for the key data modulusN*/
         ALLOC_FLAT_BUFF_DATA(instanceHandle,
                              &(pPrivateKey->privateKeyRep1.modulusN),
-                             modulusLenInBytes,
+                             kSize,
                              NULL,
                              0,
                              FREE_GENERATE_RSA_KEY_MEM());
         /*allocate space for the key data privateExponentD*/
         ALLOC_FLAT_BUFF_DATA(instanceHandle,
                              &(pPrivateKey->privateKeyRep1.privateExponentD),
-                             modulusLenInBytes,
+                             kSize,
                              NULL,
                              0,
                              FREE_GENERATE_RSA_KEY_MEM());
@@ -1310,6 +1322,8 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
         {
             PRINT_ERR("Failed to allocate memory for submission and"
                       " response times\n");
+            qaeMemFree((void **)&request_respnse_time);
+            qaeMemFree((void **)&request_submit_start);
             return CPA_STATUS_FAIL;
         }
         memset(request_submit_start, 0, request_mem_sz);
@@ -1834,7 +1848,7 @@ CpaStatus sampleRsaPerform(asym_test_params_t *setup)
     return status;
 }
 
-CpaStatus sampleRsaEncryptPerform(asym_test_params_t *setup)
+static CpaStatus sampleRsaEncryptPerform(asym_test_params_t *setup)
 {
     /* start of local variable declarations */
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -2022,7 +2036,8 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
 
 #ifdef SC_DEV_INFO_ENABLED
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo->physInstId.packageId, &deviceInfo);
+    status =
+        cpaGetDeviceInfo(instanceInfo->physInstId.acceleratorId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);

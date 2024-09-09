@@ -271,7 +271,7 @@ CpaStatus primeSample(void)
      * In this simplified version of instance discovery, we discover
      * exactly one instance of a crypto service.
      */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleAsymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;

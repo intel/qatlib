@@ -741,8 +741,19 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
         alloc_size = allocate_pages * PAGE_SIZE;
     }
 
-    pMemInfo = calloc(USER_MEM_128BYTE_OFFSET + BITMAP_LEN * sizeof(UINT64),
-                      sizeof(UINT8));
+    /* Memory needed for pMemInfo:
+     * The first part is for the struct dev_mem_info_t.
+     * The second part is for the bitmap window which is located at an offset
+     * of USER_MEM_128BYTE_OFFSET. See mem_alloc() function for usage.
+     * Note sizeof(dev_mem_info_t) is less than USER_MEM_128BYTE_OFFSET
+     * The explicit calculation below is just to let static analysers know that
+     * the struct will fit in the resulting space.
+     */
+    size_t pMemInfo_size = sizeof(dev_mem_info_t) > (USER_MEM_128BYTE_OFFSET)
+                               ? sizeof(dev_mem_info_t)
+                               : USER_MEM_128BYTE_OFFSET;
+    pMemInfo_size += ((BITMAP_LEN) * sizeof(UINT64));
+    pMemInfo = calloc(1, pMemInfo_size);
     if (NULL == pMemInfo)
     {
         osalLog(OSAL_LOG_LVL_ERROR,
@@ -828,7 +839,13 @@ OSAL_PUBLIC void *osalMemAllocContiguousNUMA(UINT32 size,
         pMemInfo->available_size = alloc_size - size - USER_MEM_128BYTE_OFFSET;
         pMemInfo->virt_addr = pMemInfo->fvirt_addr;
         pMemInfo->fvirt_addr = 0;
-        userLargeMemListAdd(pMemInfo);
+        if (userLargeMemListAdd(pMemInfo))
+        {
+            ioctl(fd, DEV_MEM_IOC_MEMFREE, pMemInfo);
+            userMemListFree(pMemInfo);
+            free(pMemInfo);
+            return NULL;
+        }
         pVirtAddress =
             (void *)((UARCH_INT)pMemInfo->virt_addr + USER_MEM_128BYTE_OFFSET);
     }
@@ -942,7 +959,30 @@ OSAL_PUBLIC void *osalMemAllocPage(UINT32 node, UINT64 *physAddr)
         return NULL;
     }
 
-    userMemListAddPage(pMemInfo);
+    if (userMemListAddPage(pMemInfo))
+    {
+        ret = munmap(pMemInfo->virt_addr, getpagesize());
+        if (ret != 0)
+        {
+            osalLog(OSAL_LOG_LVL_ERROR,
+                    OSAL_LOG_DEV_STDOUT,
+                    "munmap failed, ret = %d\n",
+                    ret);
+        }
+
+        ret = ioctl(fdp, DEV_MEM_IOC_MEMFREEPAGE, pMemInfo);
+        if (ret != 0)
+        {
+            osalLog(OSAL_LOG_LVL_ERROR,
+                    OSAL_LOG_DEV_STDOUT,
+                    "ioctl call failed, ret = %d\n",
+                    ret);
+        }
+        userMemListFreePage(pMemInfo);
+        free(pMemInfo);
+        return NULL;
+    }
+
     *physAddr = pMemInfo->phy_addr;
     return pMemInfo->virt_addr;
 }

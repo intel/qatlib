@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [24.02.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [24.09.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,8 +11,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [6:0:2])
-AC_SUBST([LIBUSDM_VERSION], [1:0:1])
+AC_SUBST([LIBQAT_VERSION], [7:0:3])
+AC_SUBST([LIBUSDM_VERSION], [1:1:1])
 
 # Checks for programs.
 AC_PROG_AWK
@@ -60,6 +60,12 @@ AC_CHECK_FUNCS([alarm clock_gettime getpagesize gettimeofday memmove memset munm
 AC_CHECK_HEADERS([openssl/md5.h],
     [],
     [AC_MSG_ERROR([openssl/md5.h not found])]
+)
+
+# Check for numa header
+AC_CHECK_HEADERS([numa.h],
+    [],
+    [AC_MSG_ERROR([numa.h not found])]
 )
 
 # Check if compiler supports mcx16
@@ -226,6 +232,15 @@ AC_ARG_ENABLE(hb-error-simulation,
     [hb_error_simulation=true], [hb_error_simulation=false]
 )
 AM_CONDITIONAL([ICP_HB_ERROR_SIMULATION_AC], [test x$hb_error_simulation = xtrue])
+
+# ICP_THREAD_SPECIFIC_USDM
+AC_ARG_ENABLE(icp-thread-specific-usdm,
+    AS_HELP_STRING([--enable-icp-thread-specific-usdm], [USDM allocates and handles memory specific to threads
+        (For multi-thread apps, allocated memory information will be maintained separately for each thread).
+        @<:@default=no@:>@ ]),
+    [icp_thread_specific_usdm=true], [icp_thread_specific_usdm=false]
+)
+AM_CONDITIONAL([ICP_THREAD_SPECIFIC_USDM_AC], [test x$icp_thread_specific_usdm = xtrue])
 
 AC_ARG_ENABLE(legacy-lib-names,
     AS_HELP_STRING([--enable-legacy-lib-names], [Enables legacy names for libraries.]),

@@ -64,6 +64,7 @@
 #include "cpa_sample_code_dc_perf.h"
 #include "cpa_sample_code_crypto_utils.h"
 #include "cpa_sample_code_dc_utils.h"
+#include "qat_perf_latency.h"
 
 void qatPerfInitStats(perf_data_t *performanceStats,
                       Cpa32U numLists,
@@ -99,8 +100,7 @@ void qatPerfInitStats(perf_data_t *performanceStats,
     performanceStats->busyLoopResponses = 0;
     performanceStats->isIACycleCountProfiled = 0;
     performanceStats->response_process_time = 0;
-    performanceStats->start_times = 0;
-    performanceStats->response_times = 0;
+    qatFreeLatency(performanceStats);
 
     performanceStats->numLoops = numLoops;
     performanceStats->numOperations = (Cpa64U)numLists * (Cpa64U)numLoops;
@@ -109,7 +109,7 @@ void qatPerfInitStats(perf_data_t *performanceStats,
 
 char *cpaStatusToString(CpaStatus status)
 {
-    char *retString = "NOT_SET";
+    char *retString = NULL;
 
     switch (status)
     {

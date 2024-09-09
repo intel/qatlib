@@ -84,6 +84,24 @@
 #include "lac_sal.h"
 #include "sal_service_state.h"
 
+/*
+ *****************************************************************************
+ * @ingroup SalCongsMgmt
+ *      Symmetric get in-flight requests
+ *
+ * @description
+ *      This function is used to fetch in-flight and max in-flight request
+ *      counts for the given symmetric instance handle.
+ *
+ * @param[in]  instanceHandle         Symmetric instance handle
+ * @param[out] maxInflightRequests    Max in-flight request count
+ * @param[out] numInflightRequests    Current in-flight request count
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_FAIL           Function failed
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter
+ *
+ *****************************************************************************/
 CpaStatus icp_sal_SymGetInflightRequests(CpaInstanceHandle instanceHandle,
                                          Cpa32U *maxInflightRequests,
                                          Cpa32U *numInflightRequests)
@@ -120,6 +138,24 @@ CpaStatus icp_sal_AsymGetInflightRequests(CpaInstanceHandle instanceHandle,
                                        numInflightRequests);
 }
 
+/*
+ *****************************************************************************
+ * @ingroup SalCongsMgmt
+ *      Symmetric data plane get in-flight requests
+ *
+ * @description
+ *      Data plane API to fetch in-flight and max in-flight request counts
+ *      for the given symmetric instance handle.
+ *
+ * @param[in]  instanceHandle         Symmetric instance handle
+ * @param[out] maxInflightRequests    Max in-flight request count
+ * @param[out] numInflightRequests    Current in-flight request count
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_FAIL           Function failed
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter
+ *
+ *****************************************************************************/
 CpaStatus icp_sal_dp_SymGetInflightRequests(CpaInstanceHandle instanceHandle,
                                             Cpa32U *maxInflightRequests,
                                             Cpa32U *numInflightRequests)

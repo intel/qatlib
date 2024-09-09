@@ -56,6 +56,15 @@ Cpa16U icp_adf_cfgGetBusAddress(Cpa16U accelId)
     return adf_io_cfgGetBusAddress(accelId);
 }
 
+/*
+ * icp_adf_cfgCheckUserSection
+ * check if user process section exists in device cfg
+ */
+int icp_adf_cfgCheckUserSection(int dev_id, uint8_t *pSectionPresent)
+{
+    return adf_io_cfgCheckUserSection(dev_id, pSectionPresent);
+}
+
 CpaStatus icp_adf_resetDevice(Cpa32U accelId)
 {
     if (!icp_adf_isDevIdValid(accelId))

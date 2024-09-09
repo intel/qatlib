@@ -69,6 +69,11 @@
 #include "qat_perf_cycles.h"
 #include "qat_compression_zlib.h"
 
+
+CpaStatus qatFreeCompressionFlatBuffer(compression_test_params_t *setup,
+                                       CpaBufferList *bufferListArray);
+
+
 CpaStatus qatGetCompressBoundDestinationBufferSize(
     compression_test_params_t *setup,
     Cpa32U dcInputBufferSize,
@@ -77,32 +82,34 @@ CpaStatus qatGetCompressBoundDestinationBufferSize(
     CpaStatus status = CPA_STATUS_SUCCESS;
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(dcDestBufferSize, status);
 
-    if (setup->setupData.compType == CPA_DC_DEFLATE)
     {
+        if (setup->setupData.compType == CPA_DC_DEFLATE)
+        {
 
-        status = cpaDcDeflateCompressBound(setup->dcInstanceHandle,
-                                           setup->setupData.huffType,
-                                           dcInputBufferSize,
-                                           dcDestBufferSize);
-    }
+            status = cpaDcDeflateCompressBound(setup->dcInstanceHandle,
+                                               setup->setupData.huffType,
+                                               dcInputBufferSize,
+                                               dcDestBufferSize);
+        }
 #if DC_API_VERSION_AT_LEAST(3, 1)
-    else if (setup->setupData.compType == CPA_DC_LZ4)
-    {
-        status = cpaDcLZ4CompressBound(
-            setup->dcInstanceHandle, dcInputBufferSize, dcDestBufferSize);
-    }
-    else if (setup->setupData.compType == CPA_DC_LZ4S)
-    {
-        status = cpaDcLZ4SCompressBound(
-            setup->dcInstanceHandle, dcInputBufferSize, dcDestBufferSize);
-    }
+        else if (setup->setupData.compType == CPA_DC_LZ4)
+        {
+            status = cpaDcLZ4CompressBound(
+                setup->dcInstanceHandle, dcInputBufferSize, dcDestBufferSize);
+        }
+        else if (setup->setupData.compType == CPA_DC_LZ4S)
+        {
+            status = cpaDcLZ4SCompressBound(
+                setup->dcInstanceHandle, dcInputBufferSize, dcDestBufferSize);
+        }
 #endif
-    else
-    {
-        PRINT_ERR("%s : Unsupported Compression Type %d\n",
-                  __func__,
-                  setup->setupData.compType);
-        status = CPA_STATUS_FAIL;
+        else
+        {
+            PRINT_ERR("%s : Unsupported Compression Type %d\n",
+                      __func__,
+                      setup->setupData.compType);
+            status = CPA_STATUS_FAIL;
+        }
     }
 
     if (status == CPA_STATUS_SUCCESS)
@@ -478,7 +485,7 @@ CpaStatus qatAllocateCompressionFlatBuffers(
     return status;
 }
 
-CpaStatus qatAllocateCompressionFlatBuffer(
+static CpaStatus qatAllocateCompressionFlatBuffer(
     compression_test_params_t *setup,
     CpaBufferList *bufferList,
     Cpa32U numBuffersInList,    /*affects the metaSize of CpaBufferList*/
@@ -1046,11 +1053,11 @@ CpaStatus qatSwCompress(compression_test_params_t *setup,
     return status;
 }
 
-CpaStatus qatHandleUnconsumedData(compression_test_params_t *setup,
-                                  CpaBufferList *bufferListArray,
-                                  Cpa32U listNum,
-                                  Cpa32U offset,
-                                  Cpa32U remainder)
+static CpaStatus qatHandleUnconsumedData(compression_test_params_t *setup,
+                                         CpaBufferList *bufferListArray,
+                                         Cpa32U listNum,
+                                         Cpa32U offset,
+                                         Cpa32U remainder)
 {
     CpaFlatBuffer tempFB;
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -1485,6 +1492,7 @@ static CpaStatus qatSwZlibDecompress(compression_test_params_t *setup,
 }
 
 
+
 CpaStatus qatSwDecompress(compression_test_params_t *setup,
                           CpaBufferList *destBuffListArray,
                           CpaBufferList *cmpBuffListArray,
@@ -1530,54 +1538,58 @@ CpaStatus qatSwChainDecompress(compression_test_params_t *setup,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        for (j = 0; j < setup->numLists; j++)
-        {
-            /* For stateful session setup stream once for all the buffers
-             * For stateless session stream is initialized for every packet
-             */
-            if (setup->setupData.sessState != CPA_DC_STATEFUL || j == 0)
+            for (j = 0; j < setup->numLists; j++)
             {
-                inflate_init(&stream, setup->setupData.sessState);
+                /* For stateful session setup stream once for all the buffers
+                 * For stateless session stream is initialized for every packet
+                 */
+                if (setup->setupData.sessState != CPA_DC_STATEFUL || j == 0)
+                {
+                    inflate_init(&stream, setup->setupData.sessState);
+                }
+                status = inflate_decompress(
+                    &stream,
+                    destBuffListArray[j].pBuffers->pData,
+                    cmpResults[j].produced,
+                    cmpBufferListArray[j].pBuffers->pData,
+                    cmpBufferListArray[j].pBuffers->dataLenInBytes,
+                    setup->setupData.sessState);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT("%02x%02x%02x%02x\n",
+                          destBuffListArray[j].pBuffers->pData[0],
+                          destBuffListArray[j].pBuffers->pData[1],
+                          destBuffListArray[j].pBuffers->pData[2],
+                          destBuffListArray[j].pBuffers->pData[3]);
+                    PRINT_ERR("j: %d, srcLen: %d, destLen: %d \n",
+                              j,
+                              destBuffListArray[j].pBuffers->dataLenInBytes,
+                              cmpBufferListArray[j].pBuffers->dataLenInBytes);
+                    qatCompressDumpToFile(setup,
+                                          destBuffListArray,
+                                          "destBuffer",
+                                          "destBuffSize",
+                                          0);
+                    break;
+                }
+                cmpBufferListArray[j].pBuffers[0].dataLenInBytes =
+                    stream.avail_out;
+                /*the results passed in contain the uncompressed consumed data
+                 * and the compressed produced data, so now we swap them, so
+                 * that consumed contains the compressed data consumed by zlib
+                 * and the decompressed data produced by zlib*/
+                cmpResults[j].consumed = cmpResults[j].produced;
+                cmpResults[j].produced =
+                    cmpBufferListArray[j].pBuffers->dataLenInBytes;
+                /* Destroy the stream every time for stateless but only in the
+                 * end for stateful.
+                 */
+                if (setup->setupData.sessState != CPA_DC_STATEFUL ||
+                    j == (setup->numLists - 1))
+                {
+                    inflate_destroy(&stream);
+                }
             }
-            status = inflate_decompress(
-                &stream,
-                destBuffListArray[j].pBuffers->pData,
-                cmpResults[j].produced,
-                cmpBufferListArray[j].pBuffers->pData,
-                cmpBufferListArray[j].pBuffers->dataLenInBytes,
-                setup->setupData.sessState);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT("%02x%02x%02x%02x\n",
-                      destBuffListArray[j].pBuffers->pData[0],
-                      destBuffListArray[j].pBuffers->pData[1],
-                      destBuffListArray[j].pBuffers->pData[2],
-                      destBuffListArray[j].pBuffers->pData[3]);
-                PRINT_ERR("j: %d, srcLen: %d, destLen: %d \n",
-                          j,
-                          destBuffListArray[j].pBuffers->dataLenInBytes,
-                          cmpBufferListArray[j].pBuffers->dataLenInBytes);
-                qatCompressDumpToFile(
-                    setup, destBuffListArray, "destBuffer", "destBuffSize", 0);
-                break;
-            }
-            cmpBufferListArray[j].pBuffers[0].dataLenInBytes = stream.avail_out;
-            /*the results passed in contain the uncompressed consumed data
-             * and the compressed produced data, so now we swap them, so that
-             * consumed contains the compressed data consumed by zlib and the
-             * decompressed data produced by zlib*/
-            cmpResults[j].consumed = cmpResults[j].produced;
-            cmpResults[j].produced =
-                cmpBufferListArray[j].pBuffers->dataLenInBytes;
-            /* Destroy the stream every time for stateless but only in the end
-             * for stateful.
-             */
-            if (setup->setupData.sessState != CPA_DC_STATEFUL ||
-                j == (setup->numLists - 1))
-            {
-                inflate_destroy(&stream);
-            }
-        }
     }
     return status;
 }
@@ -1890,7 +1902,7 @@ CpaStatus performDcChainOffloadCalculationBusyLoop(
                                    packetSize,
                                    pPerfData->endCyclesTimestamp -
                                        pPerfData->startCyclesTimestamp);
-    currentThroughput = baseThroughput;
+
     /* Find the lower bound(retries) and upper bound(no retries) for subsequent
      * binary search.
      */
@@ -2000,7 +2012,6 @@ CpaStatus performOffloadCalculationBusyLoop(
                                    packetSize,
                                    pPerfData->endCyclesTimestamp -
                                        pPerfData->startCyclesTimestamp);
-    currentThroughput = baseThroughput;
     /* Find the lower bound(retries) and upper bound(no retries) for subsequent
      * binary search.
      */

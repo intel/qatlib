@@ -493,6 +493,7 @@ CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
                          Cpa32U numLoops);
 #endif
 
+
 /**
  * *****************************************************************************
  *  @ingroup compressionThreads

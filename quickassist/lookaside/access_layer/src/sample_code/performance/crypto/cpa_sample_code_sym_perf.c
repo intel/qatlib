@@ -378,9 +378,9 @@ static CpaStatus symmetricSetupSession(CpaCySymCbFunc pSymCb,
  * @description
  * Free memory allocated in the symmetricPerformOpDataSetup function
  * ****************************************************************************/
-void opDataMemFree(CpaCySymOpData *pOpdata[],
-                   Cpa32U numBuffers,
-                   CpaBoolean digestAppend)
+static void opDataMemFree(CpaCySymOpData *pOpdata[],
+                          Cpa32U numBuffers,
+                          CpaBoolean digestAppend)
 {
     Cpa32U k = 0;
 
@@ -631,12 +631,12 @@ static CpaStatus symmetricPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
  * @description
  * measures the performance of symmetric encryption operations
  * ****************************************************************************/
-CpaStatus symPerform(symmetric_test_params_t *setup,
-                     perf_data_t *pSymData,
-                     Cpa32U numOfLoops,
-                     CpaCySymOpData **ppOpData,
-                     CpaBufferList **ppSrcBuffListArray,
-                     CpaCySymCipherDirection cipherDirection)
+static CpaStatus symPerform(symmetric_test_params_t *setup,
+                            perf_data_t *pSymData,
+                            Cpa32U numOfLoops,
+                            CpaCySymOpData **ppOpData,
+                            CpaBufferList **ppSrcBuffListArray,
+                            CpaCySymCipherDirection cipherDirection)
 {
     CpaBoolean verifyResult = CPA_FALSE;
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -699,6 +699,8 @@ CpaStatus symPerform(symmetric_test_params_t *setup,
             PRINT_ERR("Failed to allocate memory for submission and response "
                       "times\n");
             qaeMemFree((void **)&instanceInfo2);
+            qaeMemFree((void **)&request_respnse_time);
+            qaeMemFree((void **)&request_submit_start);
             return CPA_STATUS_FAIL;
         }
         memset(request_submit_start, 0, request_mem_sz);
@@ -971,11 +973,11 @@ CpaStatus symPerform(symmetric_test_params_t *setup,
  * @description
  * Free memory allocated in the sampleSymmetricPerform function
  * ****************************************************************************/
-void symPerformMemFree(symmetric_test_params_t *setup,
-                       CpaFlatBuffer **ppSrcBuffPtrArray,
-                       CpaBufferList **ppSrcBuffListArray,
-                       CpaCySymOpData **ppOpData,
-                       CpaCySymSessionCtx *pSessionCtx)
+static void symPerformMemFree(symmetric_test_params_t *setup,
+                              CpaFlatBuffer **ppSrcBuffPtrArray,
+                              CpaBufferList **ppSrcBuffListArray,
+                              CpaCySymOpData **ppOpData,
+                              CpaCySymSessionCtx *pSessionCtx)
 {
     /*free bufferLists, flatBuffers and data*/
     sampleFreeBuffers(ppSrcBuffPtrArray, ppSrcBuffListArray, setup);
@@ -1037,7 +1039,6 @@ static CpaStatus performOffloadCalculation(
                                    packetSize,
                                    pPerfData->endCyclesTimestamp -
                                        pPerfData->startCyclesTimestamp);
-    currentThroughput = baseThroughput;
 
     /* Find the lower bound(retries) and upper bound(no retries) for subsequent
      * binary search.
@@ -1491,11 +1492,13 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
               testSetup->threadID);
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
-        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        error_flag_g = CPA_TRUE;
+        symTestSetup.performanceStats->threadReturnStatus =
+            CPA_STATUS_UNSUPPORTED;
+        error_flag_g = CPA_FALSE;
         sampleCodeBarrier();
         goto exit;
     }
+
 
     /*launch function that does all the work*/
     status = sampleSymmetricPerform(&symTestSetup);

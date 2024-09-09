@@ -87,7 +87,12 @@
 #include <time.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+// check GLIBC version used.
+#define GLIBC_VERSION_AT_LEAST(major, minor)                                   \
+    (__GLIBC__ > major || (__GLIBC__ == major && __GLIBC_MINOR__ >= minor))
+
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)) &&                       \
+     (GLIBC_VERSION_AT_LEAST(2, 25)))
 #include <sys/random.h>
 #endif
 
@@ -120,12 +125,19 @@ static char *firmwarePath = SAMPLE_CODE_CORPUS_PATH;
 
 sample_code_thread_barrier_t barr;
 
+extern CpaStatus getCorpusFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size);
+extern CpaStatus getCompressedFile(Cpa8U **ppSrcBuff,
+                                   char *filename,
+                                   Cpa32U *size);
+extern CpaStatus calcSWDigest(CpaFlatBuffer *msg,
+                              CpaFlatBuffer *digest,
+                              CpaCySymHashAlgorithm hashAlg);
+
+
 #define UPPER_HALF_OF_REGISTER (32)
 
-// check GLIBC version used.
-#define GLIBC_VERSION_AT_LEAST(major, minor)                                   \
-    (__GLIBC__ > major || (__GLIBC__ == major && __GLIBC_MINOR__ >= minor))
-
+#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) ||                        \
+     (!GLIBC_VERSION_AT_LEAST(2, 25)))
 static __inline__ Cpa64U sampleCoderdtsc(void)
 {
     volatile unsigned long a, d;
@@ -133,6 +145,7 @@ static __inline__ Cpa64U sampleCoderdtsc(void)
     asm volatile("rdtsc" : "=a"(a), "=d"(d));
     return (((Cpa64U)a) | (((Cpa64U)d) << UPPER_HALF_OF_REGISTER));
 }
+#endif
 
 ChipRec_u64 getCPUTick()
 {
@@ -280,12 +293,14 @@ Cpa32U sampleCodeGetCpuFreq()
 void generateRandomData(Cpa8U *pWriteRandData, Cpa32U lengthOfRand)
 {
     Cpa32U i = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
+#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) ||                        \
+     (!GLIBC_VERSION_AT_LEAST(2, 25)))
     srand(sampleCoderdtsc());
 #endif
     for (i = 0; i < lengthOfRand; i++)
     {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)) &&                       \
+     (GLIBC_VERSION_AT_LEAST(2, 25)))
         ssize_t status =
             getrandom(&pWriteRandData[i], sizeof(Cpa8U), GRND_NONBLOCK);
         if (status == -1)
@@ -958,6 +973,7 @@ CpaStatus getCorpusFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
     return CPA_STATUS_SUCCESS;
 }
 
+
 CpaStatus calcSWDigest(CpaFlatBuffer *msg,
                        CpaFlatBuffer *digest,
                        CpaCySymHashAlgorithm hashAlg)
@@ -993,6 +1009,7 @@ CpaStatus calcSWDigest(CpaFlatBuffer *msg,
             return CPA_STATUS_UNSUPPORTED;
     }
 }
+
 
 CpaStatus getCompressedFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
 {

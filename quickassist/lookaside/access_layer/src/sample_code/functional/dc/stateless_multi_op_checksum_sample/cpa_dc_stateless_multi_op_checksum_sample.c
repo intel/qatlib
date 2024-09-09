@@ -211,9 +211,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                                CpaDcSessionSetupData sd)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    CpaBufferList bufferListSrcArray[NUM_SAMPLE_DATA_BUFFERS];
-    CpaBufferList bufferListDstArray[NUM_SAMPLE_DATA_BUFFERS];
-    CpaBufferList bufferListDstArray2[NUM_SAMPLE_DATA_BUFFERS];
+    CpaBufferList bufferListSrcArray[NUM_SAMPLE_DATA_BUFFERS] = { 0 };
+    CpaBufferList bufferListDstArray[NUM_SAMPLE_DATA_BUFFERS] = { 0 };
+    CpaBufferList bufferListDstArray2[NUM_SAMPLE_DATA_BUFFERS] = { 0 };
     Cpa32U srcBufferSize = SAMPLE_MAX_BUFF;
     Cpa32U dstBufferSize = srcBufferSize;
     Cpa32U numBuffers = NUM_SAMPLE_DATA_BUFFERS;
@@ -224,7 +224,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     Cpa32U dataConsumed = 0;
     Cpa32U dataProduced = 0;
     Cpa32U checksum = 0;
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
 
     INIT_OPDATA(&opData, CPA_DC_FLUSH_FINAL);
 
@@ -259,16 +259,19 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         {
             status = OS_MALLOC(&bufferListSrcArray[bufferNum].pBuffers,
                                sizeof(CpaFlatBuffer));
+            bufferListSrcArray[bufferNum].pBuffers->pData = NULL;
         }
         if (CPA_STATUS_SUCCESS == status)
         {
             status = OS_MALLOC(&bufferListDstArray[bufferNum].pBuffers,
                                sizeof(CpaFlatBuffer));
+            bufferListDstArray[bufferNum].pBuffers->pData = NULL;
         }
         if (CPA_STATUS_SUCCESS == status)
         {
             status = OS_MALLOC(&bufferListDstArray2[bufferNum].pBuffers,
                                sizeof(CpaFlatBuffer));
+            bufferListDstArray2[bufferNum].pBuffers->pData = NULL;
         }
 
         if (CPA_STATUS_SUCCESS == status)
@@ -294,7 +297,8 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                 PRINT_ERR(
                     "cpaDcDeflateCompressBound API failed. (status = %d)\n",
                     status);
-                return CPA_STATUS_FAIL;
+                status = CPA_STATUS_FAIL;
+                break;
             }
         }
 #endif
@@ -524,13 +528,23 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         PHYS_CONTIG_FREE(bufferListDstArray[bufferNum].pPrivateMetaData);
         PHYS_CONTIG_FREE(bufferListDstArray2[bufferNum].pPrivateMetaData);
 
-        PHYS_CONTIG_FREE(bufferListSrcArray[bufferNum].pBuffers->pData);
-        PHYS_CONTIG_FREE(bufferListDstArray[bufferNum].pBuffers->pData);
-        PHYS_CONTIG_FREE(bufferListDstArray2[bufferNum].pBuffers->pData);
+        if (bufferListSrcArray[bufferNum].pBuffers != NULL)
+        {
+            PHYS_CONTIG_FREE(bufferListSrcArray[bufferNum].pBuffers->pData);
+            OS_FREE(bufferListSrcArray[bufferNum].pBuffers);
+        }
 
-        OS_FREE(bufferListSrcArray[bufferNum].pBuffers);
-        OS_FREE(bufferListDstArray[bufferNum].pBuffers);
-        OS_FREE(bufferListDstArray2[bufferNum].pBuffers);
+        if (bufferListDstArray[bufferNum].pBuffers != NULL)
+        {
+            PHYS_CONTIG_FREE(bufferListDstArray[bufferNum].pBuffers->pData);
+            OS_FREE(bufferListDstArray[bufferNum].pBuffers);
+        }
+
+        if (bufferListDstArray2[bufferNum].pBuffers != NULL)
+        {
+            PHYS_CONTIG_FREE(bufferListDstArray2[bufferNum].pBuffers->pData);
+            OS_FREE(bufferListDstArray2[bufferNum].pBuffers);
+        }
     }
 
     COMPLETION_DESTROY(&complete);

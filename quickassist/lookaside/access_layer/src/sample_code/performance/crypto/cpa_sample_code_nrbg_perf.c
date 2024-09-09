@@ -87,16 +87,16 @@
  *      IcpSalDrbgGetEntropyInputCbFunc
  *
  *****************************************************************************/
-void nrbgPerformCallback(void *pCallbackTag,
-                         CpaStatus status,
-                         void *pOpData,
-                         CpaFlatBuffer *pOut)
+static void nrbgPerformCallback(void *pCallbackTag,
+                                CpaStatus status,
+                                void *pOpData,
+                                CpaFlatBuffer *pOut)
 {
     processCallback(pCallbackTag);
 }
-void nrbgMemFree(nrbg_test_params_t *setup,
-                 CpaFlatBuffer *pEntropy,
-                 CpaCyNrbgOpData **pOpData)
+static void nrbgMemFree(nrbg_test_params_t *setup,
+                        CpaFlatBuffer *pEntropy,
+                        CpaCyNrbgOpData **pOpData)
 {
     Cpa32U k = 0;
 
@@ -133,7 +133,7 @@ void nrbgMemFree(nrbg_test_params_t *setup,
  *
  *****************************************************************************/
 
-CpaStatus nrbgPerform(nrbg_test_params_t *setup)
+static CpaStatus nrbgPerform(nrbg_test_params_t *setup)
 {
     Cpa32U i = 0;
     Cpa32U numLoops = 0;
@@ -297,7 +297,7 @@ CpaStatus nrbgPerform(nrbg_test_params_t *setup)
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
  ***************************************************************************/
-CpaStatus nrbgPrintStats(thread_creation_data_t *data)
+static CpaStatus nrbgPrintStats(thread_creation_data_t *data)
 {
     PRINT("NRBG\n");
     PRINT("NRBG Size %23u\n", data->packetSize);
@@ -311,7 +311,7 @@ CpaStatus nrbgPrintStats(thread_creation_data_t *data)
  * @description
  *      setup an elliptic curve performance thread
  ***************************************************************************/
-void nrbgPerformance(single_thread_test_data_t *testSetup)
+static void nrbgPerformance(single_thread_test_data_t *testSetup)
 {
     nrbg_test_params_t nrbgSetup;
     Cpa16U numInstances = 0;

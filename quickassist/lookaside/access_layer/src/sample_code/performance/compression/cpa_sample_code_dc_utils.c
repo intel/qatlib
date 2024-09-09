@@ -118,6 +118,16 @@ long dcPollingThreadsInterval_g = DEFAULT_POLL_INTERVAL_NSEC;
 EXPORT_SYMBOL(dcPollingThreadsInterval_g);
 CpaBoolean disableAdditionalCmpbufferSize_g = CPA_FALSE;
 EXPORT_SYMBOL(disableAdditionalCmpbufferSize_g);
+
+#if DC_API_VERSION_AT_LEAST(3, 1)
+CpaStatus setLZ4BlockIndependence(CpaBoolean val);
+#endif
+
+CpaStatus setTestOverFlow(CpaBoolean value);
+CpaStatus setFuzzFile(const char *fileName);
+CpaStatus printFuzzFile(void);
+
+
 #if DC_API_VERSION_AT_LEAST(3, 1)
 volatile CpaBoolean LZ4BlockIndependence_g = CPA_TRUE;
 CpaStatus setLZ4BlockIndependence(CpaBoolean val)
@@ -141,6 +151,7 @@ CpaStatus setChecksum(CpaDcChecksum checksum)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(setChecksum);
+
 
 CpaStatus setAutoSelectBestMode(CpaDcAutoSelectBest mode)
 {
@@ -334,29 +345,32 @@ static void freeDcBufferList(CpaBufferList **buffListArray,
     Cpa32U i = 0, j = 0;
     Cpa32U numberOfBuffers = 0;
 
-    i = numberOfBufferList;
     for (i = 0; i < numberOfBufferList; i++)
     {
-        numberOfBuffers = buffListArray[i]->numBuffers;
-        for (j = 0; j < numberOfBuffers; j++)
+        if (buffListArray[i] != NULL)
         {
-            if (buffListArray[i]->pBuffers[j].pData != NULL)
+            numberOfBuffers = buffListArray[i]->numBuffers;
+            if (buffListArray[i]->pBuffers != NULL)
             {
-                qaeMemFreeNUMA((void **)&buffListArray[i]->pBuffers[j].pData);
-                buffListArray[i]->pBuffers[j].pData = NULL;
+                for (j = 0; j < numberOfBuffers; j++)
+                {
+                    if (buffListArray[i]->pBuffers[j].pData != NULL)
+                    {
+                        qaeMemFreeNUMA(
+                            (void **)&buffListArray[i]->pBuffers[j].pData);
+                        buffListArray[i]->pBuffers[j].pData = NULL;
+                    }
+                }
+
+                qaeMemFreeNUMA((void **)&buffListArray[i]->pBuffers);
+                buffListArray[i]->pBuffers = NULL;
             }
-        }
-        if (buffListArray[i]->pBuffers != NULL)
-        {
 
-            qaeMemFreeNUMA((void **)&buffListArray[i]->pBuffers);
-            buffListArray[i]->pBuffers = NULL;
-        }
+            if (buffListArray[i]->pPrivateMetaData != NULL)
+            {
 
-        if (buffListArray[i]->pPrivateMetaData != NULL)
-        {
-
-            qaeMemFreeNUMA((void **)&buffListArray[i]->pPrivateMetaData);
+                qaeMemFreeNUMA((void **)&buffListArray[i]->pPrivateMetaData);
+            }
         }
     }
 }
@@ -1404,7 +1418,10 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
      * if the averageNumLoops does not equal the plan then that means
      * the thread exited early, so we need to use the average to calculate the
      * throughput*/
-    do_div(averageNumLoops, data->numberOfThreads);
+    if (data->numberOfThreads != 0)
+    {
+        do_div(averageNumLoops, data->numberOfThreads);
+    }
     if (averageNumLoops != dcSetup->numLoops)
     {
         dcSetup->numLoops = averageNumLoops;
@@ -1427,12 +1444,12 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
         }
 
         dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
-        if (iaCycleCount_g)
+        if (iaCycleCount_g && (data->numberOfThreads != 0))
         {
             do_div(stats.offloadCycles, data->numberOfThreads);
             PRINT("Avg Offload Cycles        %llu\n", stats.offloadCycles);
         }
-        if (latency_enable)
+        if (latency_enable && (data->numberOfThreads != 0))
         {
             perf_cycles_t statsLatency = 0;
             perf_cycles_t cpuFreqKHz = sampleCodeGetCpuFreq();
@@ -1545,7 +1562,10 @@ CpaStatus dcChainPrintStats(thread_creation_data_t *data)
      * if the averageNumLoops does not equal the plan then that means
      * the thread exited early, so we need to use the average to calculate the
      * throughput*/
-    do_div(averageNumLoops, data->numberOfThreads);
+    if (data->numberOfThreads != 0)
+    {
+        do_div(averageNumLoops, data->numberOfThreads);
+    }
     if (averageNumLoops != dcSetup->numLoops)
     {
         dcSetup->numLoops = averageNumLoops;
@@ -1573,7 +1593,7 @@ CpaStatus dcChainPrintStats(thread_creation_data_t *data)
         }
 
         dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
-        if (latency_enable)
+        if (latency_enable && (data->numberOfThreads != 0))
         {
             perf_cycles_t statsLatency = 0;
             perf_cycles_t cpuFreqKHz = sampleCodeGetCpuFreq();

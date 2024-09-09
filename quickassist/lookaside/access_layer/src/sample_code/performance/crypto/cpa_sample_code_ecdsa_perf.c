@@ -98,6 +98,51 @@
 extern Cpa32U packageIdCount_g;
 CpaBoolean msgFlagSym2 = CPA_FALSE;
 
+void ecdsaPerformCallback(void *pCallbackTag,
+                          CpaStatus status,
+                          void *pOpData,
+                          CpaBoolean verifyStatus);
+void ecdsaPointMultiplyPerformCallback(void *pCallbackTag,
+                                       CpaStatus status,
+                                       void *pOpData,
+                                       CpaBoolean multiplyStatus,
+                                       CpaFlatBuffer *pR,
+                                       CpaFlatBuffer *pS);
+void ecdsaSignOnlyPerformCallback(void *pCallbackTag,
+                                  CpaStatus status,
+                                  void *pOpData,
+                                  CpaBoolean multiplyStatus,
+                                  CpaFlatBuffer *pR,
+                                  CpaFlatBuffer *pS);
+CpaStatus getCurveData(ecdsa_test_params_t *setup);
+CpaStatus calcEcPoint(ecdsa_test_params_t *setup,
+                      CpaFlatBuffer *k,
+                      CpaFlatBuffer *pXk,
+                      CpaFlatBuffer *pYk);
+CpaStatus ecdsaSignRSOpDataSetup(ecdsa_test_params_t *setup,
+                                 CpaFlatBuffer *d,
+                                 CpaFlatBuffer *r,
+                                 CpaFlatBuffer *s,
+                                 CpaFlatBuffer *message,
+                                 CpaFlatBuffer *z,
+                                 CpaFlatBuffer *pDigest,
+                                 perf_data_t *pEcdsaData,
+                                 CpaCyEcdsaSignRSOpData *pSignRSOpData);
+CpaStatus ecdsaPerform(ecdsa_test_params_t *setup);
+void ecdsaPerformance(single_thread_test_data_t *testSetup);
+void ecdsaPerformRsOnlyMemFree(
+    ecdsa_test_params_t *setup,
+    CpaFlatBuffer *pX,
+    CpaFlatBuffer *pY,
+    CpaFlatBuffer *pR,
+    CpaFlatBuffer *pS,
+    CpaFlatBuffer *msg,
+    CpaFlatBuffer *pZ,
+    CpaFlatBuffer **ppDigests,
+    CpaCyEcdsaSignRSOpData **ppSignRSOpData,
+    CpaCyEcPointMultiplyOpData **ppPointMultiplyOpData,
+    CpaFlatBuffer privateKey);
+
 ///*
 // * ***********************************************************************
 // * elliptic curve definitions as defined in:
@@ -606,14 +651,14 @@ EXPORT_SYMBOL(ecdsaSignRSOpDataSetup);
  *      Sign the digest of a random message using elliptic curve data in setup
  *      parameter
  ***************************************************************************/
-CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
-                      CpaFlatBuffer *d,
-                      CpaFlatBuffer *r,
-                      CpaFlatBuffer *s,
-                      CpaFlatBuffer *message,
-                      CpaFlatBuffer *z,
-                      CpaCyEcdsaSignRSCbFunc cbFunc,
-                      perf_data_t *pEcdsaData)
+static CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
+                             CpaFlatBuffer *d,
+                             CpaFlatBuffer *r,
+                             CpaFlatBuffer *s,
+                             CpaFlatBuffer *message,
+                             CpaFlatBuffer *z,
+                             CpaCyEcdsaSignRSCbFunc cbFunc,
+                             perf_data_t *pEcdsaData)
 {
     CpaStatus status = CPA_STATUS_FAIL;
     CpaBoolean signStatus = CPA_FALSE;
@@ -914,15 +959,15 @@ CpaStatus ecdsaSignRS(ecdsa_test_params_t *setup,
         ecdsaMemFree(setup, pX, pY, pR, pS, msg, pZ, ppOpData, privateKey);    \
     } while (0)
 
-void ecdsaMemFree(ecdsa_test_params_t *setup,
-                  CpaFlatBuffer *pX,
-                  CpaFlatBuffer *pY,
-                  CpaFlatBuffer *pR,
-                  CpaFlatBuffer *pS,
-                  CpaFlatBuffer *msg,
-                  CpaFlatBuffer *pZ,
-                  CpaCyEcdsaVerifyOpData **ppOpData,
-                  CpaFlatBuffer privateKey)
+static void ecdsaMemFree(ecdsa_test_params_t *setup,
+                         CpaFlatBuffer *pX,
+                         CpaFlatBuffer *pY,
+                         CpaFlatBuffer *pR,
+                         CpaFlatBuffer *pS,
+                         CpaFlatBuffer *msg,
+                         CpaFlatBuffer *pZ,
+                         CpaCyEcdsaVerifyOpData **ppOpData,
+                         CpaFlatBuffer privateKey)
 {
     Cpa32U k = 0;
 
@@ -1664,7 +1709,7 @@ EXPORT_SYMBOL(ecdsaPerform);
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
  ***************************************************************************/
-CpaStatus ecdsaPrintStats(thread_creation_data_t *data)
+static CpaStatus ecdsaPrintStats(thread_creation_data_t *data)
 {
     ecdsa_test_params_t *params = (ecdsa_test_params_t *)data->setupPtr;
     if (ECDSA_STEP_SIGNRS == params->step)
@@ -1798,7 +1843,8 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
 
 #ifdef SC_DEV_INFO_ENABLED
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo->physInstId.packageId, &deviceInfo);
+    status =
+        cpaGetDeviceInfo(instanceInfo->physInstId.acceleratorId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaGetDeviceInfo failed", __func__, __LINE__);

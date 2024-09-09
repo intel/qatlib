@@ -231,6 +231,9 @@ typedef struct accel_dev_s
     device_type_t deviceType;                    /* Device Type */
     char deviceName[ADF_DEVICE_TYPE_LENGTH + 1]; /* Device name for SAL */
     Cpa32U accelCapabilitiesMask; /* Accelerator's capabilities mask */
+    Cpa32U cipherCapabilitiesMask; /* Cipher algorithms capabilities mask */
+    Cpa32U hashCapabilitiesMask;   /* Hash algorithms capabilities mask */
+    Cpa32U asymCapabilitiesMask;   /* Asym algorithms capabilities mask */
     Cpa32U dcExtendedFeatures;    /* bit field of features */
     OsalAtomic usageCounter;      /* Prevents shutting down the dev if not 0 */
     void *pSalHandle;             /* For SAL */
@@ -242,7 +245,6 @@ typedef struct accel_dev_s
     void *accel;
     Cpa32U maxNumBanks;
     Cpa32U maxNumRingsPerBank;
-    void *pInstMgr; /* pointer to dynamic instance resource manager */
     void *banks;    /* banks information */
 #ifdef KERNEL_SPACE
     const Cpa8U *pAccelName; /* Name given to accelerator */

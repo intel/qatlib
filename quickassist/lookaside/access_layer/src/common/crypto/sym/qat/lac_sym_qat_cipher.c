@@ -91,6 +91,8 @@
 #include "icp_qat_fw_la.h"
 
 #define LAC_UNUSED_POS_MASK 0x3
+/* To determine an overflow on a 32 bit unsigned value */
+#define UINT_OVERFLOW (0xFFFFFFFF00000000UL)
 
 /*****************************************************************************
  *  Internal data
@@ -809,6 +811,7 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
 {
     Cpa8U *pCipherKey = (Cpa8U *)pCipherHwBlock;
     Cpa32U actualKeyLenInBytes = pCipherSetupData->cipherKeyLenInBytes;
+    Cpa64U tempKeyLenInBytes = 0;
 
     *pSizeInBytes = 0;
 
@@ -834,7 +837,7 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
         /* Set the Cipher key field in the cipher block */
         memcpy(pCipherKey, pCipherSetupData->pCipherKey, actualKeyLenInBytes);
         /* Pad the key with 0's if required */
-        if (0 < (targetKeyLenInBytes - actualKeyLenInBytes))
+        if (targetKeyLenInBytes > actualKeyLenInBytes)
         {
             LAC_OS_BZERO(pCipherKey + actualKeyLenInBytes,
                          targetKeyLenInBytes - actualKeyLenInBytes);
@@ -884,9 +887,15 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
                     pTempKey[index] = pCipherKey[index] ^ pTempKey[index];
                 }
                 pTempKey = (pCipherKey + targetKeyLenInBytes);
-                /* also add padding for AES F8 */
-                *pSizeInBytes += 2 * targetKeyLenInBytes;
-                LAC_OS_BZERO(pTempKey, 2 * targetKeyLenInBytes);
+                tempKeyLenInBytes = 2UL * targetKeyLenInBytes;
+
+                /* Check for overflow */
+                if (!(tempKeyLenInBytes & UINT_OVERFLOW))
+                {
+                    /* also add padding for AES F8 */
+                    *pSizeInBytes += 2 * targetKeyLenInBytes;
+                    LAC_OS_BZERO(pTempKey, 2 * targetKeyLenInBytes);
+                }
             }
             break;
             case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:

@@ -33,9 +33,9 @@
  * 
  *
  ***************************************************************************/
-#ifndef UIO_USER_H
+#ifndef ADF_USER_H
 
-#define UIO_USER_H
+#define ADF_USER_H
 
 #include "adf_io_bundles.h"
 
@@ -148,4 +148,4 @@ int32_t adf_init_devices(void);
 CpaStatus adf_proxy_get_devices(void);
 int32_t adf_cleanup_devices(void);
 
-#endif /* end of include guard: UIO_USER_H */
+#endif /* end of include guard: ADF_USER_H */

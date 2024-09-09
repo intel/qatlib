@@ -111,6 +111,14 @@ typedef struct ike_rsa_client_data_s
     CpaCyRsaDecryptOpData **ppDecryptOpData;
     CpaFlatBuffer **ppSignatures;
 } ike_rsa_client_data_t;
+
+void ikeRsaCallback(void *pCallbackTag,
+                    CpaStatus status,
+                    void *pOpData,
+                    CpaFlatBuffer *pOut);
+CpaStatus allocClientMem(asym_test_params_t *setup,
+                         ike_rsa_client_data_t *client);
+
 /*****************************************************************************
  * @ingroup IKE_RSA Threads
  *
@@ -854,7 +862,7 @@ static CpaStatus ikeRsaPerform(asym_test_params_t *setup)
  * @description
  *      This function prints the IKE-RSA performance stats
  ******************************************************************************/
-CpaStatus ikeRsaPrintStats(thread_creation_data_t *data)
+static CpaStatus ikeRsaPrintStats(thread_creation_data_t *data)
 {
     PRINT("IKE_RSA SIMULATION\n");
     PRINT("Modulus Size %17u\n", data->packetSize);
@@ -868,7 +876,7 @@ CpaStatus ikeRsaPrintStats(thread_creation_data_t *data)
  * @description
  *      This function sets up an IKE-RSA thread
  ******************************************************************************/
-void ikeRsaPerformance(single_thread_test_data_t *testSetup)
+static void ikeRsaPerformance(single_thread_test_data_t *testSetup)
 {
     asym_test_params_t ikeRsaSetup;
     asym_test_params_t *setup = (asym_test_params_t *)testSetup->setupPtr;

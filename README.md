@@ -26,6 +26,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| September 2024 | 014 | 24.09 | - Improved performance scaling in multi-thread applications (--enable-icp-thread-specific-usdm). <br> - Bug Fixes.  See [Resolved Issues](#resolved-issues). <br> -  Set core affinity mapping based on NUMA node to improve performance (near-linear scaling) on multi-socket platforms.  |
 | July 2024 | 013 | 24.02 | - Doc update only. Updated this table to say that support for the GEN4 402xx device was added in the 24.02 release. Added link to more details in Supported Devices section. |
 | February 2024 | 012 | 24.02 | - Added Heartbeat support. <br> - Added support for QAT GEN 5 devices, including support for a range of crypto wireless algorithms. <br> - RAS - Device error reset and recovery handling. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
 | November 2023 | 011 | 23.11 | - Support DC NS (NoSession) APIs.  <br> - Support  DC compressBound APIs. <br> - Support Symmetric Crypto SM3 & SM4. <br> - Support Asymmetric Crypto SM2. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
@@ -128,13 +129,11 @@ Please refer to [INSTALL](INSTALL) for details on installing the library.
 * 4xxx, 401xx and 402xx (QAT GEN 4 devices)
 * 420xx (QAT GEN 5 devices)
 
-Earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) are not
+Earlier generations of QAT devices (e.g. c6xx, dh895xxcc, etc.) are not
 supported. Please refer to [QATlib User’s Guide](https://intel.github.io/quickassist/qatlib/requirements.html#supported-devices) for more information
 on supported devices.
 
 ## Limitations
-* If an error occurs on the host driver (Heartbeat, Uncorrectable error) it
-  will not be communicated to the library.
 * For simplicity, only one configuration file is used by qatlib. For guidance
   on how to use this to allocate resources for processes, please refer to
   Configuration and Tuning section in [QATlib User’s Guide](https://intel.github.io/quickassist/qatlib/index.html).
@@ -190,11 +189,20 @@ where: \<Component\> is one of the following:
 
 | Issue ID | Description |
 |-------------|------------|
+| QATE-102390 | [GEN – [error] validateConcurrRequest() - : Invalid numConcurrRequests](#qate-102390)
 | QATE-3241  | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.](#qate-3241) |
-| QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
-| QATE-76698 | [GEN - Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
-| QATE-98551 | [GEN - On a multi-socket platform, there can be a performance degradation on the remote sockets.](#qate-98551) |
+
+## QATE-102390
+| Title         | GEN – [error] validateConcurrRequest() - : Invalid numConcurrRequests  |
+|---------------|:-------------------------------------------------------------------|
+| Reference #   | QATE-102390 |
+| Description   | An error occurs in a virtualized environment after VF resources are detached from a running VM (guest) and then re-attached. Following this, the qat service is restarted on the guest to ensure the correct VF resources are used. In rare instances, this leads to a failure in process initialisation with the error: "[error] validateConcurrRequest() - : Invalid numConcurrRequests". |
+| Implication   | Processes within the guest fail to start. |
+| Resolution    | To resolve the issue, restart the qatmgr on the guest using "sudo systemctl restart qat". If in standalone mode, restart the process manually. |
+| Affected OS   | Linux |
+| Driver/Module | CPM-IA – Only on the 420xx QAT GEN 5 device. |
+
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
@@ -203,17 +211,6 @@ where: \<Component\> is one of the following:
 | Description | When Performing a CBC Decryption as a chained request using cpaCySymPerformOp it is necessary to pass a length of the data to MAC (messageLenToHashInBytes). With ICP_PARAM_CHECK enabled, this checks the length of data to MAC is valid and, if not, it aborts the whole operation and outputs an error on stderr. |
 | Implication | The length of the data to MAC is based on the amount of padding. This should remain private and not be revealed. The issue is not observed when the length is checked in constant time before passing the value to the API. This is done by OpenSSL. |
 | Resolution | 1. Build without ICP_PARAM_CHECK, but this opens the risk of buffer overrun. <BR> 2. Validate the length before using the API. |
-| Affected OS | Linux |
-| Driver/Module | CPM-IA - Crypto |
-
-## QATE-41707
-
-| Title      |         CY -  Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.      |
-|----------|:-------------
-| Reference # | QATE-41707 |
-| Description | When performing a plain hash operation on input data size of 4GB or larger, incorrect digest is returned. |
-| Implication | Incorrect digest is returned from a plane hash operation. |
-| Resolution | There is no fix available. |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - Crypto |
 
@@ -227,14 +224,58 @@ where: \<Component\> is one of the following:
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
+## Resolved Issues
+Resolved issues relating to the Intel® QAT software are described
+in this section.
+
+| Issue ID | Description |
+|-------------|------------|
+| QATE-76698 | [GEN - Multi-process applications running in guest will fail when running with default Policy settings.](#qate-76698) |
+| QATE-99637 | [GEN - QAT instances on PCI domains other than 0000 are inaccessible.](#qate-99637) |
+| QATE-99638 | [GEN - Incompatible service to ring configuration with non in-tree QAT kernel modules.](#qate-99638) |
+| QATE-98551 | [GEN - On a multi-socket platform, there can be a performance degradation on the remote sockets.](#qate-98551) |
+| QATE-41707 | [CY - Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.](#qate-41707) |
+| QATE-97977 | [DC - 'Unable to get the physical address of Data Integrity buffer' error may be observed when using user-provided address translation functions.](#qate-97977) |
+| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup.](#qate-94369) |
+| QATE-94286 | [GEN - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
+| QATE-95905 | [GEN - Fix build when building outside of main directory, issue #56](#qate-95905) |
+| QATE-93844 | [DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.](#qate-93844) |
+| QATE-93278 | [GEN - sample_code potential seg-fault, issue #46](#qate-93278) |
+| QATE-90845 | [GEN - QAT service fails to start, issue #38](#qate-90845) |
+| QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-78459) |
+| QATE-76846 | [GEN - Forking and re-initializing use-cases do not work](#qate-76846) |
+| QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
+
 ## QATE-76698
 | Title      |         GEN - Multi-process applications running in guest will fail when running with default Policy settings.     |
 |----------|:-------------
 | Reference # | QATE-76698 |
-| Description | The default Policy setting results in process receiving all available VFs allocated to guest operating system.  In the case of a multi-process application, failures will be observed as all available QAT resources are consumed by the first process. |
-| Implication | Multi-process applications running in guest OS will fail with default Policy settings. |
-| Resolution | If more than 1 process is needed in a guest OS, set POLICY=n (where n>0) in /etc/sysconfig/qat and restart qatmgr. The process will then receive n VFs. See RUNNING IN A VIRTUAL MACHINE / GUEST section of INSTALL for details. |
+| Description | The default Policy setting results in the first process receiving all available VFs allocated to a guest operating system if the BDFs on the guest do not facilitate qatlib recognising which VFs are from the same PF. In the case of a multi-process application, failures will be observed if all available QAT resources are consumed by the first process. |
+| Implication | Multi-process applications running in guest OS may fail with default Policy settings. |
+| Resolution | Follow the guidance for specifying guest BDFs [here](https://intel.github.io/quickassist/qatlib/running_in_vm.html#qat-virtual-function).|
 | Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
+
+## QATE-99637
+| Title      |        QAT instances on PCI domains other than 0000 are inaccessible. |
+|----------|:-------------
+| Reference # | QATE-99637 |
+| Description | On multi-domain systems, QuickAssist Technology (QAT) devices that are assigned to PCI domains with identifiers other than the default '0000' are not recognized by the system. Consequently, the QAT instances associated with these devices do not appear available for use or configuration.  |
+| Implication | The inability to access QAT instances on non-default PCI domains prevents the utilization of QAT devices in those domains. This limitation restricts the deployment of QAT in environments with complex PCI topologies and can lead to under utilization of available hardware acceleration resources. |
+| Resolution | Fixed in 24.09 |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
+
+
+## QATE-99638
+| Title      |        Incompatible service to ring configuration with non in-tree QAT kernel modules. |
+|----------|:-------------
+| Reference # | QATE-99638 |
+| Description | QATlib assumes a ring layout corresponding to ring configuration defaults used by the in-tree QAT kernel driver. This assumption is invalid if qatlib is running on a guest and the host has some other QAT kernel driver, e.g. an out-of-tree driver or ESXi driver, which may use different ring configurations. This affects configurations such as ASYM;DC and SYM;DC. All kernel drivers provide ring2service information via pfvfcomms, qatlib should query this rather than rely on an assumed ring layout. |
+| Implication | Crypto or compression operations will fail if sent to a ring which doesn’t handle that service. |
+| Resolution | Fixed in 24.09 |
+| Affected OS | Linux OOT, ESXi, Windows Server |
 | Driver/Module | CPM-IA - General |
 
 ## QATE-98551
@@ -243,26 +284,20 @@ where: \<Component\> is one of the following:
 | Reference # | QATE-98551 |
 | Description | On a multi-socket platform, there can be a performance degradation on remote sockets. This can arise when either the threads are not affinitised to the core on the socket the device is on and/or the memory is not allocated on the appropriate NUMA node. |
 | Implication | Performance on socket 0 is as expected, but does not scale proportionally on remote sockets. |
-| Resolution | This will be fixed in a future release. In the meantime, applications on a multi-socket platform should configure threads using a QAT VF device on a remote socket to be affinitised to the core on that remote socket. Then the memory allocations are more likely to be done on the remote socket, with minimal performance impact. |
+| Resolution | Fixed in 24.09 |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
-## Resolved Issues
-Resolved issues relating to the Intel® QAT software are described
-in this section.
+## QATE-41707
 
-| Issue ID | Description |
-|-------------|------------|
-| QATE-97977 | [DC - 'Unable to get the physical address of Data Integrity buffer' error may be observed when using user-provided address translation functions.](#qate-97977) |
-| QATE-94369 | [GEN - SELinux Preventing QAT Service Startup.](#qate-94369) |
-| QATE-94286 | [GEN - Compression services not detected when crypto-capable VFs are added to VM.](#qate-94286) |
-| QATE-95905 | [GEN - Fix build when building outside of main directory, issue #56](#qate-95905) |
-| QATE-93844 | [DC - cpaDcLZ4SCompressBound is not returning correct value, which could lead to a buffer overflow.](#qate-93844)
-| QATE-93278 | [GEN - sample_code potential seg-fault, issue #46](#qate-93278) |
-| QATE-90845 | [GEN - QAT service fails to start, issue #38](#qate-90845) |
-| QATE-78459 | [DC - cpaDcDeflateCompressBound API returns incorrect output buffer size when input size exceeds 477218588 bytes.](#qate-78459) |
-| QATE-76846 | [GEN - Forking and re-initializing use-cases do not work](#qate-76846) |
-| QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported.](#qate-12241) |
+| Title      |         CY -  Incorrect digest returned when performing a plain hash operation on input data of size 4GB or larger.      |
+|----------|:-------------
+| Reference # | QATE-41707 |
+| Description | When performing a plain hash operation on input data size of 4GB or larger, incorrect digest is returned. |
+| Implication | Incorrect digest is returned from a plain hash operation. |
+| Resolution | Fixed in 24.09 |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - Crypto |
 
 ## QATE-97977
 | Title      |       DC - 'Unable to get the physical address of Data Integrity buffer' error may be observed when using user-provided address translation functions.        |
@@ -292,7 +327,7 @@ in this section.
 | Reference # | QATE-94286 |
 | Description | When configuring a system with different services on different QAT end-points, e.g. asym;sym on one and dc on another, and exposing only one of those Virtual Function (VF) types to the Virtual Machine (VM), the application works as expected. However, when VFs of more than one type are passed to the same VM, the application may only recognize one service-type, e.g. it may detect crypto instances, but not compression instances. There is an assumption that all VFs provide the same services if they come from the same PF. However, detecting which PF they come from is based on domain+bus, which is not always a valid assumption on a VM. |
 | Implication | This issue prevents the detection of compression services in a virtualized environment when the default kernel configuration is used, and crypto and dc VFs are passed to the VM, potentially impacting the proper functioning of the system. |
-| Resolution | Fixed in 23.11. <br>Temporary solution: use a custom libvirt XML file like QATE-76698 here: https://github.com/intel/qatlib/tree/main#qate-76698 . |
+| Resolution | Fixed in 23.11 |
 | Affected OS | Linux |
 | Driver/Module | CPM-IA - General |
 
