@@ -106,7 +106,7 @@ CpaStatus cpaGetDeviceInfo(Cpa16U device, CpaDeviceInfo *deviceInfo)
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(deviceInfo);
 #endif
-    status = icp_adf_getNumInstances(&numDevicesAvail);
+    icp_adf_getNumInstances(&numDevicesAvail);
     /* Check if the application is not attempting to access a
      * device that does not exist.
      */

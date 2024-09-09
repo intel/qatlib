@@ -57,7 +57,6 @@ libadf_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/qat_direct/common/adf_process_proxy.c \
 	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_cfg.c \
 	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_device.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_dyn.c \
 	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_ETring_mgr_dp.c \
 	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_init.c \
 	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_ring.c \
@@ -107,13 +106,20 @@ qatmgr_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vf
 	        -D USER_SPACE \
 	        $(COMMON_FLAGS)
 
-qatmgr_LDADD = -lpthread
+qatmgr_LDADD = -lpthread -lnuma
 
 lib_LTLIBRARIES = lib@LIBUSDMNAME@.la
 lib@LIBUSDMNAME@_la_SOURCES = \
 	quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_utils_vfio.c \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.c \
 	quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_hugepage_utils_vfio.c
+if ICP_THREAD_SPECIFIC_USDM_AC
+lib@LIBUSDMNAME@_la_SOURCES += \
+	quickassist/utilities/libusdm_drv/user_space/qae_mem_multi_thread_utils.c
+else
+lib@LIBUSDMNAME@_la_SOURCES += \
+	quickassist/utilities/libusdm_drv/user_space/qae_mem_common.c
+endif
 lib@LIBUSDMNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			     -I$(srcdir)/quickassist/utilities/libusdm_drv/include \
 			     -I$(srcdir)/quickassist/utilities/libusdm_drv/user_space \
@@ -221,6 +227,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/utils/sal_versions.c \
 	quickassist/lookaside/access_layer/src/common/device/sal_dev_info.c \
 	quickassist/lookaside/access_layer/src/user/sal_user.c \
+	quickassist/lookaside/access_layer/src/user/sal_user_congestion_mgmt.c \
 	quickassist/lookaside/access_layer/src/user/sal_user_dyn_instance.c
 if USE_CCODE_CRC
 lib@LIBQATNAME@_la_SOURCES += \
@@ -245,7 +252,7 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			    -D USER_SPACE \
 			    -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
 			    $(COMMON_FLAGS)
-lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la -lcrypto
+lib@LIBQATNAME@_la_LIBADD = libosal.la libadf.la lib@LIBUSDMNAME@.la -lcrypto -lnuma
 if !USE_CCODE_CRC
 lib@LIBQATNAME@_la_LIBADD += crc32_gzip_refl_by8.lo crc64_ecma_norm_by8.lo
 endif
@@ -317,7 +324,9 @@ endif
 
 dist_man_MANS = qat_init.sh.8 qatmgr.8
 
-EXTRA_DIST = LICENSE \
+EXTRA_DIST = INSTALL README.md SECURITY.md LICENSE \
+	filelist \
+	versionfile \
 	autogen.sh \
 	quickassist/lookaside/firmware/include \
 	quickassist/include \
@@ -327,6 +336,7 @@ EXTRA_DIST = LICENSE \
 	quickassist/utilities/osal \
 	quickassist/utilities/libusdm_drv/include \
 	quickassist/utilities/libusdm_drv/user_space \
+	quickassist/utilities/service/qat \
 	quickassist/lookaside/access_layer/src/sample_code
 
 DISTCHECK_CONFIGURE_FLAGS = \
@@ -399,6 +409,11 @@ QAT_LEGACY_ALGORITHMS = y
 COMMON_FLAGS += -DQAT_LEGACY_ALGORITHMS
 else
 QAT_LEGACY_ALGORITHMS = n
+endif
+
+if ICP_THREAD_SPECIFIC_USDM_AC
+ICP_THREAD_SPECIFIC_USDM = 1
+COMMON_FLAGS += -DICP_THREAD_SPECIFIC_USDM
 endif
 
 include Samples.am

@@ -118,6 +118,11 @@ extern volatile CpaBoolean backoff_dynamic_g;
 extern uint32_t backoff_static_timer_g;
 extern CpaInstanceHandle *cyInstances_g;
 
+CpaStatus setSymPollingInterval(Cpa64U pollingInterval);
+CpaStatus printDigestAppend(CpaBoolean flag);
+CpaStatus printSymPollingInterval(void);
+void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup);
+
 /*****************************************************************************
  *
  *  Internal Function Interfaces
@@ -170,9 +175,9 @@ EXPORT_SYMBOL(printSymPollingInterval);
  * @description
  * Poll the number of DP operations
  * ***************************************************************************/
-CpaStatus cyDpPollNumOperations(perf_data_t *pPerfData,
-                                CpaInstanceHandle instanceHandle,
-                                Cpa64U numOperations)
+static CpaStatus cyDpPollNumOperations(perf_data_t *pPerfData,
+                                       CpaInstanceHandle instanceHandle,
+                                       Cpa64U numOperations)
 {
     CpaStatus status = CPA_STATUS_FAIL;
 
@@ -326,6 +331,8 @@ static void symDpSetDigestBuffer(Cpa32U messageLenToCipherInBytes,
     {
         pDigestResult = (Cpa8U *)(pBufferList->pBuffers[0].pData +
                                   messageLenToCipherInBytes);
+        /* reset the digest memory to 0 */
+        memset((void *)pDigestResult, value, digestLengthInBytes);
     }
     else
     {
@@ -335,22 +342,20 @@ static void symDpSetDigestBuffer(Cpa32U messageLenToCipherInBytes,
         pDigestResult =
             (Cpa8U *)(pBufferList->pBuffers[indexBuffer].pData +
                       (messageLenToCipherInBytes % bufferSizeInByte));
-    }
-
-    /* reset the digest memory to 0 */
-
-    memset(
-        (void *)pDigestResult,
-        value,
-        (pBufferList->pBuffers[0].dataLenInBytes -
-         messageLenToCipherInBytes % pBufferList->pBuffers[0].dataLenInBytes));
-
-    indexBuffer++;
-    for (i = indexBuffer; i < pBufferList->numBuffers; i++)
-    {
-        memset((void *)(uintptr_t)pBufferList->pBuffers[i].pData,
+        /* reset the digest memory to 0 */
+        memset((void *)pDigestResult,
                value,
-               pBufferList->pBuffers[i].dataLenInBytes);
+               (pBufferList->pBuffers[0].dataLenInBytes -
+                messageLenToCipherInBytes %
+                    pBufferList->pBuffers[0].dataLenInBytes));
+
+        indexBuffer++;
+        for (i = indexBuffer; i < pBufferList->numBuffers; i++)
+        {
+            memset((void *)(uintptr_t)pBufferList->pBuffers[i].pData,
+                   value,
+                   pBufferList->pBuffers[i].dataLenInBytes);
+        }
     }
 }
 /*****************************************************************************
@@ -458,9 +463,9 @@ static void symDpPerformMemFree(symmetric_test_params_t *setup,
  *      When the number of response is equal to the number of operations,
  *      it will release one semaphore for async operation.
  *****************************************************************************/
-void symDpPerformCallback(CpaCySymDpOpData *pOpData,
-                          CpaStatus status,
-                          CpaBoolean verifyResult)
+static void symDpPerformCallback(CpaCySymDpOpData *pOpData,
+                                 CpaStatus status,
+                                 CpaBoolean verifyResult)
 {
     /* pCallbacktag in the pOpData structure is used to store
      * index of to the perf_data_t associated the thread
@@ -1075,11 +1080,11 @@ static CpaStatus symmetricDpPerformOpDataSetup(
  * The request is submitted to be performed by invoking the function
  * @ref cpaCySymDpPerformOpNow.
  * ***************************************************************************/
-CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
-                                Cpa32U numOfLoops,
-                                CpaCySymDpOpData **ppOpData,
-                                CpaBufferList **ppSrcBuffListArray,
-                                CpaCySymCipherDirection cipherDirection)
+static CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
+                                       Cpa32U numOfLoops,
+                                       CpaCySymDpOpData **ppOpData,
+                                       CpaBufferList **ppSrcBuffListArray,
+                                       CpaCySymCipherDirection cipherDirection)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U outsideLoopCount = 0;
@@ -1153,6 +1158,8 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
         {
             PRINT_ERR("Failed to allocate memory for submission and response "
                       "times\n");
+            qaeMemFree((void **)&request_respnse_time);
+            qaeMemFree((void **)&request_submit_start);
             return CPA_STATUS_FAIL;
         }
         memset(request_submit_start, 0, request_mem_sz);
@@ -1484,8 +1491,15 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
              setup->performanceStats->startCyclesTimestamp) -
             setup->performanceStats->totalBusyLoopCycles;
 
-        do_div(setup->performanceStats->offloadCycles,
-               setup->performanceStats->responses);
+        if (setup->performanceStats->responses == 0)
+        {
+            PRINT_ERR("The response count is 0\n");
+        }
+        else
+        {
+            do_div(setup->performanceStats->offloadCycles,
+                   setup->performanceStats->responses);
+        }
     }
 
     coo_average(pSymData);
@@ -1500,11 +1514,12 @@ CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
  * @description
  * Enqueue multiple requests with one operation, perform later
  * ***************************************************************************/
-CpaStatus symDpPerformEnqueueOpBatch(symmetric_test_params_t *setup,
-                                     Cpa32U numOfLoops,
-                                     CpaCySymDpOpData **ppOpData,
-                                     CpaBufferList **ppSrcBuffListArray,
-                                     CpaCySymCipherDirection cipherDirection)
+static CpaStatus symDpPerformEnqueueOpBatch(
+    symmetric_test_params_t *setup,
+    Cpa32U numOfLoops,
+    CpaCySymDpOpData **ppOpData,
+    CpaBufferList **ppSrcBuffListArray,
+    CpaCySymCipherDirection cipherDirection)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U outsideLoopCount = 0;
@@ -1750,7 +1765,6 @@ static CpaStatus performOffloadCalculation(
                                    packetSize,
                                    pPerfData->endCyclesTimestamp -
                                        pPerfData->startCyclesTimestamp);
-    currentThroughput = baseThroughput;
 
     /* Find the lower bound(retries) and upper bound(no retries) for subsequent
      * binary search.
@@ -2387,8 +2401,9 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
               testSetup->threadID);
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
-        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        error_flag_g = CPA_TRUE;
+        symTestSetup.performanceStats->threadReturnStatus =
+            CPA_STATUS_UNSUPPORTED;
+        error_flag_g = CPA_FALSE;
         sampleCodeBarrier();
         symTestSetup.packetSizeInBytesArray = NULL;
         goto exit;

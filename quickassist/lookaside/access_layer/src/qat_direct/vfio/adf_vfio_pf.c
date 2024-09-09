@@ -48,8 +48,10 @@
 #include "qat_mgr.h"
 #include "qat_log.h"
 
-#define DEVVFIO_DIR "/sys/bus/pci/drivers/4xxx"
-#define DEVVFIO_DIR_420XX "/sys/bus/pci/drivers/420xx"
+#define DEVVFIO_DIR "/sys/bus/pci/drivers"
+#define DEVICE_NAME_LENGTH 5
+
+char device_names[] = { "4xxx,420xx" };
 
 static int filter_pf_in_use(const struct dirent *entry)
 {
@@ -62,69 +64,95 @@ static int filter_pf_in_use(const struct dirent *entry)
     return 1;
 }
 
-Cpa32S adf_vfio_init_pfs_info(icp_accel_pf_info_t *pf_info, size_t pf_info_len)
+static int is_qat_dev_present(char *dev_name)
 {
-    unsigned node, bus, dev, func;
+    int i;
+    int status = CPA_STATUS_FAIL;
     struct dirent **namelist;
-    char *devvfio_dir;
-    int32_t i, number_of_pfs;
-    struct stat st = { 0 };
+    int32_t number_of_dev;
 
-    ICP_CHECK_FOR_NULL_PARAM(pf_info);
+    number_of_dev = scandir(DEVVFIO_DIR, &namelist, NULL, alphasort);
 
-    if (stat(DEVVFIO_DIR, &st) == 0)
+    if (number_of_dev < 0)
     {
-        number_of_pfs =
-            scandir(DEVVFIO_DIR, &namelist, &filter_pf_in_use, alphasort);
-        devvfio_dir = DEVVFIO_DIR;
-    }
-    else if (stat(DEVVFIO_DIR_420XX, &st) == 0)
-    {
-        number_of_pfs =
-            scandir(DEVVFIO_DIR_420XX, &namelist, &filter_pf_in_use, alphasort);
-        devvfio_dir = DEVVFIO_DIR_420XX;
-    }
-    else
-    {
-        /* This shows stat DIR failed, assume dir does not exist. */
-        ADF_DEBUG("None of %s and %s paths exists in the system,"
-                  " unable to detect PFs\n",
-                  DEVVFIO_DIR,
-                  DEVVFIO_DIR_420XX);
-        return 0;
+        return status;
     }
 
-    /* This shows scandir dir failed. */
-    if (number_of_pfs < 0)
+    for (i = 0; i < number_of_dev; i++)
     {
-        ADF_DEBUG("Failed to scan directory %s\n", devvfio_dir);
-        return CPA_STATUS_FAIL;
-    }
-
-    if (pf_info_len < number_of_pfs)
-    {
-        ADF_ERROR(
-            "Given pf info array length is too small for %d number of PFs\n",
-            number_of_pfs);
-        for (i = 0; i < number_of_pfs; i++)
+        if (strncmp(namelist[i]->d_name, dev_name, DEVICE_NAME_LENGTH) == 0)
         {
-            free(namelist[i]);
+            status = CPA_STATUS_SUCCESS;
+            break;
         }
-        free(namelist);
-        return CPA_STATUS_INVALID_PARAM;
     }
 
-    for (i = 0; i < number_of_pfs; i++)
+    for (i = 0; i < number_of_dev; i++)
     {
-        sscanf(namelist[i]->d_name, "%x:%x:%x.%x", &node, &bus, &dev, &func);
-        pf_info[i].pkg_id = i;
-        pf_info[i].domain = node;
-        pf_info[i].bdf = (node << 16) + ((0xFF & bus) << 8) +
-                         ((0x1F & dev) << 3) + (0x07 & func);
-        strcpy(pf_info[i].device_gen, QAT_GEN4_STR);
         free(namelist[i]);
     }
     free(namelist);
 
-    return number_of_pfs;
+    return status;
+}
+
+Cpa32S adf_vfio_init_pfs_info(icp_accel_pf_info_t *pf_info, size_t pf_info_len)
+{
+    unsigned domain, bus, dev, func;
+    struct dirent **namelist;
+    int32_t i, number_of_pfs = 0, total_no_pfs = 0;
+    int status = CPA_STATUS_FAIL;
+    char dev_path[QATMGR_MAX_STRLEN] = { '\0' };
+    char *device_name = strtok(device_names, ",");
+
+    ICP_CHECK_FOR_NULL_PARAM(pf_info);
+    while (device_name != NULL)
+    {
+        status = is_qat_dev_present(device_name);
+        if (status == CPA_STATUS_SUCCESS)
+        {
+            snprintf(
+                dev_path, sizeof(dev_path), "%s/%s", DEVVFIO_DIR, device_name);
+            number_of_pfs =
+                scandir(dev_path, &namelist, &filter_pf_in_use, alphasort);
+            /* This shows scandir dir failed. */
+            if (number_of_pfs < 0)
+            {
+                ADF_ERROR("Failed to scan directory %s\n", DEVVFIO_DIR);
+                return CPA_STATUS_FAIL;
+            }
+            total_no_pfs += number_of_pfs;
+            if (pf_info_len < total_no_pfs)
+            {
+                ADF_ERROR("Given pf info array length is too small for %d "
+                          "number of PFs\n",
+                          number_of_pfs);
+                for (i = 0; i < number_of_pfs; i++)
+                {
+                    free(namelist[i]);
+                }
+                free(namelist);
+                return CPA_STATUS_INVALID_PARAM;
+            }
+            for (i = 0; i < number_of_pfs; i++)
+            {
+                sscanf(namelist[i]->d_name,
+                       "%x:%x:%x.%x",
+                       &domain,
+                       &bus,
+                       &dev,
+                       &func);
+                pf_info[i].pkg_id = i;
+                pf_info[i].domain = domain;
+                pf_info[i].bdf =
+                    ((0xFF & bus) << 8) + ((0x1F & dev) << 3) + (0x07 & func);
+                strncpy(
+                    pf_info[i].device_gen, device_name, ADF_DEVICE_TYPE_LENGTH);
+                free(namelist[i]);
+            }
+            free(namelist);
+        }
+        device_name = strtok(NULL, ","); /* Get the next device name */
+    }
+    return total_no_pfs;
 }

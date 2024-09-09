@@ -57,7 +57,7 @@
  */
 STATIC subservice_registation_handle_t *pSubsystemTable = NULL;
 STATIC subservice_registation_handle_t *pSubsystemTableHead = NULL;
-STATIC ICP_MUTEX subsystemTableLock = {0};
+STATIC ICP_MUTEX subsystemTableLock = { 0 };
 char *icp_module_name = "ADF_UIO_PROXY";
 
 /* Slepping time before subsystem is started */
@@ -321,7 +321,6 @@ CpaStatus adf_user_subsystemInit(icp_accel_dev_t *accel_dev)
 {
     CpaStatus status = CPA_STATUS_FAIL;
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
 
     while (NULL != subsystem_hdl)
     {
@@ -363,7 +362,6 @@ CpaStatus adf_user_subsystemStart(icp_accel_dev_t *accel_dev)
 {
     CpaStatus status = CPA_STATUS_FAIL;
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
 
     while (NULL != subsystem_hdl)
     {
@@ -403,7 +401,6 @@ CpaStatus adf_user_subsystemStop(icp_accel_dev_t *accel_dev)
     CpaStatus status = CPA_STATUS_FAIL;
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
     Cpa32U sleepflag = 0;
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
 
     while (NULL != subsystem_hdl)
     {
@@ -462,7 +459,6 @@ CpaStatus adf_user_subsystemShutdown(icp_accel_dev_t *accel_dev)
 {
     CpaStatus status = CPA_STATUS_FAIL;
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
 
     while (NULL != subsystem_hdl)
     {
@@ -558,7 +554,6 @@ CpaStatus adf_subsystemRestarting(icp_accel_dev_t *accel_dev)
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
     Cpa32U retryflag = 0;
 
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
     ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
     while (NULL != subsystem_hdl)
@@ -671,7 +666,6 @@ CpaStatus adf_subsystemError(icp_accel_dev_t *accel_dev)
     Cpa32U pendingflag = 0;
     subservice_registation_handle_t *subsystem_hdl = pSubsystemTableHead;
 
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
     ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
     while (NULL != subsystem_hdl)

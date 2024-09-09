@@ -110,69 +110,80 @@ CpaStatus cpaCySymSessionInUse(CpaCySymSessionCtx sessionCtx,
 
 #if CY_API_VERSION_AT_LEAST(2, 2)
 // Init variables
-const testSetupCipher_t cipherSetup[ALGCHAIN_CIPHER_NUM] = {
-    {0, 0},
-    {CPA_CY_SYM_CIPHER_NULL, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_ARC4, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_AES_ECB, SIZE_BIT_IN_BYTES(192)},
-    {CPA_CY_SYM_CIPHER_AES_CBC, SIZE_BIT_IN_BYTES(256)},
-    {CPA_CY_SYM_CIPHER_AES_CTR, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_AES_CCM, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_AES_GCM, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_DES_ECB, SIZE_BIT_IN_BYTES(64)},
-    {CPA_CY_SYM_CIPHER_DES_CBC, SIZE_BIT_IN_BYTES(64)},
-    {CPA_CY_SYM_CIPHER_3DES_ECB, SIZE_BIT_IN_BYTES(192)},
-    {CPA_CY_SYM_CIPHER_3DES_CBC, SIZE_BIT_IN_BYTES(192)},
-    {CPA_CY_SYM_CIPHER_3DES_CTR, SIZE_BIT_IN_BYTES(192)},
-    {CPA_CY_SYM_CIPHER_KASUMI_F8, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_SNOW3G_UEA2, SIZE_BIT_IN_BYTES(128)},
-    {CPA_CY_SYM_CIPHER_AES_F8, SIZE_BIT_IN_BYTES(256)},
-    {CPA_CY_SYM_CIPHER_AES_XTS, SIZE_BIT_IN_BYTES(256)},
-    {CPA_CY_SYM_CIPHER_ZUC_EEA3, SIZE_BIT_IN_BYTES(128)}};
 
-const testSetupHash_t hashSetup[ALGCHAIN_HASH_NUM] = {
-    {CPA_CY_SYM_HASH_NONE, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_MD5, SIZE_BIT_IN_BYTES(192), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_SHA1, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_SHA224, SIZE_BIT_IN_BYTES(224), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_SHA256, SIZE_BIT_IN_BYTES(256), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_SHA384, SIZE_BIT_IN_BYTES(384), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_SHA512, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_AES_XCBC, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_AES_CCM, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_AES_GCM, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_KASUMI_F9, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_4},
-    {CPA_CY_SYM_HASH_SNOW3G_UIA2, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_4},
-    {CPA_CY_SYM_HASH_AES_CMAC, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_AES_GMAC, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_AES_CBC_MAC, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16},
-    {CPA_CY_SYM_HASH_ZUC_EIA3, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_4},
-    {CPA_CY_SYM_HASH_SHA3_256, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16}};
+#define CIPHER_ALGORITHM_LIST                                                  \
+    { { 0, 0 },                                                                \
+      { CPA_CY_SYM_CIPHER_NULL, SIZE_BIT_IN_BYTES(128) },                      \
+      { CPA_CY_SYM_CIPHER_ARC4, SIZE_BIT_IN_BYTES(128) },                      \
+      { CPA_CY_SYM_CIPHER_AES_ECB, SIZE_BIT_IN_BYTES(192) },                   \
+      { CPA_CY_SYM_CIPHER_AES_CBC, SIZE_BIT_IN_BYTES(256) },                   \
+      { CPA_CY_SYM_CIPHER_AES_CTR, SIZE_BIT_IN_BYTES(128) },                   \
+      { CPA_CY_SYM_CIPHER_AES_CCM, SIZE_BIT_IN_BYTES(128) },                   \
+      { CPA_CY_SYM_CIPHER_AES_GCM, SIZE_BIT_IN_BYTES(128) },                   \
+      { CPA_CY_SYM_CIPHER_DES_ECB, SIZE_BIT_IN_BYTES(64) },                    \
+      { CPA_CY_SYM_CIPHER_DES_CBC, SIZE_BIT_IN_BYTES(64) },                    \
+      { CPA_CY_SYM_CIPHER_3DES_ECB, SIZE_BIT_IN_BYTES(192) },                  \
+      { CPA_CY_SYM_CIPHER_3DES_CBC, SIZE_BIT_IN_BYTES(192) },                  \
+      { CPA_CY_SYM_CIPHER_3DES_CTR, SIZE_BIT_IN_BYTES(192) },                  \
+      { CPA_CY_SYM_CIPHER_KASUMI_F8, SIZE_BIT_IN_BYTES(128) },                 \
+      { CPA_CY_SYM_CIPHER_SNOW3G_UEA2, SIZE_BIT_IN_BYTES(128) },               \
+      { CPA_CY_SYM_CIPHER_AES_F8, SIZE_BIT_IN_BYTES(256) },                    \
+      { CPA_CY_SYM_CIPHER_AES_XTS, SIZE_BIT_IN_BYTES(256) },                   \
+      { CPA_CY_SYM_CIPHER_ZUC_EEA3, SIZE_BIT_IN_BYTES(128) } };
+#define HASH_ALGORITHM_LIST                                                    \
+    { { CPA_CY_SYM_HASH_NONE, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16 },      \
+      { CPA_CY_SYM_HASH_MD5, SIZE_BIT_IN_BYTES(192), DIGEST_LENGTH_16 },       \
+      { CPA_CY_SYM_HASH_SHA1, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16 },      \
+      { CPA_CY_SYM_HASH_SHA224, SIZE_BIT_IN_BYTES(224), DIGEST_LENGTH_16 },    \
+      { CPA_CY_SYM_HASH_SHA256, SIZE_BIT_IN_BYTES(256), DIGEST_LENGTH_16 },    \
+      { CPA_CY_SYM_HASH_SHA384, SIZE_BIT_IN_BYTES(384), DIGEST_LENGTH_16 },    \
+      { CPA_CY_SYM_HASH_SHA512, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16 },    \
+      { CPA_CY_SYM_HASH_AES_XCBC, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16 },  \
+      { CPA_CY_SYM_HASH_AES_CCM, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16 },   \
+      { CPA_CY_SYM_HASH_AES_GCM, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16 },   \
+      { CPA_CY_SYM_HASH_KASUMI_F9, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_4 },  \
+      { CPA_CY_SYM_HASH_SNOW3G_UIA2,                                           \
+        SIZE_BIT_IN_BYTES(128),                                                \
+        DIGEST_LENGTH_4 },                                                     \
+      { CPA_CY_SYM_HASH_AES_CMAC, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_16 },  \
+      { CPA_CY_SYM_HASH_AES_GMAC, SIZE_BIT_IN_BYTES(512), DIGEST_LENGTH_16 },  \
+      { CPA_CY_SYM_HASH_AES_CBC_MAC,                                           \
+        SIZE_BIT_IN_BYTES(128),                                                \
+        DIGEST_LENGTH_16 },                                                    \
+      { CPA_CY_SYM_HASH_ZUC_EIA3, SIZE_BIT_IN_BYTES(128), DIGEST_LENGTH_4 },   \
+      { CPA_CY_SYM_HASH_SHA3_256,                                              \
+        SIZE_BIT_IN_BYTES(128),                                                \
+        DIGEST_LENGTH_16 } };
+#define ALGORITHM_CHAIN_BIT_MASK                                               \
+    { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 },                   \
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 },                   \
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1 },                   \
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } };
+#define CIPHER_ALGORITHM_NUM                                                   \
+    { 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 };
+#define HASH_ALGORITHM_NUM { 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 14, 15, 16 };
 
-const Cpa32U algChainAlgs[][ALGCHAIN_HASH_NUM] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0}};
 
-const Cpa32U cipherAlgs[CIPHER_ALG_NUM] =
-    {1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
-const Cpa32U hashAlgs[HASH_ALG_NUM] =
-    {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 14, 15, 16};
+const testSetupCipher_t cipherSetup[ALGCHAIN_CIPHER_NUM] =
+    CIPHER_ALGORITHM_LIST;
+const testSetupHash_t hashSetup[ALGCHAIN_HASH_NUM] = HASH_ALGORITHM_LIST;
+const Cpa32U algChainAlgs[][ALGCHAIN_HASH_NUM] = ALGORITHM_CHAIN_BIT_MASK;
+const Cpa32U cipherAlgs[CIPHER_ALG_NUM] = CIPHER_ALGORITHM_NUM;
+const Cpa32U hashAlgs[HASH_ALG_NUM] = HASH_ALGORITHM_NUM;
 
 extern CpaStatus getCryptoInstanceMapping(void);
 extern Cpa16U numInstances_g;

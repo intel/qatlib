@@ -57,8 +57,8 @@
 
 CpaStatus adf_io_getNumDevices(unsigned int *num_devices)
 {
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
     int ret;
 
     ICP_CHECK_FOR_NULL_PARAM(num_devices);
@@ -433,7 +433,7 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
                                   const char *pParamName,
                                   char *pParamValue)
 {
-    struct qatmgr_msg_req req = {0};
+    struct qatmgr_msg_req req = { 0 };
     enum serv_type type;
     unsigned serv_num;
     Cpa16U msg_type;
@@ -441,7 +441,7 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
     static __thread Cpa32U c_accelId = UINT32_MAX;
     static __thread enum serv_type c_serv_type;
     static __thread Cpa16U c_serv_num = UINT16_MAX;
-    static __thread struct qatmgr_msg_rsp rsp = {0};
+    static __thread struct qatmgr_msg_rsp rsp = { 0 };
 
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
     ICP_CHECK_FOR_NULL_PARAM(pSection);
@@ -521,8 +521,8 @@ CpaStatus adf_io_cfgGetParamValue(icp_accel_dev_t *accel_dev,
 
 Cpa32S adf_io_cfgGetDomainAddress(Cpa16U accelId)
 {
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
     unsigned node, b, d, f;
 
     req.device_num = accelId;
@@ -542,10 +542,10 @@ Cpa32S adf_io_cfgGetDomainAddress(Cpa16U accelId)
 
 Cpa16U adf_io_cfgGetBusAddress(Cpa16U accelId)
 {
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
     unsigned n, b, d, f;
-    unsigned bdf = 0;
+    unsigned bdf = ADF_IO_OPERATION_FAIL_CPA16U;
 
     req.device_num = accelId;
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
@@ -569,6 +569,15 @@ Cpa16U adf_io_cfgGetBusAddress(Cpa16U accelId)
 CpaStatus adf_io_reset_device(Cpa32U accelId)
 {
     return CPA_STATUS_UNSUPPORTED;
+}
+/*
+ * icp_adf_cfgCheckUserSection
+ * check if user process section exists in device cfg
+ */
+int adf_io_cfgCheckUserSection(int dev_id, uint8_t *pSectionPresent)
+{
+    *pSectionPresent = 1;
+    return 0;
 }
 
 CpaBoolean adf_io_isDeviceAvailable(void)

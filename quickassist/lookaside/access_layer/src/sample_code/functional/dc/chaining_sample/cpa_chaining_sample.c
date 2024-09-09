@@ -269,6 +269,7 @@ static CpaStatus dcChainBuildBufferList(CpaBufferList **testBufferList,
 
     while (curBuff < numBuffers)
     {
+        pFlatBuff->pData = NULL;
         if (0 != bufferSize)
         {
             status = PHYS_CONTIG_ALLOC(&pMsg, bufferSize);
@@ -281,10 +282,7 @@ static CpaStatus dcChainBuildBufferList(CpaBufferList **testBufferList,
             memset(pMsg, 0, bufferSize);
             pFlatBuff->pData = pMsg;
         }
-        else
-        {
-            pFlatBuff->pData = NULL;
-        }
+
         pFlatBuff->dataLenInBytes = bufferSize;
         pFlatBuff++;
         curBuff++;
@@ -351,7 +349,7 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
     CpaDcChainOperations operation = CPA_DC_CHAIN_HASH_THEN_COMPRESS;
     CpaCySymHashAlgorithm hashAlg = CPA_CY_SYM_HASH_SHA256;
     Cpa8U numSessions = NUM_SESSIONS_TWO;
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
     Cpa8U *pSWDigestBuffer = NULL;
 
     PRINT_DBG("cpaDcBufferListGetMetaSize\n");

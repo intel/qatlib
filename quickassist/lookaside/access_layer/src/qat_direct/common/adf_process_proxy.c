@@ -61,7 +61,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_accel_mgr.h"
 #include "icp_adf_transport.h"
-#include "adf_transport_ctrl.h"
 #include "adf_user_init.h"
 #include "adf_user_transport.h"
 #include "adf_init.h"
@@ -108,7 +107,7 @@ CpaStatus icp_adf_resetUserProxy(void);
  * adf_process_proxy_stop
  * Sets the process proxy running state to stopped
  */
-STATIC inline void adf_process_proxy_stop(void)
+STATIC INLINE void adf_process_proxy_stop(void)
 {
     osalAtomicSet(0, &process_proxy_status);
 }
@@ -117,12 +116,12 @@ STATIC inline void adf_process_proxy_stop(void)
  * adf_process_proxy_start
  * Sets the process proxy running state to started
  */
-STATIC inline void adf_process_proxy_start(void)
+STATIC INLINE void adf_process_proxy_start(void)
 {
     osalAtomicSet(1, &process_proxy_status);
 }
 
-STATIC inline Cpa32U adf_process_proxy_running(void)
+STATIC INLINE Cpa32U adf_process_proxy_running(void)
 {
     return (Cpa32U)osalAtomicGet(&process_proxy_status);
 }
@@ -337,8 +336,6 @@ CpaStatus icp_adf_userProcessToStart(char const *const name_tml, char *name)
 void icp_adf_userProcessStop(void)
 {
     adf_io_userProcessStop();
-
-    return;
 }
 
 /*

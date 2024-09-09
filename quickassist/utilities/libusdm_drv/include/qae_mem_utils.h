@@ -175,6 +175,24 @@ typedef struct dev_mem_info_s
         struct dev_mem_info_s *pNext_user_hash; /* user space only */
         uint64_t padding_nextuh;
     };
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    /* These pointers are required for adding and deleting slabs
+     * to/from TMP list. We cannot rely on existing pointers
+     * because those are actually being filled with relevant
+     * addresses given the slab was added to another lists.
+     * Please see ADD_ELEMENT_TO_END_LIST, ADD_ELEMENT_TO_END_LIST
+     * in usdm/include/qae_mem_utils.h
+     */
+    union {
+        struct dev_mem_info_s *pPrev_user_vfiotmp; /* user space only */
+        uint64_t padding_prevuvfio;
+    };
+    union {
+        struct dev_mem_info_s *pNext_user_vfiotmp; /* user space only */
+        uint64_t padding_nextuvfio;
+    };
+    uint32_t flag_pinned; /* required while using TMP list */
+#endif                    /* ICP_THREAD_SPECIFIC_USDM */
 } dev_mem_info_t;
 
 typedef struct user_page_info_s
@@ -681,6 +699,7 @@ void printMemAllocations(void);
 #endif
 
 #if defined(__KERNEL__)
+int handle_other_ioctls(uint32_t cmd);
 #if defined(ICP_ADF_IOMMU)
 int icp_adf_iommu_map(void *iova, void *phaddr, size_t size);
 int icp_adf_iommu_unmap(void *iova, size_t size);

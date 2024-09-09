@@ -164,6 +164,7 @@ static Cpa8U sampleIvExpected[] =
     {0xec, 0x63, 0xaa, 0x6d, 0x39, 0xc2, 0xb9, 0x94, 0x80, 0x3d, 0x24, 0xd9};
 
 extern int gDebugParam;
+CpaStatus hkdfSample(void);
 
 static void hkdfSampleCallback(void *pCallbackTag,
                                CpaStatus status,
@@ -228,7 +229,7 @@ static CpaStatus hkdfSampleExtractExpandLabelPerform(
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
     CpaFlatBuffer hkdfOut;
 
     status = PHYS_CONTIG_ALLOC(&pHkdfData, hkdfDataSize);
@@ -356,7 +357,7 @@ static CpaStatus hkdfSampleExtractExpandLabelSublabelsPerform(
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
     CpaFlatBuffer hkdfOut;
 
     status = PHYS_CONTIG_ALLOC(&pHkdfData, hkdfDataSize);
@@ -499,7 +500,7 @@ static CpaStatus hkdfSampleExtractExpandPerform(CpaInstanceHandle cyInstHandle)
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
     CpaFlatBuffer hkdfOut;
 
     status = PHYS_CONTIG_ALLOC(&pHkdfData, hkdfDataSize);
@@ -613,7 +614,7 @@ CpaStatus hkdfSample(void)
      * In this simplified version of instance discovery, we discover
      * exactly one instance of a crypto service.
      */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleSymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;

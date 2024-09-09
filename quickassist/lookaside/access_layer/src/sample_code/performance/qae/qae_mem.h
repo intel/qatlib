@@ -385,5 +385,9 @@ void qaeMemFreeNUMA(void **ptr);
 void qaeMemFree(void **ptr);
 
 void printMemAllocations(void);
+int register_mem_device_driver(void);
+void unregister_mem_device_driver(void);
+int qae_mem_init(void);
+void qae_mem_exit(void);
 
 #endif

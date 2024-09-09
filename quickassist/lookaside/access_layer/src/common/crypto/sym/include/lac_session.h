@@ -308,7 +308,7 @@ typedef struct lac_session_desc_s
      */
     void *writeRingMsgFunc;
     /**< function which will be called to write ring message */
-    OsalMutex accessLock;
+    OsalAtomic accessLock;
     /**< Session access lock */
     Cpa32U accessReaders;
     /**< Session readers counter */
@@ -349,6 +349,8 @@ typedef struct lac_session_desc_s
     /**< The physical address of the ARC4 initial state, set at init
     ** session time .
     */
+    Cpa64U totalHashPartialReq;
+    /**< Total size of partial hash requests in bytes. */
 } lac_session_desc_t;
 
 /**

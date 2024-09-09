@@ -462,12 +462,15 @@ static CpaStatus sm2PerfDataSetup(sm2_test_params_t *setup)
             keyexOutput.x.pData = setup->x1[i].pData;
             keyexOutput.y.dataLenInBytes = setup->y1[i].dataLenInBytes;
             keyexOutput.y.pData = setup->y1[i].pData;
-            status = cpaCyEcsm2KeyExPhase1(
-                setup->cyInstanceHandle,
-                NULL, /* Sync mode */
-                NULL,
-                &keyexOp, /* Key exchange p1 request data */
-                &keyexOutput /* Key exchange p1 response data */);
+            do
+            {
+                status = cpaCyEcsm2KeyExPhase1(
+                    setup->cyInstanceHandle,
+                    NULL, /* Sync mode */
+                    NULL,
+                    &keyexOp, /* Key exchange p1 request data */
+                    &keyexOutput /* Key exchange p1 response data */);
+            } while (CPA_STATUS_RETRY == status);
 
             /* fill the input and output structure for key exchange phase 1
              * using the random value in inverse order */
@@ -605,7 +608,8 @@ void sm2Performance(single_thread_test_data_t *testSetup)
         goto exit;
     }
     /* check whether asym service enabled or not for the instance */
-    status = cpaGetDeviceInfo(instanceInfo.physInstId.packageId, &deviceInfo);
+    status =
+        cpaGetDeviceInfo(instanceInfo.physInstId.acceleratorId, &deviceInfo);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("cpaGetDeviceInfo failed\n");

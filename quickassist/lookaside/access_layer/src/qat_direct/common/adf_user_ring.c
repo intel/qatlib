@@ -42,7 +42,6 @@
 #include <adf_platform_acceldev_common.h>
 #include <adf_platform_acceldev_gen4.h>
 #include <icp_platform.h>
-#include "adf_transport_ctrl.h"
 #include "adf_io_ring.h"
 
 static uint32_t validateRingSize(uint32_t num_msgs_on_ring,
@@ -136,11 +135,11 @@ static void adf_unreserve_ring(adf_dev_bank_handle_t *bank,
 }
 
 
-int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
-                         uint32_t *inBuf,
-                         uint64_t *seq_num)
+CpaStatus adf_user_put_msg(adf_dev_ring_handle_t *ring,
+                           uint32_t *inBuf,
+                           uint64_t *seq_num)
 {
-    int status;
+    CpaStatus status;
     uint32_t *targetAddr;
     int64_t flight;
     ICP_CHECK_FOR_NULL_PARAM(ring);
@@ -194,57 +193,6 @@ int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
 adf_user_put_msg_exit:
     ICP_MUTEX_UNLOCK(ring->user_lock);
     return status;
-}
-
-/*
- * Notifies the transport handle in question.
- */
-int32_t adf_user_notify_msgs(adf_dev_ring_handle_t *ring)
-{
-    uint32_t *msg;
-    uint32_t msg_counter = 0;
-
-    ICP_CHECK_FOR_NULL_PARAM(ring);
-
-    msg = (uint32_t *)(((UARCH_INT)ring->ring_virt_addr) + ring->head);
-
-    /* If there are valid messages then process them */
-    while (*msg != EMPTY_RING_SIG_WORD)
-    {
-        /* Invoke the callback for the message */
-        ring->callback((uint32_t *)msg);
-
-        /* Mark the message as processed */
-        *msg = EMPTY_RING_SIG_WORD;
-
-        /* Advance the head offset and handle wraparound */
-        ring->head = modulo((ring->head + ring->message_size), ring->modulo);
-        msg_counter++;
-
-        /* Point to where the next message should be */
-        msg = (uint32_t *)(((UARCH_INT)ring->ring_virt_addr) + ring->head);
-    }
-
-    /* Update the head CSR if any messages were processed */
-    if (msg_counter > 0)
-    {
-        __sync_sub_and_fetch(ring->in_flight, msg_counter);
-        /* Coalesce head writes to reduce impact of MMIO write */
-        if (msg_counter > ring->coal_write_count)
-        {
-            ring->coal_write_count = ring->min_resps_per_head_write;
-            WRITE_CSR_RING_HEAD(
-                ring->csr_addr, ring->bank_offset, ring->ring_num, ring->head);
-        }
-        else
-        {
-            /* Not enough responses have been processed to warrant the cost
-             * of a head write. Updating the count for the next time. */
-            ring->coal_write_count -= msg_counter;
-        }
-    }
-
-    return 0;
 }
 
 int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *ring)
@@ -306,7 +254,7 @@ CpaBoolean adf_user_check_resp_ring(adf_dev_ring_handle_t *ring)
  * empty or the response quota has been fulfilled.
  * If the response quota is zero, messages are read until the ring is drained.
  */
-int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring)
+CpaStatus adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring)
 {
     volatile uint32_t *msg = NULL;
     uint32_t msg_counter = 0, response_quota;
@@ -382,6 +330,8 @@ static int32_t adf_init_ring_internal(adf_dev_ring_handle_t *ring,
     uint32_t max_space = ring_size_bytes;
     device_type_t deviceType;
 
+    ICP_CHECK_FOR_NULL_PARAM(ring->accel_dev);
+
     /* Exclusive access to one ring */
     if (adf_reserve_ring(bank, ring_num))
     {
@@ -390,7 +340,6 @@ static int32_t adf_init_ring_internal(adf_dev_ring_handle_t *ring,
         return -EBUSY;
     }
 
-    ICP_CHECK_FOR_NULL_PARAM(ring->accel_dev);
     deviceType = ring->accel_dev->deviceType;
 
     ring->head = 0;
@@ -464,7 +413,7 @@ int32_t adf_init_ring(adf_dev_ring_handle_t *ring,
 
     if ((NULL == ring->ring_virt_addr) || (0 == ring->ring_phys_base_addr))
     {
-        ADF_ERROR("unable to get ringbuf(v:%p,p:%p) for rings in bank(%lu)\n",
+        ADF_ERROR("unable to get ringbuf(v:%p,p:%llx) for rings in bank(%u)\n",
                   ring->ring_virt_addr,
                   (void *)ring->ring_phys_base_addr,
                   (unsigned long)ring->ring_num);

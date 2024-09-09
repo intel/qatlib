@@ -79,11 +79,17 @@ extern void symPerformCallback(void *pCallbackTag,
                                void *pOpData,
                                CpaBufferList *pDstBuffer,
                                CpaBoolean verifyResult);
+CpaStatus cipherNewPerformanceTest(CpaBoolean mode,
+                                   Cpa32U mask,
+                                   Cpa32U bufferSize,
+                                   Cpa32U numBuffers,
+                                   Cpa32U numLoops);
+void qatSymmetricPerformance(single_thread_test_data_t *testSetup);
 
 /*allocates buffers store a file for compression. The buffers are sent to
  * hardware, performance is recorded and stored in the setup parameter
  * the sample code framework prints out results after the thread completes*/
-CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
+static CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U *testBufferSize = setup_sym->packetSizeInBytesArray;
@@ -544,7 +550,7 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
     sampleCodeThreadComplete(testSetup->threadID);
 }
 
-CpaStatus setupNewSymmetricTest(
+static CpaStatus setupNewSymmetricTest(
     CpaCySymOp opType,
     CpaCySymCipherAlgorithm cipherAlg,
     Cpa32U cipherKeyLengthInBytes,

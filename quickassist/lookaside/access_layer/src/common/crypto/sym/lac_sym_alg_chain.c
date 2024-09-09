@@ -131,17 +131,20 @@
      (CPA_CY_SYM_HASH_SHA224 == (hashAlgo)) ||                                 \
      (CPA_CY_SYM_HASH_SHA3_224 == (hashAlgo)))
 
+#define MAX_HASH_PARTIALS_SIZE (4ULL * 1024 * 1024 * 1024)
+
 static inline void LacAlgChain_LockSessionReader(
     lac_session_desc_t *pSessionDesc)
 {
     /* Session lock in TRAD API */
     if (!pSessionDesc->isDPSession)
     {
-        LAC_LOCK_MUTEX(&pSessionDesc->accessLock, OSAL_WAIT_FOREVER);
+        while (osalAtomicTestAndSet(1, &pSessionDesc->accessLock))
+            ;
 
         pSessionDesc->accessReaders++;
 
-        LAC_UNLOCK_MUTEX(&pSessionDesc->accessLock);
+        osalAtomicRelease(&pSessionDesc->accessLock);
     }
 }
 
@@ -151,11 +154,12 @@ static inline void LacAlgChain_UnlockSessionReader(
     /* Session lock in TRAD API */
     if (!pSessionDesc->isDPSession)
     {
-        LAC_LOCK_MUTEX(&pSessionDesc->accessLock, OSAL_WAIT_FOREVER);
+        while (osalAtomicTestAndSet(1, &pSessionDesc->accessLock))
+            ;
 
         pSessionDesc->accessReaders--;
 
-        LAC_UNLOCK_MUTEX(&pSessionDesc->accessLock);
+        osalAtomicRelease(&pSessionDesc->accessLock);
     }
 }
 
@@ -166,21 +170,14 @@ static inline CpaStatus LacAlgChain_LockSessionWriter(
 
     if (!pSessionDesc->isDPSession)
     {
-        /* Session lock in TRAD API */
-        if (CPA_STATUS_SUCCESS != LAC_LOCK_MUTEX(&pSessionDesc->accessLock,
-                                                 LOCK_SESSION_WRITER_TIMEOUT))
+        while (osalAtomicTestAndSet(1, &pSessionDesc->accessLock))
+            ;
+
+        if (pSessionDesc->accessReaders ||
+            osalAtomicGet(&(pSessionDesc->u.pendingCbCount)) > 0)
         {
             status = CPA_STATUS_RETRY;
-        }
-
-        if (CPA_STATUS_SUCCESS == status)
-        {
-            if (pSessionDesc->accessReaders ||
-                osalAtomicGet(&(pSessionDesc->u.pendingCbCount)) > 0)
-            {
-                status = CPA_STATUS_RETRY;
-                LAC_UNLOCK_MUTEX(&pSessionDesc->accessLock);
-            }
+            osalAtomicRelease(&pSessionDesc->accessLock);
         }
     }
     else
@@ -201,7 +198,7 @@ static inline void LacAlgChain_UnlockSessionWriter(
     /* Session lock in TRAD API */
     if (!pSessionDesc->isDPSession)
     {
-        LAC_UNLOCK_MUTEX(&pSessionDesc->accessLock);
+        osalAtomicRelease(&pSessionDesc->accessLock);
     }
 }
 
@@ -1545,13 +1542,7 @@ CpaStatus LacAlgChain_SessionInit(
     }
 
     /* Initialise session readers writers */
-    stat = LAC_INIT_MUTEX(&pSessionDesc->accessLock);
-    if (CPA_STATUS_SUCCESS != stat)
-    {
-        LAC_LOG_ERROR("Mutex init failed for accessLock");
-        return CPA_STATUS_RESOURCE;
-    }
-
+    osalAtomicSet(0, &pSessionDesc->accessLock);
     pSessionDesc->pRequestQueueHead = NULL;
     pSessionDesc->pRequestQueueTail = NULL;
     pSessionDesc->nonBlockingOpsInProgress = CPA_TRUE;
@@ -2252,6 +2243,46 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             pSessionDesc->laCmdFlags,
             pSessionDesc->laExtCmdFlags);
     }
+    else if ((SPC_YES == pSessionDesc->singlePassState) &&
+             (LAC_CIPHER_SPC_IV_SIZE != pOpData->ivLenInBytes))
+    {
+        pSessionDesc->symOperation = CPA_CY_SYM_OP_ALGORITHM_CHAINING;
+        pSessionDesc->singlePassState = SPC_PROBABLE;
+        pSessionDesc->isCipher = CPA_TRUE;
+        pSessionDesc->isAuthEncryptOp = CPA_TRUE;
+        pSessionDesc->isAuth = CPA_TRUE;
+        pCdInfo = &(pSessionDesc->contentDescInfo);
+        pHwBlockBaseInDRAM = (Cpa8U *)pCdInfo->pData;
+
+        if (CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT ==
+            pSessionDesc->cipherDirection)
+        {
+            pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_CIPHER_HASH;
+        }
+        else
+        {
+            pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_HASH_CIPHER;
+        }
+
+        laCmdId = pSessionDesc->laCmdId;
+        ICP_QAT_FW_LA_SINGLE_PASS_PROTO_FLAG_SET(pSessionDesc->laCmdFlags, 0);
+        ICP_QAT_FW_LA_PROTO_SET(pSessionDesc->laCmdFlags,
+                                ICP_QAT_FW_LA_GCM_PROTO);
+
+        LacSymQat_CipherHwBlockPopulateCfgData(pSessionDesc,
+                                               pHwBlockBaseInDRAM +
+                                                   hwBlockOffsetInDRAM,
+                                               &sizeInBytes);
+
+        SalQatMsg_CmnHdrWrite(
+            (icp_qat_fw_comn_req_t *)&(pSessionDesc->reqCacheHdr),
+            ICP_QAT_FW_COMN_REQ_CPM_FW_LA,
+            laCmdId,
+            pSessionDesc->cmnRequestFlags,
+            pSessionDesc->laCmdFlags,
+            pSessionDesc->laExtCmdFlags);
+    }
+
 #ifdef ICP_PARAM_CHECK
     else if (LAC_CIPHER_IS_CHACHA(cipher) &&
              (LAC_CIPHER_SPC_IV_SIZE != pOpData->ivLenInBytes))
@@ -2298,6 +2329,26 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                 LacSymAlgChain_PrepareGCMData(pSessionDesc,
                                               pOpData->pAdditionalAuthData);
             }
+        }
+    }
+
+    if (CPA_CY_SYM_OP_HASH == pSessionDesc->symOperation &&
+        CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType)
+    {
+        /* Accumulate the size of partial hash requests. */
+        pSessionDesc->totalHashPartialReq += pOpData->messageLenToHashInBytes;
+        /* Check if hash request size is 4GB or more. */
+        if (CPA_STATUS_SUCCESS == status &&
+            MAX_HASH_PARTIALS_SIZE <= pSessionDesc->totalHashPartialReq)
+        {
+            LAC_LOG_ERROR("Partial Hash processing of size 4GB or more "
+                          "not supported");
+            pSessionDesc->totalHashPartialReq = 0;
+            status = CPA_STATUS_FAIL;
+        }
+        else if (CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL == pOpData->packetType)
+        {
+            pSessionDesc->totalHashPartialReq = 0;
         }
     }
 
@@ -2532,20 +2583,6 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
 
 #ifdef ICP_PARAM_CHECK
             status = LacCipher_PerformParamCheck(cipher, pOpData, srcPktSize);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                /* free the cookie */
-                if ((NULL != pCookie) &&
-                    (((void *)CPA_STATUS_RETRY) != pCookie))
-                {
-                    Lac_MemPoolEntryFree(pCookie);
-                }
-
-                /* Unlock session on error */
-                LacAlgChain_UnlockSessionReader(pSessionDesc);
-
-                return status;
-            }
 #endif
 
             if (CPA_STATUS_SUCCESS == status)
@@ -2719,20 +2756,6 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                                                pOpData,
                                                srcPktSize,
                                                pVerifyResult);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                /* free the cookie */
-                if ((NULL != pCookie) &&
-                    (((void *)CPA_STATUS_RETRY) != pCookie))
-                {
-                    Lac_MemPoolEntryFree(pCookie);
-                }
-
-                /* Unlock session on error */
-                LacAlgChain_UnlockSessionReader(pSessionDesc);
-
-                return status;
-            }
 #endif
             if (CPA_STATUS_SUCCESS == status)
             {
@@ -2923,6 +2946,13 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
         if (NULL != pSymCookie)
         {
             Lac_MemPoolEntryFree(pSymCookie);
+        }
+        if (CPA_CY_SYM_OP_HASH == pSessionDesc->symOperation &&
+            CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType &&
+            pSessionDesc->totalHashPartialReq)
+        {
+            pSessionDesc->totalHashPartialReq -=
+                pOpData->messageLenToHashInBytes;
         }
     }
     return status;

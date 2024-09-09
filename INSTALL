@@ -54,9 +54,14 @@ Web-based documentation for QATlib and related components is available at:
 Using the QATlib package
 ========================
 
-    Note: Instructions assume running on Fedora and as non-root user who can
-    get root access using sudo, i.e. user is in sudoers group. Command-lines
-    may be different in other Linux distributions.
+    Note: The build instructions provided are for RPM-based Linux distributions
+    such as Fedora, Red Hat Enterprise Linux (RHEL), CentOS, and Rocky Linux.
+    For Debian-based distributions like Debian and Ubuntu, refer to the
+    installation guide at:
+    https://intel.github.io/quickassist/qatlib/install.html#installing-from-sources
+    These instructions assume operation as a non-root user with sudo
+    privileges. Users on other distributions may need to adapt the command-lines
+    accordingly.
 
 
 Check System Prerequisites
@@ -128,12 +133,25 @@ Check System Prerequisites
          -> Platform Configuration
           -> Miscellaneous Configuration
            -> SR-IOV Support
-     * Grub settings
-        set intel_iommu on in grub file, e.g. in Fedora:
-         * sudo vi /etc/default/grub
-         * to GRUB_CMDLINE_LINUX add "intel_iommu=on"
-         * sudo grub2-mkconfig -o /etc/grub2-efi.cfg
-         * sudo shutdown -r now
+     * GRUB Configuration Updates
+        - Step 1: Edit the GRUB configuration file.
+            * Open the file with a text editor, for example, `sudo vi /etc/default/grub`.
+
+        - Step 2: Add the necessary parameters to the `GRUB_CMDLINE_LINUX` entry.
+            * Enable Intel IOMMU by adding "intel_iommu=on". The line should look like:
+            `GRUB_CMDLINE_LINUX="... intel_iommu=on"`.
+            * Add VFIO-PCI device IDs. For a device with the ID 8086:4941, add
+            "vfio-pci.ids=8086:4941". The line should look like:
+            `GRUB_CMDLINE_LINUX="... vfio-pci.ids=8086:4941"`.
+            * Refer to the list of supported devices at
+            https://intel.github.io/quickassist/qatlib/requirements.html#supported-devices
+            for other device IDs.
+
+        - Step 3: Update the GRUB configuration and reboot the system.
+            * Generate a new GRUB configuration file:
+            `sudo grub2-mkconfig -o /etc/grub2-efi.cfg`.
+            * Reboot the system to apply the changes:
+            `sudo shutdown -r now`.
 
 
 ===============================================================================
@@ -182,7 +200,7 @@ Compilation and installation - quickstart instructions
 
         # Install dependencies
         sudo dnf install -y gcc systemd-devel automake autoconf libtool
-        sudo dnf install -y pkg-config openssl-devel zlib-devel nasm
+        sudo dnf install -y pkg-config openssl-devel zlib-devel nasm numactl-devel
 
         # Clone QATlib into ~/qatlib, i.e. in your home dir
         cd ~
@@ -249,6 +267,7 @@ Compilation and installation - detailed instructions
         libraries:
             openssl-devel
             zlib-devel
+            numactl-devel
 
     ----------------------------------------------------------------------------
 
@@ -699,6 +718,19 @@ Full list of Configuration options
                 Enable deprecated legacy crypto algorithms. See the README.md
                 for the list of algorithms which are deprecated by default.
 
+        --enable-icp-thread-specific-usdm
+                USDM allocates and handles memory specific to threads.
+                (For multi-thread apps, allocated memory information will be
+                maintained separately for each thread; employs thread local storage
+                feature i.e. TLS. It avoids locking that was needed when a global
+                data structure being used in non thread-specific  implementation).
+                NOTE: Any memory allocated by a thread must be freed by the same
+                thread. If it passes the memory to other threads for use, it's
+                responsible for any synchronisation between those threads.
+                The thread which did the allocation must live until after all
+                threads using the memory are finished with it, as any thread
+                memory not yet freed may be cleaned up on termination of the thread.
+
         MAX_MR
                 Number of Miller Rabin rounds for prime operations. Setting this
                 to a smaller value reduces the memory usage required by the
@@ -713,6 +745,9 @@ Full list of Configuration options
 
 Common issues
 =============
+
+    Additional details are available at:
+        https://intel.github.io/quickassist/qatlib/index.html
 
     Issue: errors like these are seen in system logs:
          * 4xxx 0000:6b:00.0: IOMMU should be enabled for SR-IOV to work

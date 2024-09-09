@@ -489,14 +489,8 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    char *section = DYN_SEC;
+    char *section = icpGetProcessName();
     Cpa32S strSize = 0;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCompressionService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
 
 
     /* Get Config Info: Accel Num, bank Num, packageID,
@@ -679,14 +673,7 @@ STATIC CpaStatus SalCtrl_DcDebugInit(icp_accel_dev_t *device,
     sal_statistics_collection_t *pStatsCollection =
         (sal_statistics_collection_t *)device->pQatStats;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    char *section = DYN_SEC;
-
-    /* Instance may not in the DYN section */
-    if (CPA_FALSE == pCompressionService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    char *section = icpGetProcessName();
     if (CPA_TRUE == pStatsCollection->bStatsEnabled)
     {
         /* Get instance name for stats */
@@ -791,7 +778,7 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
     Cpa32U msgSize = 0;
-    char *section = DYN_SEC;
+    char *section = NULL;
 #ifndef ICP_DC_ONLY
     sal_dc_chain_service_t *pChainService = NULL;
 #endif
@@ -800,12 +787,7 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 
     pCompressionService->generic_service_info.state =
         SAL_SERVICE_STATE_INITIALIZING;
-
-    if (CPA_FALSE == pCompressionService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     if (pStatsCollection == NULL)
     {
         return CPA_STATUS_FAIL;
@@ -1173,18 +1155,13 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
     Cpa32U msgSize = 0;
-    char *section = DYN_SEC;
+    char *section = NULL;
 #ifndef ICP_DC_ONLY
     sal_dc_chain_service_t *pChainService = NULL;
 #endif
 
     SAL_SERVICE_GOOD_FOR_RESTARTED(pCompressionService);
-
-    if (CPA_FALSE == pCompressionService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     if (pStatsCollection == NULL)
     {
         status = CPA_STATUS_FAIL;
@@ -1926,7 +1903,7 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     CpaStatus status = CPA_STATUS_SUCCESS;
     char keyStr[ADF_CFG_MAX_KEY_LEN_IN_BYTES] = {0};
     char valStr[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-    char *section = DYN_SEC;
+    char *section = NULL;
     Cpa32S strSize = 0;
 
 #ifdef ICP_TRACE
@@ -2018,12 +1995,7 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
              SAL_INFO2_PART_NAME,
              dev->deviceName);
     pInstanceInfo2->partName[CPA_INST_PART_NAME_SIZE - 1] = '\0';
-
-    if (CPA_FALSE == pCompressionService->generic_service_info.is_dyn)
-    {
-        section = icpGetProcessName();
-    }
-
+    section = icpGetProcessName();
     status =
         Sal_StringParsing(SAL_CFG_DC,
                           pCompressionService->generic_service_info.instance,
@@ -2340,7 +2312,7 @@ CpaStatus SalCtrl_DcDevErr_GenResponses(icp_accel_dev_t *accel_dev,
                                         Cpa32U enabled_services)
 {
     sal_t *service_container = NULL;
-    CpaStatus status = CPA_STATUS_INVALID_PARAM;
+    CpaStatus status = CPA_STATUS_SUCCESS;
     service_container = accel_dev->pSalHandle;
 
     if (SalCtrl_IsServiceEnabled(enabled_services,

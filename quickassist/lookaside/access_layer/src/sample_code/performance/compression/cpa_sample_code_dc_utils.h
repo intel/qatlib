@@ -130,6 +130,12 @@ extern volatile CpaBoolean LZ4BlockIndependence_g;
 void dcPerformCallback(void *pCallbackTag, CpaStatus status);
 void dcReadPerformCallback(void *pCallbackTag, CpaStatus status);
 
+CpaStatus setAutoSelectBestMode(CpaDcAutoSelectBest mode);
+CpaStatus disableAdditionalCmpbufferSize(CpaBoolean value);
+CpaStatus compareBuffers2(CpaBufferList ***ppSrc,
+                          CpaBufferList ***ppDst,
+                          CpaBufferList ***ppComp,
+                          compression_test_params_t *setup);
 /* corpus Data structure */
 extern CpaBoolean useZlib_g;
 extern Cpa32U expansionFactor_g;

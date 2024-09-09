@@ -115,6 +115,17 @@ CpaStatus dsaGenZ(CpaInstanceHandle instanceHandle,
                   CpaCySymHashAlgorithm hashAlg,
                   CpaFlatBuffer *dsaZ);
 
+CpaStatus setupIkeDsaTest(Cpa32U pLenInBits,
+                          Cpa32U qLenInBits,
+                          sync_mode_t syncMode,
+                          Cpa32U numBuffs,
+                          Cpa32U numLoops);
+void ikeDsaCallback(void *pCallbackTag,
+                    CpaStatus status,
+                    void *pOpData,
+                    CpaFlatBuffer *pOut);
+void ikeDsaPerformance(single_thread_test_data_t *testSetup);
+
 /*****************************************************************
  * Declare a static 1024/160 bit P/Q pair that satisfies FIPS186-3
  * ***************************************************************/
@@ -277,12 +288,12 @@ void ikeDsaCallback(void *pCallbackTag,
  * This function frees all Operation Data memory setup in this file.
  * The code checks for any unallocated memory before it attempts to free it.
  ******************************************************************************/
-void dsaFreeDataMemory(dsa_test_params_t *setup,
-                       CpaCyDsaRSSignOpData *pSignOpdata[],
-                       CpaCyDsaVerifyOpData *pVerifyOpData[],
-                       CpaCyDsaVerifyOpData *pVerifyOpData2[],
-                       CpaFlatBuffer *pR[],
-                       CpaFlatBuffer *pS[])
+static void dsaFreeDataMemory(dsa_test_params_t *setup,
+                              CpaCyDsaRSSignOpData *pSignOpdata[],
+                              CpaCyDsaVerifyOpData *pVerifyOpData[],
+                              CpaCyDsaVerifyOpData *pVerifyOpData2[],
+                              CpaFlatBuffer *pR[],
+                              CpaFlatBuffer *pS[])
 {
     Cpa32U bufferCount = 0;
 
@@ -387,8 +398,8 @@ static void ikeDsaMemFreeDsaData(ike_dsa_client_data_t *client)
  *      This function allocates the client memory for an IKE-DSA
  *      transaction used in ikeDsaPerform
  ******************************************************************************/
-CpaStatus allocDsaClientMem(dsa_test_params_t *setup,
-                            ike_dsa_client_data_t *client)
+static CpaStatus allocDsaClientMem(dsa_test_params_t *setup,
+                                   ike_dsa_client_data_t *client)
 {
     if (CPA_STATUS_SUCCESS !=
         allocArrayOfPointers(setup->cyInstanceHandle,
@@ -474,14 +485,14 @@ CpaStatus allocDsaClientMem(dsa_test_params_t *setup,
  *      free all memory used in DSA IKE code in this file
  *
  *****************************************************************************/
-void freeIkeDsaMem(dsa_test_params_t *setup,
-                   CpaFlatBuffer *dsaX,
-                   CpaFlatBuffer *dsaY,
-                   CpaFlatBuffer *dsaK,
-                   CpaFlatBuffer *dsaP,
-                   CpaFlatBuffer *dsaQ,
-                   CpaFlatBuffer *dsaG,
-                   CpaFlatBuffer *dsaH)
+static void freeIkeDsaMem(dsa_test_params_t *setup,
+                          CpaFlatBuffer *dsaX,
+                          CpaFlatBuffer *dsaY,
+                          CpaFlatBuffer *dsaK,
+                          CpaFlatBuffer *dsaP,
+                          CpaFlatBuffer *dsaQ,
+                          CpaFlatBuffer *dsaG,
+                          CpaFlatBuffer *dsaH)
 {
     freeArrayFlatBufferNUMA(dsaX, setup->numBuffers);
     freeArrayFlatBufferNUMA(dsaY, setup->numBuffers);
@@ -524,12 +535,12 @@ void freeIkeDsaMem(dsa_test_params_t *setup,
  * this function allocates space and generates arrays of DSA keys, based on the
  * parameters within the setup
  * ****************************************************************************/
-CpaStatus genDsaPara(dsa_test_params_t *setup,
-                     CpaCyDsaRSSignOpData **ppSignOpData,
-                     CpaCyDsaVerifyOpData **ppVerifyOpData,
-                     CpaCyDsaVerifyOpData **ppVerifyOpData2,
-                     CpaFlatBuffer **ppdsaR,
-                     CpaFlatBuffer **ppdsaS)
+static CpaStatus genDsaPara(dsa_test_params_t *setup,
+                            CpaCyDsaRSSignOpData **ppSignOpData,
+                            CpaCyDsaVerifyOpData **ppVerifyOpData,
+                            CpaCyDsaVerifyOpData **ppVerifyOpData2,
+                            CpaFlatBuffer **ppdsaR,
+                            CpaFlatBuffer **ppdsaS)
 {
     Cpa32U i = 0;
     Cpa32U status = 0;
@@ -1001,12 +1012,12 @@ CpaStatus genDsaPara(dsa_test_params_t *setup,
  * It is assumed all the encrypt data and keys have been been set using
  * functions defined in this file
  * ****************************************************************************/
-CpaStatus sampleDsaSign(dsa_test_params_t *setup,
-                        CpaCyDsaRSSignOpData *pRSSignOpData[],
-                        CpaFlatBuffer *dsaR[],
-                        CpaFlatBuffer *dsaS[],
-                        Cpa32U numBuffers,
-                        Cpa32U numLoops)
+static CpaStatus sampleDsaSign(dsa_test_params_t *setup,
+                               CpaCyDsaRSSignOpData *pRSSignOpData[],
+                               CpaFlatBuffer *dsaR[],
+                               CpaFlatBuffer *dsaS[],
+                               Cpa32U numBuffers,
+                               Cpa32U numLoops)
 {
     Cpa32U outerLoop = 0;
     Cpa32U i = 0;
@@ -1098,11 +1109,11 @@ static void ikeDsaMemFree(dsa_test_params_t *setup,
  * store the output
  *
  ****************************************************************************/
-CpaStatus dsaZSetup(CpaFlatBuffer **ppPublicValues,
-                    CpaCyDsaRSSignOpData **ppSignatureOpData,
-                    CpaCyDsaVerifyOpData **ppVerifyOpData,
-                    CpaCyDsaVerifyOpData **ppVerifyOpData2,
-                    dsa_test_params_t *setup)
+static CpaStatus dsaZSetup(CpaFlatBuffer **ppPublicValues,
+                           CpaCyDsaRSSignOpData **ppSignatureOpData,
+                           CpaCyDsaVerifyOpData **ppVerifyOpData,
+                           CpaCyDsaVerifyOpData **ppVerifyOpData2,
+                           dsa_test_params_t *setup)
 {
     Cpa32U i = 0;
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -1713,7 +1724,7 @@ static CpaStatus ikeDsaPerform(dsa_test_params_t *setup)
  * @description
  *      This function prints the IKE-DSA performance stats
  ******************************************************************************/
-CpaStatus ikeDsaPrintStats(thread_creation_data_t *data)
+static CpaStatus ikeDsaPrintStats(thread_creation_data_t *data)
 {
     PRINT("IKE_DSA SIMULATION\n");
     PRINT("Modulus Size %17u\n", data->packetSize);

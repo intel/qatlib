@@ -63,6 +63,7 @@
 #include "qat_compression_main.h"
 #include "cpa_sample_code_dc_perf.h"
 #include "qat_perf_utils.h"
+#include "qat_compression_e2e.h"
 
 #ifdef KERNEL_SPACE
 #include <linux/zlib.h>

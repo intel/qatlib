@@ -690,7 +690,8 @@ CpaStatus qatSymOpDataSetup(symmetric_test_params_t *pSetup,
                 pSetup->packetSizeInBytesArray[idx];
         }
 
-        if (CPA_CY_SYM_CIPHER_AES_CCM == cipherAlgorithm)
+        if ((CPA_CY_SYM_CIPHER_AES_CCM == cipherAlgorithm) &&
+            (CPA_CY_SYM_HASH_AES_GMAC != hashAlgorithm))
         {
             /*generate a random IV*/
             generateRandomData(&(pOpdata[idx].pIv[1]),

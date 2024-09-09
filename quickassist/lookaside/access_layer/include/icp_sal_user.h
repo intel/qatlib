@@ -143,15 +143,15 @@ CpaStatus icp_sal_userStartMultiProcess(const char *pProcessName,
  *
  ************************************************************************/
 CpaStatus icp_sal_userStop(void);
-
+#ifndef ICP_DC_ONLY
 /*************************************************************************
  * @ingroup SalUser
  * @description
  *    This function gets the number of the available dynamic allocated
- *    crypto instances
+ *    crypto instances.
  *
  * @context
- *      This function is called from the user process context
+ *      This function is called from the user process context.
  *
  * @assumptions
  *      None
@@ -164,9 +164,12 @@ CpaStatus icp_sal_userStop(void);
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
+
 CpaStatus icp_sal_userCyGetAvailableNumDynInstances(Cpa32U *pNumCyInstances);
+#endif
 
 /*************************************************************************
  * @ingroup SalUser
@@ -188,10 +191,13 @@ CpaStatus icp_sal_userCyGetAvailableNumDynInstances(Cpa32U *pNumCyInstances);
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
+
 CpaStatus icp_sal_userDcGetAvailableNumDynInstances(Cpa32U *pNumDcInstances);
 
+#ifndef ICP_DC_ONLY
 /*************************************************************************
  * @ingroup SalUser
  * @description
@@ -239,13 +245,14 @@ CpaStatus icp_sal_userCyGetAvailableNumDynInstancesByDevPkg(
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userCyGetAvailableNumDynInstancesByPkgAccel(
     Cpa32U *pNumCyInstances,
     Cpa32U devPkgID,
     Cpa32U accelerator_number);
-
+#endif
 /*************************************************************************
  * @ingroup SalUser
  * @description
@@ -266,12 +273,14 @@ CpaStatus icp_sal_userCyGetAvailableNumDynInstancesByPkgAccel(
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userDcGetAvailableNumDynInstancesByDevPkg(
     Cpa32U *pNumDcInstances,
     Cpa32U devPkgID);
 
+#ifndef ICP_DC_ONLY
 /*************************************************************************
  * @ingroup SalUser
  * @description
@@ -295,6 +304,7 @@ CpaStatus icp_sal_userDcGetAvailableNumDynInstancesByDevPkg(
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userCyInstancesAlloc(Cpa32U numCyInstances,
@@ -324,6 +334,7 @@ CpaStatus icp_sal_userCyInstancesAlloc(Cpa32U numCyInstances,
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userCyInstancesAllocByDevPkg(Cpa32U numCyInstances,
@@ -354,6 +365,7 @@ CpaStatus icp_sal_userCyInstancesAllocByDevPkg(Cpa32U numCyInstances,
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userCyInstancesAllocByPkgAccel(
@@ -385,10 +397,12 @@ CpaStatus icp_sal_userCyInstancesAllocByPkgAccel(
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userCyFreeInstances(Cpa32U numCyInstances,
                                       CpaInstanceHandle *pCyInstances);
+#endif
 
 /*************************************************************************
  * @ingroup SalUser
@@ -413,6 +427,7 @@ CpaStatus icp_sal_userCyFreeInstances(Cpa32U numCyInstances,
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userDcInstancesAlloc(Cpa32U numDcInstances,
@@ -442,6 +457,7 @@ CpaStatus icp_sal_userDcInstancesAlloc(Cpa32U numDcInstances,
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userDcInstancesAllocByDevPkg(Cpa32U numDcInstances,
@@ -471,6 +487,7 @@ CpaStatus icp_sal_userDcInstancesAllocByDevPkg(Cpa32U numDcInstances,
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_userDcFreeInstances(Cpa32U numDcInstances,
@@ -497,6 +514,7 @@ CpaStatus icp_sal_userDcFreeInstances(Cpa32U numDcInstances,
  *
  * @retval CPA_STATUS_SUCCESS        No error
  * @retval CPA_STATUS_FAIL           Operation failed
+ * @retval CPA_STATUS_UNSUPPORTED    Deprecated function
  *
  ************************************************************************/
 CpaStatus icp_sal_find_new_devices(void);

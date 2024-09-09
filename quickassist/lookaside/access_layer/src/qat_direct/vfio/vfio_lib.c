@@ -155,8 +155,8 @@ int open_vfio_dev(const char *vfio_file,
     int already_enabled = 0;
     static pid_t pid = 0;
 
-    struct vfio_group_status group_status = {.argsz = sizeof(group_status)};
-    struct vfio_device_info device_info = {.argsz = sizeof(device_info)};
+    struct vfio_group_status group_status = { .argsz = sizeof(group_status) };
+    struct vfio_device_info device_info = { .argsz = sizeof(device_info) };
 
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -1);
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(vfio_file, -1);
@@ -281,7 +281,7 @@ int open_vfio_dev(const char *vfio_file,
 
     for (i = 0; i < device_info.num_regions; i++)
     {
-        struct vfio_region_info reg = {.argsz = sizeof(reg)};
+        struct vfio_region_info reg = { .argsz = sizeof(reg) };
 
         reg.index = i;
 
@@ -331,16 +331,6 @@ int open_vfio_dev(const char *vfio_file,
         return -1;
     }
 
-    /* Gratuitous device reset and go... */
-    ret = ioctl(dev->vfio_dev_fd, VFIO_DEVICE_RESET);
-    if (ret)
-    {
-        ADF_ERROR("VFIO_DEVICE_RESET ioctl failed\n");
-        close_vfio_dev(dev);
-
-        return -1;
-    }
-
     /* Init VF2PF communication */
     dev->pfvf = adf_init_pfvf_dev_data(dev->pcs.bar[ADF_PMISC_BAR].ptr, pci_id);
 
@@ -351,12 +341,19 @@ void close_vfio_dev(vfio_dev_info_t *dev)
 {
     int idx;
     pcs_t *pcs;
+    int ret = 0;
 
     ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
 
     pcs = &dev->pcs;
     for (idx = pcs->nr_bar - 1; idx >= 0; idx--)
-        (void)munmap(pcs->bar[idx].ptr, pcs->bar[idx].size);
+    {
+        ret = munmap(pcs->bar[idx].ptr, pcs->bar[idx].size);
+        if (ret)
+        {
+            ADF_ERROR("close_vfio_dev : munmap error for idx = %d\n", idx);
+        }
+    }
     pcs->nr_bar = 0;
 
     pci_vfio_set_command(dev->vfio_dev_fd, PCI_COMMAND_MEMORY, false);

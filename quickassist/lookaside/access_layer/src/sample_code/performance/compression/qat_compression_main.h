@@ -412,6 +412,8 @@ CpaStatus qatCompressionSessionTeardown(
     CpaDcSessionHandle *pSessionHandle,
     CpaDcSessionHandle *pDecompressSessionHandle);
 
+#ifdef USER_SPACE
+#ifdef SC_CHAINING_ENABLED
 /**
  *****************************************************************************
  * @file qat_compression_main.h
@@ -475,6 +477,9 @@ CpaStatus qatDcChainSessionTeardown(
     compression_test_params_t *setup,
     CpaDcSessionHandle *pSessionHandle,
     CpaDcSessionHandle *pDecompressSessionHandle);
+
+#endif
+#endif
 
 /**
  *****************************************************************************

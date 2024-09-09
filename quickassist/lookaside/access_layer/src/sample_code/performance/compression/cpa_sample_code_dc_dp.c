@@ -100,6 +100,9 @@ extern volatile CpaBoolean backoff_dynamic_g;
 extern Cpa32U backoff_static_timer_g;
 static inline void printThreadDetails(single_thread_test_data_t *testSetup)
     __attribute__((unused));
+CpaStatus setDcPollingInterval(Cpa64U pollingInterval);
+CpaStatus printDcPollingInterval(void);
+void dcDpPerformance(single_thread_test_data_t *testSetup);
 
 /*****************************************************************************
  * @ingroup sampleCompressionDpPerf
@@ -136,7 +139,7 @@ EXPORT_SYMBOL(printDcPollingInterval);
  * @description
  *  Callback function after a call to the DC API
  ******************************************************************************/
-void dcDpCallbackFunction(CpaDcDpOpData *pOpData)
+static void dcDpCallbackFunction(CpaDcDpOpData *pOpData)
 {
     CpaDcRqResults *pResults = &(pOpData->results);
 
@@ -712,6 +715,8 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
         {
             PRINT_ERR("Failed to allocate memory for submission and response "
                       "times\n");
+            qaeMemFree((void **)&request_respnse_time);
+            qaeMemFree((void **)&request_submit_start);
             return CPA_STATUS_FAIL;
         }
         memset(request_submit_start, 0, request_mem_sz);
@@ -1143,7 +1148,6 @@ static CpaStatus performOffloadCalculation(compression_test_params_t *setup,
                                    packetSize,
                                    pPerfData->endCyclesTimestamp -
                                        pPerfData->startCyclesTimestamp);
-    currentThroughput = baseThroughput;
 
     /* Find the lower bound(retries) and upper bound(no retries) for subsequent
      * binary search.
@@ -2105,7 +2109,7 @@ EXPORT_SYMBOL(dcDpPerformance);
  *  Check for Non Polling DC Instance.
  ******************************************************************************/
 
-CpaStatus checkDcNonPollingInstance(CpaBoolean *polled)
+static CpaStatus checkDcNonPollingInstance(CpaBoolean *polled)
 {
     Cpa16U numInstances = 0;
     CpaInstanceHandle *instances = NULL;
@@ -2311,7 +2315,6 @@ CpaStatus setupDcDpTest(CpaDcCompType algorithm,
 
             return CPA_STATUS_FAIL;
         }
-        numberOfBuffersPerFile = 0;
     }
 
     return status;

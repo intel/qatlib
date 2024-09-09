@@ -42,8 +42,8 @@
  *
  *****************************************************************************/
 
-#ifndef ADF_UIO_USER_RING_H
-#define ADF_UIO_USER_RING_H
+#ifndef ADF_USER_RING_H
+#define ADF_USER_RING_H
 
 #include <adf_dev_ring_ctl.h>
 
@@ -66,13 +66,29 @@ void adf_cleanup_ring(adf_dev_ring_handle_t *ring);
 void adf_reset_ring(adf_dev_ring_handle_t *ring);
 int32_t adf_ring_freebuf(adf_dev_ring_handle_t *ring);
 
-int32_t adf_user_put_msg(adf_dev_ring_handle_t *ring,
-                         uint32_t *inBuf,
-                         uint64_t *seq_num);
+CpaStatus adf_user_put_msg(adf_dev_ring_handle_t *ring,
+                           uint32_t *inBuf,
+                           uint64_t *seq_num);
+
+/*
+ * adf_user_check_ring_error
+ *
+ * Description
+ * Function checks if the rp_exception or rp_halt bits are set in RINGSTAT
+ * register
+ *
+ * Return value
+ * -EINVAL if pRingHandle is NULL
+ * -EINTR if the rp_exception bit is set
+ * -EL2HLT if the rp_halt bit is set
+ * -EFAULT if the RINGSTAT rp_exception is not supported
+ *  0 if the rp_exception bit is not set
+ */
+int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *pRingHandle);
+
 CpaBoolean adf_user_check_resp_ring(adf_dev_ring_handle_t *ring);
-int32_t adf_user_notify_msgs(adf_dev_ring_handle_t *ring);
-int32_t adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring);
+CpaStatus adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring);
 int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
                                        uint32_t *maxInflightRequests,
                                        uint32_t *numInflightRequests);
-#endif /* ADF_UIO_USER_RING_H */
+#endif /* ADF_USER_RING_H */

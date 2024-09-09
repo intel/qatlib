@@ -110,6 +110,15 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
                                    corpus_type_t corpusType,
                                    sync_mode_t syncFlag,
                                    Cpa32U numLoops);
+CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
+                             const CpaInstanceInfo2 *pInstanceInfo2,
+                             CpaDcSessionDir compressDirection,
+                             CpaDcSessionHandle pSessionHandle,
+                             CpaBufferList *arrayOfSrcBufferLists,
+                             CpaBufferList *arrayOfDestBufferLists,
+                             CpaBufferList *arrayOfCmpBufferLists,
+                             Cpa32U listNum,
+                             CpaDcRqResults *arrayOfResults);
 
 #if DC_API_VERSION_AT_LEAST(3, 1)
 CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
@@ -148,6 +157,7 @@ CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
 }
 EXPORT_SYMBOL(setupDcLZ4Test);
 #endif
+
 
 /*register a test with the sample code framework*/
 CpaStatus setupDcTest(CpaDcCompType algorithm,
@@ -833,12 +843,18 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
                                                             destBufferListArray,
                                                             testBufferSize,
                                                             CPA_FALSE);
+                        QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS(
+                            "qatCompressResetBufferList resets de-compression "
+                            "bufferlist",
+                            status);
                         status = qatCompressResetBufferList(setup,
                                                             cmpBufferListArray,
                                                             testBufferSize,
                                                             CPA_TRUE);
                         QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS(
-                            "qatCompressResetBufferList", status);
+                            "qatCompressResetBufferList resets compression "
+                            "bufferlist",
+                            status);
                     }
                 }
                 if (CPA_STATUS_SUCCESS != status)
@@ -1714,8 +1730,21 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
                                             destBufferListArray,
                                             setup->packetSizeInBytesArray,
                                             CPA_FALSE);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("qatCompressResetBufferList failed to reset "
+                      "de-compression bufferlist. (status = %d)\n",
+                      status);
+        }
         status = qatCompressResetBufferList(
             setup, cmpBufferListArray, setup->packetSizeInBytesArray, CPA_TRUE);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("qatCompressResetBufferList failed to reset compression "
+                      "bufferlist. (status = %d)\n",
+                      status);
+        }
+
         if (stopTestsIsEnabled_g == CPA_TRUE && exitLoopFlag_g == CPA_TRUE)
         {
             break;

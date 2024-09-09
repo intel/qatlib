@@ -93,9 +93,9 @@ Cpa32U symDpPollingInterval_g = SYM_DP_OPS_DEFAULT_POLLING_INTERVAL;
 
 #if CY_API_VERSION_AT_LEAST(2, 2)
 
-void symDpPerformUpdateCallback(CpaCySymDpOpData *pOpData,
-                                CpaStatus status,
-                                CpaBoolean verifyResult)
+static void symDpPerformUpdateCallback(CpaCySymDpOpData *pOpData,
+                                       CpaStatus status,
+                                       CpaBoolean verifyResult)
 {
     /* pCallbacktag in the pOpData structure is used to store
      * index of to the perf_data_t associated the thread */
@@ -1447,7 +1447,8 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
     return status;
 }
 
-void sampleSymmetricDpUpdatePerformance(single_thread_test_data_t *testSetup)
+static void sampleSymmetricDpUpdatePerformance(
+    single_thread_test_data_t *testSetup)
 {
     symmetric_test_params_t updateTestSetup;
     symmetric_test_params_t *pSetup =

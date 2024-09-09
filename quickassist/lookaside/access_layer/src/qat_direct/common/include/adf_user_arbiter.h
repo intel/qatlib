@@ -41,8 +41,8 @@
  *      This file contains the arbiter related interfaces
  *
  *****************************************************************************/
-#ifndef ADF_UIO_USER_ARBITER_H
-#define ADF_UIO_USER_ARBITER_H
+#ifndef ADF_USER_ARBITER_H
+#define ADF_USER_ARBITER_H
 
 #include <adf_platform_common.h>
 #include <icp_platform.h>
@@ -80,4 +80,4 @@ static __inline__ void adf_update_ring_arb_enable(adf_dev_ring_handle_t *ring)
 
 #define adf_update_ring_arb_disable adf_update_ring_arb_enable
 
-#endif /* ADF_UIO_USER_ARBITER_H */
+#endif /* ADF_USER_ARBITER_H */

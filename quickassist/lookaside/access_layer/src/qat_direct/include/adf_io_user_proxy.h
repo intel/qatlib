@@ -87,6 +87,7 @@ CpaStatus adf_io_userProcessToStart(char const *const name_in,
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
  * @retval CPA_STATUS_FAIL           Function failed.
  * @retval CPA_STATUS_INVALID_PARAM  Provided argument is invalid.
+ * @retval CPA_STATUS_RESOURCE       Init mutex for process lock fails.
  */
 CpaStatus adf_io_userProxyInit(char const *const name);
 
@@ -115,7 +116,7 @@ void adf_io_userProxyShutdown(void);
  *      This function is used to reset the data structures used by the
  *      io specific layer of the ADF proxy in user space.
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
- * @retval CPA_STATUS_RESOURCE       Function failed.
+ * @retval CPA_STATUS_RESOURCE       Init mutex for process lock fails.
  */
 CpaStatus adf_io_resetUserProxy(void);
 

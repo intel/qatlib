@@ -210,13 +210,20 @@ static CpaStatus pointMuliplication(Cpa8U *pPointX,
 
     /* Allocate output flat buffers */
     status = OS_MALLOC(&pGenX, sizeof(CpaFlatBuffer));
-    status |= OS_MALLOC(&pGenY, sizeof(CpaFlatBuffer));
     if (CPA_STATUS_SUCCESS != status)
-        PRINT_ERR("Memory alloc error\n");
+        PRINT_ERR("Failed to allocate memory for pGenX\n");
     else
     {
-        pGenY->dataLenInBytes = DATA_LEN;
+        pGenX->pData = NULL;
         pGenX->dataLenInBytes = DATA_LEN;
+    }
+    status = OS_MALLOC(&pGenY, sizeof(CpaFlatBuffer));
+    if (CPA_STATUS_SUCCESS != status)
+        PRINT_ERR("Failed to allocate memory for pGenY\n");
+    else
+    {
+        pGenY->pData = NULL;
+        pGenY->dataLenInBytes = DATA_LEN;
     }
 
     /* Alloc data for output buffers */
@@ -286,14 +293,23 @@ static CpaStatus pointMuliplication(Cpa8U *pPointX,
     }
 
     /* Free memory */
-    PHYS_CONTIG_FREE(pOpData->x.pData);
-    PHYS_CONTIG_FREE(pOpData->y.pData);
-    PHYS_CONTIG_FREE(pOpData->k.pData);
-    PHYS_CONTIG_FREE(pGenX->pData);
-    PHYS_CONTIG_FREE(pGenY->pData);
-    OS_FREE(pOpData);
-    OS_FREE(pGenX);
-    OS_FREE(pGenY);
+    if (NULL != pOpData)
+    {
+        PHYS_CONTIG_FREE(pOpData->x.pData);
+        PHYS_CONTIG_FREE(pOpData->y.pData);
+        PHYS_CONTIG_FREE(pOpData->k.pData);
+        OS_FREE(pOpData);
+    }
+    if (NULL != pGenX)
+    {
+        PHYS_CONTIG_FREE(pGenX->pData);
+        OS_FREE(pGenX);
+    }
+    if (NULL != pGenY)
+    {
+        PHYS_CONTIG_FREE(pGenY->pData);
+        OS_FREE(pGenY);
+    }
 
     return status;
 }
@@ -425,7 +441,7 @@ static CpaStatus edDsaSign(Cpa8U *privateKey,
     /* Copy data to buffer */
     if (CPA_STATUS_SUCCESS == status)
     {
-        memcpy(dataToHash, prefix, DATA_LEN);
+        memmove(dataToHash, prefix, DATA_LEN);
         memcpy(dataToHash + DATA_LEN, PH_M, HASH_LEN);
 
         /* Alloc data for output */
@@ -707,7 +723,7 @@ CpaStatus ecMontEdwdsDsaSample(void)
     CpaStatus status = CPA_STATUS_FAIL;
 
     /* Get instance handle */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleAsymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
         return CPA_STATUS_FAIL;
 

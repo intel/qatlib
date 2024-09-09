@@ -263,21 +263,23 @@
     } while (0)
 
 /* Logging macros */
+#ifndef QAT_XEN_PLATFORM
 extern char *icp_module_name;
-#define xprintk(level, level_str, fmt, args...)                                \
-    osalStdLog(level "%s %s: %s: " fmt,                                        \
-               icp_module_name,                                                \
-               level_str,                                                      \
-               (__func__),                                                     \
-               ##args)
+#else
+char *icp_module_name = "XEN";
+#endif
+
+#define xprintk(level, device, fmt, args...)                                   \
+    osalLog(level, device, "%s: %s: " fmt, icp_module_name, (__func__), ##args)
 
 #define ADF_PRINT(format, args...) printk(format, ##args)
-#define ADF_ERROR(format, args...) xprintk(KERN_ERR, "err", format, ##args)
+#define ADF_ERROR(format, args...)                                             \
+    xprintk(OSAL_LOG_LVL_ERROR, OSAL_LOG_DEV_STDERR, format, ##args)
 #ifdef _DEBUG_
 #define ADF_DEBUG(format, args...)                                             \
     do                                                                         \
     {                                                                          \
-        xprintk(KERN_INFO, "debug", format, ##args);                           \
+        xprintk(OSAL_LOG_LVL_DEBUG1, OSAL_LOG_DEV_STDOUT, format, ##args);     \
     } while (0)
 #else /*_DEBUG_*/
 #define ADF_DEBUG(format, args...)                                             \
@@ -311,7 +313,7 @@ extern char *icp_module_name;
 
 #define ICP_STRLCPY(dst, src, dstsize)                                         \
     ({                                                                         \
-        if (((dst) != NULL) && ((src) != NULL) && ((dstsize) > 0))             \
+        if ((dst != NULL) && (src != NULL) && (dstsize > 0))                   \
             snprintf(dst, dstsize, "%s", src);                                 \
     })
 

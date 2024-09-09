@@ -235,22 +235,16 @@ char *icpGetProcessName(void);
 #undef INLINE
 
 #define STATIC
-/**< @ingroup LacCommon
- * When DEBUG is set STATIC evaluates to nothing. */
-
 #define INLINE
 /**< @ingroup LacCommon
- * When DEBUG is set INLINE evaluates to nothing. */
+ * When DEBUG is set STATIC/INLINE evaluates to nothing. */
 
 #else
 
 #define STATIC static
-/**< @ingroup LacCommon
- * otherwise it evaluates to the static keyword */
-
 #define INLINE inline
 /**< @ingroup LacCommon
- * otherwise it evaluates to the inline keyword */
+ * otherwise it evaluates to the static/inline keyword */
 
 #endif
 

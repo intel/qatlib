@@ -750,6 +750,43 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
             pSessionDesc->laCmdFlags,
             pSessionDesc->laExtCmdFlags);
     }
+    else if ((SPC_YES == pSessionDesc->singlePassState) &&
+             (LAC_CIPHER_SPC_IV_SIZE != pRequest->ivLenInBytes))
+    {
+        pSessionDesc->symOperation = CPA_CY_SYM_OP_ALGORITHM_CHAINING;
+        pSessionDesc->singlePassState = SPC_PROBABLE;
+        pSessionDesc->isCipher = CPA_TRUE;
+        pSessionDesc->isAuthEncryptOp = CPA_TRUE;
+        pSessionDesc->isAuth = CPA_TRUE;
+        pCdInfo = &(pSessionDesc->contentDescInfo);
+        pHwBlockBaseInDRAM = (Cpa8U *)pCdInfo->pData;
+
+        if (CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT ==
+            pSessionDesc->cipherDirection)
+        {
+            pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_CIPHER_HASH;
+        }
+        else
+        {
+            pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_HASH_CIPHER;
+        }
+
+        ICP_QAT_FW_LA_SINGLE_PASS_PROTO_FLAG_SET(pSessionDesc->laCmdFlags, 0);
+        ICP_QAT_FW_LA_PROTO_SET(pSessionDesc->laCmdFlags,
+                                ICP_QAT_FW_LA_GCM_PROTO);
+
+        LacSymQat_CipherHwBlockPopulateCfgData(pSessionDesc,
+                                               pHwBlockBaseInDRAM +
+                                                   hwBlockOffsetInDRAM,
+                                               &sizeInBytes);
+        SalQatMsg_CmnHdrWrite(
+            (icp_qat_fw_comn_req_t *)&(pSessionDesc->reqCacheHdr),
+            ICP_QAT_FW_COMN_REQ_CPM_FW_LA,
+            pSessionDesc->laCmdId,
+            pSessionDesc->cmnRequestFlags,
+            pSessionDesc->laCmdFlags,
+            pSessionDesc->laExtCmdFlags);
+    }
     else if (CPA_CY_SYM_HASH_AES_GMAC == pSessionDesc->hashAlgorithm)
     {
         pSessionDesc->aadLenInBytes = pRequest->messageLenToHashInBytes;

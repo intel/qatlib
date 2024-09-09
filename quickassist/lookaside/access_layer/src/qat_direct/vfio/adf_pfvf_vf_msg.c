@@ -41,22 +41,21 @@
 #include "icp_platform.h"
 #include "qat_log.h"
 
-#define VF2PF_MAYBE_AVAILABLE -1
+#define VF2PF_UNKNOWN -1
 #define VF2PF_AVAILABLE 1
 #define VF2PF_NOT_AVAILABLE 0
 
 /* At the beginning we assume PF driver does not support PFVF.
  * If first init notification will be ACKed, VF2PF support will be marked as
- * available. Any further error in communication will disabled it again */
-static int vf2pf_available = VF2PF_MAYBE_AVAILABLE;
+ * available. Any further error in communication will disable it again */
+static int vf2pf_available = VF2PF_UNKNOWN;
 
 STATIC
 void adf_set_vf2pf_available(int available)
 {
     /* VF2PF error at first attempt of communication, assuming PF driver has no
      * PFVF support */
-    if (vf2pf_available == VF2PF_MAYBE_AVAILABLE &&
-        available == VF2PF_NOT_AVAILABLE)
+    if (vf2pf_available == VF2PF_UNKNOWN && available == VF2PF_NOT_AVAILABLE)
     {
         qat_log(LOG_LEVEL_INFO, "PF has not support for PFVF\n");
     }
@@ -74,17 +73,16 @@ int adf_vf2pf_available()
 {
     if (vf2pf_available == VF2PF_NOT_AVAILABLE)
     {
-        qat_log(
-            LOG_LEVEL_INFO,
-            "VF2PF communication attempt, with no PFVF support on PF side\n");
+        qat_log(LOG_LEVEL_INFO, "VF2PF is not available\n");
         return 0;
     }
 
     return 1;
 }
+
 int adf_vf2pf_notify_init(struct adf_pfvf_dev_data *dev)
 {
-    struct pfvf_message msg = {.type = ADF_VF2PF_MSGTYPE_INIT};
+    struct pfvf_message msg = { .type = ADF_VF2PF_MSGTYPE_INIT };
 
     ICP_CHECK_FOR_NULL_PARAM(dev);
 
@@ -97,6 +95,7 @@ int adf_vf2pf_notify_init(struct adf_pfvf_dev_data *dev)
         adf_set_vf2pf_available(VF2PF_NOT_AVAILABLE);
         return -EFAULT;
     }
+    vf2pf_available = VF2PF_AVAILABLE;
     dev->pfvf_initialized = 1;
     return 0;
 }
@@ -104,7 +103,7 @@ int adf_vf2pf_notify_init(struct adf_pfvf_dev_data *dev)
 void adf_vf2pf_notify_shutdown(struct adf_pfvf_dev_data *dev)
 {
     ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
-    struct pfvf_message msg = {.type = ADF_VF2PF_MSGTYPE_SHUTDOWN};
+    struct pfvf_message msg = { .type = ADF_VF2PF_MSGTYPE_SHUTDOWN };
 
     if (!adf_vf2pf_available())
         return;
@@ -223,7 +222,7 @@ int adf_vf2pf_check_compat_version(struct adf_pfvf_dev_data *dev)
 int adf_vf2pf_get_ring_to_svc(struct adf_pfvf_dev_data *dev)
 {
     struct ring_to_svc_map_v1 rts_map_msg = {
-        {0},
+        { 0 },
     };
 
     uint16_t len = sizeof(rts_map_msg);
@@ -262,7 +261,7 @@ int adf_vf2pf_get_ring_to_svc(struct adf_pfvf_dev_data *dev)
 int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev)
 {
     struct capabilities_v3 cap_msg = {
-        {0},
+        { 0 },
     };
     uint16_t len = sizeof(cap_msg);
     int ret = 0;

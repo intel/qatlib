@@ -92,7 +92,6 @@ typedef struct adf_dev_ring_handle_s
     uint32_t interrupt_user_mask;
     uint32_t pollingMask;
     uint32_t is_wireless : 1;
-    uint32_t is_dyn : 1;
     adf_dev_bank_handle_t *bank_data;
 
     /* userspace shadow values */

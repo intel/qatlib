@@ -104,6 +104,7 @@ static CpaStatus drbgPerformOp(drbg_test_params_t *setup,
                                CpaCyDrbgSessionHandle *pSessionHdl,
                                Cpa32U node);
 
+extern void nrbgUnregisterDrbgImplFunctions(void);
 /* Previously set GetEntropy function pointer */
 static IcpSalDrbgGetEntropyInputFunc pPrevGetEntropyInputFunc = NULL;
 
@@ -131,10 +132,10 @@ static sample_code_semaphore_t semaphoreImplFunction;
  *      is performed by calling the client-supplied callback function.
  *
  *****************************************************************************/
-void drbgPerformCallback(void *pCallbackTag,
-                         CpaStatus status,
-                         void *pOpData,
-                         CpaFlatBuffer *pOut)
+static void drbgPerformCallback(void *pCallbackTag,
+                                CpaStatus status,
+                                void *pOpData,
+                                CpaFlatBuffer *pOut)
 {
     perf_data_t *pDrbgPerf = (perf_data_t *)pCallbackTag;
 
@@ -204,7 +205,7 @@ static void nrbgCallback(void *pCallbackTag,
  * @description
  *      Print the performance stats of the elliptic curve dsa operations
  ***************************************************************************/
-CpaStatus drbgPrintStats(thread_creation_data_t *data)
+static CpaStatus drbgPrintStats(thread_creation_data_t *data)
 {
     PRINT("DRBG Size %23u\n", data->packetSize);
     printSymmetricPerfDataAndStopCyService(data);
@@ -690,7 +691,7 @@ static CpaStatus drbgRemoveSession(drbg_test_params_t *setup,
  *      'Get Entropy Input' function by calling cpaCyNrbgGetEntropy API.
  *
  *****************************************************************************/
-CpaStatus drbgPerform(drbg_test_params_t *setup)
+static CpaStatus drbgPerform(drbg_test_params_t *setup)
 {
     CpaStatus status = CPA_STATUS_SUCCESS, sessionStatus;
     perf_data_t *pDrbgPerf = NULL;
@@ -817,7 +818,7 @@ CpaStatus drbgPerform(drbg_test_params_t *setup)
  *     thread
  *
  *****************************************************************************/
-void drbgPerformance(single_thread_test_data_t *testSetup)
+static void drbgPerformance(single_thread_test_data_t *testSetup)
 {
     drbg_test_params_t drbgSetup;
     Cpa16U numInstances = 0;

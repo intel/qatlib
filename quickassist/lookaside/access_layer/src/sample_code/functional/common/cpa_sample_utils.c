@@ -73,6 +73,7 @@
 
 #include "cpa_sample_utils.h"
 #include "cpa_dc.h"
+#include "cpa_cy_sym.h"
 #include "icp_sal_poll.h"
 
 /*
@@ -106,39 +107,61 @@ CpaDcHuffType huffmanType_g = CPA_DC_HT_STATIC;
  * *************************************************************
  */
 
-/*
- * This function returns a handle to an instance of the cryptographic
- * API.  It does this by querying the API for all instances and
- * returning the first such instance.
- */
-//<snippet name="getInstance">
 #ifdef DO_CRYPTO
-void sampleCyGetInstance(CpaInstanceHandle *pCyInstHandle)
+/*
+ * This function returns a handle to an instance of the
+ * API of the crypto service type. It does this by querying the API for all
+ * instances of the desired type and returning the first such instance.
+ */
+static void sampleCryptoGetInstance(CpaAccelerationServiceType accelSrvType,
+                                    CpaInstanceHandle *pInstHandle)
 {
-    CpaInstanceHandle cyInstHandles[MAX_INSTANCES];
+    CpaInstanceHandle instHandles[MAX_INSTANCES];
     Cpa16U numInstances = 0;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-    *pCyInstHandle = NULL;
-    status = cpaCyGetNumInstances(&numInstances);
-    if (numInstances >= MAX_INSTANCES)
+    *pInstHandle = NULL;
+    status = cpaGetNumInstances(accelSrvType, &numInstances);
+
+    if (0 == numInstances && (accelSrvType == CPA_ACC_SVC_TYPE_CRYPTO_SYM ||
+                              accelSrvType == CPA_ACC_SVC_TYPE_CRYPTO_ASYM))
+    {
+        accelSrvType = CPA_ACC_SVC_TYPE_CRYPTO;
+        status = cpaGetNumInstances(accelSrvType, &numInstances);
+    }
+    if (numInstances > MAX_INSTANCES)
     {
         numInstances = MAX_INSTANCES;
     }
-    if ((status == CPA_STATUS_SUCCESS) && (numInstances > 0))
-    {
-        status = cpaCyGetInstances(numInstances, cyInstHandles);
-        if (status == CPA_STATUS_SUCCESS)
-            *pCyInstHandle = cyInstHandles[0];
-    }
-
     if (0 == numInstances)
     {
-        PRINT_ERR("No instances found for 'SSL'\n");
-        PRINT_ERR("Please check your section names");
-        PRINT_ERR(" in the config file.\n");
-        PRINT_ERR("Also make sure to use config file version 2.\n");
+        PRINT_ERR("No crypto instances found.\n");
     }
+    if (status == CPA_STATUS_SUCCESS)
+    {
+        status = cpaGetInstances(accelSrvType, numInstances, instHandles);
+        if (status == CPA_STATUS_SUCCESS)
+            *pInstHandle = instHandles[0];
+    }
+    else
+    {
+        PRINT_ERR("Error while getting a crypto instance.\n");
+    }
+}
+
+void sampleSymGetInstance(CpaInstanceHandle *pSymInstHandle)
+{
+    sampleCryptoGetInstance(CPA_ACC_SVC_TYPE_CRYPTO_SYM, pSymInstHandle);
+}
+
+void sampleAsymGetInstance(CpaInstanceHandle *pAsymInstHandle)
+{
+    sampleCryptoGetInstance(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, pAsymInstHandle);
+}
+
+void sampleCyGetInstance(CpaInstanceHandle *pCyInstHandle)
+{
+    sampleCryptoGetInstance(CPA_ACC_SVC_TYPE_CRYPTO, pCyInstHandle);
 }
 
 void symSessionWaitForInflightReq(CpaCySymSessionCtx pSessionCtx)
@@ -157,7 +180,6 @@ void symSessionWaitForInflightReq(CpaCySymSessionCtx pSessionCtx)
     return;
 }
 #endif
-//</snippet>
 
 /*
  * This function polls a crypto instance.
@@ -191,7 +213,8 @@ void sampleCyStartPolling(CpaInstanceHandle cyInstHandle)
     if ((status == CPA_STATUS_SUCCESS) && (info2.isPolled == CPA_TRUE))
     {
         /* Start thread to poll instance */
-        sampleThreadCreate(&gPollingThread, sal_polling, cyInstHandle);
+        sampleThreadCreate(
+            &gPollingThread, sal_polling, cyInstHandle, CPA_TRUE);
     }
 }
 #endif
@@ -233,10 +256,7 @@ void sampleDcGetInstance(CpaInstanceHandle *pDcInstHandle)
 
     if (0 == numInstances)
     {
-        PRINT_ERR("No instances found for 'SSL'\n");
-        PRINT_ERR("Please check your section names");
-        PRINT_ERR(" in the config file.\n");
-        PRINT_ERR("Also make sure to use config file version 2.\n");
+        PRINT_ERR("No compression instances found.\n");
     }
 }
 //</snippet>
@@ -271,7 +291,8 @@ void sampleDcStartPolling(CpaInstanceHandle dcInstHandle)
     if ((status == CPA_STATUS_SUCCESS) && (info2.isPolled == CPA_TRUE))
     {
         /* Start thread to poll instance */
-        sampleThreadCreate(&gPollingThreadDc, sal_dc_polling, dcInstHandle);
+        sampleThreadCreate(
+            &gPollingThreadDc, sal_dc_polling, dcInstHandle, CPA_TRUE);
     }
 }
 

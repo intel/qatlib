@@ -316,11 +316,14 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
             }
 
             /* Ensure that the destination buffer length for data is greater
-             * or equal to 128B */
-            if (pOpData->bufferLenForData < DC_DEST_BUFFER_DYN_MIN_SIZE)
+             * or equal to minOutputBuffSizeDynamic */
+            if (pOpData->bufferLenForData <
+                pService->comp_device_data.minOutputBuffSizeDynamic)
             {
-                LAC_INVALID_PARAM_LOG("Destination buffer length for data "
-                                      "should be greater or equal to 128B");
+                LAC_INVALID_PARAM_LOG1(
+                    "Destination buffer length for data "
+                    "should be greater or equal to %d",
+                    pService->comp_device_data.minOutputBuffSizeDynamic);
                 return CPA_STATUS_INVALID_PARAM;
             }
         }

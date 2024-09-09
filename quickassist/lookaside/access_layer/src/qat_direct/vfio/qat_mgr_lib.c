@@ -48,6 +48,8 @@
 #include <limits.h>
 #include <search.h>
 #include <grp.h>
+#include <numa.h>
+
 #include "adf_pfvf_vf_msg.h"
 #include "icp_accel_devices.h"
 #include "icp_platform.h"
@@ -69,6 +71,16 @@
 
 #define DEVICE_FILE IOMMUGROUP_DEV_DIR "%s/device"
 #define VENDOR_FILE IOMMUGROUP_DEV_DIR "%s/vendor"
+#define NUMA_NODE IOMMUGROUP_DEV_DIR "%s/numa_node"
+
+#define SYSFS_VF_DIR "/sys/bus/pci/devices"
+
+#define SYSFS_VF_UEVENT "physfn/uevent"
+#define PCI_DEV_SLOT_NAME "PCI_SLOT_NAME"
+
+/* clang-format off */
+#define PF_DEVICE_FORMAT PCI_DEV_SLOT_NAME"=%s"
+/* clang-format on */
 
 #define VFIO_ENTRY "vfio"
 #define PF_INFO_UNINITIALISED (-1)
@@ -77,6 +89,10 @@ static struct qatmgr_section_data *section_data = NULL;
 static int num_section_data = 0;
 STATIC icp_accel_pf_info_t pf_data[ADF_MAX_PF_DEVICES] = { 0 };
 STATIC int32_t num_pfs = PF_INFO_UNINITIALISED;
+/* node_cpu_data contains available cpu ids for each node */
+static struct qatmgr_cpu_data *cpu_data = NULL;
+static int num_nodes = 0;
+static int num_cpus = 0;
 
 
 static pthread_mutex_t section_data_mutex;
@@ -106,6 +122,7 @@ struct pf_capabilities
     uint32_t pf;
     uint32_t ext_dc_caps;
     uint32_t capabilities;
+    uint32_t ring_to_svc_map;
     struct pf_capabilities *next;
 };
 
@@ -148,46 +165,49 @@ static void cleanup_capabilities_cache()
 
 static int is_qat_device(int device_id)
 {
-    switch(device_id) {
-    case QAT_4XXXVF_DEVICE_ID:
-    case QAT_401XXVF_DEVICE_ID:
-    case QAT_402XXVF_DEVICE_ID:
-    case QAT_420XXVF_DEVICE_ID:
-        return 1;
-    default:
-        return 0;
+    switch (device_id)
+    {
+        case QAT_4XXXVF_DEVICE_ID:
+        case QAT_401XXVF_DEVICE_ID:
+        case QAT_402XXVF_DEVICE_ID:
+        case QAT_420XXVF_DEVICE_ID:
+            return 1;
+        default:
+            return 0;
     }
     return 0;
 }
 
 static int qat_device_type(int device_id)
 {
-    switch (device_id) {
-    case QAT_4XXXVF_DEVICE_ID:
-    case QAT_401XXVF_DEVICE_ID:
-    case QAT_402XXVF_DEVICE_ID:
-        return DEVICE_4XXXVF;
-    case QAT_420XXVF_DEVICE_ID:
-        return DEVICE_420XXVF;
-    default:
-        return 0;
+    switch (device_id)
+    {
+        case QAT_4XXXVF_DEVICE_ID:
+        case QAT_401XXVF_DEVICE_ID:
+        case QAT_402XXVF_DEVICE_ID:
+            return DEVICE_4XXXVF;
+        case QAT_420XXVF_DEVICE_ID:
+            return DEVICE_420XXVF;
+        default:
+            return 0;
     }
     return 0;
 }
 
 static char *qat_device_name(int device_id)
 {
-    switch (device_id) {
-    case QAT_4XXXVF_DEVICE_ID:
-        return "4xxxvf";
-    case QAT_401XXVF_DEVICE_ID:
-        return "401xxvf";
-    case QAT_402XXVF_DEVICE_ID:
-        return "402xxvf";
-    case QAT_420XXVF_DEVICE_ID:
-        return "420xxvf";
-    default:
-        return "unknown";
+    switch (device_id)
+    {
+        case QAT_4XXXVF_DEVICE_ID:
+            return "4xxxvf";
+        case QAT_401XXVF_DEVICE_ID:
+            return "401xxvf";
+        case QAT_402XXVF_DEVICE_ID:
+            return "402xxvf";
+        case QAT_420XXVF_DEVICE_ID:
+            return "420xxvf";
+        default:
+            return "unknown";
     }
 }
 
@@ -210,6 +230,28 @@ int destroy_section_data_mutex()
     }
 
     return 0;
+}
+
+static void free_cpu_data()
+{
+    int i;
+
+    if (cpu_data)
+    {
+        for (i = 0; i < num_nodes; i++)
+        {
+            if (cpu_data[i].cpu)
+            {
+                free(cpu_data[i].cpu);
+                cpu_data[i].cpu = NULL;
+                cpu_data[i].idx = 0;
+                cpu_data[i].cores_in_node = 0;
+            }
+        }
+        free(cpu_data);
+        cpu_data = NULL;
+        num_nodes = 0;
+    }
 }
 
 void qat_mgr_cleanup_cfg(void)
@@ -257,6 +299,8 @@ void qat_mgr_cleanup_cfg(void)
         section_data = NULL;
         num_section_data = 0;
     }
+
+    free_cpu_data();
 
     cleanup_capabilities_cache();
 }
@@ -359,8 +403,9 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     char devices_dir_name[256];
     int vfiofile = -1;
     char *bdfname;
-    unsigned node, bus, dev, func;
+    unsigned domain, bus, dev, func;
     int found = 0;
+    int numa_node;
 
     if (!dev_list || !list_size || !num_devices)
         return -EINVAL;
@@ -517,12 +562,12 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
 
             /* Extract the BDF from the file name */
             bdfname = basename(device_entry->d_name);
-            if (sscanf(bdfname, "%x:%x:%x.%x", &node, &bus, &dev, &func) != 4)
+            if (sscanf(bdfname, "%x:%x:%x.%x", &domain, &bus, &dev, &func) != 4)
             {
                 qat_log(LOG_LEVEL_ERROR, "Failed to scan BDF string\n");
                 break;
             }
-            dev_list[num_devs].bdf = (node << 16) + ((0xFF & bus) << 8) +
+            dev_list[num_devs].bdf = (domain << 16) + ((0xFF & bus) << 8) +
                                      ((0x1F & dev) << 3) + (0x07 & func);
             if (snprintf(dev_list[num_devs].vfio_file,
                          sizeof(dev_list[num_devs].vfio_file),
@@ -541,6 +586,41 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
                         vfio_entry->d_name);
                 break;
             }
+
+            if (snprintf(filename,
+                         sizeof(filename),
+                         NUMA_NODE,
+                         vfio_entry->d_name,
+                         device_entry->d_name) >= sizeof(filename))
+            {
+                qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
+                break;
+            }
+
+            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+            if (sysfile_fd < 0)
+                break;
+
+            sysfile = fdopen(sysfile_fd, "r");
+            if (!sysfile)
+            {
+                qat_log(LOG_LEVEL_ERROR, "Failed to open %s\n", filename);
+                close(sysfile_fd);
+                break;
+            }
+            numa_node = 0;
+            if (fscanf(sysfile, "%d", &numa_node) != 1)
+            {
+                qat_log(LOG_LEVEL_ERROR,
+                        "Failed to read numa node from %s\n",
+                        filename);
+            }
+            fclose(sysfile);
+            /* numa_node may be reported as -1 on VM */
+            if (numa_node < 0)
+                numa_node = 0;
+
+            dev_list[num_devs].numa_node = numa_node;
 
             found = 1;
 
@@ -582,7 +662,8 @@ static int qat_mgr_get_device_capabilities(
     int dev_id,
     bool *compatible,
     uint32_t *ext_dc_caps,
-    uint32_t *capabilities)
+    uint32_t *capabilities,
+    uint32_t *ring_to_svc_map)
 {
     int ret;
     vfio_dev_info_t vfio_dev;
@@ -611,6 +692,15 @@ static int qat_mgr_get_device_capabilities(
         return ret;
     }
 
+    ret = adf_vf2pf_get_ring_to_svc(&vfio_dev.pfvf);
+    if (ret)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Cannot query device ring to service map\n");
+        close_vfio_dev(&vfio_dev);
+        device_data->group_fd = -1;
+        return ret;
+    }
+
     ret = adf_vf2pf_get_capabilities(&vfio_dev.pfvf);
     if (ret)
     {
@@ -622,6 +712,7 @@ static int qat_mgr_get_device_capabilities(
 
     *ext_dc_caps = vfio_dev.pfvf.ext_dc_caps;
     *capabilities = vfio_dev.pfvf.capabilities;
+    *ring_to_svc_map = vfio_dev.pfvf.ring_to_svc_map;
 
     close_vfio_dev(&vfio_dev);
     device_data->group_fd = -1;
@@ -632,36 +723,68 @@ static int qat_mgr_get_device_capabilities(
     Calculate bank number for different device configurations.
     Note, this depends on corresponding mapping done by kernel driver.
 */
-static int calculate_bank_number(struct qatmgr_device_data *device,
-                                 enum serv_type instance_service,
-                                 int inst_idx)
+static int calculate_bank_number(const enum cfg_service_type instance_service,
+                                 const int inst_idx,
+                                 const uint32_t ring_to_svc_map)
 {
-    switch (device->services)
+    int i, serv_type, serv_found = 0;
+
+    /* Search for the matching service type in ring_to_svc_map */
+    for (i = 0; i < INSTANCES_PER_DEVICE; i++)
     {
-        case SERV_TYPE_CY:
-            if (instance_service == SERV_TYPE_ASYM)
-                return (inst_idx % device->num_cy_inst) * 2;
-            else
-                return (inst_idx % device->num_cy_inst) * 2 + 1;
-        case SERV_TYPE_SYM:
-            return inst_idx % device->num_sym_inst;
-        case SERV_TYPE_ASYM:
-            return inst_idx % device->num_asym_inst;
-        case SERV_TYPE_DC:
-            return inst_idx % device->num_dc_inst;
-        case SERV_TYPE_ASYM_DC:
-            if (instance_service == SERV_TYPE_ASYM)
-                return (inst_idx % device->num_asym_inst) * 2 + 1;
-            else
-                return (inst_idx % device->num_dc_inst) * 2;
-        case SERV_TYPE_SYM_DC:
-            if (instance_service == SERV_TYPE_SYM)
-                return (inst_idx % device->num_sym_inst) * 2 + 1;
-            else
-                return (inst_idx % device->num_dc_inst) * 2;
-        default:
-            return inst_idx % INSTANCES_PER_DEVICE;
+        serv_type = (ring_to_svc_map >> (i * RING_PAIR_SHIFT)) & SVC_MASK;
+        if (instance_service == serv_type)
+        {
+            if (serv_found == inst_idx)
+            {
+                return i;
+            }
+            serv_found++;
+        }
     }
+
+    return -1;
+}
+
+static uint16_t bdf_pf(const unsigned vf_bdf)
+{
+    uint16_t pf_bdf = 0;
+    unsigned int domain, bus, dev, func;
+    FILE *fp = NULL;
+    char dev_path[QATMGR_MAX_STRLEN] = { '\0' };
+    char dev_info[QATMGR_MAX_STRLEN] = { '\0' };
+    char pci_slot_name[DEVICE_NAME_SIZE] = { '\0' };
+
+    snprintf(dev_path,
+             sizeof(dev_path),
+             "%s/%04x:%02x:%02x.%1x/%s",
+             SYSFS_VF_DIR,
+             BDF_DOMAIN(vf_bdf),
+             BDF_BUS(vf_bdf),
+             BDF_DEV(vf_bdf),
+             BDF_FUN(vf_bdf),
+             SYSFS_VF_UEVENT);
+
+    fp = fopen(dev_path, "r");
+    if (fp == NULL)
+    {
+        qat_log(
+            LOG_LEVEL_ERROR, "Failed to open VF sysfs file : %s\n", dev_path);
+        return 0;
+    }
+
+    while (fgets(dev_info, sizeof(dev_info), fp) != NULL)
+    {
+        if (strstr(dev_info, PCI_DEV_SLOT_NAME) != NULL)
+        {
+            sscanf(dev_info, PF_DEVICE_FORMAT, pci_slot_name);
+            sscanf(pci_slot_name, "%x:%x:%x.%x", &domain, &bus, &dev, &func);
+            pf_bdf = ((0xFF & bus) << 8) + ((0x1F & dev) << 3) + (0x07 & func);
+            break;
+        }
+    }
+    fclose(fp);
+    return pf_bdf;
 }
 
 /**
@@ -670,10 +793,11 @@ static int calculate_bank_number(struct qatmgr_device_data *device,
  * is empty (if qatlib is running inside VM) then assigns max value of pkg_id
  * and returns 0
  */
-static int get_pkg_id(unsigned vf_bdf, uint16_t *vf_pkg_id)
+static int get_pkg_id(unsigned vf_bdf, int32_t *vf_pkg_id)
 {
-    uint16_t pkg_id = 0;
-    uint16_t pf_bdf;
+    int32_t pkg_id = 0;
+    uint16_t pf_bdf = 0;
+    uint16_t domain;
 
     if (!num_pfs)
     {
@@ -681,12 +805,15 @@ static int get_pkg_id(unsigned vf_bdf, uint16_t *vf_pkg_id)
         return 0;
     }
 
-    /* remove device and func */
-    pf_bdf = BDF_PF(vf_bdf);
+    /* get PF BDF id using VF BDF id */
+    pf_bdf = bdf_pf(vf_bdf);
+    if (!pf_bdf)
+        return -1;
+    domain = BDF_DOMAIN(vf_bdf);
 
     for (pkg_id = 0; pkg_id < num_pfs; pkg_id++)
     {
-        if (pf_data[pkg_id].bdf == pf_bdf)
+        if (pf_data[pkg_id].bdf == pf_bdf && pf_data[pkg_id].domain == domain)
         {
             *vf_pkg_id = pkg_id;
             return 0;
@@ -694,6 +821,176 @@ static int get_pkg_id(unsigned vf_bdf, uint16_t *vf_pkg_id)
     }
 
     return -1;
+}
+
+static int init_cpu_node(int node)
+{
+    int i = 0;
+    for (i = 0; i < num_cpus; i++)
+    {
+        cpu_data[node].cpu[i] = i;
+    }
+
+    cpu_data[node].cores_in_node = num_cpus;
+    cpu_data[node].idx = 0;
+
+    return 0;
+}
+
+static int init_cpu_node_numa(int node)
+{
+    int i = 0;
+    int j = 0;
+    int err = 0;
+    struct bitmask *cpus;
+
+    cpus = numa_allocate_cpumask();
+    if (!cpus)
+    {
+        return -1;
+    }
+
+    err = numa_node_to_cpus(node, cpus);
+    if (err)
+    {
+        numa_bitmask_free(cpus);
+        return -1;
+    }
+
+    for (i = 0; i < cpus->size; i++)
+    {
+        if (numa_bitmask_isbitset(cpus, i))
+        {
+            cpu_data[node].cpu[j++] = i;
+        }
+    }
+
+    cpu_data[node].cores_in_node = j;
+    cpu_data[node].idx = 0;
+
+    numa_bitmask_free(cpus);
+
+    return 0;
+}
+
+static int init_cpu_node_data(int node)
+{
+    int ret;
+
+    cpu_data[node].cpu = calloc(num_cpus, sizeof(int));
+
+    if (!cpu_data[node].cpu)
+    {
+        return -ENOMEM;
+    }
+
+    if (num_nodes > 1)
+    {
+        ret = init_cpu_node_numa(node);
+    }
+    else
+    {
+        ret = init_cpu_node(node);
+    }
+
+    return ret;
+}
+
+/**
+ * Get next available cpu for given node.
+ */
+int get_core_affinity(int node)
+{
+    int cpu = 0;
+    int index = 0;
+    int cores_in_node = 0;
+
+    index = cpu_data[node].idx;
+    cores_in_node = cpu_data[node].cores_in_node;
+    cpu = cpu_data[node].cpu[index];
+
+    cpu_data[node].idx = (index + 1) % cores_in_node;
+
+    return cpu;
+}
+
+static int init_cpu_data()
+{
+    int ret = 0;
+    int i;
+
+    num_cpus = get_nprocs();
+
+    if (numa_available() < 0)
+    {
+        num_nodes = 1;
+        qat_log(LOG_LEVEL_DEBUG, "No NUMA nodes detected.\n");
+    }
+    else
+    {
+        num_nodes = numa_max_node() + 1;
+        qat_log(LOG_LEVEL_DEBUG, "Detected %d NUMA nodes.\n", num_nodes);
+    }
+
+    cpu_data = calloc(num_nodes, sizeof(struct qatmgr_cpu_data));
+    if (!cpu_data)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Unable to allocate cpu mapping data.\n");
+        return -ENOMEM;
+    }
+
+    for (i = 0; i < num_nodes; i++)
+    {
+        ret = init_cpu_node_data(i);
+        if (ret)
+        {
+            qat_log(LOG_LEVEL_ERROR,
+                    "Unable to initialize cpu mapping data.\n");
+            free_cpu_data();
+            return -EAGAIN;
+        }
+    }
+    return 0;
+}
+
+static int get_num_instances(struct qatmgr_device_data *device,
+                             const unsigned devid,
+                             const uint32_t ring_to_svc_map)
+{
+    int serv_type, i;
+    for (i = 0; i < INSTANCES_PER_DEVICE; i++)
+    {
+        serv_type = (ring_to_svc_map >> (i * RING_PAIR_SHIFT)) & SVC_MASK;
+        switch (serv_type)
+        {
+            case SYM:
+                if (device->accel_capabilities &
+                    ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC)
+                    device->num_sym_inst++;
+                break;
+            case ASYM:
+                if (device->accel_capabilities &
+                    ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)
+                    device->num_asym_inst++;
+                break;
+            case COMP:
+                if (device->accel_capabilities &
+                    ICP_ACCEL_CAPABILITIES_COMPRESSION)
+                    device->num_dc_inst++;
+                break;
+            default:
+                return -1;
+        }
+    }
+
+
+    if (device->num_sym_inst == INSTANCES_PER_DEVICE ||
+        device->num_asym_inst == INSTANCES_PER_DEVICE)
+        device->num_cy_inst = INSTANCES_PER_DEVICE;
+    else if (device->num_sym_inst == 2 || device->num_asym_inst == 2)
+        device->num_cy_inst = INSTANCES_PER_DEVICE / 2;
+
+    return 0;
 }
 
 int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
@@ -709,14 +1006,13 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     int num_vf_groups;
     int vf_idx = 0;
     int num_vfs_this_section;
-    int num_procs;
-    int core = 0;
     int pf = 0;
     unsigned devid;
     char pf_str[10];
-    ENTRY pf_entry = {pf_str, NULL};
-    int pfs_per_vf_group[ADF_MAX_DEVICES] = {0};
+    ENTRY pf_entry = { pf_str, NULL };
+    int pfs_per_vf_group[ADF_MAX_DEVICES] = { 0 };
     uint32_t ext_dc_caps, capabilities;
+    uint32_t ring_to_svc_map = DEFAULT_RING_TO_SRV_MAP;
     bool compatible;
     bool vm = false;
     int ret;
@@ -724,12 +1020,10 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     int section_num_sym_inst = 0;
     int section_num_asym_inst = 0;
     int section_num_dc_inst = 0;
-    uint16_t vf_pkg_id = 0;
+    int32_t vf_pkg_id = 0;
 
     if (!num_vf_devices)
         return -EINVAL;
-
-    num_procs = get_nprocs();
 
     if (num_pfs == PF_INFO_UNINITIALISED)
     {
@@ -750,6 +1044,13 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 "Unable to find pfs in the system, assuming "
                 "qat_mgr_lib is running inside VM\n");
     }
+
+    ret = init_cpu_data();
+    if (ret)
+    {
+        return ret;
+    }
+
     /*
      * A VF group is a set of VFs with the same device/function
      * but from different PFs.
@@ -765,6 +1066,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
         if (hcreate(ADF_MAX_DEVICES) == 0)
         {
             qat_log(LOG_LEVEL_ERROR, "Error while creating hash table\n");
+            free_cpu_data();
             return -ENOMEM;
         }
 
@@ -786,6 +1088,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 {
                     qat_log(LOG_LEVEL_ERROR,
                             "Error while creating hash table\n");
+                    free_cpu_data();
                     return -ENOMEM;
                 }
             }
@@ -795,6 +1098,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             if (hsearch(pf_entry, ENTER) == NULL)
             {
                 qat_log(LOG_LEVEL_ERROR, "No space left in hash table\n");
+                free_cpu_data();
                 return -ENOMEM;
             }
         }
@@ -824,6 +1128,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                     "available devices %d\n",
                     policy,
                     num_vf_devices);
+            free_cpu_data();
             return -EINVAL;
         }
         qat_log(LOG_LEVEL_DEBUG, "num_section_data %d\n", num_section_data);
@@ -839,6 +1144,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 "available devices %d\n",
                 policy,
                 num_vf_devices);
+        free_cpu_data();
         return -EINVAL;
     }
 
@@ -847,7 +1153,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
     {
         qat_log(LOG_LEVEL_ERROR, "Malloc failed for section data\n");
         num_section_data = 0;
-        qat_mgr_cleanup_cfg();
+        free_cpu_data();
         return -EAGAIN;
     }
 
@@ -901,7 +1207,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             snprintf(device_data->device_id,
                      sizeof(device_data->device_id),
                      "%04x:%02x:%02x.%01x",
-                     BDF_NODE(dev_list[vf_idx].bdf),
+                     BDF_DOMAIN(dev_list[vf_idx].bdf),
                      BDF_BUS(dev_list[vf_idx].bdf),
                      BDF_DEV(dev_list[vf_idx].bdf),
                      BDF_FUN(dev_list[vf_idx].bdf));
@@ -911,7 +1217,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                      dev_list[vf_idx].vfio_file);
             device_data->group_fd = dev_list[vf_idx].group_fd;
             device_data->accelid = j;
-            device_data->node = BDF_NODE(dev_list[vf_idx].bdf);
+            device_data->node = dev_list[vf_idx].numa_node;
 
             if (get_pkg_id(dev_list[vf_idx].bdf, &vf_pkg_id))
             {
@@ -979,6 +1285,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                     cached_capabilities->capabilities;
                 device_data->extended_capabilities =
                     cached_capabilities->ext_dc_caps;
+                ring_to_svc_map = cached_capabilities->ring_to_svc_map;
             }
             else if (adf_vf2pf_available())
             {
@@ -986,7 +1293,8 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                                                       devid,
                                                       &compatible,
                                                       &ext_dc_caps,
-                                                      &capabilities);
+                                                      &capabilities,
+                                                      &ring_to_svc_map);
                 if (0 == ret)
                 {
                     device_data->accel_capabilities = capabilities;
@@ -1014,6 +1322,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                     cached_capabilities->pf = pf;
                     cached_capabilities->capabilities = capabilities;
                     cached_capabilities->ext_dc_caps = ext_dc_caps;
+                    cached_capabilities->ring_to_svc_map = ring_to_svc_map;
                     add_pf_capabilities(cached_capabilities);
                 }
             }
@@ -1056,61 +1365,12 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
             /*  populate configuration for a device
              *   first determine num instances per device
              */
-            switch (device_data->services)
+            ret = get_num_instances(device_data, devid, ring_to_svc_map);
+            if (ret)
             {
-                case SERV_TYPE_CY: {
-                    qat_log(LOG_LEVEL_INFO, "Detected CY configuration\n");
-                    device_data->num_sym_inst = INSTANCES_PER_DEVICE / 2;
-                    device_data->num_asym_inst = INSTANCES_PER_DEVICE / 2;
-                    device_data->num_cy_inst = INSTANCES_PER_DEVICE / 2;
-                }
-                break;
-
-                case SERV_TYPE_SYM: {
-                    qat_log(LOG_LEVEL_INFO, "Detected SYM configuration\n");
-                    device_data->num_sym_inst = INSTANCES_PER_DEVICE;
-                    device_data->num_cy_inst =
-                        INSTANCES_PER_DEVICE; /* for SAL */
-                }
-                break;
-
-                case SERV_TYPE_ASYM: {
-                    qat_log(LOG_LEVEL_INFO, "Detected ASYM configuration\n");
-                    device_data->num_asym_inst = INSTANCES_PER_DEVICE;
-                    device_data->num_cy_inst =
-                        INSTANCES_PER_DEVICE; /* for SAL */
-                }
-                break;
-
-                case SERV_TYPE_DC: {
-                    qat_log(LOG_LEVEL_INFO, "Detected DC configuration\n");
-                    device_data->num_dc_inst = INSTANCES_PER_DEVICE;
-                }
-                break;
-
-                case SERV_TYPE_ASYM_DC: {
-                    qat_log(LOG_LEVEL_INFO, "Detected ASYM DC configuration\n");
-                    device_data->num_dc_inst = INSTANCES_PER_DEVICE / 2;
-                    device_data->num_asym_inst = INSTANCES_PER_DEVICE / 2;
-                    device_data->num_cy_inst =
-                        INSTANCES_PER_DEVICE / 2; /* for SAL */
-                }
-                break;
-
-                case SERV_TYPE_SYM_DC: {
-                    qat_log(LOG_LEVEL_INFO, "Detected SYM DC configuration\n");
-                    device_data->num_dc_inst = INSTANCES_PER_DEVICE / 2;
-                    device_data->num_sym_inst = INSTANCES_PER_DEVICE / 2;
-                    device_data->num_cy_inst =
-                        INSTANCES_PER_DEVICE / 2; /* for SAL */
-                }
-                break;
-
-                default: {
-                    qat_log(LOG_LEVEL_ERROR,
-                            "Detected unknown configuration\n");
-                    return -1;
-                }
+                qat_log(LOG_LEVEL_ERROR, "Detected unknown service\n");
+                qat_mgr_cleanup_cfg();
+                return -1;
             }
 
             if (device_data->num_dc_inst)
@@ -1154,14 +1414,21 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 cy_inst->asym.accelid = device_data->accelid;
                 cy_inst->asym.service_type = SERV_TYPE_ASYM;
 
-                    cy_inst->asym.bank_number = calculate_bank_number(
-                        device_data, cy_inst->asym.service_type, k);
+                    cy_inst->asym.bank_number =
+                        calculate_bank_number(ASYM, k, ring_to_svc_map);
+                    if (cy_inst->asym.bank_number < 0)
+                    {
+                        qat_log(LOG_LEVEL_ERROR,
+                                "Cannot find bank number for asym instance\n");
+                        qat_mgr_cleanup_cfg();
+                        return -1;
+                    }
                     cy_inst->asym.ring_tx = 0;
                     cy_inst->asym.ring_rx = 1;
                 cy_inst->asym.is_polled = 1;
                 cy_inst->asym.num_concurrent_requests = 64;
-                cy_inst->asym.core_affinity = core;
-                core = (core + 1) % num_procs;
+                cy_inst->asym.core_affinity =
+                    get_core_affinity(device_data->node);
             }
 
             cy_inst = device_data->cy_instance_data;
@@ -1174,14 +1441,21 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 cy_inst->sym.accelid = device_data->accelid;
                 cy_inst->sym.service_type = SERV_TYPE_SYM;
 
-                    cy_inst->sym.bank_number = calculate_bank_number(
-                        device_data, cy_inst->sym.service_type, k);
+                    cy_inst->sym.bank_number =
+                        calculate_bank_number(SYM, k, ring_to_svc_map);
+                    if (cy_inst->sym.bank_number < 0)
+                    {
+                        qat_log(LOG_LEVEL_ERROR,
+                                "Cannot find bank number for sym instance\n");
+                        qat_mgr_cleanup_cfg();
+                        return -1;
+                    }
                     cy_inst->sym.ring_tx = 0;
                     cy_inst->sym.ring_rx = 1;
                 cy_inst->sym.is_polled = 1;
                 cy_inst->sym.num_concurrent_requests = 512;
-                cy_inst->sym.core_affinity = core;
-                core = (core + 1) % num_procs;
+                cy_inst->sym.core_affinity =
+                    get_core_affinity(device_data->node);
             }
 
             dc_inst = device_data->dc_instance_data;
@@ -1194,14 +1468,20 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                 dc_inst->accelid = device_data->accelid;
                 dc_inst->service_type = SERV_TYPE_DC;
 
-                    dc_inst->bank_number = calculate_bank_number(
-                        device_data, dc_inst->service_type, k);
+                    dc_inst->bank_number =
+                        calculate_bank_number(COMP, k, ring_to_svc_map);
+                    if (dc_inst->bank_number < 0)
+                    {
+                        qat_log(LOG_LEVEL_ERROR,
+                                "Cannot find bank number for dc instance\n");
+                        qat_mgr_cleanup_cfg();
+                        return -1;
+                    }
                     dc_inst->ring_tx = 0;
                     dc_inst->ring_rx = 1;
                 dc_inst->is_polled = 1;
                 dc_inst->num_concurrent_requests = 512;
-                dc_inst->core_affinity = core;
-                core = (core + 1) % num_procs;
+                dc_inst->core_affinity = get_core_affinity(device_data->node);
             }
         }
     }
@@ -1343,7 +1623,7 @@ static void dump_message(void *ptr, char *text)
         }
         printf("\n");
     }
-    if (payload_size > MAX_PAYLOAD_SIZE)
+    else
     {
         qat_log(
             LOG_LEVEL_ERROR,
@@ -1941,7 +2221,7 @@ static int get_section(pthread_t tid, char **derived_section_name)
     if (pthread_mutex_lock(&section_data_mutex))
     {
         qat_log(LOG_LEVEL_ERROR, "Unable to lock section_data mutex\n");
-        return -1;
+        return -2;
     }
 
     for (i = 0; i < num_section_data; i++)
@@ -1957,7 +2237,7 @@ static int get_section(pthread_t tid, char **derived_section_name)
     if (pthread_mutex_unlock(&section_data_mutex))
     {
         qat_log(LOG_LEVEL_ERROR, "Unable to unlock section_data mutex\n");
-        return -1;
+        return -2;
     }
 
     if (assigned)
@@ -2017,8 +2297,11 @@ static int handle_section_request(struct qatmgr_msg_req *req,
     if (sec < 0)
     {
         qat_log(LOG_LEVEL_ERROR, "Couldn't get section %s\n", req->name);
-        err_msg(rsp, "No section available");
-        return -1;
+        if (sec == -2)
+            err_msg(rsp, "Internal error");
+        else
+            err_msg(rsp, "No section available");
+        return sec;
     }
 
     *index = sec;

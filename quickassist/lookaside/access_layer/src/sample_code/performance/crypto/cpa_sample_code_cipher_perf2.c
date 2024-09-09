@@ -95,12 +95,12 @@ extern int signOfLife;
  *      Callback function for result of perform operation
  *
  *****************************************************************************/
-void cipherPerformCallback(void *pCallbackTag,
-                           CpaStatus status,
-                           const CpaCySymOp operationType,
-                           void *pOpData,
-                           CpaBufferList *pDstBuffer,
-                           CpaBoolean verifyResult)
+static void cipherPerformCallback(void *pCallbackTag,
+                                  CpaStatus status,
+                                  const CpaCySymOp operationType,
+                                  void *pOpData,
+                                  CpaBufferList *pDstBuffer,
+                                  CpaBoolean verifyResult)
 {
     /*we declare the callback as per the API requirements, but we only use
      * the pCallbackTag parameter*/
@@ -249,12 +249,12 @@ static CpaStatus cipherPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
  * @description
  * measures the performance of cipher encryption operations
  * ****************************************************************************/
-CpaStatus cipherPerform(symmetric_test_params_t *setup,
-                        perf_data_t *pSymData,
-                        Cpa32U numOfLoops,
-                        CpaCySymOpData *ppOpData,
-                        CpaBufferList *ppSrcBuffListArray,
-                        CpaCySymCipherDirection cipherDirection)
+static CpaStatus cipherPerform(symmetric_test_params_t *setup,
+                               perf_data_t *pSymData,
+                               Cpa32U numOfLoops,
+                               CpaCySymOpData *ppOpData,
+                               CpaBufferList *ppSrcBuffListArray,
+                               CpaCySymCipherDirection cipherDirection)
 {
     CpaBoolean verifyResult = CPA_FALSE;
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -359,10 +359,10 @@ CpaStatus cipherPerform(symmetric_test_params_t *setup,
  * @description
  * Free memory allocated in the sampleCipherPerform function
  * ****************************************************************************/
-void cipherPerformMemFree(symmetric_test_params_t *setup,
-                          CpaBufferList *pSrcBuffListArray,
-                          CpaCySymOpData *pOpData,
-                          CpaCySymSessionCtx *pSessionCtx)
+static void cipherPerformMemFree(symmetric_test_params_t *setup,
+                                 CpaBufferList *pSrcBuffListArray,
+                                 CpaCySymOpData *pOpData,
+                                 CpaCySymSessionCtx *pSessionCtx)
 {
     Cpa32U freeMemCount = 0;
     CpaBufferList *buffList = pSrcBuffListArray;
@@ -403,7 +403,7 @@ void cipherPerformMemFree(symmetric_test_params_t *setup,
  * @description
  *  Main executing function
  ******************************************************************************/
-CpaStatus sampleCipherPerform(symmetric_test_params_t *setup)
+static CpaStatus sampleCipherPerform(symmetric_test_params_t *setup)
 {
     /* start of local variable declarations */
     CpaCySymSessionCtx sessionCtx = NULL;
@@ -550,7 +550,7 @@ CpaStatus sampleCipherPerform(symmetric_test_params_t *setup)
  * @description
  *  Setup a cipher thread for a given packet size or mix
  ******************************************************************************/
-void sampleCipherPerformance(single_thread_test_data_t *testSetup)
+static void sampleCipherPerformance(single_thread_test_data_t *testSetup)
 {
     symmetric_test_params_t symTestSetup;
     symmetric_test_params_t *pSetup =

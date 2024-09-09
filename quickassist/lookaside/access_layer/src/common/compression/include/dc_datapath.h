@@ -88,7 +88,6 @@
 
 /* Restriction on the destination buffer size for compression due to
  * the management of skid buffers in the firmware */
-#define DC_DEST_BUFFER_DYN_MIN_SIZE (128)
 #define DC_DEST_BUFFER_STA_MIN_SIZE (64)
 #define DC_DEST_BUFFER_DYN_MIN_SIZE_GEN4 (512)
 #define DC_DEST_BUFFER_STA_MIN_SIZE_GEN4 (1024)

@@ -516,7 +516,6 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
                                          sal_service_type_t svc_type)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    sal_list_t *dyn_service = NULL;
     sal_service_t *inst = (sal_service_t *)SalList_getObject(*services);
 #ifndef KERNEL_SPACE
     Sal_CleanMiscErrStats(inst);
@@ -530,17 +529,6 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
         *debug_dir = NULL;
     }
 
-    dyn_service = *services;
-    while (dyn_service)
-    {
-        inst = (sal_service_t *)SalList_getObject(dyn_service);
-        if (CPA_TRUE == inst->is_dyn)
-        {
-            icp_adf_putDynInstance(
-                device, (adf_service_type_t)svc_type, inst->instance);
-        }
-        dyn_service = SalList_next(dyn_service);
-    }
     /* Free Sal services controller memory */
     SalList_free(services);
     return status;

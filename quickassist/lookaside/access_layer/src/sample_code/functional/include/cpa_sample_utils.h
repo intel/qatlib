@@ -535,7 +535,8 @@ static __inline CpaPhysicalAddr sampleVirtToPhys(void *virtAddr)
 
 static __inline CpaStatus sampleThreadCreate(sampleThread *thread,
                                              void *funct,
-                                             void *args)
+                                             void *args,
+                                             CpaBoolean thread_auto_detach)
 {
 #ifdef USER_SPACE
     if (pthread_create(thread, NULL, funct, args) != 0)
@@ -543,16 +544,28 @@ static __inline CpaStatus sampleThreadCreate(sampleThread *thread,
         PRINT_ERR("Failed create thread\n");
         return CPA_STATUS_FAIL;
     }
-    else
+    if (CPA_TRUE == thread_auto_detach)
     {
         pthread_detach(*thread);
-        return CPA_STATUS_SUCCESS;
     }
+    return CPA_STATUS_SUCCESS;
 #else
     *thread = kthread_create(funct, args, "SAMPLE_THREAD");
     wake_up_process(*thread);
     return CPA_STATUS_SUCCESS;
 #endif
+}
+
+static __inline CpaStatus sampleThreadJoin(sampleThread *thread)
+{
+#ifdef USER_SPACE
+    if (pthread_join(*thread, NULL) != 0)
+    {
+        PRINT_ERR("Failed join thread\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif
+    return CPA_STATUS_SUCCESS;
 }
 
 static __inline void sampleThreadExit(void)
@@ -563,6 +576,10 @@ static __inline void sampleThreadExit(void)
 }
 
 #ifdef DO_CRYPTO
+void sampleAsymGetInstance(CpaInstanceHandle *pAsymInstHandle);
+
+void sampleSymGetInstance(CpaInstanceHandle *pSymInstHandle);
+
 void sampleCyGetInstance(CpaInstanceHandle *pCyInstHandle);
 
 void sampleCyStartPolling(CpaInstanceHandle cyInstHandle);

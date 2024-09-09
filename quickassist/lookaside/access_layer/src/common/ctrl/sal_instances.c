@@ -194,6 +194,11 @@ CpaStatus Lac_GetCyNumInstancesByType(
             CPA_ACC_SVC_TYPE_CRYPTO == accelerationServiceType)
         {
             list_temp = base_addr->asym_services;
+            if ((NULL == list_temp) &&
+                (CPA_ACC_SVC_TYPE_CRYPTO != accelerationServiceType))
+            {
+                list_temp = base_addr->crypto_services;
+            }
             while (NULL != list_temp)
             {
                 num_inst++;
@@ -205,6 +210,11 @@ CpaStatus Lac_GetCyNumInstancesByType(
             CPA_ACC_SVC_TYPE_CRYPTO == accelerationServiceType)
         {
             list_temp = base_addr->sym_services;
+            if ((NULL == list_temp) &&
+                (CPA_ACC_SVC_TYPE_CRYPTO != accelerationServiceType))
+            {
+                list_temp = base_addr->crypto_services;
+            }
             while (NULL != list_temp)
             {
                 num_inst++;
@@ -360,6 +370,11 @@ CpaStatus Lac_GetCyInstancesByType(
             CPA_ACC_SVC_TYPE_CRYPTO == accelerationServiceType)
         {
             list_temp = base_addr->asym_services;
+            if ((NULL == list_temp) &&
+                (CPA_ACC_SVC_TYPE_CRYPTO != accelerationServiceType))
+            {
+                list_temp = base_addr->crypto_services;
+            }
             while (NULL != list_temp)
             {
                 if (index > (numInstances - 1))
@@ -375,6 +390,11 @@ CpaStatus Lac_GetCyInstancesByType(
             CPA_ACC_SVC_TYPE_CRYPTO == accelerationServiceType)
         {
             list_temp = base_addr->sym_services;
+            if ((NULL == list_temp) &&
+                (CPA_ACC_SVC_TYPE_CRYPTO != accelerationServiceType))
+            {
+                list_temp = base_addr->crypto_services;
+            }
             while (NULL != list_temp)
             {
                 if (index > (numInstances - 1))

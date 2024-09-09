@@ -237,8 +237,14 @@ volatile CpaBoolean enableReadInstance_g = CPA_FALSE;
 /* DC chaining specific variable to enable S/W write chaining operation */
 volatile CpaBoolean swWrite_g = CPA_FALSE;
 
+
 volatile CpaBoolean isNsRequest_g = CPA_FALSE;
 int verboseOutput = 1;
+
+CpaStatus setHwVerify(CpaBoolean val);
+CpaStatus setSwWrite(CpaBoolean val);
+CpaStatus setKeyCorrupt(CpaBoolean val);
+CpaStatus enableReadInstance(CpaBoolean val);
 
 CpaStatus setDcNsFlag(CpaBoolean val)
 {
@@ -788,6 +794,7 @@ CpaStatus startThreads(void)
 CpaStatus waitForThreadCompletion(void)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaStatus statusPrintFunc = CPA_STATUS_SUCCESS;
     Cpa32U i = 0;
     stats_print_func_t statsPrintFunc;
     FUNC_ENTRY();
@@ -845,7 +852,7 @@ CpaStatus waitForThreadCompletion(void)
             statsPrintFunc = *(testSetupData_g[i].statsPrintFunc);
             if (statsPrintFunc != NULL)
             {
-                statsPrintFunc(&testSetupData_g[i]);
+                statusPrintFunc = statsPrintFunc(&testSetupData_g[i]);
             }
             else
             {
@@ -860,6 +867,10 @@ CpaStatus waitForThreadCompletion(void)
             {
                 PRINT("---------------------------------------\n\n");
             }
+        }
+        if (statusPrintFunc == CPA_STATUS_FAIL)
+        {
+            status = CPA_STATUS_FAIL;
         }
 #ifndef NEWDISLAY
         PRINT("---------------------------------------\n\n");

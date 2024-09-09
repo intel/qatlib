@@ -225,20 +225,21 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     {
         /* Allocate destination buffer the same size as source buffer but in
            an SGL with 1 buffer */
-        bufferListMemSize = sizeof(CpaPhysBufferList) + dstBufferSize;
+        bufferListMemSize =
+            sizeof(CpaPhysBufferList) + sizeof(CpaPhysFlatBuffer);
         status =
             PHYS_CONTIG_ALLOC_ALIGNED(&pBufferListDst, bufferListMemSize, 8);
     }
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        status = PHYS_CONTIG_ALLOC(&pDstBuffer, bufferSize);
+        status = PHYS_CONTIG_ALLOC(&pDstBuffer, dstBufferSize);
     }
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Build destination bufferList */
         pBufferListDst->numBuffers = 1;
-        pBufferListDst->flatBuffers[0].dataLenInBytes = bufferSize;
+        pBufferListDst->flatBuffers[0].dataLenInBytes = dstBufferSize;
         pBufferListDst->flatBuffers[0].bufferPhysAddr =
             virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pDstBuffer,
                               dcInstHandle,
@@ -581,11 +582,13 @@ CpaStatus dcDpSample(void)
      * Set the address translation function for the instance
      */
     status = cpaDcSetAddressTranslation(dcInstHandle, sampleVirtToPhys);
-
-    /* Start DataCompression component */
-    PRINT_DBG("cpaDcStartInstance\n");
-    status =
-        cpaDcStartInstance(dcInstHandle, numInterBuffLists, bufferInterArray);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Start DataCompression component */
+        PRINT_DBG("cpaDcStartInstance\n");
+        status = cpaDcStartInstance(
+            dcInstHandle, numInterBuffLists, bufferInterArray);
+    }
 
     if (CPA_STATUS_SUCCESS == status)
     {

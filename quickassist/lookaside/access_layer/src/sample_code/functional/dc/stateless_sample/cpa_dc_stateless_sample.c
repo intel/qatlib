@@ -189,7 +189,7 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
     CpaDcRqResults dcResults;
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
     INIT_OPDATA(&opData, CPA_DC_FLUSH_FINAL);
 
     PRINT_DBG("cpaDcBufferListGetMetaSize\n");
@@ -204,6 +204,10 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     //<snippet name="memAlloc">
     status =
         cpaDcBufferListGetMetaSize(dcInstHandle, numBuffers, &bufferMetaSize);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaDcBufferListGetMetaSize failed. (status = %d)\n", status);
+    }
 
     /* Destination buffer size is set as sizeof(sampelData) for a
      * Deflate compression operation with DC_API_VERSION < 2.5.

@@ -285,6 +285,10 @@ CpaStatus icp_sal_userStop()
     {
         start_ref_count -= 1;
     }
+    if (0 == start_ref_count)
+    {
+        start_ref_pid = -1;
+    }
     if (osalMutexUnlock(&sync_lock))
     {
         LAC_LOG_ERROR("Mutex unlock failed\n");
@@ -293,7 +297,6 @@ CpaStatus icp_sal_userStop()
     if (0 == start_ref_count)
     {
         osalMutexDestroy(&sync_lock);
-        start_ref_pid = -1;
     }
 
     return status;

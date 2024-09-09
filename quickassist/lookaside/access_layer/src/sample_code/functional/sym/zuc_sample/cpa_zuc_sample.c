@@ -183,7 +183,7 @@ static CpaStatus algChainPerformOpZUC(CpaInstanceHandle cyInstHandle,
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete;
+    struct COMPLETION_STRUCT complete = { 0 };
 
     /* get meta information size */
     PRINT_DBG("cpaCyBufferListGetMetaSize\n");
@@ -349,7 +349,7 @@ CpaStatus algChainSample(void)
      * In this simplified version of instance discovery, we discover
      * exactly one instance of a crypto service.
      */
-    sampleCyGetInstance(&cyInstHandle);
+    sampleSymGetInstance(&cyInstHandle);
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;

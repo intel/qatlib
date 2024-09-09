@@ -108,8 +108,8 @@ CpaStatus adf_io_userProcessToStart(char const *const name_in,
                                     char *name,
                                     size_t name_len)
 {
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
     int ret;
 
     ret = qatmgr_open();
@@ -156,8 +156,8 @@ CpaStatus adf_io_userProxyInit(char const *const name)
 
 void adf_io_userProcessStop(void)
 {
-    struct qatmgr_msg_req req = {0};
-    struct qatmgr_msg_rsp rsp = {0};
+    struct qatmgr_msg_req req = { 0 };
+    struct qatmgr_msg_rsp rsp = { 0 };
 
     assert(sizeof(req.name) == sizeof(currentProcess));
     ICP_STRLCPY(req.name, currentProcess, sizeof(req.name));
@@ -167,8 +167,6 @@ void adf_io_userProcessStop(void)
     memset(currentProcess, 0, QATMGR_MAX_STRLEN);
 
     qatmgr_close();
-
-    return;
 }
 
 void adf_io_userProxyShutdown(void)

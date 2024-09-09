@@ -1419,7 +1419,8 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
     return status;
 }
 
-void sampleSymmetricUpdatePerformance(single_thread_test_data_t *testSetup)
+static void sampleSymmetricUpdatePerformance(
+    single_thread_test_data_t *testSetup)
 {
     symmetric_test_params_t updateTestSetup;
     symmetric_test_params_t *pSetup =

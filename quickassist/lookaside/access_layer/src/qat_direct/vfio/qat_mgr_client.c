@@ -176,7 +176,7 @@ static int adf_vfio_build_sconfig()
                 "Device %d, %X, %04x:%02x:%02x.%01x\n",
                 i,
                 dev_list[i].bdf,
-                BDF_NODE(dev_list[i].bdf),
+                BDF_DOMAIN(dev_list[i].bdf),
                 BDF_BUS(dev_list[i].bdf),
                 BDF_DEV(dev_list[i].bdf),
                 BDF_FUN(dev_list[i].bdf));

@@ -234,6 +234,8 @@ CpaStatus setUseStaticPrime(int val);
 
 CpaStatus setDcNsFlag(CpaBoolean val);
 extern volatile CpaBoolean isNsRequest_g;
+CpaStatus setDataIntegrity(CpaBoolean val);
+CpaStatus setDataIntegrityVerify(CpaBoolean val);
 CpaStatus printReliability(void);
 
 extern volatile CpaBoolean fineTune_g;
