@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev nasm
+    - run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev nasm libnuma-dev
 
     - name: Checkout repository using checkout action v3.1.0
       uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
