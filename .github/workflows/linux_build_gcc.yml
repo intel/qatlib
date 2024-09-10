@@ -17,8 +17,8 @@ jobs:
     steps:
     - run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev nasm libnuma-dev
 
-    - name: Checkout repository using checkout action v3.1.0
-      uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+    - name: Checkout repository using checkout action v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       with:
         repository: intel/qatlib
 
