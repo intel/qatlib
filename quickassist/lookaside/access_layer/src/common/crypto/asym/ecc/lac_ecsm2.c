@@ -1624,12 +1624,12 @@ CpaStatus cpaCyEcsm2PointMultiply(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -1815,12 +1815,12 @@ CpaStatus cpaCyEcsm2GeneratorMultiply(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -1972,12 +1972,12 @@ CpaStatus cpaCyEcsm2PointVerify(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2126,12 +2126,12 @@ CpaStatus cpaCyEcsm2Sign(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2284,12 +2284,12 @@ CpaStatus cpaCyEcsm2Verify(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2457,12 +2457,12 @@ CpaStatus cpaCyEcsm2Encrypt(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2642,12 +2642,12 @@ CpaStatus cpaCyEcsm2Decrypt(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2818,12 +2818,12 @@ CpaStatus cpaCyEcsm2KeyExPhase1(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2981,12 +2981,12 @@ CpaStatus cpaCyEcsm2KeyExPhase2(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curver other than GFP P-256 not suppported");
+                        "SM2 curves other than GFP P-256 not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
