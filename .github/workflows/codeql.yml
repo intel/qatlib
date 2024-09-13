@@ -24,12 +24,12 @@ jobs:
         language: [ 'cpp' ]
 
     steps:
-    - name: Checkout repository
+    - name: Checkout repository using checkout action v4.1.7
       uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@b8efe4dc6ab6d31abe3ec159420d2a4916880800
+      uses: github/codeql-action/init@4dd16135b69a43b6c8efb853346f8437d92d3c93 # v3.26.6
       with:
         languages: ${{ matrix.language }}
 
@@ -47,6 +47,6 @@ jobs:
       run: make -j
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@b8efe4dc6ab6d31abe3ec159420d2a4916880800
+      uses: github/codeql-action/analyze@4dd16135b69a43b6c8efb853346f8437d92d3c93 #v3.26.6
       with:
         category: "/language:${{matrix.language}}"
