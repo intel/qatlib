@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([qatlib], [24.09.0], [qat-linux@intel.com])
-AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign subdir-objects tar-pax])
+AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
 AC_USE_SYSTEM_EXTENSIONS
