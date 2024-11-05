@@ -26,6 +26,7 @@
 
 | Date      |     Doc Revision      | Version |   Details |
 |----------|:-------------:|------:|:------|
+| November 2024 | 015 | 24.09 | - Doc update only. Add QAT20-38022 information to [Open Issues](#open-issues) section. |
 | September 2024 | 014 | 24.09 | - Improved performance scaling in multi-thread applications (--enable-icp-thread-specific-usdm). <br> - Bug Fixes.  See [Resolved Issues](#resolved-issues). <br> -  Set core affinity mapping based on NUMA node to improve performance (near-linear scaling) on multi-socket platforms.  |
 | July 2024 | 013 | 24.02 | - Doc update only. Updated this table to say that support for the GEN4 402xx device was added in the 24.02 release. Added link to more details in Supported Devices section. |
 | February 2024 | 012 | 24.02 | - Added Heartbeat support. <br> - Added support for QAT GEN 5 devices, including support for a range of crypto wireless algorithms. <br> - RAS - Device error reset and recovery handling. <br> - Bug Fixes. See [Resolved Issues](#resolved-issues). |
@@ -189,9 +190,20 @@ where: \<Component\> is one of the following:
 
 | Issue ID | Description |
 |-------------|------------|
-| QATE-102390 | [GEN – [error] validateConcurrRequest() - : Invalid numConcurrRequests](#qate-102390)
+| QAT20-38022 | [CY - Edwards and Montgomery curves not supported in PKE operations.](#qat20-38022) |
+| QATE-102390 | [GEN - [error] validateConcurrRequest() - : Invalid numConcurrRequests](#qate-102390) |
 | QATE-3241  | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.](#qate-3241) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur.](#qate-76073) |
+
+## QAT20-38022
+| Title         | CY – Edwards and Montgomery curves not supported in PKE operations |
+|---------------|:-------------------------------------------------------------------|
+| Reference #   | QAT20-38022 |
+| Description   | On some platforms the function cpaCyQueryCapabilities() will report the ecEdMontSupported capability as FALSE and operations using those curves will fail. This case can arise when qatlib is running in a guest and the QAT kernel driver on the host is not a standard Linux in-tree kernel driver. For example, it can occur with some Linux out-of-tree, VMware® ESXi and Windows® QAT kernel drivers. |
+| Implication   | PKE operations using those elliptic curves will fail. |
+| Resolution    | There are three ways to resolve this: (a) If host OS is Linux, use the QAT driver which comes with any standard Linux kernel, i.e. the in-tree driver. (b) Apply [this patch](https://github.com/intel/qatlib/commit/e72bf1b27adafd58efbbf643a752a9ffdcfeb5a3) to your qatlib source code and rebuild and re-install the library. (c) Install an updated QAT kernel driver on the host, which reports a fix for this issue in its release notes. |
+| Affected OS   | Linux, VMware®, Windows® |
+| Driver/Module | CPM-IA – Only applies to QAT GEN4 devices. |
 
 ## QATE-102390
 | Title         | GEN – [error] validateConcurrRequest() - : Invalid numConcurrRequests  |
@@ -202,7 +214,6 @@ where: \<Component\> is one of the following:
 | Resolution    | To resolve the issue, restart the qatmgr on the guest using "sudo systemctl restart qat". If in standalone mode, restart the process manually. |
 | Affected OS   | Linux |
 | Driver/Module | CPM-IA – Only on the 420xx QAT GEN 5 device. |
-
 
 ## QATE-3241
 | Title      |       CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding.        |
