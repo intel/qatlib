@@ -1297,6 +1297,15 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                                                       &ring_to_svc_map);
                 if (0 == ret)
                 {
+                    /*
+                     * Override the ecEdMont capability reported by the kernel.
+                     * The reason for this is that some QAT Gen4 kernel drivers
+                     * don't report this capability even though it is present
+                     * in all devices that have asym.
+                     */
+                    if (capabilities & ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)
+                        capabilities |= ICP_ACCEL_CAPABILITIES_ECEDMONT;
+
                     device_data->accel_capabilities = capabilities;
                     device_data->extended_capabilities = ext_dc_caps;
                 }
