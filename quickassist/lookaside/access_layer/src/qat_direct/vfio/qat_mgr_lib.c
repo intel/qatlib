@@ -1165,7 +1165,7 @@ int qat_mgr_build_data(const struct qatmgr_dev_data dev_list[],
                  "SSL_INT_%d",
                  i);
         snprintf(section->base_name, sizeof(section->base_name), "SSL");
-        section->assigned_tid = 0;
+        section->assigned_pid = 0;
 
         if (policy)
         {
@@ -2185,7 +2185,7 @@ static int handle_get_instance_info(struct qatmgr_msg_req *req,
     return 0;
 }
 
-int release_section(int index, pthread_t tid, char *name, size_t name_len)
+int release_section(int index, pthread_t pid, char *name, size_t name_len)
 {
     ICP_CHECK_FOR_NULL_PARAM(name);
 
@@ -2194,7 +2194,7 @@ int release_section(int index, pthread_t tid, char *name, size_t name_len)
         qat_log(LOG_LEVEL_ERROR,
                 "Invalid section index %d for thread %lu, section %s\n",
                 index,
-                tid,
+                pid,
                 name);
         return -1;
     }
@@ -2208,21 +2208,21 @@ int release_section(int index, pthread_t tid, char *name, size_t name_len)
                 section_data[index].section_name);
         return -1;
     }
-    if (section_data[index].assigned_tid != tid)
+    if (section_data[index].assigned_pid != pid)
     {
         qat_log(LOG_LEVEL_ERROR,
                 "Incorrect thread %lu for section %s. Expected %lu\n",
-                tid,
+                pid,
                 name,
-                section_data[index].assigned_tid);
+                section_data[index].assigned_pid);
         return -1;
     }
     qat_log(LOG_LEVEL_DEBUG, "Released section %s\n", name);
-    section_data[index].assigned_tid = 0;
+    section_data[index].assigned_pid = 0;
     return 0;
 }
 
-static int get_section(pthread_t tid, char **derived_section_name)
+static int get_section(pthread_t pid, char **derived_section_name)
 {
     int i;
     int assigned = 0;
@@ -2235,10 +2235,10 @@ static int get_section(pthread_t tid, char **derived_section_name)
 
     for (i = 0; i < num_section_data; i++)
     {
-        if (section_data[i].assigned_tid)
+        if (section_data[i].assigned_pid)
             continue; /* Assigned to another thread */
 
-        section_data[i].assigned_tid = tid;
+        section_data[i].assigned_pid = pid;
         assigned = 1;
         break;
     }
@@ -2264,7 +2264,7 @@ static int get_section(pthread_t tid, char **derived_section_name)
 static int handle_section_request(struct qatmgr_msg_req *req,
                                   struct qatmgr_msg_rsp *rsp,
                                   char **section_name,
-                                  pid_t tid,
+                                  pid_t pid_in,
                                   int *index)
 {
     int sec;
@@ -2302,7 +2302,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
         return -1;
     }
 
-    sec = get_section(tid, &derived_name);
+    sec = get_section(pid_in, &derived_name);
     if (sec < 0)
     {
         qat_log(LOG_LEVEL_ERROR, "Couldn't get section %s\n", req->name);
@@ -2340,7 +2340,7 @@ static int handle_section_request(struct qatmgr_msg_req *req,
 static int handle_section_release(struct qatmgr_msg_req *req,
                                   struct qatmgr_msg_rsp *rsp,
                                   char **section_name,
-                                  pid_t tid,
+                                  pid_t pid,
                                   int *index)
 {
     ICP_CHECK_FOR_NULL_PARAM(req);
@@ -2365,7 +2365,7 @@ static int handle_section_release(struct qatmgr_msg_req *req,
         return -1;
     }
     if (release_section(
-            *index, tid, req->name, ICP_ARRAY_STRLEN_SANITIZE(req->name)))
+            *index, pid, req->name, ICP_ARRAY_STRLEN_SANITIZE(req->name)))
     {
         err_msg(rsp, "Failed to release section");
     }
@@ -2471,7 +2471,7 @@ static int handle_get_pf_device_info(struct qatmgr_msg_req *req,
 int handle_message(struct qatmgr_msg_req *req,
                    struct qatmgr_msg_rsp *rsp,
                    char **section_name,
-                   pid_t tid,
+                   pid_t pid,
                    int *index)
 {
     ICP_CHECK_FOR_NULL_PARAM(req);
@@ -2497,9 +2497,9 @@ int handle_message(struct qatmgr_msg_req *req,
     switch (req->hdr.type)
     {
         case QATMGR_MSGTYPE_SECTION_GET:
-            return handle_section_request(req, rsp, section_name, tid, index);
+            return handle_section_request(req, rsp, section_name, pid, index);
         case QATMGR_MSGTYPE_SECTION_PUT:
-            return handle_section_release(req, rsp, section_name, tid, index);
+            return handle_section_release(req, rsp, section_name, pid, index);
         case QATMGR_MSGTYPE_NUM_DEVICES:
             return handle_get_num_devices(req, rsp, *index);
         case QATMGR_MSGTYPE_DEVICE_INFO:

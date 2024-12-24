@@ -239,7 +239,7 @@ int qatmgr_query(struct qatmgr_msg_req *req,
     int size_rx = 0;
     ssize_t numchars;
     static int index = -1;
-    pid_t tid = pthread_self();
+    pid_t pid = getpid();
     static char *section_name = NULL;
 
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -1);
@@ -276,7 +276,7 @@ int qatmgr_query(struct qatmgr_msg_req *req,
     req->hdr.len = sizeof(req->hdr) + size_tx;
 
     if (qatmgr_sock < 0)
-        return handle_message(req, rsp, &section_name, tid, &index);
+        return handle_message(req, rsp, &section_name, pid, &index);
 
     osalMutexLock(&qatmgr_mutex, OSAL_WAIT_FOREVER);
 

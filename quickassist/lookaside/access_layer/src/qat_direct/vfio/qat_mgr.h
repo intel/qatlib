@@ -242,7 +242,7 @@ struct qatmgr_section_data
 {
     char section_name[QATMGR_MAX_STRLEN];
     char base_name[QATMGR_MAX_STRLEN];
-    pthread_t assigned_tid;
+    pthread_t assigned_pid;
     int num_devices;
     struct qatmgr_device_data *device_data;
 };
@@ -341,10 +341,10 @@ bool qat_mgr_is_dev_available(void);
 int handle_message(struct qatmgr_msg_req *req,
                    struct qatmgr_msg_rsp *rsp,
                    char **section_name,
-                   pid_t tid,
+                   pid_t pid,
                    int *index);
 
-int release_section(int index, pthread_t tid, char *name, size_t name_len);
+int release_section(int index, pthread_t pid, char *name, size_t name_len);
 int init_section_data_mutex(void);
 int destroy_section_data_mutex(void);
 

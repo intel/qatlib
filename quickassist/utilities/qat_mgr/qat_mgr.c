@@ -119,7 +119,7 @@ void *handle_client(void *arg)
     int bytes_r;
     int bytes_w = 0;
     int index = -1;
-    pid_t tid;
+    pid_t pid;
     int conn_fd;
     struct qatmgr_msg_req msgreq = { 0 };
     struct qatmgr_msg_rsp msgrsp = { 0 };
@@ -129,12 +129,12 @@ void *handle_client(void *arg)
     int write_errno = 0;
 
     conn_fd = (intptr_t)arg;
-    tid = pthread_self();
+    pid = getpid();
 
     qat_log(LOG_LEVEL_DEBUG,
-            "connect_fd %d, tid %ul, client_timeout %d ms\n",
+            "connect_fd %d, pid %ul, client_timeout %d ms\n",
             conn_fd,
-            tid,
+            pid,
             CLIENT_TIMEOUT_DEFAULT_MS);
 
     memset(&fd, 0, sizeof(fd));
@@ -147,13 +147,13 @@ void *handle_client(void *arg)
         while ((bytes_r = read(conn_fd, (void *)&msgreq, sizeof(msgreq))) > 0)
         {
             qat_log(LOG_LEVEL_DEBUG,
-                    "tid %d, Received %u bytes: Message type %d, length %d\n",
-                    tid,
+                    "pid %d, Received %u bytes: Message type %d, length %d\n",
+                    pid,
                     bytes_r,
                     msgreq.hdr.type,
                     msgreq.hdr.len);
 
-            handle_message(&msgreq, &msgrsp, &section_name, tid, &index);
+            handle_message(&msgreq, &msgrsp, &section_name, pid, &index);
 
             /* Send response */
             errno = 0;
@@ -173,7 +173,7 @@ void *handle_client(void *arg)
             qat_log(
                 LOG_LEVEL_INFO, "Force release of section %s\n", section_name);
             release_section(index,
-                            tid,
+                            pid,
                             section_name,
                             strnlen(section_name, QATMGR_MAX_STRLEN));
             free(section_name);
@@ -186,16 +186,16 @@ void *handle_client(void *arg)
         }
         else if (bytes_r == 0)
         {
-            qat_log(LOG_LEVEL_INFO, "EOF tid %d\n", tid);
+            qat_log(LOG_LEVEL_INFO, "EOF pid %d\n", pid);
         }
     }
     else if (ret == 0)
     {
         qat_log(LOG_LEVEL_ERROR,
                 "qatmgr timed out waiting on data from the client, connect_fd "
-                "%d, tid %ul\n",
+                "%d, pid %ul\n",
                 conn_fd,
-                tid);
+                pid);
     }
     else
     {
@@ -415,7 +415,7 @@ int main(int argc, char **argv)
     int listen_fd;
     int connect_fd;
     int ret;
-    pthread_t client_tid;
+    pthread_t client_pid;
     struct ucred ucred;
     unsigned len;
     unsigned num_devices;
@@ -598,11 +598,11 @@ int main(int argc, char **argv)
             qat_log(LOG_LEVEL_DEBUG, "Client pid %ld\n", (long)ucred.pid);
 
         ret = pthread_create(
-            &client_tid, NULL, handle_client, (void *)(intptr_t)connect_fd);
+            &client_pid, NULL, handle_client, (void *)(intptr_t)connect_fd);
         if (ret == 0)
         {
-            pthread_detach(client_tid);
-            qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_tid);
+            pthread_detach(client_pid);
+            qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_pid);
         }
         else
         {
