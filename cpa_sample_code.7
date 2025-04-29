@@ -1,0 +1,57 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH CPA_SAMPLE_CODE 7 "August 12, 2024"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.nr TW 0
+.SH NAME
+cpa_sample_code \- showcase of Intel QuickAssist device functionality and performance
+.SH SYNOPSIS
+cpa_sample_code [ signOfLife=1 | getOffloadCost=1 | getLatency=1 ] [ runTests=mask ]
+.SH DESCRIPTION
+This example tool showcases the functionality and performance of Intel QuickAssist devices.
+.SH OPTIONS
+.LP
+mask for runTests:
+.TS
+l l.
+runTests=1	Run symmetric crypto tests.
+runTests=2	Run RSA test.
+runTests=4	Run DSA test.
+runTests=8	Run ECDSA test.
+runTests=16	Run DH test
+runTests=32	Run Stateless Compression test.
+runTests=63	Run all above tests. (default)
+runTests=1024	Run SM2 test.
+runTests=2048	Run SM3&4 test.
+.TE
+.SH EXAMPLES
+.LP
+run the full suite of symmetric cryptography, asymmetric cryptography and data compression operations:
+.IP
+\f[CR]cpa_sample_code\f[]
+.LP
+run a small number of each operation type:
+.IP
+\f[CR]cpa_sample_code signOfLife=1\f[]
+.LP
+run only RSA operations:
+.IP
+\f[CR]cpa_sample_code runTests=2\f[]
+.br
+.SH FURTHER INFORMATION
+https://intel.github.io/quickassist/qatlib/sample_code.html
+.br
+https://github.com/intel/qatlib/blob/main/quickassist/lookaside/access_layer/src/sample_code/README.txt
