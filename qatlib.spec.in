@@ -123,6 +123,7 @@ exit 0
 %{_datadir}/qat/calgary
 %{_datadir}/qat/calgary32
 %{_datadir}/qat/canterbury
+%{_mandir}/man7/cpa_sample_code.7*
 
 %files         service
 %{_sbindir}/qatmgr

@@ -322,7 +322,7 @@ if SERVICE_AC
 	fi
 endif
 
-dist_man_MANS = qat_init.sh.8 qatmgr.8
+dist_man_MANS = qat_init.sh.8 qatmgr.8 cpa_sample_code.7
 
 EXTRA_DIST = INSTALL README.md SECURITY.md LICENSE \
 	filelist \
