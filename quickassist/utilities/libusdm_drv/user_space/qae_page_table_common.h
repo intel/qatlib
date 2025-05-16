@@ -337,4 +337,36 @@ static inline uint64_t load_key(page_table_t *level, void *virt)
     return phy_addr & ~QAE_PAGE_MASK;
 }
 
+static inline uint64_t load_key_hpg(page_table_t *level, void *virt)
+{
+    page_index_t id;
+    uint64_t phy_addr;
+
+    id.addr = (uintptr_t)virt;
+
+    level = level->next[id.hpg_entry.idxl4].pt;
+    if (NULL == level)
+        return 0;
+
+    level = level->next[id.hpg_entry.idxl3].pt;
+    if (NULL == level)
+        return 0;
+
+    level = level->next[id.hpg_entry.idxl2].pt;
+    if (NULL == level)
+        return 0;
+
+    phy_addr = level->next[id.hpg_entry.idxl1].pa;
+    /* The hash key is of 4KB long for both normal page and huge page */
+    return phy_addr & ~QAE_PAGE_MASK;
+}
+
+static inline void free_page_table_hpg(page_table_t *const table)
+{
+    /* There are 1+3 levels in 64-bit page table for 2MB hugepages. */
+    free_page_level(table, 3);
+    /* Reset global root table. */
+    memset(table, 0, sizeof(page_table_t));
+}
+
 #endif /* QAE_PAGE_TABLE_COMMON_H */

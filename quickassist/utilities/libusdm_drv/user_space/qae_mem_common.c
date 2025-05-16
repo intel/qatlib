@@ -88,9 +88,9 @@ size_t g_max_lookup_num = 10;
 #endif
 
 /* User space page table for fast virtual to physical address translation */
-page_table_t g_page_table = {{{0}}};
+page_table_t g_page_table = { { { 0 } } };
 /* User space hash for fast slab searching */
-slab_list_t g_slab_list[PAGE_SIZE] = {{0}};
+slab_list_t g_slab_list[PAGE_SIZE] = { { 0 } };
 
 #ifdef __CLANG_FORMAT__
 /* clang-format on */

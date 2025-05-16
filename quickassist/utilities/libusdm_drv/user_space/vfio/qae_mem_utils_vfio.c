@@ -103,19 +103,32 @@ void *cache_pid = NULL;
 pthread_mutex_t iova_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif /* ICP_THREAD_SPECIFIC_USDM */
 
-#ifdef ICP_THREAD_SPECIFIC_USDM
-#define PINNED 1
-#define NOT_PINNED 0
-#endif
-
 /**************************************************************************
     static variable
 **************************************************************************/
 int g_fd = 0;
 int g_strict_node = 0;
-STATIC int vfio_container_fd = -1;
+int vfio_container_fd = -1;
 STATIC pid_t vfio_pid = 0;
 static int vfio_container_ref = 0;
+
+API_LOCAL
+void __qae_set_free_page_table_fptr(free_page_table_fptr_t fp)
+{
+    free_page_table_fptr = fp;
+}
+
+API_LOCAL
+void __qae_set_loadaddr_fptr(load_addr_fptr_t fp)
+{
+    load_addr_fptr = fp;
+}
+
+API_LOCAL
+void __qae_set_loadkey_fptr(load_key_fptr_t fp)
+{
+    load_key_fptr = fp;
+}
 
 /*
  * Each IOVA_SLAB represents a set of memory pages of size 2MB that
@@ -177,7 +190,7 @@ static int iova_reserve(uint64_t iova, uint32_t size)
     return 0;
 }
 
-static void iova_release(uint64_t iova, uint32_t size)
+void iova_release(uint64_t iova, uint32_t size)
 {
     unsigned slab = 0;
     int count;
@@ -207,9 +220,9 @@ static void iova_release(uint64_t iova, uint32_t size)
 #endif
 }
 
-static inline int dma_map_slab(const void *virt,
-                               const uint64_t iova,
-                               const size_t size)
+inline int dma_map_slab(const void *virt,
+                        const uint64_t iova,
+                        const size_t size)
 {
     int ret = 0;
     struct vfio_iommu_type1_dma_map dma_map = {.argsz = sizeof(dma_map),
@@ -236,7 +249,7 @@ static inline int dma_map_slab(const void *virt,
     return ret;
 }
 
-static inline int dma_unmap_slab(const uint64_t iova, const size_t size)
+inline int dma_unmap_slab(const uint64_t iova, const size_t size)
 {
     int ret = 0;
     struct vfio_iommu_type1_dma_unmap dma_umap = {
@@ -273,7 +286,14 @@ static inline void ioctl_free_slab(const int fd, dev_mem_info_t *memInfo)
 API_LOCAL
 void __qae_finish_free_slab(const int fd, dev_mem_info_t *slab)
 {
-    ioctl_free_slab(fd, slab);
+    if (HUGE_PAGE == slab->type)
+    {
+        __qae_vfio_hugepage_free_slab(slab);
+    }
+    else
+    {
+        ioctl_free_slab(fd, slab);
+    }
 }
 
 /**************************************
@@ -300,6 +320,8 @@ static inline int qaeInitProcess(void)
 #ifdef CACHE_PID
         cache_process_id();
 #endif /* CACHE_PID */
+        if (__qae_vfio_init_hugepages())
+            return -EIO;
     }
 
     return 0;
@@ -514,7 +536,14 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
 {
     dev_mem_info_t *slab = NULL;
 
-    slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    if (HUGE_PAGE == type)
+    {
+        slab = __qae_vfio_hugepage_alloc_slab(fd, size, node, type, alignment);
+    }
+    else
+    {
+        slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    }
 
     /* Store a slab into the hash table for a fast lookup.
      * NOTE: this is not the free list. This hash table is used
@@ -539,7 +568,14 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
 {
     dev_mem_info_t *slab = NULL;
 
-    slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    if (HUGE_PAGE == type)
+    {
+        slab = __qae_vfio_hugepage_alloc_slab(fd, size, node, type, alignment);
+    }
+    else
+    {
+        slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    }
 
     /* Store a slab into the hash table for a fast lookup.
      * NOTE: this is not the free list. This hash table is used

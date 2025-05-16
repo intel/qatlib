@@ -151,6 +151,18 @@ API_LOCAL
 void __qae_free_addr(void **p_va, bool secure_free);
 
 API_LOCAL
+uint64_t allocate_iova(const uint32_t size, uint32_t alignment);
+
+API_LOCAL
+void iova_release(uint64_t iova, uint32_t size);
+
+API_LOCAL
+int dma_map_slab(const void *virt, const uint64_t iova, const size_t size);
+
+API_LOCAL
+int dma_unmap_slab(const uint64_t iova, const size_t size);
+
+API_LOCAL
 void __qae_memFreeNUMA(void **ptr, bool secure_free);
 
 static inline size_t div_round_up(const size_t n, const size_t d)

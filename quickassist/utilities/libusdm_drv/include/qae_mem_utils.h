@@ -695,6 +695,9 @@ void printMemAllocations(void);
     mmap(addr, length, prot, flags, fd, offset)
 #define qae_munmap(addr, length) munmap(addr, length)
 #define qae_madvise(addr, len, advice) madvise(addr, len, advice)
+#define qae_fopen(filename, operation) fopen(filename, operation)
+#define qae_fgets(str, n, stream) fgets(str, n, stream)
+#define qae_opendir(dirname) opendir(dirname)
 #define qae_mkstemp(template) mkstemp(template)
 #endif
 
