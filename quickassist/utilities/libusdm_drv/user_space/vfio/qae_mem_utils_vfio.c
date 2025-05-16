@@ -103,12 +103,15 @@ void *cache_pid = NULL;
 pthread_mutex_t iova_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif /* ICP_THREAD_SPECIFIC_USDM */
 
+#define VFIO_NOIOMMU_MODE "/sys/module/vfio/parameters/enable_unsafe_noiommu_mode"
+
 /**************************************************************************
     static variable
 **************************************************************************/
 int g_fd = 0;
 int g_strict_node = 0;
 int vfio_container_fd = -1;
+int g_noiommu_enabled = 0;
 STATIC pid_t vfio_pid = 0;
 static int vfio_container_ref = 0;
 
@@ -220,11 +223,40 @@ void iova_release(uint64_t iova, uint32_t size)
 #endif
 }
 
+static int vfio_noiommu_enabled(void)
+{
+    int fd;
+    char enabled;
+
+    fd = open(VFIO_NOIOMMU_MODE, O_RDONLY);
+    if (fd < 0)
+    {
+        CMD_ERROR(
+            "%s:%d cannot open %s\n", __func__, __LINE__, VFIO_NOIOMMU_MODE);
+	return 0;
+    }
+
+    if (read(fd, &enabled, 1) != 1)
+    {
+        close(fd);
+        return 0;
+    }
+    close(fd);
+
+    if (enabled == 'Y')
+        return 1;
+    return 0;
+}
+
 inline int dma_map_slab(const void *virt,
                         const uint64_t iova,
                         const size_t size)
 {
     int ret = 0;
+
+    if (g_noiommu_enabled)
+        return ret;
+
     struct vfio_iommu_type1_dma_map dma_map = {.argsz = sizeof(dma_map),
                                                .flags = VFIO_DMA_MAP_FLAG_READ |
                                                         VFIO_DMA_MAP_FLAG_WRITE,
@@ -254,6 +286,9 @@ inline int dma_unmap_slab(const uint64_t iova, const size_t size)
     int ret = 0;
     struct vfio_iommu_type1_dma_unmap dma_umap = {
         .argsz = sizeof(dma_umap), .iova = (uintptr_t)iova, .size = size};
+
+    if (g_noiommu_enabled)
+        return ret;
 
     ret = mem_ioctl(vfio_container_fd, VFIO_IOMMU_UNMAP_DMA, &dma_umap);
     if (ret)
@@ -340,6 +375,58 @@ int __qae_free_special(void)
     uncache_process_id();
 #endif
     return 0;
+}
+
+uint64_t mem_virt2phy(const void *virtaddr)
+{
+    int fd, retval;
+    uint64_t page, physaddr;
+    unsigned long virt_pfn;
+    int page_size;
+    off_t offset;
+
+    /* standard page size */
+    page_size = getpagesize();
+
+    fd = open("/proc/self/pagemap", O_RDONLY);
+    if (fd < 0) {
+        CMD_ERROR("%s(): cannot open /proc/self/pagemap: %s\n",
+                __func__, strerror(errno));
+        return -1;
+    }
+
+    virt_pfn = (unsigned long)virtaddr / page_size;
+    offset = sizeof(uint64_t) * virt_pfn;
+    if (lseek(fd, offset, SEEK_SET) == (off_t) -1) {
+        CMD_ERROR("%s(): seek error in /proc/self/pagemap: %d\n",
+                   __func__, errno);
+        close(fd);
+        return -1;
+    }
+
+    retval = read(fd, &page, sizeof(page));
+    close(fd);
+    if (retval < 0) {
+        CMD_ERROR("%s(): cannot read /proc/self/pagemap: %d\n",
+                __func__, errno);
+        return retval;
+    } else if (retval != sizeof(page)) {
+       CMD_ERROR("%s(): read %d bytes from /proc/self/pagemap "
+                "but expected %d:\n",
+                __func__, retval, sizeof(page));
+       return -1;
+    }
+
+    /*
+     * the pfn (page frame number) are bits 0-54 of page.
+     */
+    if ((page & 0x7fffffffffffffULL) == 0)
+        return -1;
+
+    physaddr = ((page & 0x7fffffffffffffULL) * page_size)
+                   + ((unsigned long)virtaddr % page_size);
+
+    return physaddr;
 }
 
 uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
@@ -456,7 +543,11 @@ static inline dev_mem_info_t *ioctl_alloc_slab(const int fd,
     }
 
     slab->size = size;
-    slab->phy_addr = allocate_iova(size, alignment);
+    if (!g_noiommu_enabled)
+        slab->phy_addr = allocate_iova(size, alignment);
+    else
+        slab->phy_addr = mem_virt2phy(slab->virt_addr);
+
     if (!slab->phy_addr)
     {
         CMD_ERROR("%s:%d cannot map 0x%p to iova\n",
@@ -749,10 +840,15 @@ static int filter_dma_ranges(int fd)
 int qaeRegisterDevice(int fd)
 {
     int ret = 0;
-    pid_t pid = getpid();
+    pid_t pid;
+    g_noiommu_enabled = vfio_noiommu_enabled();
 
-    if (filter_dma_ranges(fd))
-        return -1;
+    if(!g_noiommu_enabled) {
+       if (filter_dma_ranges(fd))
+           return -1;
+    }
+
+    pid = getpid();
 
     if (qaeInitProcess())
     {
@@ -842,12 +938,16 @@ int qaeUnregisterDevice(int fd)
 int qaeRegisterDevice(int fd)
 {
     int ret = 0;
+    pid_t pid;
     dev_mem_info_t *slab;
 
-    pid_t pid = getpid();
+    g_noiommu_enabled =  vfio_noiommu_enabled();
 
-    if (filter_dma_ranges(fd))
-        return -1;
+    if(!g_noiommu_enabled) {
+       if (filter_dma_ranges(fd))
+           return -1;
+
+    pid = getpid();
 
     if (qaeInitProcess())
     {

@@ -91,10 +91,13 @@
 #include "qae_mem_multi_thread.h"
 #endif
 
+uint64_t mem_virt2phy(const void *virtaddr);
+
 static bool g_hugepages_enabled = false;
 static size_t g_num_hugepages = 0;
 static const char sys_dir_path[] = "/sys/kernel/mm/hugepages";
 extern int vfio_container_fd;
+extern int g_noiommu_enabled;
 
 #define HUGEPAGE_FILE_DIR "/dev/hugepages/qat-usdm.XXXXXX"
 #define HUGEPAGE_FILE_LEN (sizeof(HUGEPAGE_FILE_DIR))
@@ -297,7 +300,11 @@ dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
     slab->type = type;
     slab->virt_addr = slab;
 
-    slab->phy_addr = allocate_iova(size, alignment);
+    if (!g_noiommu_enabled)
+        slab->phy_addr = allocate_iova(size, alignment);
+    else
+        slab->phy_addr = mem_virt2phy(slab->virt_addr);
+
     if (!slab->phy_addr)
     {
         CMD_ERROR("%s:%d cannot map 0x%p to iova\n",

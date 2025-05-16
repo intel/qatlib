@@ -83,6 +83,7 @@
 /* clang-format on */
 
 #define VFIO_ENTRY "vfio"
+#define VFIO_NOIOMMU "noiommu-"
 #define PF_INFO_UNINITIALISED (-1)
 
 static struct qatmgr_section_data *section_data = NULL;
@@ -406,6 +407,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
     unsigned domain, bus, dev, func;
     int found = 0;
     int numa_node;
+    char *vfio_file_name = NULL;
 
     if (!dev_list || !list_size || !num_devices)
         return -EINVAL;
@@ -454,12 +456,19 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
             close(vfiofile);
             vfiofile = -1;
         }
+        /* For noiommu, the file name has the format of noiommu-<group> in
+         * /dev/vfio. Remove the noiommu- prefix when accessing
+         * /sys/kernel/iommu-groups/<group>/ directory.
+         */
+        vfio_file_name = vfio_entry->d_name;
+        if (!ICP_STRNCMP(vfio_file_name, VFIO_NOIOMMU, strlen(VFIO_NOIOMMU)))
+            vfio_file_name = vfio_entry->d_name + strlen(VFIO_NOIOMMU);
 
         /* open dir /sys/kernel/iommu_groups/<group>/devices/ */
         if (snprintf(devices_dir_name,
                      sizeof(devices_dir_name),
                      IOMMUGROUP_DEV_DIR,
-                     vfio_entry->d_name) >= sizeof(devices_dir_name))
+                     vfio_file_name) >= sizeof(devices_dir_name))
         {
             qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
             if (vfiofile != -1)
@@ -491,7 +500,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
             if (snprintf(filename,
                          sizeof(filename),
                          DEVICE_FILE,
-                         vfio_entry->d_name,
+                         vfio_file_name,
                          device_entry->d_name) >= sizeof(filename))
             {
                 qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
@@ -527,7 +536,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
             if (snprintf(filename,
                          sizeof(filename),
                          VENDOR_FILE,
-                         vfio_entry->d_name,
+                         vfio_file_name,
                          device_entry->d_name) >= sizeof(filename))
             {
                 qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
@@ -590,7 +599,7 @@ int qat_mgr_get_dev_list(unsigned *num_devices,
             if (snprintf(filename,
                          sizeof(filename),
                          NUMA_NODE,
-                         vfio_entry->d_name,
+                         vfio_file_name,
                          device_entry->d_name) >= sizeof(filename))
             {
                 qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
@@ -1510,6 +1519,7 @@ bool qat_mgr_is_dev_available()
     bool dev_found = false;
     char filename[256];
     unsigned int device;
+    char *vfio_file_name = NULL;
 
     devvfio_dir = open_dir_with_link_check(DEVVFIO_DIR);
     if (devvfio_dir == NULL)
@@ -1531,11 +1541,19 @@ bool qat_mgr_is_dev_available()
         if (!strncmp(vfio_entry->d_name, VFIO_ENTRY, strlen(VFIO_ENTRY)))
             continue;
 
+        /* For noiommu, the file name has the format of noiommu-<group> in
+         * /dev/vfio. Remove the noiommu- prefix when accessing
+         * /sys/kernel/iommu-groups/<group>/ directory.
+         */
+        vfio_file_name = vfio_entry->d_name;
+        if (!ICP_STRNCMP(vfio_file_name, VFIO_NOIOMMU, strlen(VFIO_NOIOMMU)))
+            vfio_file_name = vfio_entry->d_name + strlen(VFIO_NOIOMMU);
+
         /* open dir /sys/kernel/iommu_groups/<group>/devices/ */
         if (snprintf(devices_dir_name,
                      sizeof(devices_dir_name),
                      IOMMUGROUP_DEV_DIR,
-                     vfio_entry->d_name) >= sizeof(devices_dir_name))
+                     vfio_file_name) >= sizeof(devices_dir_name))
         {
             qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");
             continue;
@@ -1557,7 +1575,7 @@ bool qat_mgr_is_dev_available()
             if (snprintf(filename,
                          sizeof(filename),
                          DEVICE_FILE,
-                         vfio_entry->d_name,
+                         vfio_file_name,
                          device_entry->d_name) >= sizeof(filename))
             {
                 qat_log(LOG_LEVEL_ERROR, "Filename truncated\n");

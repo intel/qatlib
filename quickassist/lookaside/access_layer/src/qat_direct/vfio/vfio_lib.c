@@ -241,7 +241,13 @@ int open_vfio_dev(const char *vfio_file,
 
     if (!already_enabled)
     {
-        ret = ioctl(dev->vfio_container_fd, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU);
+        if (!strstr(vfio_file, "noiommu"))
+            ret =
+                ioctl(dev->vfio_container_fd, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU);
+        else
+            ret = ioctl(
+                dev->vfio_container_fd, VFIO_SET_IOMMU, VFIO_NOIOMMU_IOMMU);
+
         if (ret)
         {
             ADF_ERROR("VFIO_SET_IOMMU ioctl failed\n");
