@@ -58,3 +58,4 @@ build
 /qatlib.spec
 quickassist/utilities/service/qat_init.sh
 /sym_dp_sample
+/zuc_sample
