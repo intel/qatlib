@@ -313,45 +313,4 @@ CpaStatus LacEcdsa_OptimisedSignRS(const CpaInstanceHandle instanceHandle,
                                    CpaFlatBuffer *pR,
                                    CpaFlatBuffer *pS);
 
-/**
- ******************************************************************************
- * @ingroup Lac_Ec
- *      Check if there is optimised PointMultiply MMP functioIDid for the curve.
- *
- * @description
- *     If the there is optimised PointMultiply MMP function for the curve it
- *     sends a request to firmware with optimised function ID.
- *
- * @param[in]  instanceHandle   Instance handle.
- * @param[in]  pCb              Callback function pointer. If this is set to
- *                              a NULL value the function will operate
- *                              synchronously.
- * @param[in]  pCallbackTag     User-supplied value to help identify request.
- * @param[in]  pOpData          Structure containing all the data needed to
- *                              perform the operation. The client code
- *                              allocates the memory for this structure. This
- *                              component takes ownership of the memory until
- *                              it is returned in the callback.
- * @param[out] pXk              Pointer to xk flat buffer.
- * @param[out] pYk              Pointer to yk flat buffer.
- *
- * @retval CPA_STATUS_SUCCESS       Function executed successfully.
- * @retval CPA_STATUS_FAIL          Function failed.
- * @retval CPA_STATUS_RETRY         Resubmit the request.
- * @retval CPA_STATUS_INVALID_PARAM Invalid parameter in.
- * @retval CPA_STATUS_RESOURCE      Error related to system resources.
- * @retval CPA_STATUS_RESTARTING    API implementation is restarting. Resubmit
- *                                  the request.
- * @retval CPA_STATUS_UNSUPPORTED   Optimised PointMultiply is not supported for
- *                                  the platform or the curve.
- *
- *****************************************************************************/
-
-CpaStatus LacEc_OptimisedPointMultiply(
-    const CpaInstanceHandle instanceHandle,
-    const CpaCyEcPointMultiplyCbFunc pCb,
-    void *pCallbackTag,
-    const CpaCyEcPointMultiplyOpData *pOpData,
-    CpaFlatBuffer *pXk,
-    CpaFlatBuffer *pYk);
 #endif /* LAC_EC_H */

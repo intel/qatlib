@@ -122,7 +122,7 @@ void sleep_parsing(Cpa32U sleepTime);
  * @ingroup sample_code
  *
  * @description
- * Re-used function from old busy loop code it will calculate the % margin
+ * Reused function from old busy loop code it will calculate the % margin
  * between two passed parameters using integer math
  *
  * @param[in]   baseVal                 baseValue to calculate margin

@@ -147,7 +147,6 @@ typedef struct sample_code_thread_attr_s
     Cpa32S policy;    /**< policy */
 } sample_code_thread_attr_t;
 
-
 /**
  *****************************************************************************
  * @ingroup perfCodeFramework
@@ -294,18 +293,8 @@ typedef struct perf_data_s
  * application
  * on 64bit OS.
  * */
-#ifndef SAMPLE_KERNEL64_USER32
-#ifdef __x86_64__
 #define SAMPLE_CODE_UINT Cpa64U
 #define SAMPLE_CODE_INT Cpa64S
-#else
-#define SAMPLE_CODE_UINT Cpa32U
-#define SAMPLE_CODE_INT Cpa32S
-#endif
-#else
-#define SAMPLE_CODE_UINT Cpa32U
-#define SAMPLE_CODE_INT Cpa32S
-#endif
 
 /*add 2 sampe_code_time_t structs together*/
 #define SAMPLE_CODE_TIME_ADD(tvA, tvB)                                         \
@@ -333,9 +322,7 @@ typedef struct perf_data_s
         PRINT(args);                                                           \
     } while (0)
 
-
 #endif
-
 
 #define FUNC_ENTRY()
 #define FUNC_EXIT()

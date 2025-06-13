@@ -963,7 +963,6 @@ static CpaStatus dhPerform(asym_test_params_t *setup)
     CpaBoolean stopAtPhase1 = CPA_FALSE;
     CpaInstanceInfo2 *instanceInfo2 = NULL;
 
-
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {

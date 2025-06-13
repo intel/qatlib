@@ -313,7 +313,8 @@
  *****************************************************************************/
 CpaStatus LacCipher_SessionSetupDataCheck(
     const CpaCySymCipherSetupData *pCipherSetupData,
-    Cpa32U capabilitiesMask);
+    Cpa32U capabilitiesMask,
+    sal_service_t *pService);
 
 /**
 *******************************************************************************

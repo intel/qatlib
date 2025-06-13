@@ -11,8 +11,7 @@ Summary:          Intel QuickAssist user space library
 License:          BSD-3-Clause AND ( BSD-3-Clause OR GPL-2.0-only )
 URL:              https://github.com/intel/%{name}
 Source0:          https://github.com/intel/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
-BuildRequires:    systemd gcc make autoconf automake libtool systemd-devel openssl-devel zlib-devel nasm numactl-devel
-Requires(pre):    shadow-utils
+BuildRequires:    systemd gcc make autoconf autoconf-archive automake libtool systemd-devel openssl-devel zlib-devel nasm numactl-devel
 Recommends:       qatlib-service
 # https://bugzilla.redhat.com/show_bug.cgi?id=1897661
 ExcludeArch:      %{arm} aarch64 %{power64} s390x i686
@@ -57,6 +56,11 @@ QuickAssist Technology user space library (qatlib).
 %prep
 %autosetup -p1
 
+# Create a sysusers.d config file
+cat >qatlib.sysusers.conf <<EOF
+g qat -
+EOF
+
 %build
 autoreconf -vif
 %configure --enable-legacy-algorithms
@@ -73,9 +77,7 @@ rm %{buildroot}/%{_libdir}/libusdm.la
 rm %{buildroot}/%{_libdir}/libqat.a
 rm %{buildroot}/%{_libdir}/libusdm.a
 
-%pre
-getent group qat >/dev/null || groupadd -r qat
-exit 0
+install -m0644 -D qatlib.sysusers.conf %{buildroot}%{_sysusersdir}/qatlib.conf
 
 %post          service
 %systemd_post qat.service
@@ -91,6 +93,7 @@ exit 0
 %license LICENSE*
 %{_libdir}/libqat.so.%{libqat_soversion}*
 %{_libdir}/libusdm.so.%{libusdm_soversion}*
+%{_sysusersdir}/qatlib.conf
 
 %files         devel
 %{_libdir}/libqat.so
@@ -120,6 +123,7 @@ exit 0
 %attr(0754,-,qat) %{_bindir}/hkdf_sample
 %attr(0754,-,qat) %{_bindir}/ec_montedwds_sample
 %attr(0754,-,qat) %{_bindir}/zuc_sample
+%attr(0754,-,qat) %{_bindir}/update_sample
 %{_datadir}/qat/calgary
 %{_datadir}/qat/calgary32
 %{_datadir}/qat/canterbury
@@ -133,6 +137,24 @@ exit 0
 %{_mandir}/man8/qat_init.sh.8*
 
 %changelog
+* Mon Aug 08 2025 Gundalax Mukender <gundalax.mukender@intel.com> - 25.08.0-1
+- Update to qatlib 25.08.0
+
+* Thu Jan 23 2025 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 24.09.0-6
+- Add patch to remove hardcoded installation path to fix the build on F42
+
+* Sat Jan 18 2025 Fedora Release Engineering <releng@fedoraproject.org> - 24.09.0-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Tue Oct 01 2024 Vladis Dronov <vdronov@redhat.com> - 24.09.0-4
+- Update to qatlib 24.09.0 @ 36fb0903
+
+* Mon Sep 16 2024 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 24.09.0-3
+- Move pciutils as a dependency of the qat-service subpackage
+
+* Mon Sep 16 2024 Giovanni Cabiddu <giovanni.cabiddu@intel.com> - 24.09.0-2
+- Add pciutils as a dependency as required by qatlib
+
 * Thu Sep 05 2024 Berenike Bronikowska <berenike.bronikowska@intel.com> - 24.09.0-1
 - Add dependency on numactl-devel.
 - Update to qatlib 24.09.0

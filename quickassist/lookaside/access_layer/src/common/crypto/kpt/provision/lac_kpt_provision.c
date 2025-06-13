@@ -1,5 +1,4 @@
-/***************************************************************************
- *
+/*
  *   BSD LICENSE
  * 
  *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
@@ -31,32 +30,32 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- *
- ***************************************************************************/
+ */
+
 /**
  *****************************************************************************
  * @file lac_kpt_provision.c
  *
- * @ingroup LacKpt
+ * @ingroup LacKptProvision
  *
- * This file implements kpt key provision functions.
+ * This file implements KPT provision service APIs.
  *
  *****************************************************************************/
-/*
-*******************************************************************************
-* Include public/global header file
-*******************************************************************************
-*/
 
+/*
+********************************************************************************
+* Include public/global header files
+********************************************************************************
+*/
 #include "cpa.h"
 #include "cpa_cy_kpt.h"
 
 /**
 ***************************************************************************
 * @ingroup LacKptProvision
-*      Query kpt issue key certificate from qat driver
+*      Query KPT issue key certificate from QAT driver
 ***************************************************************************/
-CpaStatus cpaCyKptQueryIssuingKeys(const CpaInstanceHandle instanceHandle_in,
+CpaStatus cpaCyKptQueryIssuingKeys(const CpaInstanceHandle instanceHandle,
                                    CpaFlatBuffer *pPublicX509IssueCert,
                                    CpaCyKptKeyManagementStatus *pKptStatus)
 {
@@ -66,7 +65,7 @@ CpaStatus cpaCyKptQueryIssuingKeys(const CpaInstanceHandle instanceHandle_in,
 /**
 ***************************************************************************
 * @ingroup LacKptProvision
-*      Query kpt device credential from qat device
+*      Query KPT device credential from QAT device
 ***************************************************************************/
 CpaStatus cpaCyKptQueryDeviceCredentials(
     const CpaInstanceHandle instanceHandle,
@@ -79,7 +78,7 @@ CpaStatus cpaCyKptQueryDeviceCredentials(
 /**
 ***************************************************************************
 * @ingroup LacKptProvision
-*      Kpt load key to qat device
+*      Load KPT key into QAT device
 ***************************************************************************/
 CpaStatus cpaCyKptLoadKey(CpaInstanceHandle instanceHandle,
                           CpaCyKptLoadKey *pSWK,
@@ -92,7 +91,7 @@ CpaStatus cpaCyKptLoadKey(CpaInstanceHandle instanceHandle,
 /**
 ***************************************************************************
 * @ingroup LacKptProvision
-*      kpt delete key from qat device
+*      Delete KPT key from QAT device
 ***************************************************************************/
 CpaStatus cpaCyKptDeleteKey(CpaInstanceHandle instanceHandle,
                             CpaCyKptHandle keyHandle,

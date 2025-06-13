@@ -68,7 +68,7 @@
  *
  * @description
  *      This file contains the sm2 performance code.
- *      Including Macros and function decleration
+ *      Including Macros and function declaration
  *      More details about the algorithm is in
  *      http://tools.ietf.org/html/draft-shen-sm2-ecdsa-02
  *****************************************************************************/
@@ -117,15 +117,15 @@ extern CpaStatus kdf(CpaFlatBuffer *inbuf, CpaFlatBuffer *outbuf);
     (SM3_HASH_SIZE_IN_BYTE + GFP_SM2_POINT_SIZE_IN_BYTE + MESSAGE_LEN)
 
 /* ID of A for key exchange ,arbitrary data*/
-static const Cpa8U ZA[] = {0xE4, 0xD1, 0xD0, 0xC3, 0xCA, 0x4C, 0x7F, 0x11,
-                           0xBC, 0x8F, 0xF8, 0xCB, 0x3F, 0x4C, 0x02, 0xA7,
-                           0x8F, 0x10, 0x8F, 0xA0, 0x98, 0xE5, 0x1A, 0x66,
-                           0x84, 0x87, 0x24, 0x0F, 0x75, 0xE2, 0x0F, 0x31};
+static const Cpa8U ZA[] = { 0xE4, 0xD1, 0xD0, 0xC3, 0xCA, 0x4C, 0x7F, 0x11,
+                            0xBC, 0x8F, 0xF8, 0xCB, 0x3F, 0x4C, 0x02, 0xA7,
+                            0x8F, 0x10, 0x8F, 0xA0, 0x98, 0xE5, 0x1A, 0x66,
+                            0x84, 0x87, 0x24, 0x0F, 0x75, 0xE2, 0x0F, 0x31 };
 /* ID of B for key exchange, arbitrary data*/
-static const Cpa8U ZB[] = {0x6B, 0x4B, 0x6D, 0x0E, 0x27, 0x66, 0x91, 0xBD,
-                           0x4A, 0x11, 0xBF, 0x72, 0xF4, 0xFB, 0x50, 0x1A,
-                           0xE3, 0x09, 0xFD, 0xAC, 0xB7, 0x2F, 0xA6, 0xCC,
-                           0x33, 0x6E, 0x66, 0x56, 0x11, 0x9A, 0xBD, 0x67};
+static const Cpa8U ZB[] = { 0x6B, 0x4B, 0x6D, 0x0E, 0x27, 0x66, 0x91, 0xBD,
+                            0x4A, 0x11, 0xBF, 0x72, 0xF4, 0xFB, 0x50, 0x1A,
+                            0xE3, 0x09, 0xFD, 0xAC, 0xB7, 0x2F, 0xA6, 0xCC,
+                            0x33, 0x6E, 0x66, 0x56, 0x11, 0x9A, 0xBD, 0x67 };
 /* This struct is used in the performance test loop, such as encryption,
  * decryption.
  * Every loop has its own post processing data struct, using it to pass the
@@ -171,7 +171,7 @@ typedef struct Ecsm2SignOutputData
 
 /**
  ******************************************************************************
- * Initialise the semaphore, perfomance stat, number of operations
+ * Initialise the semaphore, performance stat, number of operations
  * param input  : setup
  * param output : pSm2Data
  ******************************************************************************/
@@ -244,7 +244,7 @@ typedef struct Ecsm2SignOutputData
  ******************************************************************************
  * Check hash value
  * param input  : C3,hashValue
- * param outpu  : status
+ * param output  : status
  ******************************************************************************/
 #define hashCheck(C3, hashValue, status)                                       \
     do                                                                         \

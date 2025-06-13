@@ -211,9 +211,6 @@ typedef struct icp_qat_fw_la_bulk_req_s
      * this field is service-specific */
 
 } icp_qat_fw_la_bulk_req_t;
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 
 /*
  *  LA BULK (SYMMETRIC CRYPTO) COMMAND FLAGS
@@ -226,9 +223,6 @@ typedef struct icp_qat_fw_la_bulk_req_s
  *  |       |     =0     | Prot  | Len   | In Buf| flgs  | Auth  | Auth  | State | Auth  | Field |  ial  |
  *  + ===== + ---------- + ----- + ----- + ----- + ----- + ----- + ----- + ----- + ----- + ------+ ----- +
  */
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 /* Private defines */
 /* bits 15:14  */
 #define ICP_QAT_FW_LA_USE_WIRELESS_SLICE_TYPE 2
@@ -1730,7 +1724,6 @@ typedef struct icp_qat_fw_la_auth_req_params_s
         uint64_t aad_adr;
         /**< Address of the AAD info in DRAM. Used for the CCM and GCM
          * protocols */
-
     } u1;
 
     /**< LWs 24-25 */

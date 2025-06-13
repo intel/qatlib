@@ -48,30 +48,31 @@ libosal_la_SOURCES = \
 libosal_la_CFLAGS = -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space \
 		    -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
 		    -I$(srcdir)/quickassist/utilities/osal/include \
-		    -DOSAL_ENSURE_ON -DUSE_OPENSSL \
+		    -DOSAL_ENSURE_ON \
 		    -Wno-deprecated-declarations \
 		    $(COMMON_FLAGS)
 
 noinst_LTLIBRARIES += libadf.la
 libadf_la_SOURCES = \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_process_proxy.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_cfg.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_device.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_ETring_mgr_dp.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_init.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_ring.c \
-	quickassist/lookaside/access_layer/src/qat_direct/common/adf_user_transport_ctrl.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_cfg.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_ring.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_user_bundles.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_user_proxy.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_client.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_lib.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_log.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_pf.c
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_process_proxy.c \
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_user_cfg.c \
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_user_device.c \
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_user_ETring_mgr_dp.c \
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_user_init.c \
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_user_ring.c \
+	quickassist/lookaside/access_layer/src/qat_direct/io/adf_user_transport_ctrl.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_common_cfg.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_common_ring.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_common_user_bundles.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_common_user_proxy.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/qat_mgr_client.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/qat_mgr_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/qat_log.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/vfio_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_pfvf_proto.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_pfvf_vf_msg.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_vfio_pf.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/vfio_mgr_lib.c
 libadf_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		   -I$(srcdir)/quickassist/utilities/osal/include \
 		   -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
@@ -81,32 +82,33 @@ libadf_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 		   -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
 		   -I$(srcdir)/quickassist/lookaside/access_layer/include \
 		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
-		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
-		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/adf_io/include \
+		   -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio \
 		   -D USER_SPACE \
 		   $(COMMON_FLAGS)
 
 sbin_PROGRAMS = qatmgr
 qatmgr_SOURCES = \
 	quickassist/utilities/qat_mgr/qat_mgr.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_mgr_lib.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/qat_log.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_proto.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_pfvf_vf_msg.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/vfio_lib.c \
-	quickassist/lookaside/access_layer/src/qat_direct/vfio/adf_vfio_pf.c
-qatmgr_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/qat_mgr_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/vfio_mgr_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/qat_log.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_pfvf_proto.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_pfvf_vf_msg.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/vfio_lib.c \
+	quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio/adf_vfio_pf.c
+qatmgr_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio \
 	        -I$(srcdir)/quickassist/lookaside/access_layer/include \
 	        -I$(srcdir)/quickassist/include \
 	        -I$(srcdir)/quickassist/utilities/osal/include \
 	        -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space/include \
 	        -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
 	        -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
-	        -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
+		-I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/adf_io/include \
 	        -D USER_SPACE \
 	        $(COMMON_FLAGS)
 
-qatmgr_LDADD = -lpthread -lnuma
+qatmgr_LDADD = $(PTHREAD_LIBS) -lnuma
 
 lib_LTLIBRARIES = lib@LIBUSDMNAME@.la
 lib@LIBUSDMNAME@_la_SOURCES = \
@@ -139,9 +141,11 @@ endif
 
 lib_LTLIBRARIES += lib@LIBQATNAME@.la
 lib@LIBQATNAME@_la_SOURCES = \
+	quickassist/lookaside/access_layer/src/common/compression/dc_capabilities.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_buffers.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_chain.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_datapath.c \
+	quickassist/lookaside/access_layer/src/common/compression/dc_dictionary.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_dp.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_header_footer.c \
 	quickassist/lookaside/access_layer/src/common/compression/dc_header_footer_lz4.c \
@@ -206,9 +210,11 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/lac_sym_hash_sw_precomputes.c \
 	quickassist/lookaside/access_layer/src/common/crypto/kpt/provision/lac_kpt_provision.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_compression.c \
+	quickassist/lookaside/access_layer/src/common/ctrl/sal_compression_capabilities.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_create_services.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_ctrl_services.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_list.c \
+	quickassist/lookaside/access_layer/src/common/ctrl/sal_rl_stubs.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_crypto.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_dc_chain.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_instances.c \
@@ -239,6 +245,7 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			    -I$(srcdir)/quickassist/include \
 			    -I$(srcdir)/quickassist/include/lac \
 			    -I$(srcdir)/quickassist/include/dc \
+			    -I$(srcdir)/quickassist/include/rl \
 			    -I$(srcdir)/quickassist/qat/drivers/crypto/qat/qat_common \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/compression/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/sym/include \
@@ -247,8 +254,8 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/include \
-			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/common/include \
-			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/vfio \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/adf_io/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/qat_direct/adf_io/vfio \
 			    -D USER_SPACE \
 			    -D LAC_BYTE_ORDER=__LITTLE_ENDIAN \
 			    $(COMMON_FLAGS)
@@ -285,6 +292,8 @@ pkginclude_HEADERS = \
 	quickassist/include/dc/cpa_dc.h \
 	quickassist/include/dc/cpa_dc_dp.h \
 	quickassist/include/dc/cpa_dc_chain.h \
+	quickassist/include/dc/cpa_dc_capabilities.h \
+	quickassist/include/rl/cpa_rl.h \
 	quickassist/lookaside/access_layer/include/icp_sal_congestion_mgmt.h \
 	quickassist/lookaside/access_layer/include/icp_sal_poll.h \
 	quickassist/lookaside/access_layer/include/icp_sal_user.h \
@@ -299,7 +308,7 @@ if HAVE_SYSTEMD
 systemdsystemunit_DATA = quickassist/utilities/service/qat.service
 endif
 
-systemd_scriptsdir = $(prefix)/sbin
+systemd_scriptsdir = $(sbindir)
 dist_systemd_scripts_SCRIPTS = quickassist/utilities/service/qat_init.sh
 
 install-data-hook:
@@ -362,7 +371,16 @@ COMMON_FLAGS = -Wformat \
 	       -D MAX_MR_ROUND=$(MAX_MR) \
 	       -D _FILE_OFFSET_BITS=64 \
 	       $(NO_UNUSED_CMDLINE_ARG_CFLAGS) \
-	       $(MCX16_CFLAGS)
+	       $(MCX16_CFLAGS) \
+               $(PTHREAD_CFLAGS)
+
+if USE_GCC
+    COMMON_FLAGS += -Wformat-truncation=2
+endif
+
+if USE_ICC
+    COMMON_FLAGS += -Wno-unknown-warning-option
+endif
 
 if ICP_DEBUG_AC
 ICP_DEBUG = 1
@@ -414,6 +432,16 @@ endif
 if ICP_THREAD_SPECIFIC_USDM_AC
 ICP_THREAD_SPECIFIC_USDM = 1
 COMMON_FLAGS += -DICP_THREAD_SPECIFIC_USDM
+endif
+
+if ICP_WITHOUT_QP_SUBMISSION_LOCK_AC
+ICP_WITHOUT_QP_SUBMISSION_LOCK = 1
+COMMON_FLAGS += -DICP_WITHOUT_QP_SUBMISSION_LOCK
+endif
+
+if TREAT_CRC_FROM_COMP_ENGINE_AS_ERROR_AC
+TREAT_CRC_FROM_COMP_ENGINE_AS_ERROR = 1
+COMMON_FLAGS += -DTREAT_CRC_FROM_COMP_ENGINE_AS_ERROR
 endif
 
 include Samples.am

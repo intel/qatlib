@@ -103,19 +103,35 @@ void *cache_pid = NULL;
 pthread_mutex_t iova_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif /* ICP_THREAD_SPECIFIC_USDM */
 
-#ifdef ICP_THREAD_SPECIFIC_USDM
-#define PINNED 1
-#define NOT_PINNED 0
-#endif
+#define E_NOIOMMU_MODE "/sys/module/vfio/parameters/enable_unsafe_noiommu_mode"
 
 /**************************************************************************
     static variable
 **************************************************************************/
 int g_fd = 0;
 int g_strict_node = 0;
-STATIC int vfio_container_fd = -1;
+int vfio_container_fd = -1;
+int g_noiommu_enabled = 0;
 STATIC pid_t vfio_pid = 0;
 static int vfio_container_ref = 0;
+
+API_LOCAL
+void __qae_set_free_page_table_fptr(free_page_table_fptr_t fp)
+{
+    free_page_table_fptr = fp;
+}
+
+API_LOCAL
+void __qae_set_loadaddr_fptr(load_addr_fptr_t fp)
+{
+    load_addr_fptr = fp;
+}
+
+API_LOCAL
+void __qae_set_loadkey_fptr(load_key_fptr_t fp)
+{
+    load_key_fptr = fp;
+}
 
 /*
  * Each IOVA_SLAB represents a set of memory pages of size 2MB that
@@ -128,7 +144,6 @@ static uint64_t next_iova = FIRST_IOVA;
 /**************************************************************************
                                   function
 **************************************************************************/
-
 static unsigned int bit_is_set(uint32_t used[], unsigned index)
 {
     const int bits = CHAR_BIT * sizeof(uint32_t);
@@ -177,7 +192,7 @@ static int iova_reserve(uint64_t iova, uint32_t size)
     return 0;
 }
 
-static void iova_release(uint64_t iova, uint32_t size)
+void iova_release(uint64_t iova, uint32_t size)
 {
     unsigned slab = 0;
     int count;
@@ -207,17 +222,47 @@ static void iova_release(uint64_t iova, uint32_t size)
 #endif
 }
 
-static inline int dma_map_slab(const void *virt,
-                               const uint64_t iova,
-                               const size_t size)
+static int vfio_noiommu_enabled(void)
+{
+    int fd, cnt;
+    char enabled;
+
+    fd = qae_open(E_NOIOMMU_MODE, O_RDONLY);
+    if (fd < 0)
+    {
+        CMD_ERROR(
+            "%s():%d could not open %s\n", __func__, __LINE__, E_NOIOMMU_MODE);
+        return 0;
+    }
+
+    cnt = qae_read(fd, &enabled, 1);
+    if (cnt == 1 &&  enabled == 'Y')
+        return 1;
+
+    if (qae_close(fd))
+    {
+        CMD_ERROR(
+            "%s():%d could not close %s\n", __func__, __LINE__, E_NOIOMMU_MODE);
+    }
+
+    return 0;
+}
+
+inline int dma_map_slab(const void *virt,
+                        const uint64_t iova,
+                        const size_t size)
 {
     int ret = 0;
+
     struct vfio_iommu_type1_dma_map dma_map = {.argsz = sizeof(dma_map),
                                                .flags = VFIO_DMA_MAP_FLAG_READ |
                                                         VFIO_DMA_MAP_FLAG_WRITE,
                                                .vaddr = (uintptr_t)virt,
                                                .iova = (uintptr_t)iova,
                                                .size = size};
+
+    if (g_noiommu_enabled)
+        return ret;
 
     if (mem_ioctl(vfio_container_fd, VFIO_IOMMU_MAP_DMA, &dma_map) &&
         errno != EEXIST)
@@ -236,11 +281,15 @@ static inline int dma_map_slab(const void *virt,
     return ret;
 }
 
-static inline int dma_unmap_slab(const uint64_t iova, const size_t size)
+inline int dma_unmap_slab(const uint64_t iova, const size_t size)
 {
     int ret = 0;
+
     struct vfio_iommu_type1_dma_unmap dma_umap = {
         .argsz = sizeof(dma_umap), .iova = (uintptr_t)iova, .size = size};
+
+    if (g_noiommu_enabled)
+        return ret;
 
     ret = mem_ioctl(vfio_container_fd, VFIO_IOMMU_UNMAP_DMA, &dma_umap);
     if (ret)
@@ -273,7 +322,14 @@ static inline void ioctl_free_slab(const int fd, dev_mem_info_t *memInfo)
 API_LOCAL
 void __qae_finish_free_slab(const int fd, dev_mem_info_t *slab)
 {
-    ioctl_free_slab(fd, slab);
+    if (HUGE_PAGE == slab->type)
+    {
+        __qae_vfio_hugepage_free_slab(slab);
+    }
+    else
+    {
+        ioctl_free_slab(fd, slab);
+    }
 }
 
 /**************************************
@@ -300,6 +356,8 @@ static inline int qaeInitProcess(void)
 #ifdef CACHE_PID
         cache_process_id();
 #endif /* CACHE_PID */
+        if (__qae_vfio_init_hugepages())
+            return -EIO;
     }
 
     return 0;
@@ -405,6 +463,18 @@ static inline dev_mem_info_t *ioctl_alloc_slab(const int fd,
     size_t size = round_up(size_r, PAGE_SIZE);
     UNUSED(node);
     UNUSED(fd);
+
+    if (g_noiommu_enabled)
+    {
+        /*
+	 * Report error here. This function is called for non-hugepage case.
+	 * Hugepages are required for noiommu mode.
+	 */
+        CMD_ERROR("%s:%d Hugepages are needed for vfio-noiommu mode\n",
+                  __func__,
+                  __LINE__);
+	return NULL;
+    }
 
     if (SMALL == type)
         slab = mmap_alloc(size);
@@ -514,7 +584,14 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
 {
     dev_mem_info_t *slab = NULL;
 
-    slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    if (HUGE_PAGE == type)
+    {
+        slab = __qae_vfio_hugepage_alloc_slab(fd, size, node, type, alignment);
+    }
+    else
+    {
+        slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    }
 
     /* Store a slab into the hash table for a fast lookup.
      * NOTE: this is not the free list. This hash table is used
@@ -539,7 +616,14 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
 {
     dev_mem_info_t *slab = NULL;
 
-    slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    if (HUGE_PAGE == type)
+    {
+        slab = __qae_vfio_hugepage_alloc_slab(fd, size, node, type, alignment);
+    }
+    else
+    {
+        slab = ioctl_alloc_slab(fd, size, alignment, node, type);
+    }
 
     /* Store a slab into the hash table for a fast lookup.
      * NOTE: this is not the free list. This hash table is used
@@ -715,8 +799,13 @@ int qaeRegisterDevice(int fd)
     int ret = 0;
     pid_t pid = getpid();
 
-    if (filter_dma_ranges(fd))
-        return -1;
+    g_noiommu_enabled =  vfio_noiommu_enabled();
+
+    if(!g_noiommu_enabled)
+    {
+       if (filter_dma_ranges(fd))
+           return -1;
+    }
 
     if (qaeInitProcess())
     {
@@ -810,8 +899,13 @@ int qaeRegisterDevice(int fd)
 
     pid_t pid = getpid();
 
-    if (filter_dma_ranges(fd))
-        return -1;
+    g_noiommu_enabled =  vfio_noiommu_enabled();
+
+    if(!g_noiommu_enabled)
+    {
+       if (filter_dma_ranges(fd))
+           return -1;
+    }
 
     if (qaeInitProcess())
     {

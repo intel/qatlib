@@ -100,7 +100,6 @@ CpaStatus qatCompressionE2EInit(compression_test_params_t *setup)
     return status;
 }
 
-
 static Cpa32U crc32_checksum(Cpa32U inputChecksum, Cpa8U *pData, Cpa32U length)
 {
     Cpa32U resultChecksum = 0;

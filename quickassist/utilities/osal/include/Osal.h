@@ -1905,7 +1905,6 @@ osalPCIStateRestore(void *dev, void *state);
  */
 void osalSetPCICapabilitiesOffset(void *dev);
 
-
 #ifdef __cplusplus
 }
 #endif

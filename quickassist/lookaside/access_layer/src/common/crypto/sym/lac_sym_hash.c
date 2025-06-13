@@ -489,6 +489,7 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
     {
         case CPA_CY_SYM_HASH_MODE_PLAIN:
         case CPA_CY_SYM_HASH_MODE_AUTH:
+            break;
         case CPA_CY_SYM_HASH_MODE_NESTED:
             break;
 

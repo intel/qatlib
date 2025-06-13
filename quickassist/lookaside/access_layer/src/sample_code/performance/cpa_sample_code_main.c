@@ -146,23 +146,25 @@ int includeWirelessAlgs;
 int configFileVersion;
 int runStateful;
 int includeLZ4;
+static int singleInstThread = 0;
 
-option_t optArray[MAX_NUMOPT] = {
-    {"signOfLife", DEFAULT_SIGN_OF_LIFE},
-    {"runTests", RUN_ALL_TESTS},
-    {"cyNumBuffers", DEFAULT_CY_BUFFERS},
-    {"cyAsymLoops", DEFAULT_ASYM_LOOPS},
-    {"cySymLoops", DEFAULT_SYM_LOOPS},
-    {"dcLoops", DEFAULT_DC_LOOPS},
-    {"includeWirelessAlgs", DEFAULT_INCLUDE_WIRELESS_ALGS},
-    {"configFileVer", USE_V2_CONFIG_FILE},
-    {"runStateful", 0},
-    {"useStaticPrime", 1},
-    {"getLatency", 0},
-    {"getOffloadCost", 0},
-    {"includeLZ4", DEFAULT_INCLUDE_LZ4},
-    {"compOnly", 0},
-    {"verboseOutput", 1}};
+option_t optArray[MAX_NUMOPT] = { { "signOfLife", DEFAULT_SIGN_OF_LIFE },
+                                  { "runTests", RUN_ALL_TESTS },
+                                  { "cyNumBuffers", DEFAULT_CY_BUFFERS },
+                                  { "cyAsymLoops", DEFAULT_ASYM_LOOPS },
+                                  { "cySymLoops", DEFAULT_SYM_LOOPS },
+                                  { "dcLoops", DEFAULT_DC_LOOPS },
+                                  { "includeWirelessAlgs",
+                                    DEFAULT_INCLUDE_WIRELESS_ALGS },
+                                  { "configFileVer", USE_V2_CONFIG_FILE },
+                                  { "runStateful", 0 },
+                                  { "useStaticPrime", 1 },
+                                  { "getLatency", 0 },
+                                  { "getOffloadCost", 0 },
+                                  { "includeLZ4", DEFAULT_INCLUDE_LZ4 },
+                                  { "compOnly", 0 },
+                                  { "singleInstThread", 0 },
+                                  { "verboseOutput", 1 } };
 
 #define SIGN_OF_LIFE_OPT_ARRAY_POS (0)
 #define RUN_TEST_OPT_ARRAY_POS (1)
@@ -177,6 +179,7 @@ option_t optArray[MAX_NUMOPT] = {
 #define GET_LATENCY_POS (10)
 #define GET_OFFLOAD_COST_POS (11)
 #define RUN_LZ4_TEST_POS (12)
+#define SINGLE_INST_THREAD_ARRAY_POS (14)
 
 #else /* #ifdef USER_SPACE */
 
@@ -230,7 +233,6 @@ Cpa16U numInst_g = 0;
 Cpa8U singleInstRequired_g = 0;
 extern Cpa32U packageIdCount_g;
 extern CpaBoolean devicesCounted_g;
-
 
 #ifdef USER_SPACE
 #define MAX_SAMPLE_LOOPS 5
@@ -332,6 +334,7 @@ int main(int argc, char *argv[])
     Cpa32U statefulMultiThreadCoreMap[NUMBER_SIMILTANEOUS_THREADS];
     Cpa32U dcBufferSize = 0;
     CpaBoolean dynamicEnabled = CPA_FALSE;
+    CpaBoolean staticEnabled = CPA_TRUE;
     CpaDcInstanceCapabilities dcCap = {0};
 #endif
 
@@ -351,6 +354,11 @@ int main(int argc, char *argv[])
     CpaCyCapabilitiesInfo asymCap = {0};
     Cpa16U includeKasumiAlg = 0;
     Cpa16U includeSnow3GAlgChain = 0;
+    Cpa16U includeAesCbcAlg = 1;
+    Cpa16U includeAesXtsAlg = 1;
+    Cpa16U includeAesCtrAlg = 1;
+    Cpa16U includeAesGcmAlgChain = 1;
+    Cpa16U includeChachaPolyAlgChain = 1;
 #else
 #ifdef USER_SPACE
     Cpa32U computeLatency = 0;
@@ -359,10 +367,18 @@ int main(int argc, char *argv[])
 #ifdef USER_SPACE
     char *processName = NULL;
     Cpa32U computeOffloadCost = 0;
-
+#endif    
+    status = allocThreadMem();
+    if(status == CPA_STATUS_FAIL)
+    {
+       PRINT_ERR("Failed to allocate memory for threads\n");
+       return CPA_STATUS_FAIL;
+    }
+#ifdef USER_SPACE
     if (0 != parseArg(argc, argv, optArray, MAX_NUMOPT))
     {
-        return 0;
+        freeThreadMem();
+	return 0;
     }
     signOfLife = optArray[SIGN_OF_LIFE_OPT_ARRAY_POS].optValue;
     runTests = optArray[RUN_TEST_OPT_ARRAY_POS].optValue;
@@ -376,7 +392,10 @@ int main(int argc, char *argv[])
     computeLatency = optArray[GET_LATENCY_POS].optValue;
     computeOffloadCost = optArray[GET_OFFLOAD_COST_POS].optValue;
     includeLZ4 = optArray[RUN_LZ4_TEST_POS].optValue;
+    singleInstThread = optArray[SINGLE_INST_THREAD_ARRAY_POS].optValue;
 
+    /* Use single instance */
+    singleInstRequired_g = singleInstThread;
 
     if (computeLatency != 0 && computeOffloadCost != 0)
     {
@@ -643,7 +662,6 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
-        /* Check capabilities before running kasumi wireless alg tests*/
         if (symCap.symSupported == CPA_TRUE && (runTests & SYMMETRIC_CODE))
         {
             status = getCySymQueryCapabilities(&symCapInfo);
@@ -654,6 +672,7 @@ int main(int argc, char *argv[])
                 return status;
             }
 
+            /* Check capabilities before running kasumi wireless alg tests */
             if (1 == includeWirelessAlgs)
             {
                 includeKasumiAlg = 1;
@@ -667,7 +686,6 @@ int main(int argc, char *argv[])
                         "they are not supported on "
                         "Instance\n");
                     includeKasumiAlg = 0;
-                    PRINT("includeKasumiAlgs = %d\n", includeKasumiAlg);
                 }
 
                 if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
@@ -679,9 +697,61 @@ int main(int argc, char *argv[])
                           "tests as they are not supported on "
                           "Instance\n");
                     includeSnow3GAlgChain = 0;
-                    PRINT("includeSnow3GAlgChain = %d\n",
-                          includeSnow3GAlgChain);
                 }
+            }
+
+            /* Check capabilities before running AES-CBC alg tests */
+            if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                     CPA_CY_SYM_CIPHER_AES_CBC))
+            {
+                PRINT("Warning! Skipping AES-CBC algorithm tests as "
+                      "they are not supported on "
+                      "Instance\n");
+                includeAesCbcAlg = 0;
+            }
+
+            /* Check capabilities before running AES-XTS alg tests */
+            if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                     CPA_CY_SYM_CIPHER_AES_XTS))
+            {
+                PRINT("Warning! Skipping AES-XTS algorithm tests as "
+                      "they are not supported on "
+                      "Instance\n");
+                includeAesXtsAlg = 0;
+            }
+
+            /* Check capabilities before running AES-CTR alg tests */
+            if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                     CPA_CY_SYM_CIPHER_AES_CTR))
+            {
+                PRINT("Warning! Skipping AES-CTR algorithm tests as "
+                      "they are not supported on "
+                      "Instance\n");
+                includeAesCtrAlg = 0;
+            }
+
+            /* Check capabilities before running AES-GCM alg chaining tests */
+            if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                      CPA_CY_SYM_CIPHER_AES_GCM)) ||
+                (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes,
+                                      CPA_CY_SYM_HASH_AES_GCM)))
+            {
+                PRINT("Warning! Skipping AES-GCM algorithm chain "
+                      "tests as they are not supported on "
+                      "Instance\n");
+                includeAesGcmAlgChain = 0;
+            }
+
+            /* Check capabilities before running CHACHA POLY alg chaining tests
+             */
+            if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                                      CPA_CY_SYM_CIPHER_CHACHA)) ||
+                (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes, CPA_CY_SYM_HASH_POLY)))
+            {
+                PRINT("Warning! Skipping CHACHA POLY algorithm chain "
+                      "tests as they are not supported on "
+                      "Instance\n");
+                includeChachaPolyAlgChain = 0;
             }
         }
     }
@@ -798,257 +868,701 @@ int main(int argc, char *argv[])
      **************************************************************************/
     if ((SYMMETRIC_CODE & runTests) == SYMMETRIC_CODE)
     {
-        /*AES128-CBC TEST*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+        if (includeAesCbcAlg)
         {
-            status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                     KEY_SIZE_128_IN_BYTES,
-                                     CPA_CY_PRIORITY_NORMAL,
-                                     ASYNC,
-                                     packetSizes[lv_count],
-                                     DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                     cyNumBuffers,
-                                     cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            /*AES128-CBC TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                PRINT_ERR("Error calling setupCipherTest\n");
-                return CPA_STATUS_FAIL;
+                status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_CBC,
+                                         KEY_SIZE_128_IN_BYTES,
+                                         CPA_CY_PRIORITY_NORMAL,
+                                         ASYNC,
+                                         packetSizes[lv_count],
+                                         DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                         cyNumBuffers,
+                                         cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
-            else
+
+            /*AES256-CBC TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                testsExecuted++;
+                status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_CBC,
+                                         KEY_SIZE_256_IN_BYTES,
+                                         CPA_CY_PRIORITY_NORMAL,
+                                         ASYNC,
+                                         packetSizes[lv_count],
+                                         DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                         cyNumBuffers,
+                                         cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
+
+            /*AES256-CBC HMAC-SHA512 test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                retStatus = CPA_STATUS_FAIL;
+                status = setupAlgChainTest(
+                    CPA_CY_SYM_CIPHER_AES_CBC,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_SHA512,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    SHA512_AUTH_KEY_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_NORMAL,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*AES256-CBC AES-XCBC-MAC test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupAlgChainTest(
+                    CPA_CY_SYM_CIPHER_AES_CBC,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_AES_XCBC,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    AES_XCBC_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_NORMAL,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*AES256-CBC HMAC-SHA512 test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+
+                status = setupAlgChainDpTest(
+                    CPA_CY_SYM_CIPHER_AES_CBC,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_SHA512,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    SHA512_AUTH_KEY_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*AES256-CBC AES-XCBC-MAC test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+
+                status = setupAlgChainDpTest(
+                    CPA_CY_SYM_CIPHER_AES_CBC,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_AES_XCBC,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    AES_XCBC_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*AES128-CBC TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+
+                status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
+                                           KEY_SIZE_128_IN_BYTES,
+                                           CPA_CY_PRIORITY_HIGH,
+                                           ASYNC,
+                                           packetSizes[lv_count],
+                                           SYM_DP_ENQUEUEING,
+                                           DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                           SINGLE_REQUEST,
+                                           SYM_DP_SINGLE_SESSION,
+                                           cyNumBuffers,
+                                           cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+
+            /*AES256-CBC TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+
+                status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
+                                           KEY_SIZE_256_IN_BYTES,
+                                           CPA_CY_PRIORITY_HIGH,
+                                           ASYNC,
+                                           packetSizes[lv_count],
+                                           SYM_DP_ENQUEUEING,
+                                           DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                           SINGLE_REQUEST,
+                                           SYM_DP_SINGLE_SESSION,
+                                           cyNumBuffers,
+                                           cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
         }
 
-        /*AES256-CBC TEST*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+        if (includeAesXtsAlg)
         {
-            status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                     KEY_SIZE_256_IN_BYTES,
-                                     CPA_CY_PRIORITY_NORMAL,
-                                     ASYNC,
-                                     packetSizes[lv_count],
-                                     DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                     cyNumBuffers,
-                                     cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            /*AES128-XTS TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                PRINT_ERR("Error calling setupCipherTest\n");
-                return CPA_STATUS_FAIL;
+                status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_XTS,
+                                         KEY_SIZE_256_IN_BYTES,
+                                         CPA_CY_PRIORITY_NORMAL,
+                                         ASYNC,
+                                         packetSizes[lv_count],
+                                         DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                         cyNumBuffers,
+                                         cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
-            else
+
+            /*AES256-XTS TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                testsExecuted++;
+                status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_XTS,
+                                         KEY_SIZE_512_IN_BYTES,
+                                         CPA_CY_PRIORITY_NORMAL,
+                                         ASYNC,
+                                         packetSizes[lv_count],
+                                         DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                         cyNumBuffers,
+                                         cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
+
+            /*AES128-XTS TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                retStatus = CPA_STATUS_FAIL;
+                status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_XTS,
+                                           KEY_SIZE_256_IN_BYTES,
+                                           CPA_CY_PRIORITY_HIGH,
+                                           ASYNC,
+                                           packetSizes[lv_count],
+                                           SYM_DP_ENQUEUEING,
+                                           DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                           SINGLE_REQUEST,
+                                           SYM_DP_SINGLE_SESSION,
+                                           cyNumBuffers,
+                                           cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
+
+            /*AES256-XTS TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_XTS,
+                                           KEY_SIZE_512_IN_BYTES,
+                                           CPA_CY_PRIORITY_HIGH,
+                                           ASYNC,
+                                           packetSizes[lv_count],
+                                           SYM_DP_ENQUEUEING,
+                                           DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                           SINGLE_REQUEST,
+                                           SYM_DP_SINGLE_SESSION,
+                                           cyNumBuffers,
+                                           cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
         }
 
-        /*AES256-CBC HMAC-SHA512 test*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+        if (includeAesCtrAlg)
         {
-            status =
-                setupAlgChainTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                  KEY_SIZE_256_IN_BYTES,
-                                  CPA_CY_SYM_HASH_SHA512,
-                                  CPA_CY_SYM_HASH_MODE_AUTH,
-                                  SHA512_AUTH_KEY_LENGTH_IN_BYTES,
-                                  CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
-                                  CPA_CY_PRIORITY_NORMAL,
-                                  ASYNC,
-                                  packetSizes[lv_count],
-                                  DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                  cyNumBuffers,
-                                  cySymLoops);
+            /*AES128-CTR TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_CTR,
+                                         KEY_SIZE_128_IN_BYTES,
+                                         CPA_CY_PRIORITY_NORMAL,
+                                         ASYNC,
+                                         packetSizes[lv_count],
+                                         DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                         cyNumBuffers,
+                                         cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            }
 
-            if (CPA_STATUS_SUCCESS != status)
+            /*AES256-CTR TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                PRINT_ERR("Error calling setupAlgChainTest\n");
-                return CPA_STATUS_FAIL;
+                status = setupCipherTest(CPA_CY_SYM_CIPHER_AES_CTR,
+                                         KEY_SIZE_256_IN_BYTES,
+                                         CPA_CY_PRIORITY_NORMAL,
+                                         ASYNC,
+                                         packetSizes[lv_count],
+                                         DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                         cyNumBuffers,
+                                         cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-        } /*End of test*/
 
-        /*AES256-CBC AES-XCBC-MAC test*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
-        {
-            status =
-                setupAlgChainTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                  KEY_SIZE_256_IN_BYTES,
-                                  CPA_CY_SYM_HASH_AES_XCBC,
-                                  CPA_CY_SYM_HASH_MODE_AUTH,
-                                  AES_XCBC_DIGEST_LENGTH_IN_BYTES,
-                                  CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
-                                  CPA_CY_PRIORITY_NORMAL,
-                                  ASYNC,
-                                  packetSizes[lv_count],
-                                  DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                  cyNumBuffers,
-                                  cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            /*AES128-CTR TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                PRINT_ERR("Error calling setupAlgChainTest\n");
-                return CPA_STATUS_FAIL;
+                status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_CTR,
+                                           KEY_SIZE_128_IN_BYTES,
+                                           CPA_CY_PRIORITY_HIGH,
+                                           ASYNC,
+                                           packetSizes[lv_count],
+                                           SYM_DP_ENQUEUEING,
+                                           DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                           SINGLE_REQUEST,
+                                           SYM_DP_SINGLE_SESSION,
+                                           cyNumBuffers,
+                                           cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-        } /*End of test*/
 
-        /*AES256-CBC HMAC-SHA512 test*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
-        {
-
-            status =
-                setupAlgChainDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                    KEY_SIZE_256_IN_BYTES,
-                                    CPA_CY_SYM_HASH_SHA512,
-                                    CPA_CY_SYM_HASH_MODE_AUTH,
-                                    SHA512_AUTH_KEY_LENGTH_IN_BYTES,
-                                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
-                                    CPA_CY_PRIORITY_HIGH,
-                                    ASYNC,
-                                    packetSizes[lv_count],
-                                    SYM_DP_ENQUEUEING,
-                                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                    SINGLE_REQUEST,
-                                    SYM_DP_SINGLE_SESSION,
-                                    cyNumBuffers,
-                                    cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            /*AES256-CTR TEST*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                PRINT_ERR("Error calling setupAlgChainDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-        } /*End of test*/
-
-        /*AES256-CBC AES-XCBC-MAC test*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
-        {
-
-            status =
-                setupAlgChainDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                    KEY_SIZE_256_IN_BYTES,
-                                    CPA_CY_SYM_HASH_AES_XCBC,
-                                    CPA_CY_SYM_HASH_MODE_AUTH,
-                                    AES_XCBC_DIGEST_LENGTH_IN_BYTES,
-                                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
-                                    CPA_CY_PRIORITY_HIGH,
-                                    ASYNC,
-                                    packetSizes[lv_count],
-                                    SYM_DP_ENQUEUEING,
-                                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                    SINGLE_REQUEST,
-                                    SYM_DP_SINGLE_SESSION,
-                                    cyNumBuffers,
-                                    cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupAlgChainDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-        } /*End of test*/
-
-        /*AES128-CBC TEST*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
-        {
-
-            status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                       KEY_SIZE_128_IN_BYTES,
-                                       CPA_CY_PRIORITY_HIGH,
-                                       ASYNC,
-                                       packetSizes[lv_count],
-                                       SYM_DP_ENQUEUEING,
-                                       DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                       SINGLE_REQUEST,
-                                       SYM_DP_SINGLE_SESSION,
-                                       cyNumBuffers,
-                                       cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupCipherDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
+                status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_CTR,
+                                           KEY_SIZE_256_IN_BYTES,
+                                           CPA_CY_PRIORITY_HIGH,
+                                           ASYNC,
+                                           packetSizes[lv_count],
+                                           SYM_DP_ENQUEUEING,
+                                           DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                                           SINGLE_REQUEST,
+                                           SYM_DP_SINGLE_SESSION,
+                                           cyNumBuffers,
+                                           cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupCipherDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
         }
 
-        /*AES256-CBC TEST*/
-        for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+        if (includeAesGcmAlgChain)
         {
+            /*AES128-GCM AES-GCM test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupAlgChainTest(
+                    CPA_CY_SYM_CIPHER_AES_GCM,
+                    KEY_SIZE_128_IN_BYTES,
+                    CPA_CY_SYM_HASH_AES_GCM,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    AES_GCM_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_NORMAL,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
 
-            status = setupCipherDpTest(CPA_CY_SYM_CIPHER_AES_CBC,
-                                       KEY_SIZE_256_IN_BYTES,
-                                       CPA_CY_PRIORITY_HIGH,
-                                       ASYNC,
-                                       packetSizes[lv_count],
-                                       SYM_DP_ENQUEUEING,
-                                       DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
-                                       SINGLE_REQUEST,
-                                       SYM_DP_SINGLE_SESSION,
-                                       cyNumBuffers,
-                                       cySymLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            /*AES256-GCM AES-GCM test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                PRINT_ERR("Error calling setupCipherDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
+                status = setupAlgChainTest(
+                    CPA_CY_SYM_CIPHER_AES_GCM,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_AES_GCM,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    AES_GCM_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_NORMAL,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*AES128-GCM AES-GCM test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletionCrypto(SYM);
-            if (CPA_STATUS_SUCCESS != status)
+                status = setupAlgChainDpTest(
+                    CPA_CY_SYM_CIPHER_AES_GCM,
+                    KEY_SIZE_128_IN_BYTES,
+                    CPA_CY_SYM_HASH_AES_GCM,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    AES_GCM_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*AES256-GCM AES-GCM test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
             {
-                retStatus = CPA_STATUS_FAIL;
-            }
+                status = setupAlgChainDpTest(
+                    CPA_CY_SYM_CIPHER_AES_GCM,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_AES_GCM,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    AES_GCM_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+        }
+
+        if (includeChachaPolyAlgChain)
+        {
+            /*CHACHA POLY test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupAlgChainTest(
+                    CPA_CY_SYM_CIPHER_CHACHA,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_POLY,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    POLY_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_NORMAL,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
+
+            /*CHACHA POLY test*/
+            for (lv_count = 0; lv_count < numPacketSizes; lv_count++)
+            {
+                status = setupAlgChainDpTest(
+                    CPA_CY_SYM_CIPHER_CHACHA,
+                    KEY_SIZE_256_IN_BYTES,
+                    CPA_CY_SYM_HASH_POLY,
+                    CPA_CY_SYM_HASH_MODE_AUTH,
+                    POLY_DIGEST_LENGTH_IN_BYTES,
+                    CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH,
+                    CPA_CY_PRIORITY_HIGH,
+                    ASYNC,
+                    packetSizes[lv_count],
+                    SYM_DP_ENQUEUEING,
+                    DEFAULT_CPA_FLAT_BUFFERS_PER_LIST,
+                    SINGLE_REQUEST,
+                    SYM_DP_SINGLE_SESSION,
+                    cyNumBuffers,
+                    cySymLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupAlgChainDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletionCrypto(SYM);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+            } /*End of test*/
         }
 
         if (includeKasumiAlg)
@@ -1475,105 +1989,108 @@ int main(int argc, char *argv[])
             disableAdditionalCmpbufferSize_g = 1;
             dynamicHuffmanEnabled(NULL, &dynamicEnabled);
 
-#if !defined(_KERNEL)
+#if defined(SC_BSD_UPSTREAM) || !defined(_KERNEL)
             /*STATIC L1 & L3 COMPRESSION*/
-            status = setupDcTest(CPA_DC_DEFLATE,
-                                 CPA_DC_DIR_COMPRESS,
-                                 SAMPLE_CODE_CPA_DC_L1,
-                                 CPA_DC_HT_STATIC,
-                                 CPA_DC_STATELESS,
-                                 DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                 BUFFER_SIZE_8192,
-                                 sampleCorpus,
-                                 ASYNC,
-                                 dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            if (staticEnabled)
             {
-                PRINT_ERR("Error calling setupDcTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
+                status = setupDcTest(CPA_DC_DEFLATE,
+                                     CPA_DC_DIR_COMPRESS,
+                                     SAMPLE_CODE_CPA_DC_L1,
+                                     CPA_DC_HT_STATIC,
+                                     CPA_DC_STATELESS,
+                                     DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                     BUFFER_SIZE_8192,
+                                     sampleCorpus,
+                                     ASYNC,
+                                     dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
 
-            status = setupDcTest(CPA_DC_DEFLATE,
-                                 CPA_DC_DIR_DECOMPRESS,
-                                 SAMPLE_CODE_CPA_DC_L1,
-                                 CPA_DC_HT_STATIC,
-                                 CPA_DC_STATELESS,
-                                 DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                 BUFFER_SIZE_8192,
-                                 sampleCorpus,
-                                 ASYNC,
-                                 dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
+                status = setupDcTest(CPA_DC_DEFLATE,
+                                     CPA_DC_DIR_DECOMPRESS,
+                                     SAMPLE_CODE_CPA_DC_L1,
+                                     CPA_DC_HT_STATIC,
+                                     CPA_DC_STATELESS,
+                                     DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                     BUFFER_SIZE_8192,
+                                     sampleCorpus,
+                                     ASYNC,
+                                     dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
 
-            status = setupDcTest(CPA_DC_DEFLATE,
-                                 CPA_DC_DIR_COMPRESS,
-                                 SAMPLE_CODE_CPA_DC_L2,
-                                 CPA_DC_HT_STATIC,
-                                 CPA_DC_STATELESS,
-                                 DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                 BUFFER_SIZE_8192,
-                                 sampleCorpus,
-                                 ASYNC,
-                                 dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-            status = setupDcTest(CPA_DC_DEFLATE,
-                                 CPA_DC_DIR_DECOMPRESS,
-                                 SAMPLE_CODE_CPA_DC_L2,
-                                 CPA_DC_HT_STATIC,
-                                 CPA_DC_STATELESS,
-                                 DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                 BUFFER_SIZE_8192,
-                                 sampleCorpus,
-                                 ASYNC,
-                                 dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
+                status = setupDcTest(CPA_DC_DEFLATE,
+                                     CPA_DC_DIR_COMPRESS,
+                                     SAMPLE_CODE_CPA_DC_L2,
+                                     CPA_DC_HT_STATIC,
+                                     CPA_DC_STATELESS,
+                                     DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                     BUFFER_SIZE_8192,
+                                     sampleCorpus,
+                                     ASYNC,
+                                     dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+                status = setupDcTest(CPA_DC_DEFLATE,
+                                     CPA_DC_DIR_DECOMPRESS,
+                                     SAMPLE_CODE_CPA_DC_L2,
+                                     CPA_DC_HT_STATIC,
+                                     CPA_DC_STATELESS,
+                                     DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                     BUFFER_SIZE_8192,
+                                     sampleCorpus,
+                                     ASYNC,
+                                     dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
 
             /*DYNAMIC L1 & L3 COMPRESSION*/
@@ -1679,34 +2196,37 @@ int main(int argc, char *argv[])
                 }
             }
 
-            /*DECOMPRESSION OF ZLIB COMPRESSED DATA*/
-            useZlib();
-            status =
-                setupDcTest(CPA_DC_DEFLATE,
-                            CPA_DC_DIR_DECOMPRESS,
-                            SAMPLE_CODE_CPA_DC_L1, /*not used in this test*/
-                            CPA_DC_HT_STATIC,      /*not used in this test*/
-                            CPA_DC_STATELESS,
-                            DEFAULT_COMPRESSION_WINDOW_SIZE,
-                            dcBufferSize,
-                            sampleCorpus,
-                            ASYNC,
-                            dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            if (staticEnabled)
             {
-                PRINT_ERR("Error calling setupDcTest\n");
-                return CPA_STATUS_FAIL;
+                /*DECOMPRESSION OF ZLIB COMPRESSED DATA*/
+                useZlib();
+                status =
+                    setupDcTest(CPA_DC_DEFLATE,
+                                CPA_DC_DIR_DECOMPRESS,
+                                SAMPLE_CODE_CPA_DC_L1, /*not used in this test*/
+                                CPA_DC_HT_STATIC,      /*not used in this test*/
+                                CPA_DC_STATELESS,
+                                DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                dcBufferSize,
+                                sampleCorpus,
+                                ASYNC,
+                                dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
+                useAccelCompression();
             }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
-            useAccelCompression();
 
             if (runStateful && dynamicEnabled)
             {
@@ -1765,108 +2285,111 @@ int main(int argc, char *argv[])
 
             /* Data Plane API Sample Code Test */
             /*STATIC DP_API L1 & L3 COMPRESS & DECOMPRESS*/
-            status = setupDcDpTest(CPA_DC_DEFLATE,
-                                   CPA_DC_DIR_COMPRESS,
-                                   SAMPLE_CODE_CPA_DC_L1,
-                                   CPA_DC_HT_STATIC,
-                                   DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                   BUFFER_SIZE_8192,
-                                   sampleCorpus,
-                                   ASYNC,
-                                   DC_DP_ENQUEUEING,
-                                   SINGLE_REQUEST,
-                                   dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            if (staticEnabled)
             {
-                PRINT_ERR("Error calling setupDcDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
+                status = setupDcDpTest(CPA_DC_DEFLATE,
+                                       CPA_DC_DIR_COMPRESS,
+                                       SAMPLE_CODE_CPA_DC_L1,
+                                       CPA_DC_HT_STATIC,
+                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                       BUFFER_SIZE_8192,
+                                       sampleCorpus,
+                                       ASYNC,
+                                       DC_DP_ENQUEUEING,
+                                       SINGLE_REQUEST,
+                                       dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
 
-            status = setupDcDpTest(CPA_DC_DEFLATE,
-                                   CPA_DC_DIR_DECOMPRESS,
-                                   SAMPLE_CODE_CPA_DC_L1,
-                                   CPA_DC_HT_STATIC,
-                                   DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                   BUFFER_SIZE_8192,
-                                   sampleCorpus,
-                                   ASYNC,
-                                   DC_DP_ENQUEUEING,
-                                   SINGLE_REQUEST,
-                                   dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
+                status = setupDcDpTest(CPA_DC_DEFLATE,
+                                       CPA_DC_DIR_DECOMPRESS,
+                                       SAMPLE_CODE_CPA_DC_L1,
+                                       CPA_DC_HT_STATIC,
+                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                       BUFFER_SIZE_8192,
+                                       sampleCorpus,
+                                       ASYNC,
+                                       DC_DP_ENQUEUEING,
+                                       SINGLE_REQUEST,
+                                       dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
 
-            status = setupDcDpTest(CPA_DC_DEFLATE,
-                                   CPA_DC_DIR_COMPRESS,
-                                   SAMPLE_CODE_CPA_DC_L2,
-                                   CPA_DC_HT_STATIC,
-                                   DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                   BUFFER_SIZE_8192,
-                                   sampleCorpus,
-                                   ASYNC,
-                                   DC_DP_ENQUEUEING,
-                                   SINGLE_REQUEST,
-                                   dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
-            }
+                status = setupDcDpTest(CPA_DC_DEFLATE,
+                                       CPA_DC_DIR_COMPRESS,
+                                       SAMPLE_CODE_CPA_DC_L2,
+                                       CPA_DC_HT_STATIC,
+                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                       BUFFER_SIZE_8192,
+                                       sampleCorpus,
+                                       ASYNC,
+                                       DC_DP_ENQUEUEING,
+                                       SINGLE_REQUEST,
+                                       dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
 
-            status = setupDcDpTest(CPA_DC_DEFLATE,
-                                   CPA_DC_DIR_DECOMPRESS,
-                                   SAMPLE_CODE_CPA_DC_L2,
-                                   CPA_DC_HT_STATIC,
-                                   DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                   BUFFER_SIZE_8192,
-                                   sampleCorpus,
-                                   ASYNC,
-                                   DC_DP_ENQUEUEING,
-                                   SINGLE_REQUEST,
-                                   dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                PRINT_ERR("Error calling setupDcDpTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
+                status = setupDcDpTest(CPA_DC_DEFLATE,
+                                       CPA_DC_DIR_DECOMPRESS,
+                                       SAMPLE_CODE_CPA_DC_L2,
+                                       CPA_DC_HT_STATIC,
+                                       DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                       BUFFER_SIZE_8192,
+                                       sampleCorpus,
+                                       ASYNC,
+                                       DC_DP_ENQUEUEING,
+                                       SINGLE_REQUEST,
+                                       dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcDpTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
             if (dynamicEnabled)
             {
@@ -2401,43 +2924,46 @@ int main(int argc, char *argv[])
         {
             useZlib();
             prevCnVRequestFlag = getSetupCnVRequestFlag();
-            setSetupCnVRequestFlag(STRICT_CNV_WITH_RECOVERY |
-                                   LOOSE_CNV_WITH_RECOVERY);
+            setSetupCnVRequestFlag(STRICT_CNV_CONDITIONAL_RECOVERY |
+                                   LOOSE_CNV_CONDITIONAL_RECOVERY);
 
-            /* sha256 + stateless static compress chaining */
-            status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
-                                      2,
-                                      CPA_DC_DEFLATE,
-                                      CPA_DC_DIR_COMPRESS,
-                                      SAMPLE_CODE_CPA_DC_L1,
-                                      CPA_DC_HT_STATIC,
-                                      CPA_DC_STATELESS,
-                                      DEFAULT_COMPRESSION_WINDOW_SIZE,
-                                      dcBufferSize,
-                                      sampleCorpus,
-                                      ASYNC,
-                                      CPA_CY_SYM_OP_HASH,
-                                      CPA_CY_SYM_CIPHER_NULL,
-                                      0,
-                                      CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
-                                      CPA_CY_PRIORITY_NORMAL,
-                                      CPA_CY_SYM_HASH_SHA256,
-                                      CPA_CY_SYM_HASH_MODE_PLAIN,
-                                      SHA256_DIGEST_LENGTH_IN_BYTES,
-                                      dcLoops);
-            if (CPA_STATUS_SUCCESS != status)
+            if (staticEnabled)
             {
-                PRINT_ERR("Error calling setupDcChainTest\n");
-                return CPA_STATUS_FAIL;
-            }
-            else
-            {
-                testsExecuted++;
-            }
-            status = createStartandWaitForCompletion(COMPRESSION);
-            if (CPA_STATUS_SUCCESS != status)
-            {
-                retStatus = CPA_STATUS_FAIL;
+                /* sha256 + stateless static compress chaining */
+                status = setupDcChainTest(CPA_DC_CHAIN_HASH_THEN_COMPRESS,
+                                          2,
+                                          CPA_DC_DEFLATE,
+                                          CPA_DC_DIR_COMPRESS,
+                                          SAMPLE_CODE_CPA_DC_L1,
+                                          CPA_DC_HT_STATIC,
+                                          CPA_DC_STATELESS,
+                                          DEFAULT_COMPRESSION_WINDOW_SIZE,
+                                          dcBufferSize,
+                                          sampleCorpus,
+                                          ASYNC,
+                                          CPA_CY_SYM_OP_HASH,
+                                          CPA_CY_SYM_CIPHER_NULL,
+                                          0,
+                                          CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
+                                          CPA_CY_PRIORITY_NORMAL,
+                                          CPA_CY_SYM_HASH_SHA256,
+                                          CPA_CY_SYM_HASH_MODE_PLAIN,
+                                          SHA256_DIGEST_LENGTH_IN_BYTES,
+                                          dcLoops);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Error calling setupDcChainTest\n");
+                    return CPA_STATUS_FAIL;
+                }
+                else
+                {
+                    testsExecuted++;
+                }
+                status = createStartandWaitForCompletion(COMPRESSION);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    retStatus = CPA_STATUS_FAIL;
+                }
             }
 
             /* sha256 + stateless dynamic compress chaining */
@@ -2492,6 +3018,7 @@ int main(int argc, char *argv[])
     }
     qaeMemDestroy();
 #endif /* USER_SPACE */
+    freeThreadMem();
     if ((retStatus == CPA_STATUS_SUCCESS) && (testsExecuted > 0))
     {
         PRINT("Sample code completed successfully.\n");

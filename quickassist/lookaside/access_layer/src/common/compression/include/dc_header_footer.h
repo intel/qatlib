@@ -100,4 +100,14 @@
 #define DC_GZIP_FAST_COMP (4)
 #define DC_GZIP_MAX_COMP (2)
 
+CpaStatus dcDeflateGenerateHeader(CpaFlatBuffer *pDestBuff,
+                                  CpaDcChecksum checksum,
+                                  CpaDcCompLvl compLevel,
+                                  Cpa32U *count);
+
+CpaStatus dcDeflateGenerateFooter(CpaFlatBuffer *pDestBuff,
+                                  CpaDcRqResults *pRes,
+                                  Cpa64U totalLength,
+                                  CpaDcChecksum checksum);
+
 #endif /* DC_HEADER_FOOTER_H_ */

@@ -278,7 +278,6 @@ int qaeRegisterDevice(int fd);
  ****************************************************************************/
 int qaeUnregisterDevice(int fd);
 
-
 #ifndef __KERNEL__
 /*! Define a constant for user space to select any available NUMA node */
 #define NUMA_ANY_NODE (-1)

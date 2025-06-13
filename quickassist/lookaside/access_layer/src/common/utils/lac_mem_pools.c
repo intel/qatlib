@@ -237,7 +237,7 @@ CpaStatus Lac_MemPoolCreate(
 
         /* Calcaulate various offsets */
         physAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
-            (void *)((LAC_ARCH_UINT)pMemBlk + addSize));
+            NULL, (void *)((LAC_ARCH_UINT)pMemBlk + addSize));
 
         /* physAddr is now already aligned to the greater power of 2:
             blkAlignmentInBytes or sizeof(lac_mem_blk_t) round up
@@ -473,19 +473,21 @@ CpaStatus Lac_MemPoolInitDcCookies(lac_memory_pool_id_t poolID)
 }
 
 #ifndef ICP_DC_ONLY
-static void Lac_MemPoolInitSymCookies(lac_sym_cookie_t *pSymCookie)
+static void Lac_MemPoolInitSymCookies(lac_sym_cookie_t *pSymCookie,
+                                      CpaInstanceHandle instanceHandle)
 {
-    pSymCookie->keyContentDescPhyAddr =
-        LAC_OS_VIRT_TO_PHYS_INTERNAL(pSymCookie->u.keyCookie.contentDesc);
-    pSymCookie->keyHashStateBufferPhyAddr =
-        LAC_OS_VIRT_TO_PHYS_INTERNAL(pSymCookie->u.keyCookie.hashStateBuffer);
-    pSymCookie->keySslKeyInputPhyAddr =
-        LAC_OS_VIRT_TO_PHYS_INTERNAL(&(pSymCookie->u.keyCookie.u.sslKeyInput));
-    pSymCookie->keyTlsKeyInputPhyAddr =
-        LAC_OS_VIRT_TO_PHYS_INTERNAL(&(pSymCookie->u.keyCookie.u.tlsKeyInput));
+    pSymCookie->keyContentDescDevAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+        instanceHandle, pSymCookie->u.keyCookie.contentDesc);
+    pSymCookie->keyHashStateBufferDevAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+        instanceHandle, pSymCookie->u.keyCookie.hashStateBuffer);
+    pSymCookie->keySslKeyInputDevAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+        instanceHandle, &(pSymCookie->u.keyCookie.u.sslKeyInput));
+    pSymCookie->keyTlsKeyInputDevAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+        instanceHandle, &(pSymCookie->u.keyCookie.u.tlsKeyInput));
 }
 
-CpaStatus Lac_MemPoolInitSymCookiesPhyAddr(lac_memory_pool_id_t poolID)
+CpaStatus Lac_MemPoolInitSymCookiesPhyAddr(lac_memory_pool_id_t poolID,
+                                           CpaInstanceHandle instanceHandle)
 {
     lac_mem_pool_hdr_t *pPoolID = (lac_mem_pool_hdr_t *)poolID;
     lac_sym_cookie_t *pSymCookie = NULL;
@@ -506,7 +508,7 @@ CpaStatus Lac_MemPoolInitSymCookiesPhyAddr(lac_memory_pool_id_t poolID)
             pSymCookie = (lac_sym_cookie_t *)((LAC_ARCH_UINT)(pCurrentBlk) +
                                               sizeof(lac_mem_blk_t));
             pCurrentBlk = pCurrentBlk->pNext;
-            Lac_MemPoolInitSymCookies(pSymCookie);
+            Lac_MemPoolInitSymCookies(pSymCookie, instanceHandle);
         }
     }
     else
@@ -516,9 +518,10 @@ CpaStatus Lac_MemPoolInitSymCookiesPhyAddr(lac_memory_pool_id_t poolID)
         for (count = 0; count < pPoolID->numElementsInPool; count++)
         {
             pCurrentBlk = pPoolID->trackBlks[count];
+            pCurrentBlk->opaque = ICP_ADF_INVALID_SEND_SEQ;
             pSymCookie = (lac_sym_cookie_t *)((LAC_ARCH_UINT)(pCurrentBlk) +
                                               sizeof(lac_mem_blk_t));
-            Lac_MemPoolInitSymCookies(pSymCookie);
+            Lac_MemPoolInitSymCookies(pSymCookie, instanceHandle);
         }
     }
     return CPA_STATUS_SUCCESS;

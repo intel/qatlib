@@ -279,7 +279,9 @@ CpaStatus SalQatMsg_transPutMsg(icp_comms_trans_handle trans_handle,
     return icp_adf_transPutMsg(trans_handle, pqat_msg, size_in_lws, seq_num);
 }
 
-void SalQatMsg_updateQueueTail(icp_comms_trans_handle trans_handle)
+CpaStatus SalQatMsg_updateQueueTail(icp_comms_trans_handle trans_handle)
 {
-    icp_adf_updateQueueTail(trans_handle);
+    CpaStatus status;
+    status = icp_adf_updateQueueTail(trans_handle);
+    return status;
 }

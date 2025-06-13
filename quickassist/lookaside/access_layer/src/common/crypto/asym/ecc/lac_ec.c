@@ -400,8 +400,9 @@ CpaStatus LacEc_BasicParamCheckWeierstrass(const CpaCyEcCurve *pCurve)
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    LAC_CHECK_FLAT_BUFFER_PARAM(
-        &(pCurve->parameters.weierstrassParameters.p), CHECK_NONE, 0);
+    LAC_CHECK_FLAT_BUFFER_PARAM(&(pCurve->parameters.weierstrassParameters.p),
+                                CHECK_LESS_EQUALS,
+                                LAC_EC_SIZE_BYTES_MAX);
     LAC_CHECK_ODD_PARAM(&(pCurve->parameters.weierstrassParameters.p));
     LAC_CHECK_FLAT_BUFFER_PARAM(
         &(pCurve->parameters.weierstrassParameters.a), CHECK_NONE, 0);
@@ -627,7 +628,8 @@ STATIC CpaStatus LacEc_PointVerifyBasicParamCheckWeierstrass(
 
     LAC_CHECK_FLAT_BUFFER_PARAM(&(pWeirstrassCurve->a), CHECK_NONE, 0);
     LAC_CHECK_FLAT_BUFFER_PARAM(&(pWeirstrassCurve->b), CHECK_NONE, 0);
-    LAC_CHECK_FLAT_BUFFER_PARAM(&(pWeirstrassCurve->p), CHECK_NONE, 0);
+    LAC_CHECK_FLAT_BUFFER_PARAM(
+        &(pWeirstrassCurve->p), CHECK_LESS_EQUALS, LAC_EC_SIZE_BYTES_MAX);
     LAC_CHECK_FLAT_BUFFER_PARAM(&(pOpData->xP), CHECK_NONE, 0);
     LAC_CHECK_FLAT_BUFFER_PARAM(&(pOpData->yP), CHECK_NONE, 0);
 
@@ -791,238 +793,6 @@ STATIC void LacEc_PointVerifyCallback(CpaStatus status,
 
 /**
  ***************************************************************************
- * @ingroup LacEc
- * Detect P256 or P384 and get optimised MMP function id
- ***************************************************************************/
-STATIC CpaBoolean
-LacEc_GetSimpleOptFunctionId(const CpaCyEcPointMultiplyOpData *pOpData,
-                       Cpa32U *dataOperationSizeBytes,
-                       Cpa32U *function)
-{
-    int i = 0;
-
-    OptCurveParams curves[] = {
-        /* P256 */
-        {.dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_256_BITS),
-         .function_point = PKE_EC_POINT_MULTIPLICATION_P256,
-         .p = nist_p256_p,
-         .h = nist_p256_h,
-         .a = nist_p256_a,
-         .b = nist_p256_b},
-
-        /* P384 */
-        {.dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
-         .function_point = PKE_EC_POINT_MULTIPLICATION_P384,
-         .p = nist_p384_p,
-         .h = nist_p384_h,
-         .a = nist_p384_a,
-         .b = nist_p384_b}};
-
-    /* Loop through each curve returning when found and setting
-     * dataOperationSizeBytes and function id */
-    for (i = 0; i < ARRAY_SIZE(curves); i++)
-    {
-        CpaBoolean res = CPA_CY_EC_FIELD_TYPE_PRIME == pOpData->fieldType;
-
-        /* if the curve has not the prime representation continue searching */
-        if (!res)
-            continue;
-
-        res = (NULL == pOpData->h.pData) ||
-              LacPke_CompareFlatAndPtr(
-                  &(pOpData->h), curves[i].h, curves[i].dataOperationSizeBytes);
-        if (!res)
-            continue;
-        res = LacPke_CompareFlatAndPtr(
-            &(pOpData->q), curves[i].p, curves[i].dataOperationSizeBytes);
-        if (!res)
-            continue;
-        res = LacPke_CompareFlatAndPtr(
-            &(pOpData->a), curves[i].a, curves[i].dataOperationSizeBytes);
-        if (!res)
-            continue;
-        res = LacPke_CompareFlatAndPtr(
-            &(pOpData->b), curves[i].b, curves[i].dataOperationSizeBytes);
-
-        if (res == CPA_TRUE)
-        {
-            *dataOperationSizeBytes = curves[i].dataOperationSizeBytes;
-            *function = curves[i].function_point;
-            return CPA_TRUE;
-        }
-    }
-
-    return CPA_FALSE; /* not found any optimised curve */
-}
-
-/**
- ***************************************************************************
- * @ingroup LacEc
- * Fill MMP struct for optimised P256 and P384 Point Multiply
- ***************************************************************************/
-STATIC CpaStatus
-LacEc_FillOptMMPStructs(icp_qat_fw_mmp_input_param_t *in,
-                        Cpa32U *inSizes,
-                        CpaBoolean *inAlloc,
-                        icp_qat_fw_mmp_output_param_t *out,
-                        Cpa32U *outSizes,
-                        CpaBoolean *outAlloc,
-                        Cpa32U function,
-                        Cpa32U size,
-                        const CpaCyEcPointMultiplyOpData *pOpData,
-                        CpaFlatBuffer *pXk,
-                        CpaFlatBuffer *pYk)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-
-    /* All input and output memory is externally allocated */
-    const CpaBoolean externallyAllocated = CPA_FALSE;
-
-    PointMultiplyOpData data;
-
-    data.xg = &pOpData->xg;
-    data.yg = &pOpData->yg;
-    data.h = &pOpData->h;
-    data.q = &pOpData->q;
-    data.a = &pOpData->a;
-    data.b = &pOpData->b;
-    data.k = &pOpData->k;
-    data.pXk = pXk;
-    data.pYk = pYk;
-
-    /* Populate input and output buffers for optimised MMP functions */
-    switch (function)
-    {
-        case PKE_EC_POINT_MULTIPLICATION_P256:
-            LAC_EC_SET_LIST_PARAMS(
-                inSizes, LAC_POINT_MULTIPLY_P256P384_NUM_IN_ARGS, size);
-            LAC_EC_SET_LIST_PARAMS(inAlloc,
-                                   LAC_POINT_MULTIPLY_P256P384_NUM_IN_ARGS,
-                                   externallyAllocated);
-            LAC_EC_SET_LIST_PARAMS(
-                outSizes, LAC_POINT_MULTIPLY_P256P384_NUM_OUT_ARGS, size);
-            LAC_EC_SET_LIST_PARAMS(outAlloc,
-                                   LAC_POINT_MULTIPLY_P256P384_NUM_OUT_ARGS,
-                                   externallyAllocated);
-            LacEcP256P384PointMultiplyWrite(
-                in->mmp_ec_point_multiplication_p256,
-                out->mmp_ec_point_multiplication_p256,
-                &data);
-            break;
-
-        case PKE_EC_POINT_MULTIPLICATION_P384:
-            LAC_EC_SET_LIST_PARAMS(
-                inSizes, LAC_POINT_MULTIPLY_P256P384_NUM_IN_ARGS, size);
-            LAC_EC_SET_LIST_PARAMS(inAlloc,
-                                   LAC_POINT_MULTIPLY_P256P384_NUM_IN_ARGS,
-                                   externallyAllocated);
-            LAC_EC_SET_LIST_PARAMS(
-                outSizes, LAC_POINT_MULTIPLY_P256P384_NUM_OUT_ARGS, size);
-            LAC_EC_SET_LIST_PARAMS(outAlloc,
-                                   LAC_POINT_MULTIPLY_P256P384_NUM_OUT_ARGS,
-                                   externallyAllocated);
-            LacEcP256P384PointMultiplyWrite(
-                in->mmp_ec_point_multiplication_p384,
-                out->mmp_ec_point_multiplication_p384,
-                &data);
-            break;
-
-        default:
-            status = CPA_STATUS_INVALID_PARAM;
-            break;
-    }
-
-    return status;
-}
-
-CpaStatus LacEc_OptimisedPointMultiply(
-    const CpaInstanceHandle instanceHandle,
-    const CpaCyEcPointMultiplyCbFunc pCb,
-    void *pCallbackTag,
-    const CpaCyEcPointMultiplyOpData *pOpData,
-    CpaFlatBuffer *pXk,
-    CpaFlatBuffer *pYk)
-{
-    CpaStatus status = CPA_STATUS_UNSUPPORTED;
-    sal_crypto_service_t *pCryptoService = NULL;
-    CpaBoolean optCurve = CPA_FALSE;
-    Cpa32U functionID = 0;
-    Cpa32U dataOperationSize = 0;
-
-    pCryptoService = (sal_crypto_service_t *)instanceHandle;
-
-
-    optCurve = LacEc_GetSimpleOptFunctionId(pOpData, &dataOperationSize, &functionID);
-    if (optCurve == CPA_FALSE)
-        /* The optimised path is not supported for the curve */
-        return CPA_STATUS_UNSUPPORTED;
-
-    icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
-    lac_pke_op_cb_data_t cbData = {0};
-
-    /* Holding the calculated size of the input/output parameters */
-    Cpa32U inArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U outArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-
-    /* Zero the output buffers */
-    osalMemSet(pXk->pData, 0, pXk->dataLenInBytes);
-    osalMemSet(pYk->pData, 0, pYk->dataLenInBytes);
-
-    /* populate callback data */
-    cbData.pClientCb = pCb;
-    cbData.pCallbackTag = pCallbackTag;
-    cbData.pClientOpData = pOpData;
-    cbData.pOpaqueData = NULL;
-    cbData.pOutputData1 = pXk;
-    cbData.pOutputData2 = pYk;
-
-    status = LacEc_FillOptMMPStructs(&in,
-                                     inArgSizeList,
-                                     internalMemInList,
-                                     &out,
-                                     outArgSizeList,
-                                     internalMemOutList,
-                                     functionID,
-                                     dataOperationSize,
-                                     pOpData,
-                                     pXk,
-                                     pYk);
-
-    /* Send pke request */
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* send a PKE request to the QAT */
-        status = LacPke_SendSingleRequest(functionID,
-                                          inArgSizeList,
-                                          outArgSizeList,
-                                          &in,
-                                          &out,
-                                          internalMemInList,
-                                          internalMemOutList,
-                                          LacEc_PointMultiplyCallback,
-                                          &cbData,
-                                          instanceHandle);
-    }
-
-    /* increment stats */
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        LAC_EC_STAT_INC(numEcPointMultiplyRequests, pCryptoService);
-    }
-    else
-    {
-        LAC_EC_STAT_INC(numEcPointMultiplyRequestErrors, pCryptoService);
-    }
-
-    return status;
-}
-
-/**
- ***************************************************************************
  * @ingroup Lac_Ec
  *
  ***************************************************************************/
@@ -1054,7 +824,7 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
 {
     *function = 0;
 
-    if (!pService->generic_service_info.isGen4)
+    if (!pService->generic_service_info.optimisedCurveSupport)
         return CPA_FALSE;
 
     int i = 0;
@@ -1068,7 +838,6 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
           .h = nist_p256_h,
           .a = nist_p256_a,
           .b = nist_p256_b },
-
         /* P384 */
         { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
           .function_point = PKE_EC_POINT_MULTIPLICATION_P384,
@@ -1076,7 +845,7 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
           .p = nist_p384_p,
           .h = nist_p384_h,
           .a = nist_p384_a,
-          .b = nist_p384_b }
+          .b = nist_p384_b },
     };
 
     /* Loop through each curve returning when found and setting
@@ -1377,8 +1146,10 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
     {
 #ifdef ICP_PARAM_CHECK
         /* Basic NULL Param Checking  */
-        status = LacEc_GenericPointMultiplyBasicParamCheck(
-            pOpData, pMultiplyStatus, pOutX, pOutY);
+        status = LacEc_GenericPointMultiplyBasicParamCheck(pOpData,
+                                                           pMultiplyStatus,
+                                                           pOutX,
+                                                           pOutY);
         LAC_CHECK_STATUS(status);
 #endif
 
@@ -1419,15 +1190,15 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
     Cpa32U dataOperationSizeBytes = 0u;
     CpaBoolean optimisedSupported = CPA_FALSE;
 
-    PointMultiplyOpData data = {.xg = pXp,
-                                .yg = pYp,
-                                .h = pH,
-                                .q = pP,
-                                .a = pA,
-                                .b = pB,
-                                .k = pK,
-                                .pXk = pOutX,
-                                .pYk = pOutY};
+    PointMultiplyOpData data = { .xg = pXp,
+                                 .yg = pYp,
+                                 .h = pH,
+                                 .q = pP,
+                                 .a = pA,
+                                 .b = pB,
+                                 .k = pK,
+                                 .pXk = pOutX,
+                                 .pYk = pOutY };
 
     optimisedSupported =
         LacEc_GetOptFunctionId((sal_crypto_service_t *)instanceHandle,
@@ -1439,6 +1210,7 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
                                &dataOperationSizeBytes,
                                &functionID,
                                generator);
+
     if (!optimisedSupported)
     {
         status = LacEcc_CommonPathUnoptimised(pOpData_Legacy,
@@ -1713,6 +1485,7 @@ LacEc_CommonPointVerify(const CpaInstanceHandle instanceHandle_in,
     }
 
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ec);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)
@@ -1951,6 +1724,7 @@ CpaStatus cpaCyEcQueryStats64(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ec);
     /* check for null parameters */
     LAC_CHECK_NULL_PARAM(pEcStats);
 
@@ -2015,6 +1789,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
 {
     CpaInstanceHandle usedInstanceHandle = instanceHandle;
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&usedInstanceHandle));
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(usedInstanceHandle, ec);
 
     CpaStatus status = CPA_STATUS_SUCCESS;
 
@@ -2040,7 +1815,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
     }
 #ifdef ICP_TRACE
     LAC_LOG7("Called with params (0x%lx -> 0x%1x, 0x%lx, 0x%lx, 0x%lx, "
-             "0x%lx, 0x%lx ",
+             "0x%lx, 0x%lx,",
              (LAC_ARCH_UINT)instanceHandle,
              (LAC_ARCH_UINT)usedInstanceHandle,
              (LAC_ARCH_UINT)pCb,
@@ -2088,4 +1863,18 @@ CpaStatus cpaCyEcGenericPointMultiply(
                                           pMultiplyStatus,
                                           pOutX,
                                           pOutY);
+}
+
+CpaStatus cpaCyEcDpaGenericPointMultiply(
+    const CpaInstanceHandle instanceHandle,
+    const CpaCyEcPointMultiplyCbFunc pCb,
+    void *pCallbackTag,
+    const CpaCyEcGenericPointMultiplyOpData *pOpData,
+    const CpaFlatBuffer *pRandom,
+    const CpaBoolean createRandomData,
+    CpaBoolean *pMultiplyStatus,
+    CpaFlatBuffer *pXk,
+    CpaFlatBuffer *pYk)
+{
+    return CPA_STATUS_UNSUPPORTED;
 }

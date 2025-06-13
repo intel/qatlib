@@ -292,6 +292,11 @@ parameter generation or generate primes at runtime.
 Note this value has no bearing on the eventual
 performance metrics presented upon completion of RSA tests.
 
+singleInstThread is an optional parameter with default value 0. If set to 1, the
+tests will be executed using a single instance.
+Example:
+./cpa_sample_code runTests=32 singleInstThread=1
+
 ===============================================================================
 
 4) Known Issues

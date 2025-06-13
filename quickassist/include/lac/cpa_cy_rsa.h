@@ -126,7 +126,8 @@ typedef enum _CpaCyRsaVersion
  *      first order, e.g. modulusN.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaPublicKey {
+typedef struct _CpaCyRsaPublicKey
+{
     CpaFlatBuffer modulusN;
     /**< The modulus (n).
      * For key generation operations, the client MUST allocate the memory
@@ -154,7 +155,8 @@ typedef struct _CpaCyRsaPublicKey {
  *      first order, e.g. modulusN.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaPrivateKeyRep1 {
+typedef struct _CpaCyRsaPrivateKeyRep1
+{
     CpaFlatBuffer modulusN;
     /**< The modulus (n). For key generation operations the memory MUST
      * be allocated by the client and the value is generated. For other
@@ -190,7 +192,8 @@ typedef struct _CpaCyRsaPrivateKeyRep1 {
  *      first order, e.g. prime1P.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaPrivateKeyRep2 {
+typedef struct _CpaCyRsaPrivateKeyRep2
+{
     CpaFlatBuffer prime1P;
     /**< The first large prime (p).
      * For key generation operations, this field is unused. */
@@ -209,6 +212,29 @@ typedef struct _CpaCyRsaPrivateKeyRep2 {
 /**
  *****************************************************************************
  * @ingroup cpaCyRsa
+ *      RSA DPA Opdata.
+ * @description
+ *      This structure contains data needed to perform RSA DPA decrypt.
+ *
+ *****************************************************************************/
+typedef struct _CpaCyRsaDpaOpData
+{
+    CpaFlatBuffer *pRsaPrimeP;
+    /**< Pointer to RSA prime P data buffer. */
+    CpaFlatBuffer *pRsaPrimeQ;
+    /**< Pointer to RSA prime Q data buffer. */
+    CpaFlatBuffer *pRsaPublicE;
+    /**< Pointer to an RSA Public key exponent. */
+    CpaFlatBuffer *pRandom;
+    /**< Pointer to buffer containing cryptographically secure random data. */
+    CpaBoolean createRandomData;
+    /**< Control parameter to delegate the random data generation to QAT. If
+     * set to CPA_TRUE, input parameter pRandom is ignored. */
+} CpaCyRsaDpaOpData;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaCyRsa
  *      RSA private key representation type.
  * @description
  *      This enumeration lists which PKCS V2.1 representation of the private
@@ -217,7 +243,7 @@ typedef struct _CpaCyRsaPrivateKeyRep2 {
  *****************************************************************************/
 typedef enum _CpaCyRsaPrivateKeyRepType
 {
-    CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_1= 1,
+    CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_1 = 1,
     /**< The first representation of the RSA private key. */
     CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_2
     /**< The second representation of the RSA private key. */
@@ -234,7 +260,8 @@ typedef enum _CpaCyRsaPrivateKeyRepType
  *      second representation results in faster decryption operations.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaPrivateKey {
+typedef struct _CpaCyRsaPrivateKey
+{
     CpaCyRsaVersion version;
     /**< Indicates the version of the PKCS #1 specification that is
      * supported.
@@ -290,7 +317,8 @@ typedef struct _CpaCyRsaPrivateKey {
  *      - {2048, 2048, 4096}.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaKeyGenOpData {
+typedef struct _CpaCyRsaKeyGenOpData
+{
     CpaFlatBuffer prime1P;
     /**< A large random prime number (p). This MUST be created by the
      * client. Permitted bit lengths are: 256, 512, 768, 1024, 1536 or 2048.
@@ -355,7 +383,8 @@ typedef struct _CpaCyRsaKeyGenOpData {
  *      first order, e.g. inputData.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaEncryptOpData {
+typedef struct _CpaCyRsaEncryptOpData
+{
     CpaCyRsaPublicKey *pPublicKey;
     /**< Pointer to the public key. */
     CpaFlatBuffer inputData;
@@ -393,7 +422,8 @@ typedef struct _CpaCyRsaEncryptOpData {
  *      first order, e.g. inputData.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyRsaDecryptOpData {
+typedef struct _CpaCyRsaDecryptOpData
+{
     CpaCyRsaPrivateKey *pRecipientPrivateKey;
     /**< Pointer to the recipient's RSA private key. */
     CpaFlatBuffer inputData;
@@ -414,7 +444,8 @@ typedef struct _CpaCyRsaDecryptOpData {
  *      Statistics are set to zero when the component is initialized, and are
  *      collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyRsaStats {
+typedef struct _CpaCyRsaStats
+{
     Cpa32U numRsaKeyGenRequests;
     /**<  Total number of successful RSA key generation requests. */
     Cpa32U numRsaKeyGenRequestErrors;
@@ -460,7 +491,8 @@ typedef struct _CpaCyRsaStats {
  *      Statistics are set to zero when the component is initialized, and are
  *      collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyRsaStats64 {
+typedef struct _CpaCyRsaStats64
+{
     Cpa64U numRsaKeyGenRequests;
     /**<  Total number of successful RSA key generation requests. */
     Cpa64U numRsaKeyGenRequestErrors;
@@ -559,10 +591,10 @@ typedef struct _CpaCyRsaStats64 {
  *
  *****************************************************************************/
 typedef void (*CpaCyRsaKeyGenCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pKeyGenOpData,
-        CpaCyRsaPrivateKey *pPrivateKey,
-        CpaCyRsaPublicKey *pPublicKey);
+                                     CpaStatus status,
+                                     void *pKeyGenOpData,
+                                     CpaCyRsaPrivateKey *pPrivateKey,
+                                     CpaCyRsaPublicKey *pPublicKey);
 
 /**
  *****************************************************************************
@@ -647,13 +679,12 @@ typedef void (*CpaCyRsaKeyGenCbFunc)(void *pCallbackTag,
  *      cpaCyRsaDecrypt()
  *
  *****************************************************************************/
-CpaStatus
-cpaCyRsaGenKey(const CpaInstanceHandle instanceHandle,
-        const CpaCyRsaKeyGenCbFunc pRsaKeyGenCb,
-        void *pCallbackTag,
-        const CpaCyRsaKeyGenOpData *pKeyGenOpData,
-        CpaCyRsaPrivateKey *pPrivateKey,
-        CpaCyRsaPublicKey *pPublicKey);
+CpaStatus cpaCyRsaGenKey(const CpaInstanceHandle instanceHandle,
+                         const CpaCyRsaKeyGenCbFunc pRsaKeyGenCb,
+                         void *pCallbackTag,
+                         const CpaCyRsaKeyGenOpData *pKeyGenOpData,
+                         CpaCyRsaPrivateKey *pPrivateKey,
+                         CpaCyRsaPublicKey *pPublicKey);
 
 /**
  *****************************************************************************
@@ -732,12 +763,11 @@ cpaCyRsaGenKey(const CpaInstanceHandle instanceHandle,
  *      cpaCyRsaDecrypt()
  *
  *****************************************************************************/
-CpaStatus
-cpaCyRsaEncrypt(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pRsaEncryptCb,
-        void *pCallbackTag,
-        const CpaCyRsaEncryptOpData *pEncryptOpData,
-        CpaFlatBuffer *pOutputData);
+CpaStatus cpaCyRsaEncrypt(const CpaInstanceHandle instanceHandle,
+                          const CpaCyGenFlatBufCbFunc pRsaEncryptCb,
+                          void *pCallbackTag,
+                          const CpaCyRsaEncryptOpData *pEncryptOpData,
+                          CpaFlatBuffer *pOutputData);
 
 /**
  *****************************************************************************
@@ -816,12 +846,99 @@ cpaCyRsaEncrypt(const CpaInstanceHandle instanceHandle,
  *      cpaCyRsaEncrypt()
  *
  *****************************************************************************/
-CpaStatus
-cpaCyRsaDecrypt(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
-        void *pCallbackTag,
-        const CpaCyRsaDecryptOpData *pDecryptOpData,
-        CpaFlatBuffer * pOutputData);
+CpaStatus cpaCyRsaDecrypt(const CpaInstanceHandle instanceHandle,
+                          const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
+                          void *pCallbackTag,
+                          const CpaCyRsaDecryptOpData *pDecryptOpData,
+                          CpaFlatBuffer *pOutputData);
+
+/**
+ *****************************************************************************
+ * @ingroup cpaCyRsa
+ *      Perform Differential Power Analysis (DPA) resistant RSA decrypt
+ *      (or sign) primitive operation on the input data. This is the DPA
+ *      variation of cpaCyRsaDecrypt() API.
+ *
+ * @description
+ *      This function will perform an RSA decryption primitive operation on the
+ *      input data using the specified RSA private key. As the RSA decryption
+ *      primitive and signing primitive operations are mathematically identical
+ *      this function may also be used to perform an RSA signing primitive
+ *      operation.
+ *
+ * @context
+ *      When called as an asynchronous function it cannot sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ *      When called as a synchronous function it may sleep. It MUST NOT be
+ *      executed in a context that DOES NOT permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      Yes when configured to operate in synchronous mode.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  instanceHandle   Instance handle.
+ * @param[in]  pRsaDecryptCb    Pointer to callback function to be invoked
+ *                              when the operation is complete. If this is
+ *                              set to a NULL value the function will operate
+ *                              synchronously.
+ * @param[in]  pCallbackTag     Opaque User Data for this specific call.
+ *                              Will be returned unchanged in the callback.
+ * @param[in]  pDecryptOpData   Structure containing all the data needed to
+ *                              perform the RSA decrypt operation. The
+ *                              client code allocates the memory for this
+ *                              structure. This component takes ownership
+ *                              of the memory until it is returned in the
+ *                              callback.
+ * @param[in]  pDpaOpData       Structure containing the additional
+ *                              configuration settings to make the RSA decrypt
+ *                              operations DPA resilient.
+ * @param[out] pOutputData      Pointer to structure into which the result of
+ *                              the RSA decryption primitive is written. The
+ *                              client MUST allocate this memory. The data
+ *                              pointed to is an integer in big-endian order.
+ *                              The value will be between 0 and the modulus
+ *                              n - 1.
+ *                              On invocation the callback function will
+ *                              contain this parameter in the pOut parameter.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RETRY          Resubmit the request.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
+ *                                   the request.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The component has been initialized via cpaCyStartInstance function.
+ * @post
+ *      None
+ * @note
+ *      When pRsaDecryptCb is non-NULL an asynchronous callback is generated in
+ *      response to this function call.
+ *      Any errors generated during processing are reported as part of the
+ *      callback status code. For optimal performance, data pointers SHOULD be
+ *      8-byte aligned.
+ * @see
+ *      CpaCyRsaDecryptOpData,
+ *      CpaCyGenFlatBufCbFunc,
+ *      cpaCyRsaGenKey(),
+ *      cpaCyRsaEncrypt()
+ *
+ *****************************************************************************/
+CpaStatus cpaCyRsaDpaDecrypt(const CpaInstanceHandle instanceHandle,
+                             const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
+                             void *pCallbackTag,
+                             const CpaCyRsaDecryptOpData *pDecryptOpData,
+                             const CpaCyRsaDpaOpData *pDpaOpData,
+                             CpaFlatBuffer *pOutputData);
 
 /**
  *****************************************************************************
@@ -881,7 +998,7 @@ cpaCyRsaDecrypt(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCyRsaQueryStats(const CpaInstanceHandle instanceHandle,
-        struct _CpaCyRsaStats *pRsaStats);
+                   struct _CpaCyRsaStats *pRsaStats);
 
 /**
  *****************************************************************************
@@ -934,9 +1051,8 @@ cpaCyRsaQueryStats(const CpaInstanceHandle instanceHandle,
  * @see
  *      CpaCyRsaStats64
  *****************************************************************************/
-CpaStatus
-cpaCyRsaQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyRsaStats64 *pRsaStats);
+CpaStatus cpaCyRsaQueryStats64(const CpaInstanceHandle instanceHandle,
+                               CpaCyRsaStats64 *pRsaStats);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

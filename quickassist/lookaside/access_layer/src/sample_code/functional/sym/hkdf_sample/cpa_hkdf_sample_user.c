@@ -113,7 +113,7 @@ int main(int argc, const char **argv)
     }
 
     status = hkdfSample();
-    if (CPA_STATUS_SUCCESS != status)
+    if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_UNSUPPORTED != status))
     {
         PRINT_ERR("\nHKDF sample code failed\n");
     }

@@ -134,7 +134,6 @@ int main(int argc, const char **argv)
         PRINT_DBG("\nLegacy DC Chaining Sample Code App finished\n");
     }
 
-
     icp_sal_userStop();
 
     qaeMemDestroy();

@@ -99,6 +99,7 @@ static int parent_pipe = 0;
 #define CLIENT_TIMEOUT_DEFAULT_MS 1000
 
 #define MAX_ERR_STRING_LEN 1024
+#define MAX_ERR_SUBSTRING_LEN 32
 
 struct ucred
 {
@@ -112,14 +113,14 @@ struct ucred
  * However, it is global to avoid excessive use of stack memory and potential
  * stack-overflow in this function.
  */
-static struct qatmgr_dev_data dev_list[MAX_DEVS];
+static struct qatmgr_dev_data dev_list[MAX_DEVS] = { 0 };
 
 void *handle_client(void *arg)
 {
     int bytes_r;
     int bytes_w = 0;
     int index = -1;
-    pid_t tid;
+    pthread_t tid;
     int conn_fd;
     struct qatmgr_msg_req msgreq = { 0 };
     struct qatmgr_msg_rsp msgrsp = { 0 };
@@ -261,22 +262,38 @@ static int check_pidfile(const char *filename, char **err_string)
 static int write_pidfile(const char *filename, char **err_string)
 {
     FILE *pidfile;
+    char err_substr[MAX_ERR_SUBSTRING_LEN];
 
     if (!(pidfile = fopen(filename, "w")))
     {
-        *err_string = malloc(MAX_ERR_STRING_LEN);
-        if (*err_string)
-            snprintf(*err_string,
-                     MAX_ERR_STRING_LEN,
-                     "Cannot open %s, %s\n",
-                     filename,
-                     strerror(errno));
-        return 1;
+        snprintf(err_substr, MAX_ERR_SUBSTRING_LEN, "Cannot open");
+        goto err_out;
     }
 
-    fprintf(pidfile, "%d\n", (int)getpid());
-    fclose(pidfile);
+    if (0 > fprintf(pidfile, "%d\n", (int)getpid()))
+    {
+        snprintf(err_substr, MAX_ERR_SUBSTRING_LEN, "Cannot write pid");
+        goto err_out;
+    }
+
+    if (fclose(pidfile))
+    {
+        snprintf(err_substr, MAX_ERR_SUBSTRING_LEN, "Cannot close");
+        goto err_out;
+    }
+
     return 0;
+
+err_out:
+    *err_string = malloc(MAX_ERR_STRING_LEN);
+    if (*err_string)
+        snprintf(*err_string,
+                 MAX_ERR_STRING_LEN,
+                 "%s, %s, %s\n",
+                 err_substr,
+                 filename,
+                 strerror(errno));
+    return 1;
 }
 
 static void daemonise(void)
@@ -415,7 +432,7 @@ int main(int argc, char **argv)
     int listen_fd;
     int connect_fd;
     int ret;
-    pthread_t client_tid;
+    pthread_t mgr_socket_tid;
     struct ucred ucred;
     unsigned len;
     unsigned num_devices;
@@ -503,7 +520,7 @@ int main(int argc, char **argv)
 
     signal(SIGPIPE, signal_handler);
 
-    if (qat_mgr_get_dev_list(&num_devices, dev_list, list_size, 0))
+    if (qat_mgr_get_vfio_dev_list(&num_devices, dev_list, list_size, 0))
     {
         printf("get_dev_list failed\n");
     }
@@ -530,13 +547,14 @@ int main(int argc, char **argv)
                 BDF_FUN(dev_list[i].bdf));
     }
 
-    if ((ret = qat_mgr_build_data(dev_list, num_devices, policy, 0)))
+    if ((ret = qat_mgr_vfio_build_data(dev_list, num_devices, policy, 0)))
     {
         if (foreground)
-            qat_log(
-                LOG_LEVEL_ERROR, "Failed qat_mgr_build_data. ret %d\n", ret);
+            qat_log(LOG_LEVEL_ERROR,
+                    "Failed qat_mgr_vfio_build_data. ret %d\n",
+                    ret);
         else
-            write_parent(parent_pipe, "Failed qat_mgr_build_data");
+            write_parent(parent_pipe, "Failed qat_mgr_vfio_build_data");
         exit(ret);
     }
 
@@ -598,11 +616,11 @@ int main(int argc, char **argv)
             qat_log(LOG_LEVEL_DEBUG, "Client pid %ld\n", (long)ucred.pid);
 
         ret = pthread_create(
-            &client_tid, NULL, handle_client, (void *)(intptr_t)connect_fd);
+            &mgr_socket_tid, NULL, handle_client, (void *)(intptr_t)connect_fd);
         if (ret == 0)
         {
-            pthread_detach(client_tid);
-            qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", client_tid);
+            pthread_detach(mgr_socket_tid);
+            qat_log(LOG_LEVEL_DEBUG, "Child thread %lu\n", mgr_socket_tid);
         }
         else
         {

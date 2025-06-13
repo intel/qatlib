@@ -141,7 +141,7 @@ check_driver() {
     while [ "$CURRENT_STATE" != "Live" ]
     do
         if [ $ATTEMPT_CNT -ge $TIMEOUT_CNT ]; then
-            TIMEOUT=`echo $ATTEMPT_CNT*$ATTEMPT_INTERVAL | bc`
+            TIMEOUT=$(awk "BEGIN {print $ATTEMPT_CNT * $ATTEMPT_INTERVAL}")
             echo "QAT driver is still not present after ${TIMEOUT}s. Aborting qat_init"
             exit 1
         fi

@@ -110,7 +110,6 @@
 #define CACHE_PID
 #endif
 
-
 #ifdef CACHE_PID
 extern void *cache_pid;
 #endif
@@ -149,6 +148,18 @@ void *__qae_alloc_addr(size_t size,
                        const size_t phys_alignment_byte);
 API_LOCAL
 void __qae_free_addr(void **p_va, bool secure_free);
+
+API_LOCAL
+uint64_t allocate_iova(const uint32_t size, uint32_t alignment);
+
+API_LOCAL
+void iova_release(uint64_t iova, uint32_t size);
+
+API_LOCAL
+int dma_map_slab(const void *virt, const uint64_t iova, const size_t size);
+
+API_LOCAL
+int dma_unmap_slab(const uint64_t iova, const size_t size);
 
 API_LOCAL
 void __qae_memFreeNUMA(void **ptr, bool secure_free);

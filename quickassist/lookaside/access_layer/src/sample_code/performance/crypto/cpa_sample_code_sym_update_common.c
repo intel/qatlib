@@ -177,7 +177,6 @@ CpaStatus cpaCySymSessionInUse(CpaCySymSessionCtx sessionCtx,
     { 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 };
 #define HASH_ALGORITHM_NUM { 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 14, 15, 16 };
 
-
 const testSetupCipher_t cipherSetup[ALGCHAIN_CIPHER_NUM] =
     CIPHER_ALGORITHM_LIST;
 const testSetupHash_t hashSetup[ALGCHAIN_HASH_NUM] = HASH_ALGORITHM_LIST;
@@ -323,7 +322,6 @@ CpaStatus symSetupSessionUpdateTest(CpaCySymOp symOperation,
                                     void *samplePerformanceFunction)
 {
     symmetric_test_params_t *updateSetup = NULL;
-
 
     if (testTypeCount_g >= MAX_THREAD_VARIATION)
     {

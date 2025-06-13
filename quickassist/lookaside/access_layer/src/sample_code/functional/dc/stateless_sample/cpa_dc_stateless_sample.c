@@ -189,8 +189,12 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
     CpaDcRqResults dcResults;
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
     INIT_OPDATA(&opData, CPA_DC_FLUSH_FINAL);
+    /*
+     * Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     PRINT_DBG("cpaDcBufferListGetMetaSize\n");
 
@@ -278,17 +282,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         pFlatBuffer->dataLenInBytes = dstBufferSize;
         pFlatBuffer->pData = pDstBuffer;
 
-        /*
-         * Now, we initialize the completion variable which is used by the
-         * callback
-         * function to indicate that the operation is complete.  We then perform
-         * the
-         * operation.
-         */
         PRINT_DBG("cpaDcCompressData2\n");
 
         //<snippet name="perfOp">
-        COMPLETION_INIT(&complete);
 
         status = cpaDcCompressData2(
             dcInstHandle,

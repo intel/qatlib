@@ -123,7 +123,8 @@ extern "C" {
  *      cpaCyPrimeTest()
  *
  *****************************************************************************/
-typedef struct _CpaCyPrimeTestOpData {
+typedef struct _CpaCyPrimeTestOpData
+{
     CpaFlatBuffer primeCandidate;
     /**< The prime number candidate to test */
     CpaBoolean performGcdTest;
@@ -166,7 +167,8 @@ typedef struct _CpaCyPrimeTestOpData {
  *      collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyPrimeStats {
+typedef struct _CpaCyPrimeStats
+{
     Cpa32U numPrimeTestRequests;
     /**<  Total number of successful prime number test requests.*/
     Cpa32U numPrimeTestRequestErrors;
@@ -194,7 +196,8 @@ typedef struct _CpaCyPrimeStats {
  *      Statistics are set to zero when the component is initialized, and are
  *      collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyPrimeStats64 {
+typedef struct _CpaCyPrimeStats64
+{
     Cpa64U numPrimeTestRequests;
     /**<  Total number of successful prime number test requests.*/
     Cpa64U numPrimeTestRequestErrors;
@@ -255,9 +258,9 @@ typedef struct _CpaCyPrimeStats64 {
  *
  *****************************************************************************/
 typedef void (*CpaCyPrimeTestCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean testPassed);
+                                     CpaStatus status,
+                                     void *pOpData,
+                                     CpaBoolean testPassed);
 
 /**
  *****************************************************************************
@@ -349,12 +352,11 @@ typedef void (*CpaCyPrimeTestCbFunc)(void *pCallbackTag,
  *      CpaCyPrimeTestOpData, CpaCyPrimeTestCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyPrimeTest(const CpaInstanceHandle instanceHandle,
-        const CpaCyPrimeTestCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyPrimeTestOpData *pOpData,
-        CpaBoolean *pTestPassed);
+CpaStatus cpaCyPrimeTest(const CpaInstanceHandle instanceHandle,
+                         const CpaCyPrimeTestCbFunc pCb,
+                         void *pCallbackTag,
+                         const CpaCyPrimeTestOpData *pOpData,
+                         CpaBoolean *pTestPassed);
 
 /******************************************************************************
  * @ingroup cpaCyPrime
@@ -412,8 +414,7 @@ cpaCyPrimeTest(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCyPrimeQueryStats(const CpaInstanceHandle instanceHandle,
-        struct _CpaCyPrimeStats *pPrimeStats);
-
+                     struct _CpaCyPrimeStats *pPrimeStats);
 
 /******************************************************************************
  * @ingroup cpaCyPrime
@@ -465,9 +466,8 @@ cpaCyPrimeQueryStats(const CpaInstanceHandle instanceHandle,
  *      This function operates in a synchronous manner and no asynchronous
  *      callback will be generated.
  *****************************************************************************/
-CpaStatus
-cpaCyPrimeQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyPrimeStats64 *pPrimeStats);
+CpaStatus cpaCyPrimeQueryStats64(const CpaInstanceHandle instanceHandle,
+                                 CpaCyPrimeStats64 *pPrimeStats);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

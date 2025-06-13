@@ -378,6 +378,7 @@ STATIC lac_sym_qat_hash_alg_info_t aesCmacWatInfo = {
     NULL, /* initial state */
     0     /* state size */
 };
+
 /* Hash QAT specific structures */
 
 STATIC lac_sym_qat_hash_qat_info_t md5Config = {ICP_QAT_HW_AUTH_ALGO_MD5,
@@ -572,7 +573,7 @@ STATIC lac_sym_qat_hash_def_map_t lacHashDefsMapping[] = {
     { CPA_CY_SYM_HASH_SNOW3G_UIA2, { &snow3gUia2Info, &snow3gUia2Config } },
     { CPA_CY_SYM_HASH_AES_GMAC, { &aesGcmInfo, &aesGcmConfig } },
     { CPA_CY_SYM_HASH_ZUC_EIA3, { &zucEia3Info, &zucEia3Config } },
-    { CPA_CY_SYM_HASH_AES_CBC_MAC, { &aesCbcMacInfo, &aesCbcMacConfig } }
+    { CPA_CY_SYM_HASH_AES_CBC_MAC, { &aesCbcMacInfo, &aesCbcMacConfig } },
 };
 
 /*
@@ -588,7 +589,7 @@ CpaStatus LacSymQat_HashLookupInit(CpaInstanceHandle instanceHandle)
     sal_service_t *pService = (sal_service_t *)instanceHandle;
     lac_sym_qat_hash_defs_t **pLacHashLookupDefs;
 
-    arraySize = (CPA_CY_HASH_ALG_END + 1) * sizeof(lac_sym_qat_hash_defs_t *);
+    arraySize = (LAC_HASH_ALG_END + 1) * sizeof(lac_sym_qat_hash_defs_t *);
     /* Size round up for performance */
     arraySize = LAC_ALIGN_POW2_ROUNDUP(arraySize, LAC_64BYTE_ALIGNMENT);
 

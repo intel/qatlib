@@ -91,6 +91,7 @@
 */
 #include "dc_session.h"
 #include "dc_datapath.h"
+#include "dc_capabilities.h"
 #include "dc_ns_datapath.h"
 #include "lac_common.h"
 #include "lac_mem.h"
@@ -125,14 +126,22 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
     dc_session_desc_t *pSessionDesc = NULL;
     CpaDcSessionDir sessDirection;
     CpaDcHuffType huffType;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    Cpa16U numInterBuffs = 0;
 
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pOpData->dcInstance);
 
-    /* Ensure this is a compression instance */
-    SAL_CHECK_INSTANCE_TYPE(pOpData->dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        pOpData->dcInstance,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 
     pService = (sal_compression_service_t *)(pOpData->dcInstance);
+
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+    numInterBuffs = pDcCapabilities->numInterBuffs;
 
     /* Allow either only session or only NS setup data. One of these objects
      * must be present, and the other must be NULL. */
@@ -221,38 +230,36 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
         LAC_INVALID_PARAM_LOG("Invalid thisPhys");
         return CPA_STATUS_INVALID_PARAM;
     }
-    if ((CPA_TRUE != pOpData->compressAndVerify) &&
-        (CPA_FALSE != pOpData->compressAndVerify))
+    if (CPA_FALSE == pDcCapabilities->cnv.supported)
     {
-        LAC_INVALID_PARAM_LOG("Invalid compressAndVerify");
-        return CPA_STATUS_INVALID_PARAM;
+        LAC_UNSUPPORTED_PARAM_LOG("CNV Strict mode set, no CnV capability");
+        return CPA_STATUS_UNSUPPORTED;
     }
-    if ((CPA_TRUE == pOpData->compressAndVerify) &&
-        !(pService->generic_service_info.dcExtendedFeatures &
-          DC_CNV_EXTENDED_CAPABILITY))
+    if ((CPA_FALSE == pDcCapabilities->cnv.supported) &&
+        (CPA_TRUE == pOpData->compressAndVerify))
     {
         LAC_UNSUPPORTED_PARAM_LOG(
             "CompressAndVerify not set, no CNV capability");
         return CPA_STATUS_UNSUPPORTED;
     }
-    if ((CPA_TRUE != pOpData->compressAndVerifyAndRecover) &&
-        (CPA_FALSE != pOpData->compressAndVerifyAndRecover))
+    if ((CPA_TRUE == pDcCapabilities->cnv.supported) &&
+        (CPA_TRUE == pDcCapabilities->cnv.recovery))
     {
-        LAC_INVALID_PARAM_LOG("Invalid compressAndVerifyAndRecover");
-        return CPA_STATUS_INVALID_PARAM;
+        if ((CPA_TRUE == pOpData->compressAndVerifyAndRecover) &&
+            (CPA_FALSE == pOpData->compressAndVerify))
+        {
+            LAC_INVALID_PARAM_LOG("CnVnR option set, without setting CnV");
+            return CPA_STATUS_INVALID_PARAM;
+        }
     }
-    if ((CPA_TRUE == pOpData->compressAndVerifyAndRecover) &&
-        (CPA_FALSE == pOpData->compressAndVerify))
+    if (CPA_TRUE == pDcCapabilities->cnv.supported)
     {
-        LAC_INVALID_PARAM_LOG("CnVnR option set, without setting CnV");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-    if ((CPA_TRUE == pOpData->compressAndVerifyAndRecover) &&
-        !(pService->generic_service_info.dcExtendedFeatures &
-          DC_CNVNR_EXTENDED_CAPABILITY))
-    {
-        LAC_UNSUPPORTED_PARAM_LOG("CnVnR not set, no CnVnR capability");
-        return CPA_STATUS_UNSUPPORTED;
+        if ((CPA_FALSE == pDcCapabilities->cnv.recovery) &&
+            (CPA_TRUE == pOpData->compressAndVerifyAndRecover))
+        {
+            LAC_UNSUPPORTED_PARAM_LOG("CnVnR not set, no CnVnR capability");
+            return CPA_STATUS_UNSUPPORTED;
+        }
     }
     if ((CPA_DP_BUFLIST == pOpData->srcBufferLen) &&
         (CPA_DP_BUFLIST != pOpData->destBufferLen))
@@ -305,7 +312,7 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
         if (CPA_DC_HT_FULL_DYNAMIC == huffType)
         {
             /* Check if Intermediate Buffer Array pointer is NULL */
-            if ((!pService->generic_service_info.isGen4) &&
+            if ((numInterBuffs > 0) &&
                 ((0 == pService->pInterBuffPtrsArrayPhyAddr) ||
                  (NULL == pService->pInterBuffPtrsArray)))
             {
@@ -318,12 +325,12 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
             /* Ensure that the destination buffer length for data is greater
              * or equal to minOutputBuffSizeDynamic */
             if (pOpData->bufferLenForData <
-                pService->comp_device_data.minOutputBuffSizeDynamic)
+                pDcCapabilities->deviceData.minOutputBuffSizeDynamic)
             {
                 LAC_INVALID_PARAM_LOG1(
                     "Destination buffer length for data "
                     "should be greater or equal to %d",
-                    pService->comp_device_data.minOutputBuffSizeDynamic);
+                    pDcCapabilities->deviceData.minOutputBuffSizeDynamic);
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
@@ -339,14 +346,14 @@ STATIC CpaStatus dcDataPlaneParamCheck(const CpaDcDpOpData *pOpData)
 #endif
         {
             /* Ensure that the destination buffer length for data is greater
-             * or equal to min output buffsize */
+             * or equal to minimal output buffer size */
             if (pOpData->bufferLenForData <
-                pService->comp_device_data.minOutputBuffSize)
+                pDcCapabilities->deviceData.minOutputBuffSize)
             {
                 LAC_INVALID_PARAM_LOG1(
                     "Destination buffer size should be "
                     "greater or equal to %d bytes",
-                    pService->comp_device_data.minOutputBuffSize);
+                    pDcCapabilities->deviceData.minOutputBuffSize);
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
@@ -360,20 +367,19 @@ CpaStatus cpaDcDpGetSessionSize(CpaInstanceHandle dcInstance,
                                 CpaDcSessionSetupData *pSessionData,
                                 Cpa32U *pSessionSize)
 {
-#ifdef ICP_TRACE
     CpaStatus status = CPA_STATUS_SUCCESS;
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionSize);
+#endif
     status = dcGetSessionSize(dcInstance, pSessionData, pSessionSize, NULL);
-
+#ifdef ICP_TRACE
     LAC_LOG4("Called with params (0x%lx, 0x%lx, 0x%lx[%d])\n",
              (LAC_ARCH_UINT)dcInstance,
              (LAC_ARCH_UINT)pSessionData,
              (LAC_ARCH_UINT)pSessionSize,
              *pSessionSize);
-
-    return status;
-#else
-    return dcGetSessionSize(dcInstance, pSessionData, pSessionSize, NULL);
 #endif
+    return status;
 }
 
 CpaStatus cpaDcDpInitSession(CpaInstanceHandle dcInstance,
@@ -394,7 +400,10 @@ CpaStatus cpaDcDpInitSession(CpaInstanceHandle dcInstance,
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_INSTANCE_HANDLE(dcInstance);
     SAL_CHECK_ADDR_TRANS_SETUP(dcInstance);
-    SAL_CHECK_INSTANCE_TYPE(dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        dcInstance,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
 
     pService = (sal_compression_service_t *)dcInstance;
@@ -416,6 +425,7 @@ CpaStatus cpaDcDpInitSession(CpaInstanceHandle dcInstance,
     if (CPA_STATUS_SUCCESS == status)
     {
         pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+        LAC_CHECK_NULL_PARAM(pSessionDesc);
         pSessionDesc->isDcDp = CPA_TRUE;
 
         ICP_QAT_FW_COMN_PTR_TYPE_SET(
@@ -461,7 +471,10 @@ CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
 /* Check parameters */
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(dcInstance);
-    SAL_CHECK_INSTANCE_TYPE(dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        dcInstance,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
     LAC_CHECK_NULL_PARAM(pNewCb);
 #endif
 
@@ -502,6 +515,7 @@ STATIC CpaStatus dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
     CpaBoolean cnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
     sal_compression_service_t *pService = NULL;
     CpaStatus status;
+    dc_capabilities_t *pDcCapabilities = NULL;
 
     pService = (sal_compression_service_t *)(pOpData->dcInstance);
 
@@ -549,13 +563,16 @@ STATIC CpaStatus dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
         }
     }
 
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
     if (CPA_DC_DIR_COMPRESS == pOpData->sessDirection)
     {
         /* CNV check */
         if (CPA_TRUE == pOpData->compressAndVerify)
         {
             cnv = ICP_QAT_FW_COMP_CNV;
-            if (pService->generic_service_info.isGen4)
+            if (CPA_TRUE == pDcCapabilities->cnv.errorInjection)
             {
                 if (pOpData->pSessionHandle)
                 {
@@ -586,13 +603,19 @@ STATIC CpaStatus dcDpWriteRingMsg(CpaDcDpOpData *pOpData,
     }
 
     pCurrentQatMsg->comp_pars.req_par_flags =
-        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(ICP_QAT_FW_COMP_SOP,
-                                              ICP_QAT_FW_COMP_EOP,
-                                              ICP_QAT_FW_COMP_BFINAL,
-                                              cnv,
-                                              cnvnr,
-                                              cnvErrorInjection,
-                                              ICP_QAT_FW_COMP_CRC_MODE_LEGACY);
+        ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(
+            ICP_QAT_FW_COMP_SOP,
+            ICP_QAT_FW_COMP_EOP,
+            ICP_QAT_FW_COMP_BFINAL,
+            cnv,
+            cnvnr,
+            cnvErrorInjection,
+            ICP_QAT_FW_COMP_CRC_MODE_LEGACY,
+            ICP_QAT_FW_COMP_NO_XXHASH_ACC,
+            ICP_QAT_FW_COMP_CNV_ERROR_NONE,
+            ICP_QAT_FW_COMP_NO_APPEND_CRC,
+            ICP_QAT_FW_COMP_NO_DROP_DATA,
+            ICP_QAT_FW_COMP_NO_PARTIAL_DECOMPRESS);
 
     SalQatMsg_CmnMidWrite((icp_qat_fw_la_bulk_req_t *)pCurrentQatMsg,
                           pOpData,
@@ -614,6 +637,7 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
     icp_qat_fw_comp_req_t *pCurrentQatMsg = NULL;
     icp_comms_trans_handle trans_handle = NULL;
     dc_session_desc_t *pSessionDesc = NULL;
+    sal_compression_service_t *pService = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
 #ifdef ICP_DC_DYN_NOT_SUPPORTED
     CpaDcHuffType huffType;
@@ -643,8 +667,18 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
     /* Check if SAL is initialised otherwise return an error */
     SAL_RUNNING_CHECK(pOpData->dcInstance);
 
-    trans_handle = ((sal_compression_service_t *)pOpData->dcInstance)
-                       ->trans_handle_compression_tx;
+    pService = (sal_compression_service_t *)(pOpData->dcInstance);
+
+    if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        trans_handle = ((sal_compression_service_t *)pOpData->dcInstance)
+                           ->trans_handle_compression_tx;
+    }
+    else
+    {
+        trans_handle = ((sal_compression_service_t *)pOpData->dcInstance)
+                           ->trans_handle_decompression_tx;
+    }
 
     if (pOpData->pSessionHandle)
     {
@@ -713,7 +747,15 @@ CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
 
     if (CPA_TRUE == performOpNow)
     {
-        icp_adf_updateQueueTail(trans_handle);
+        status = icp_adf_updateQueueTail(trans_handle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            if (pOpData->pSessionHandle)
+            {
+                pSessionDesc->pendingDpStatelessCbCount--;
+            }
+            return status;
+        }
     }
 
     return CPA_STATUS_SUCCESS;
@@ -729,19 +771,21 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
     dc_session_desc_t *pSessionDesc = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U i = 0;
+    sal_compression_service_t *pService = NULL;
 #ifdef ICP_DC_DYN_NOT_SUPPORTED
     CpaDcHuffType huffType;
 #endif
 #ifdef ICP_PARAM_CHECK
     CpaDcSessionDir sessDirection;
 
-    sal_compression_service_t *pService = NULL;
-
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pOpData[0]);
     LAC_CHECK_NULL_PARAM(pOpData[0]->dcInstance);
+#endif
 
     pService = (sal_compression_service_t *)(pOpData[0]->dcInstance);
+
+#ifdef ICP_PARAM_CHECK
     if ((numberRequests == 0) ||
         (numberRequests > pService->maxNumCompConcurrentReq))
     {
@@ -807,8 +851,16 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
     /* Check if SAL is initialised otherwise return an error */
     SAL_RUNNING_CHECK(pOpData[0]->dcInstance);
 
-    trans_handle = ((sal_compression_service_t *)pOpData[0]->dcInstance)
-                       ->trans_handle_compression_tx;
+    if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        trans_handle = ((sal_compression_service_t *)pOpData[0]->dcInstance)
+                           ->trans_handle_compression_tx;
+    }
+    else
+    {
+        trans_handle = ((sal_compression_service_t *)pOpData[0]->dcInstance)
+                           ->trans_handle_decompression_tx;
+    }
 
     if (pOpData[0]->pSessionHandle)
     {
@@ -895,7 +947,15 @@ CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
 
     if (CPA_TRUE == performOpNow)
     {
-        icp_adf_updateQueueTail(trans_handle);
+        status = icp_adf_updateQueueTail(trans_handle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            if (pOpData[0]->pSessionHandle)
+            {
+                pSessionDesc->pendingDpStatelessCbCount -= numberRequests;
+            }
+            return status;
+        }
     }
 
     return CPA_STATUS_SUCCESS;
@@ -905,6 +965,7 @@ CpaStatus icp_sal_DcPollDpInstance(CpaInstanceHandle dcInstance,
                                    Cpa32U responseQuota)
 {
     icp_comms_trans_handle trans_handle = NULL;
+    sal_compression_service_t *pService = NULL;
 
 #ifdef ICP_TRACE
     LAC_LOG2("Called with params (0x%lx, %d)\n",
@@ -914,14 +975,27 @@ CpaStatus icp_sal_DcPollDpInstance(CpaInstanceHandle dcInstance,
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_INSTANCE_HANDLE(dcInstance);
-    SAL_CHECK_INSTANCE_TYPE(dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        dcInstance,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
 
     /* Check if SAL is initialised otherwise return an error */
     SAL_RUNNING_CHECK(dcInstance);
 
-    trans_handle =
-        ((sal_compression_service_t *)dcInstance)->trans_handle_compression_rx;
+    pService = (sal_compression_service_t *)(dcInstance);
+
+    if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        trans_handle = ((sal_compression_service_t *)dcInstance)
+                           ->trans_handle_compression_rx;
+    }
+    else
+    {
+        trans_handle = ((sal_compression_service_t *)dcInstance)
+                           ->trans_handle_decompression_rx;
+    }
 
     return icp_adf_pollQueue(trans_handle, responseQuota);
 }
@@ -929,6 +1003,7 @@ CpaStatus icp_sal_DcPollDpInstance(CpaInstanceHandle dcInstance,
 CpaStatus cpaDcDpPerformOpNow(CpaInstanceHandle dcInstance)
 {
     icp_comms_trans_handle trans_handle = NULL;
+    sal_compression_service_t *pService = NULL;
 
 #ifdef ICP_TRACE
     LAC_LOG1("Called with params (0x%lx)\n", (LAC_ARCH_UINT)dcInstance);
@@ -936,19 +1011,73 @@ CpaStatus cpaDcDpPerformOpNow(CpaInstanceHandle dcInstance)
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(dcInstance);
-    SAL_CHECK_INSTANCE_TYPE(dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        dcInstance,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
 
     /* Check if SAL is initialised otherwise return an error */
     SAL_RUNNING_CHECK(dcInstance);
 
-    trans_handle =
-        ((sal_compression_service_t *)dcInstance)->trans_handle_compression_tx;
+    pService = (sal_compression_service_t *)(dcInstance);
+
+    if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        trans_handle = ((sal_compression_service_t *)dcInstance)
+                           ->trans_handle_compression_tx;
+    }
+    else
+    {
+        trans_handle = ((sal_compression_service_t *)dcInstance)
+                           ->trans_handle_decompression_tx;
+    }
 
     if (CPA_TRUE == icp_adf_queueDataToSend(trans_handle))
     {
-        icp_adf_updateQueueTail(trans_handle);
+        return icp_adf_updateQueueTail(trans_handle);
     }
 
     return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus cpaDcDpEnqueueOpWithPartRead(CpaDcDpOpData *pOpData,
+                                       CpaDcDpPartialReadData *pPartReadData,
+                                       const CpaBoolean performOpNow)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaDcDpEnqueueOpWithZeroPad(CpaDcDpOpData *pOpData,
+                                      const CpaBoolean performOpNow)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaDcDpEnqueueOpWithPartReadBatch(
+    const Cpa32U numberRequests,
+    CpaDcDpOpData *pOpData[],
+    CpaDcDpPartialReadData *pPartReadData[],
+    const CpaBoolean performOpNow)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaDcDpEnqueueOpWithZeroPadBatch(const Cpa32U numberRequests,
+                                           CpaDcDpOpData *pOpData[],
+                                           const CpaBoolean performOpNow)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaDcDpIsPartReadSupported(const CpaInstanceHandle instanceHandle,
+                                     CpaBoolean *pFlag)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus cpaDcDpIsZeroPadSupported(const CpaInstanceHandle instanceHandle,
+                                    CpaBoolean *pFlag)
+{
+    return CPA_STATUS_UNSUPPORTED;
 }

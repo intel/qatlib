@@ -133,7 +133,6 @@ extern CpaStatus calcSWDigest(CpaFlatBuffer *msg,
                               CpaFlatBuffer *digest,
                               CpaCySymHashAlgorithm hashAlg);
 
-
 #define UPPER_HALF_OF_REGISTER (32)
 
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) ||                        \
@@ -973,7 +972,6 @@ CpaStatus getCorpusFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
     return CPA_STATUS_SUCCESS;
 }
 
-
 CpaStatus calcSWDigest(CpaFlatBuffer *msg,
                        CpaFlatBuffer *digest,
                        CpaCySymHashAlgorithm hashAlg)
@@ -1009,7 +1007,6 @@ CpaStatus calcSWDigest(CpaFlatBuffer *msg,
             return CPA_STATUS_UNSUPPORTED;
     }
 }
-
 
 CpaStatus getCompressedFile(Cpa8U **ppSrcBuff, char *filename, Cpa32U *size)
 {

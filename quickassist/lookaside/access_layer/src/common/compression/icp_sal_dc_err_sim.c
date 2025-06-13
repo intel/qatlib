@@ -87,12 +87,14 @@
 #include "dc_err_sim.h"
 #endif
 
-#ifdef ICP_DC_ERROR_SIMULATION
 CpaStatus icp_sal_dc_simulate_error(Cpa8U numErrors, Cpa8S dcError)
 {
+#ifdef ICP_DC_ERROR_SIMULATION
     return dcSetNumError(numErrors, dcError);
-}
+#else
+    return CPA_STATUS_UNSUPPORTED;
 #endif
+}
 
 Cpa64U icp_sal_get_dc_error(Cpa8S dcError)
 {

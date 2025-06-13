@@ -334,7 +334,6 @@ LacEcMontEdwds_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
                                    LAC_OPTIMAL_ALIGNMENT_SHIFT),
                "outArgList structure not correctly aligned");
 
-
     /* Clear the previous param info */
     LAC_OS_BZERO(&pReqData->paramInfo, sizeof(pReqData->paramInfo));
 
@@ -691,7 +690,6 @@ CpaStatus cpaCyEcMontEdwdsPointMultiply(
     CpaStatus status = CPA_STATUS_FAIL;
     CpaInstanceHandle instanceHandle = NULL;
     sal_crypto_service_t *pCryptoService = NULL;
-    CpaCyCapabilitiesInfo cyCapInfo;
     Cpa32U functionID = 0;
     icp_qat_fw_mmp_input_param_t in = {.flat_array = {0}};
     icp_qat_fw_mmp_output_param_t out = {.flat_array = {0}};
@@ -728,12 +726,7 @@ CpaStatus cpaCyEcMontEdwdsPointMultiply(
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
 
-    SalCtrl_CyQueryCapabilities(instanceHandle, &cyCapInfo);
-    if (!cyCapInfo.ecEdMontSupported)
-    {
-        LAC_LOG_ERROR("The device does not support ECEDMONT");
-        return CPA_STATUS_UNSUPPORTED;
-    }
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecEdMont);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)

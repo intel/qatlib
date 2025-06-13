@@ -64,7 +64,7 @@
  * This is sample code that demonstrates usage of the symmetric DP API, and
  * specifically using this API to perform a "chained" cipher and hash
  * operation.  It encrypts some sample text using the AES-256 algorithm in
- * CBC mode, and then performs an SHA-256 hash on the ciphertext.
+ * AES-GCM mode, and then performs an AES-GCM hash on the ciphertext.
  */
 
 #include "cpa.h"
@@ -73,50 +73,49 @@
 #include "icp_sal_poll.h"
 #include "cpa_sample_utils.h"
 
-/* The digest length must be less than or equal to SHA256 digest
-   length (16) for this example */
-#define DIGEST_LENGTH 32
+#define DIGEST_LENGTH 16
+#define AES_BLOCK_SIZE 16
 
 extern int gDebugParam;
 /* AES key, 256 bits long */
 static Cpa8U sampleCipherKey[] = {
-    0xEE, 0xE2, 0x7B, 0x5B, 0x10, 0xFD, 0xD2, 0x58, 0x49, 0x77, 0xF1, 0x22,
-    0xD7, 0x1B, 0xA4, 0xCA, 0xEC, 0xBD, 0x15, 0xE2, 0x52, 0x6A, 0x21, 0x0B,
-    0x41, 0x4C, 0x41, 0x4E, 0xA1, 0xAA, 0x01, 0x3F};
+            0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a,
+            0x8f, 0x94, 0x67, 0x30, 0x83, 0x08, 0xfe, 0xff, 0xe9, 0x92,
+            0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30,
+            0x83, 0x08};
 
 
 /* Initialization vector */
 static Cpa8U sampleCipherIv[] = {
-    0x7E, 0x9B, 0x4C, 0x1D, 0x82, 0x4A, 0xC5, 0xDF, 0x99, 0x4C, 0xA1, 0x44,
-    0xAA, 0x8D, 0x37, 0x27};
+            0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca,
+            0xf8, 0x88};
+
+/* Additional Authentication Data */
+static Cpa8U sampleAddAuthData[] = {
+            0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed,
+            0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xab, 0xad, 0xda, 0xd2 };
 
 /* Source data to encrypt */
 static Cpa8U sampleAlgChainingSrc[] = {
-    0xD7, 0x1B, 0xA4, 0xCA, 0xEC, 0xBD, 0x15, 0xE2, 0x52, 0x6A, 0x21, 0x0B,
-    0x81, 0x77, 0x0C, 0x90, 0x68, 0xF6, 0x86, 0x50, 0xC6, 0x2C, 0x6E, 0xED,
-    0x2F, 0x68, 0x39, 0x71, 0x75, 0x1D, 0x94, 0xF9, 0x0B, 0x21, 0x39, 0x06,
-    0xBE, 0x20, 0x94, 0xC3, 0x43, 0x4F, 0x92, 0xC9, 0x07, 0xAA, 0xFE, 0x7F,
-    0xCF, 0x05, 0x28, 0x6B, 0x82, 0xC4, 0xD7, 0x5E, 0xF3, 0xC7, 0x74, 0x68,
-    0xCF, 0x05, 0x28, 0x6B, 0x82, 0xC4, 0xD7, 0x5E, 0xF3, 0xC7, 0x74, 0x68,
-    0x80, 0x8B, 0x28, 0x8D, 0xCD, 0xCA, 0x94, 0xB8, 0xF5, 0x66, 0x0C, 0x00,
-    0x5C, 0x69, 0xFC, 0xE8, 0x7F, 0x0D, 0x81, 0x97, 0x48, 0xC3, 0x6D, 0x24};
+            0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5, 0xa5, 0x59,
+            0x09, 0xc5, 0xaf, 0xf5, 0x26, 0x9a, 0x86, 0xa7, 0xa9, 0x53,
+            0x15, 0x34, 0xf7, 0xda, 0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31,
+            0x8a, 0x72, 0x1c, 0x3c, 0x0c, 0x95, 0x95, 0x68, 0x09, 0x53,
+            0x2f, 0xcf, 0x0e, 0x24, 0x49, 0xa6, 0xb5, 0x25, 0xb1, 0x6a,
+            0xed, 0xf5, 0xaa, 0x0d, 0xe6, 0x57, 0xba, 0x63, 0x7b, 0x39};
 
 /* Expected output of the encryption operation with the specified
- * cipher (CPA_CY_SYM_CIPHER_AES_CBC), key (sampleCipherKey) and
+ * cipher (CPA_CY_SYM_CIPHER_AES_GCM), key (sampleCipherKey) and
  * initialization vector (sampleCipherIv) */
 static Cpa8U expectedOutput[] = {
-    0xC1, 0x92, 0x33, 0x36, 0xF9, 0x50, 0x4F, 0x5B, 0xD9, 0x79, 0xE1, 0xF6,
-    0xC7, 0x7A, 0x7D, 0x75, 0x47, 0xB7, 0xE2, 0xB9, 0xA1, 0x1B, 0xB9, 0xEE,
-    0x16, 0xF9, 0x1A, 0x87, 0x59, 0xBC, 0xF2, 0x94, 0x7E, 0x71, 0x59, 0x52,
-    0x3B, 0xB7, 0xF6, 0xB0, 0xB8, 0xE6, 0xC3, 0x9C, 0xA2, 0x4B, 0x5A, 0x8A,
-    0x25, 0x61, 0xAB, 0x65, 0x4E, 0xB5, 0xD1, 0x3D, 0xB2, 0x7D, 0xA3, 0x9D,
-    0x1E, 0x71, 0x45, 0x14, 0x5E, 0x9B, 0xB4, 0x75, 0xD3, 0xA8, 0xED, 0x40,
-    0x01, 0x19, 0x2B, 0xEB, 0x04, 0x35, 0xAA, 0xA9, 0xA7, 0x95, 0x69, 0x77,
-    0x40, 0xD9, 0x1D, 0xE4, 0xE7, 0x1A, 0xF9, 0x35, 0x06, 0x61, 0x3F, 0xAF,
-    /* Digest */
-    0xEE, 0x6F, 0x90, 0x7C, 0xB5, 0xF4, 0xDE, 0x75, 0xD3, 0xBC, 0x11, 0x63,
-    0xE7, 0xF0, 0x5D, 0x15, 0x5E, 0x61, 0x16, 0x13, 0x83, 0x1A, 0xD6, 0x56,
-    0x44, 0xA7, 0xF6, 0xA2, 0x6D, 0xAB, 0x1A, 0xF2};
+    0x52, 0x2d, 0xc1, 0xf0, 0x99, 0x56, 0x7d, 0x07, 0xf4, 0x7f, 0x37, 0xa3,
+    0x2a, 0x84, 0x42, 0x7d, 0x64, 0x3a, 0x8c, 0xdc, 0xbf, 0xe5, 0xc0, 0xc9,
+    0x75, 0x98, 0xa2, 0xbd, 0x25, 0x55, 0xd1, 0xaa, 0x8c, 0xb0, 0x8e, 0x48,
+    0x59, 0x0d, 0xbb, 0x3d, 0xa7, 0xb0, 0x8b, 0x10, 0x56, 0x82, 0x88, 0x38,
+    0xc5, 0xf6, 0x1e, 0x63, 0x93, 0xba, 0x7a, 0x0a, 0xbc, 0xc9, 0xf6, 0x62,
+                                  /* Digest */
+    0x76, 0xfc, 0x6e, 0xce, 0x0f, 0x4e, 0x17, 0x68, 0xcd, 0xdf, 0x88, 0x53,
+    0xbb, 0x2d, 0x55, 0x1b };
 
 CpaStatus symDpSample(void);
 
@@ -146,6 +145,9 @@ static CpaStatus symDpPerformOp(CpaInstanceHandle cyInstHandle,
     Cpa32U bufferSize = sizeof(sampleAlgChainingSrc) + DIGEST_LENGTH;
     Cpa8U *pSrcBuffer = NULL;
     Cpa8U *pIvBuffer = NULL;
+    Cpa32U aadBuffSize = 0;
+    Cpa8U *pAadBuffer = NULL;
+    CpaInstanceInfo2 info2 = { 0 };
 
     /* Allocate Src buffer */
     status = PHYS_CONTIG_ALLOC(&pSrcBuffer, bufferSize);
@@ -158,11 +160,28 @@ static CpaStatus symDpPerformOp(CpaInstanceHandle cyInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
+        /* Allocate memory for AAD. For GCM this memory will hold the
+         * additional authentication data and any padding to ensure total
+         * size is a multiple of the AES block size
+         */
+        aadBuffSize = sizeof(sampleAddAuthData);
+        if (aadBuffSize % AES_BLOCK_SIZE)
+        {
+            aadBuffSize += AES_BLOCK_SIZE - (aadBuffSize % AES_BLOCK_SIZE);
+        }
+        status = PHYS_CONTIG_ALLOC(&pAadBuffer, aadBuffSize);
+    }
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
         /* copy source into buffer */
         memcpy(pSrcBuffer, sampleAlgChainingSrc, sizeof(sampleAlgChainingSrc));
 
         /* copy IV into buffer */
         memcpy(pIvBuffer, sampleCipherIv, sizeof(sampleCipherIv));
+
+        /* Copy AAD into buffer */
+        memcpy(pAadBuffer, sampleAddAuthData, sizeof(sampleAddAuthData));
 
         /* Allocate memory for operational data. Note this needs to be
          * 8-byte aligned, contiguous, resident in DMA-accessible
@@ -208,7 +227,29 @@ static CpaStatus symDpPerformOp(CpaInstanceHandle cyInstHandle,
                               cyInstHandle,
                               CPA_ACC_SVC_TYPE_CRYPTO);
         pOpData->pCallbackTag = (void *)0;
+        pOpData->additionalAuthData =
+            virtAddrToDevAddr((SAMPLE_CODE_UINT *)(uintptr_t)pAadBuffer,
+                              cyInstHandle,
+                              CPA_ACC_SVC_TYPE_CRYPTO);
+        pOpData->pAdditionalAuthData = pAadBuffer;
+
         //</snippet>
+    }
+    else
+    {
+        PRINT_ERR("Memory allocation failed. (status = %d)\n", status);
+        PHYS_CONTIG_FREE(pSrcBuffer);
+        PHYS_CONTIG_FREE(pIvBuffer);
+        PHYS_CONTIG_FREE(pAadBuffer);
+        PHYS_CONTIG_FREE(pOpData);
+
+        return status;
+    }
+
+    status = cpaCyInstanceGetInfo2(cyInstHandle, &info2);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCyInstanceGetInfo2 failed. (status = %d)\n", status);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -257,7 +298,10 @@ static CpaStatus symDpPerformOp(CpaInstanceHandle cyInstHandle,
          * Polling functions are implementation specific */
         do
         {
-            status = icp_sal_CyPollDpInstance(cyInstHandle, 1);
+            if (CPA_TRUE == info2.isPolled)
+            {
+                status = icp_sal_CyPollDpInstance(cyInstHandle, 1);
+            }
         } while (
             ((CPA_STATUS_SUCCESS == status) || (CPA_STATUS_RETRY == status)) &&
             (pOpData->pCallbackTag == (void *)0));
@@ -279,6 +323,7 @@ static CpaStatus symDpPerformOp(CpaInstanceHandle cyInstHandle,
 
     PHYS_CONTIG_FREE(pSrcBuffer);
     PHYS_CONTIG_FREE(pIvBuffer);
+    PHYS_CONTIG_FREE(pAadBuffer);
     PHYS_CONTIG_FREE(pOpData);
 
     return status;
@@ -320,6 +365,7 @@ CpaStatus symDpSample(void)
         status = cpaCyInstanceGetInfo2(cyInstHandle, info2);
     }
 
+#if !defined(SC_BSD_UPSTREAM)
     if (CPA_STATUS_SUCCESS == status)
     {
         if (info2->isPolled == CPA_FALSE)
@@ -329,6 +375,7 @@ CpaStatus symDpSample(void)
                       "configured in polling mode\n");
         }
     }
+#endif
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -357,16 +404,18 @@ CpaStatus symDpSample(void)
             CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH;
 
         sessionSetupData.cipherSetupData.cipherAlgorithm =
-            CPA_CY_SYM_CIPHER_AES_CBC;
+            CPA_CY_SYM_CIPHER_AES_GCM;
         sessionSetupData.cipherSetupData.pCipherKey = sampleCipherKey;
         sessionSetupData.cipherSetupData.cipherKeyLenInBytes =
             sizeof(sampleCipherKey);
         sessionSetupData.cipherSetupData.cipherDirection =
             CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT;
 
-        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
+        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_AES_GCM;
         sessionSetupData.hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_AUTH;
         sessionSetupData.hashSetupData.digestResultLenInBytes = DIGEST_LENGTH;
+        sessionSetupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            sizeof(sampleAddAuthData);
         sessionSetupData.hashSetupData.authModeSetupData.authKey =
             sampleCipherKey;
         sessionSetupData.hashSetupData.authModeSetupData.authKeyLenInBytes =
@@ -399,7 +448,7 @@ CpaStatus symDpSample(void)
     }
 
 #ifdef LAC_HW_PRECOMPUTES
-    if (CPA_STATUS_SUCCESS == status)
+    if (CPA_STATUS_SUCCESS == status && CPA_TRUE == info2->isPolled)
     {
         /* Poll for hw pre-compute responses. */
         do

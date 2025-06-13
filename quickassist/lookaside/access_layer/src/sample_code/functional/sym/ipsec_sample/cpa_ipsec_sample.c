@@ -63,7 +63,7 @@
 /*
  * This is sample code that demonstrates usage of the symmetric API, and
  * specifically using this API to perform an IPSec like operation.
- * In this example we use the algorithm aes128-cbc + sha256-hmac
+ * In this example we use the algorithm AES256-GCM + AES256-GCM
  */
 
 #include "cpa.h"
@@ -74,7 +74,8 @@
 
 #define TIMEOUT_MS 5000
 
-#define ICV_LENGTH 12
+#define ICV_LENGTH 16
+#define AES_BLOCK_SIZE 16
 
 /* For IPSec outbound direction we encrypt the payload and then
    generate the ICV. For IPSec inbound direction we compare the
@@ -85,13 +86,17 @@
 
 extern int gDebugParam;
 
-static Cpa8U sampleCipherKey[] = { 0x12, 0x23, 0x34, 0x45, 0x56, 0x67,
-                                   0x78, 0x89, 0x12, 0x23, 0x34, 0x45,
-                                   0x56, 0x67, 0x78, 0x89 };
+static Cpa8U sampleCipherKey[] = { 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                             	   0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
+                             	   0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                             	   0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08 };
 
-static Cpa8U sampleCipherIv[] = { 0xab, 0xbc, 0xcd, 0xde, 0x01, 0x12,
-                                  0x23, 0x34, 0xab, 0xbc, 0xcd, 0xde,
-                                  0x01, 0x12, 0x23, 0x34 };
+static Cpa8U sampleCipherIv[] = { 0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce,
+                                  0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88 };
+
+static Cpa8U sampleAddAuthData[] = {
+            0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed,
+            0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xab, 0xad, 0xda, 0xd2 };
 
 static Cpa8U sampleAuthKey[] = {
     0xEE, 0xE2, 0x7B, 0x5B, 0x10, 0xFD, 0xD2, 0x58, 0x49, 0x77, 0xF1,
@@ -103,66 +108,26 @@ static Cpa8U sampleEspHdrData[] =
     {0x00, 0x00, 0x01, 0x2c, 0x00, 0x00, 0x00, 0x05};
 
 static Cpa8U samplePayload[] = {
-    0x9a, 0x26, 0xf5, 0xaf, 0xc5, 0x09, 0x59, 0xa5,
-    0xe5, 0x06, 0x84, 0xf8, 0x25, 0x32, 0x31, 0xd9
+    0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5, 0xa5, 0x59, 0x09, 0xc5,
+    0xaf, 0xf5, 0x26, 0x9a, 0x86, 0xa7, 0xa9, 0x53, 0x15, 0x34, 0xf7, 0xda,
+    0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31, 0x8a, 0x72, 0x1c, 0x3c, 0x0c, 0x95,
+    0x95, 0x68, 0x09, 0x53, 0x2f, 0xcf, 0x0e, 0x24, 0x49, 0xa6, 0xb5, 0x25,
+    0xb1, 0x6a, 0xed, 0xf5, 0xaa, 0x0d, 0xe6, 0x57, 0xba, 0x63, 0x7b, 0x39
 };
 
 static Cpa8U expectedOutput[] = {
     /* ESP header unmodified */
-    0x00,
-    0x00,
-    0x01,
-    0x2c,
-    0x00,
-    0x00,
-    0x00,
-    0x05,
+    0x00, 0x00, 0x01, 0x2c, 0x00, 0x00, 0x00, 0x05,
     /* IV unmodified */
-    0xab,
-    0xbc,
-    0xcd,
-    0xde,
-    0x01,
-    0x12,
-    0x23,
-    0x34,
-    0xab,
-    0xbc,
-    0xcd,
-    0xde,
-    0x01,
-    0x12,
-    0x23,
-    0x34,
+    0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88,
     /* Ciphertext */
-    0x4e,
-    0x3a,
-    0x06,
-    0x8b,
-    0xd9,
-    0xd6,
-    0x2e,
-    0xec,
-    0x50,
-    0x5e,
-    0xf4,
-    0x6b,
-    0x7d,
-    0xd6,
-    0x94,
-    0xb3,
-    0x5a,
-    0x12,
-    0x3f,
-    0x63,
-    0xb9,
-    0x21,
-    0xb0,
-    0xc4,
-    0x4c,
-    0x93,
-    0x80,
-    0xb7
+    0x52, 0x2d, 0xc1, 0xf0, 0x99, 0x56, 0x7d, 0x07, 0xf4, 0x7f, 0x37, 0xa3,
+    0x2a, 0x84, 0x42, 0x7d, 0x64, 0x3a, 0x8c, 0xdc, 0xbf, 0xe5, 0xc0, 0xc9,
+    0x75, 0x98, 0xa2, 0xbd, 0x25, 0x55, 0xd1, 0xaa, 0x8c, 0xb0, 0x8e, 0x48,
+    0x59, 0x0d, 0xbb, 0x3d, 0xa7, 0xb0, 0x8b, 0x10, 0x56, 0x82, 0x88, 0x38,
+    0xc5, 0xf6, 0x1e, 0x63, 0x93, 0xba, 0x7a, 0x0a, 0xbc, 0xc9, 0xf6, 0x62,
+    0x76, 0xfc, 0x6e, 0xce, 0x0f, 0x4e, 0x17, 0x68, 0xcd, 0xdf, 0x88, 0x53,
+    0xbb, 0x2d, 0x55, 0x1b
 };
 
 CpaStatus algChainSample(void);
@@ -231,11 +196,17 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
         sizeof(CpaBufferList) + (numBuffers * sizeof(CpaFlatBuffer));
     Cpa8U *pSrcBuffer = NULL;
     Cpa8U *pIvBuffer = NULL;
+    Cpa32U aadBuffSize = 0;
+    Cpa8U *pAadBuffer = NULL;
 
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
+    /*
+     * Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     /* get meta information size */
     status =
@@ -254,6 +225,20 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
     if (CPA_STATUS_SUCCESS == status)
     {
         status = PHYS_CONTIG_ALLOC(&pSrcBuffer, bufferSize);
+    }
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Allocate memory for AAD. For GCM this memory will hold the
+         * additional authentication data and any padding to ensure total
+         * size is a multiple of the AES block size
+         */
+        aadBuffSize = sizeof(sampleAddAuthData);
+        if (aadBuffSize % AES_BLOCK_SIZE)
+        {
+            aadBuffSize += AES_BLOCK_SIZE - (aadBuffSize % AES_BLOCK_SIZE);
+        }
+        status = PHYS_CONTIG_ALLOC(&pAadBuffer, aadBuffSize);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -287,6 +272,7 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
         }
 
         pIvBuffer = pSrcBuffer + sizeof(sampleEspHdrData);
+	memcpy(pAadBuffer, sampleAddAuthData, sizeof(sampleAddAuthData));
 
         status = OS_MALLOC(&pOpData, sizeof(CpaCySymOpData));
     }
@@ -315,6 +301,7 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
             pOpData->pDigestResult =
                 pSrcBuffer + (sizeof(sampleEspHdrData) +
                               sizeof(sampleCipherIv) + sizeof(samplePayload));
+	    pOpData->pAdditionalAuthData = pAadBuffer;
             //</snippet>
         }
         else
@@ -333,16 +320,13 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
                               sizeof(sampleCipherIv) + ICV_LENGTH);
             pOpData->hashStartSrcOffsetInBytes = 0;
             pOpData->messageLenToHashInBytes = bufferSize - ICV_LENGTH;
+	    pOpData->pAdditionalAuthData = pAadBuffer;
             //</snippet>
         }
     }
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /** initialisation for callback; the "complete" variable is used by the
-         * callback function to indicate it has been called*/
-        COMPLETION_INIT(&complete);
-
         PRINT_DBG("cpaCySymPerformOp\n");
 
         /** Perform symmetric operation */
@@ -411,6 +395,7 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
     OS_FREE(pBufferList);
     PHYS_CONTIG_FREE(pBufferMeta);
     OS_FREE(pOpData);
+    PHYS_CONTIG_FREE(pAadBuffer);
 
     COMPLETION_DESTROY(&complete);
 
@@ -466,16 +451,18 @@ CpaStatus algChainSample(void)
             CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH;
 
         sessionSetupData.cipherSetupData.cipherAlgorithm =
-            CPA_CY_SYM_CIPHER_AES_CBC;
+            CPA_CY_SYM_CIPHER_AES_GCM;
         sessionSetupData.cipherSetupData.pCipherKey = sampleCipherKey;
         sessionSetupData.cipherSetupData.cipherKeyLenInBytes =
             sizeof(sampleCipherKey);
         sessionSetupData.cipherSetupData.cipherDirection =
             CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT;
 
-        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
+        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_AES_GCM;
         sessionSetupData.hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_AUTH;
         sessionSetupData.hashSetupData.digestResultLenInBytes = ICV_LENGTH;
+	sessionSetupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            sizeof(sampleAddAuthData);
         sessionSetupData.hashSetupData.authModeSetupData.authKey =
             sampleAuthKey;
         sessionSetupData.hashSetupData.authModeSetupData.authKeyLenInBytes =
@@ -541,16 +528,18 @@ CpaStatus algChainSample(void)
             CPA_CY_SYM_ALG_CHAIN_ORDER_HASH_THEN_CIPHER;
 
         sessionSetupData.cipherSetupData.cipherAlgorithm =
-            CPA_CY_SYM_CIPHER_AES_CBC;
+            CPA_CY_SYM_CIPHER_AES_GCM;
         sessionSetupData.cipherSetupData.pCipherKey = sampleCipherKey;
         sessionSetupData.cipherSetupData.cipherKeyLenInBytes =
             sizeof(sampleCipherKey);
         sessionSetupData.cipherSetupData.cipherDirection =
             CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT;
 
-        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
+        sessionSetupData.hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_AES_GCM;
         sessionSetupData.hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_AUTH;
         sessionSetupData.hashSetupData.digestResultLenInBytes = ICV_LENGTH;
+	sessionSetupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            sizeof(sampleAddAuthData);
         sessionSetupData.hashSetupData.authModeSetupData.authKey =
             sampleAuthKey;
         sessionSetupData.hashSetupData.authModeSetupData.authKeyLenInBytes =

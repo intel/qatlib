@@ -112,11 +112,12 @@ extern "C" {
  *      for this Recommendation. The amount of work needed is
  *      2^(security_strength)."
  ****************************************************************************/
-typedef enum _CpaCyDrbgSecStrength {
-  CPA_CY_RBG_SEC_STRENGTH_112 = 1,
-  CPA_CY_RBG_SEC_STRENGTH_128,
-  CPA_CY_RBG_SEC_STRENGTH_192,
-  CPA_CY_RBG_SEC_STRENGTH_256
+typedef enum _CpaCyDrbgSecStrength
+{
+    CPA_CY_RBG_SEC_STRENGTH_112 = 1,
+    CPA_CY_RBG_SEC_STRENGTH_128,
+    CPA_CY_RBG_SEC_STRENGTH_192,
+    CPA_CY_RBG_SEC_STRENGTH_256
 } CpaCyDrbgSecStrength;
 
 /**
@@ -127,7 +128,8 @@ typedef enum _CpaCyDrbgSecStrength {
  *      This structure contains data relating to instantiation of a
  *      DRBG session, or instance.
  *****************************************************************************/
-typedef struct _CpaCyDrbgSessionSetupData {
+typedef struct _CpaCyDrbgSessionSetupData
+{
     CpaCyDrbgSecStrength secStrength;
     /**< Requested security strength */
 
@@ -142,7 +144,6 @@ typedef struct _CpaCyDrbgSessionSetupData {
      * String that should be used to derive the seed.
      */
 } CpaCyDrbgSessionSetupData;
-
 
 /**
  *****************************************************************************
@@ -169,7 +170,7 @@ typedef struct _CpaCyDrbgSessionSetupData {
  *      freed until a call to @ref cpaCyDrbgRemoveSession has
  *      completed successfully.
  *****************************************************************************/
-typedef void* CpaCyDrbgSessionHandle;
+typedef void *CpaCyDrbgSessionHandle;
 
 /**
  *****************************************************************************
@@ -186,11 +187,12 @@ typedef void* CpaCyDrbgSessionHandle;
  *      before it has been returned in the callback, undefined behavior will
  *      result.
  *****************************************************************************/
-typedef struct _CpaCyDrbgGenOpData {
-  CpaCyDrbgSessionHandle sessionHandle;
-  /**< Session handle, also known as the state handle or instance handle */
-  Cpa32U lengthInBytes;
-  /**< Requested number of bytes to be generated */
+typedef struct _CpaCyDrbgGenOpData
+{
+    CpaCyDrbgSessionHandle sessionHandle;
+    /**< Session handle, also known as the state handle or instance handle */
+    Cpa32U lengthInBytes;
+    /**< Requested number of bytes to be generated */
     CpaCyDrbgSecStrength secStrength;
     /**< Requested security strength */
     CpaBoolean predictionResistanceRequired;
@@ -218,7 +220,8 @@ typedef struct _CpaCyDrbgGenOpData {
  *      and before it has been returned in the callback, undefined behavior will
  *      result.
  *****************************************************************************/
-typedef struct _CpaCyDrbgReseedOpData {
+typedef struct _CpaCyDrbgReseedOpData
+{
     CpaCyDrbgSessionHandle sessionHandle;
     /**< Session handle, also known as a state handle or instance handle. */
     CpaFlatBuffer additionalInput;
@@ -238,7 +241,8 @@ typedef struct _CpaCyDrbgReseedOpData {
  * @see
  *         CpaCyDrbgQueryStats64()
  *****************************************************************************/
-typedef struct _CpaCyDrbgStats64 {
+typedef struct _CpaCyDrbgStats64
+{
     Cpa64U numSessionsInitialized;
     /**<  Number of session initialized */
     Cpa64U numSessionsRemoved;
@@ -283,8 +287,6 @@ typedef struct _CpaCyDrbgStats64 {
      * error status.
      */
 } CpaCyDrbgStats64;
-
-
 
 /**
  *****************************************************************************
@@ -331,11 +333,9 @@ typedef struct _CpaCyDrbgStats64 {
  * @post
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyDrbgSessionGetSize(const CpaInstanceHandle instanceHandle,
-        const CpaCyDrbgSessionSetupData *pSetupData,
-        Cpa32U *pSize);
-
+CpaStatus cpaCyDrbgSessionGetSize(const CpaInstanceHandle instanceHandle,
+                                  const CpaCyDrbgSessionSetupData *pSetupData,
+                                  Cpa32U *pSize);
 
 /**
  *****************************************************************************
@@ -387,12 +387,12 @@ cpaCyDrbgSessionGetSize(const CpaInstanceHandle instanceHandle,
  *                                  handle needs to be passed to subsequent
  *                                  processing calls.
  * @param[out] pSeedLen             Seed length for the supported DRBG
- *                                     mechanism and security strength.
- *                                     The value of this is dependent on the
- *                                     DRBG mechanism implemented by the instance,
- *                                  which is implementation-dependent.
- *                                  This seed length may be used by the
- *                                  client when reseeding.
+ *                                  mechanism and security strength.
+ *                                  The value of this is dependent on the
+ *                                  DRBG mechanism implemented by the
+ *                                  instance, which is implementation-dependent.
+ *                                  This seed length may be used by
+ *                                  the client when reseeding.
  *
  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
  * @retval CPA_STATUS_FAIL          Function failed.
@@ -409,13 +409,12 @@ cpaCyDrbgSessionGetSize(const CpaInstanceHandle instanceHandle,
  * @post
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyDrbgInitSession(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pGenCb,
-        const CpaCyGenericCbFunc pReseedCb,
-        const CpaCyDrbgSessionSetupData *pSetupData,
-        CpaCyDrbgSessionHandle sessionHandle,
-        Cpa32U* pSeedLen);
+CpaStatus cpaCyDrbgInitSession(const CpaInstanceHandle instanceHandle,
+                               const CpaCyGenFlatBufCbFunc pGenCb,
+                               const CpaCyGenericCbFunc pReseedCb,
+                               const CpaCyDrbgSessionSetupData *pSetupData,
+                               CpaCyDrbgSessionHandle sessionHandle,
+                               Cpa32U *pSeedLen);
 
 /**
  *****************************************************************************
@@ -443,11 +442,11 @@ cpaCyDrbgInitSession(const CpaInstanceHandle instanceHandle,
  *      Yes
  *
  * @param[in]  instanceHandle        Instance handle.
- * @param[in]  pCallbackTag         Opaque User Data for this specific call. Will
- *                                  be returned unchanged in the callback.
- * @param[in]  pOpData                Structure containing all the data needed
- *                                   to perform the operation. The client code
- *                                   allocates the memory for this structure.
+ * @param[in]  pCallbackTag         Opaque User Data for this specific call.
+ *                                  Will be returned unchanged in the callback.
+ * @param[in]  pOpData              Structure containing all the data needed
+ *                                  to perform the operation. The client code
+ *                                  allocates the memory for this structure.
  *
  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
  * @retval CPA_STATUS_FAIL          Function failed.
@@ -464,10 +463,9 @@ cpaCyDrbgInitSession(const CpaInstanceHandle instanceHandle,
  * @post
  *      None
  ******************************************************************************/
-CpaStatus
-cpaCyDrbgReseed(const CpaInstanceHandle instanceHandle,
-        void *pCallbackTag,
-        CpaCyDrbgReseedOpData *pOpData);
+CpaStatus cpaCyDrbgReseed(const CpaInstanceHandle instanceHandle,
+                          void *pCallbackTag,
+                          CpaCyDrbgReseedOpData *pOpData);
 
 /**
  *****************************************************************************
@@ -495,22 +493,23 @@ cpaCyDrbgReseed(const CpaInstanceHandle instanceHandle,
  * @threadSafe
  *      Yes
  *
- * @param[in]  instanceHandle        Instance handle.
- * @param[in]  pCallbackTag          Opaque User Data for this specific call. Will
- *                                   be returned unchanged in the callback.
- * @param[in]  pOpData                Structure containing all the data needed
- *                                   to perform the operation. The client code
- *                                   allocates the memory for this structure.
- *                                   This component takes ownership of the
- *                                   memory until it is returned in the
- *                                   callback.
- * @param[out] pPseudoRandomBits    Pointer to the memory allocated by the client
- *                                   where the random data will be written to. For
- *                                   optimal performance, the data pointed to SHOULD
- *                                   be 8-byte aligned. There is no endianness
- *                                   associated with the random data.
- *                                   On invocation the callback function will
- *                                   contain this parameter in its pOut parameter.
+ * @param[in]  instanceHandle       Instance handle.
+ * @param[in]  pCallbackTag         Opaque User Data for this specific call.
+ *                                  Will be returned unchanged in the callback.
+ * @param[in]  pOpData              Structure containing all the data needed
+ *                                  to perform the operation. The client code
+ *                                  allocates the memory for this structure.
+ *                                  This component takes ownership of the
+ *                                  memory until it is returned in the
+ *                                  callback.
+ * @param[out] pPseudoRandomBits    Pointer to the memory allocated by the
+ *                                  client where the random data will be written
+ *                                  to. For optimal performance, the data
+ *                                  pointed to SHOULD be 8-byte aligned.
+ *                                  There is no endianness associated with the
+ *                                  random data. On invocation the callback
+ *                                  function will contain this parameter in its
+ *                                  pOut parameter.
  *
  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
  * @retval CPA_STATUS_FAIL          Function failed.
@@ -530,12 +529,10 @@ cpaCyDrbgReseed(const CpaInstanceHandle instanceHandle,
  * @post
  *      None
  ******************************************************************************/
-CpaStatus
-cpaCyDrbgGen(const CpaInstanceHandle instanceHandle,
-        void *pCallbackTag,
-        CpaCyDrbgGenOpData *pOpData,
-        CpaFlatBuffer *pPseudoRandomBits);
-
+CpaStatus cpaCyDrbgGen(const CpaInstanceHandle instanceHandle,
+                       void *pCallbackTag,
+                       CpaCyDrbgGenOpData *pOpData,
+                       CpaFlatBuffer *pPseudoRandomBits);
 
 /**
  *****************************************************************************
@@ -584,9 +581,8 @@ cpaCyDrbgGen(const CpaInstanceHandle instanceHandle,
  * @post
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyDrbgRemoveSession(const CpaInstanceHandle instanceHandle,
-        CpaCyDrbgSessionHandle sessionHandle);
+CpaStatus cpaCyDrbgRemoveSession(const CpaInstanceHandle instanceHandle,
+                                 CpaCyDrbgSessionHandle sessionHandle);
 
 /**
  *****************************************************************************
@@ -620,8 +616,8 @@ cpaCyDrbgRemoveSession(const CpaInstanceHandle instanceHandle,
  *      Yes
  *
  * @param[in]  instanceHandle        Instance handle.
- * @param[out] pStats                 Pointer to memory into which the statistics
- *                                   will be written.
+ * @param[out] pStats                 Pointer to memory into which the
+ *statistics will be written.
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully.
  * @retval CPA_STATUS_FAIL           Function failed.
@@ -636,9 +632,8 @@ cpaCyDrbgRemoveSession(const CpaInstanceHandle instanceHandle,
  * @post
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyDrbgQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyDrbgStats64 *pStats);
+CpaStatus cpaCyDrbgQueryStats64(const CpaInstanceHandle instanceHandle,
+                                CpaCyDrbgStats64 *pStats);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

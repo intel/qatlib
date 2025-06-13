@@ -85,16 +85,14 @@
 #define CPA_DEV_H
 
 #ifdef __cplusplus
-extern"C" {
+extern "C" {
 #endif
-
 
 #ifndef CPA_H
 #include "cpa.h"
 #endif
 
-
- /*****************************************************************************
+/*****************************************************************************
  * @ingroup cpaDev
  *      Returns device information
  *
@@ -107,61 +105,61 @@ extern"C" {
  *      and device ID are also reported.
  *
  *****************************************************************************/
-typedef struct _CpaDeviceInfo {
-	Cpa32U sku;
-	/**< Identifies the SKU of the device. */
-	Cpa16U bdf;
-	/**< Identifies the Bus Device Function of the device.
-	 *   Format is reported as follow:
-	 *   - bits<2:0> represent the function number.
-	 *   - bits<7:3> represent the device
-	 *   - bits<15:8> represent the bus
-	 */
-	Cpa32U deviceId;
-	/**< Returns the device ID. */
-	Cpa32U numaNode;
-	/**< Return the local NUMA node mapped to the device. */
-	CpaBoolean isVf;
-	/**< Return whether the device is currently used in a virtual function
-	 *   or not. */
-	CpaBoolean dcEnabled;
+typedef struct _CpaDeviceInfo
+{
+    Cpa32U sku;
+    /**< Identifies the SKU of the device. */
+    Cpa16U bdf;
+    /**< Identifies the Bus Device Function of the device.
+     *   Format is reported as follow:
+     *   - bits<2:0> represent the function number.
+     *   - bits<7:3> represent the device
+     *   - bits<15:8> represent the bus
+     */
+    Cpa32U deviceId;
+    /**< Returns the device ID. */
+    Cpa32U numaNode;
+    /**< Return the local NUMA node mapped to the device. */
+    CpaBoolean isVf;
+    /**< Return whether the device is currently used in a virtual function
+     *   or not. */
+    CpaBoolean dcEnabled;
     /**< Compression service enabled */
-	CpaBoolean cySymEnabled;
+    CpaBoolean cySymEnabled;
     /**< Symmetric crypto service enabled */
-	CpaBoolean cyAsymEnabled;
+    CpaBoolean cyAsymEnabled;
     /**< Asymmetric crypto service enabled */
-	CpaBoolean inlineEnabled;
+    CpaBoolean inlineEnabled;
     /**< Inline service enabled */
-	Cpa32U deviceMemorySizeAvailable;
-	/**< Return the size of the device memory available. This device memory
-	 *   section could be used for the intermediate buffers in the
-	 *   compression service.
-	 */
+    Cpa32U deviceMemorySizeAvailable;
+    /**< Return the size of the device memory available. This device memory
+     *   section could be used for the intermediate buffers in the
+     *   compression service.
+     */
 } CpaDeviceInfo;
 
+/*****************************************************************************
+ * @ingroup cpaDev
+ *      Returns number devices.
+ *
+ * @description
+ *      This API returns the number of devices available to the application.
+ *      If used on the host, it will return the number of physical devices.
+ *      If used on the guest, it will return the number of function mapped
+ *      to the virtual machine.
+ *
+ *****************************************************************************/
+CpaStatus cpaGetNumDevices(Cpa16U *numDevices);
 
 /*****************************************************************************
-* @ingroup cpaDev
-*      Returns number devices.
-*
-* @description
-*      This API returns the number of devices available to the application.
-*      If used on the host, it will return the number of physical devices.
-*      If used on the guest, it will return the number of function mapped
-*      to the virtual machine.
-*
-*****************************************************************************/
-CpaStatus cpaGetNumDevices (Cpa16U *numDevices);
-
-/*****************************************************************************
-* @ingroup cpaDev
-*      Returns device information for a given device index.
-*
-* @description
-*      Returns device information for a given device index. This API must
-*      be used with cpaGetNumDevices().
-*****************************************************************************/
-CpaStatus cpaGetDeviceInfo (Cpa16U device, CpaDeviceInfo *deviceInfo);
+ * @ingroup cpaDev
+ *      Returns device information for a given device index.
+ *
+ * @description
+ *      Returns device information for a given device index. This API must
+ *      be used with cpaGetNumDevices().
+ *****************************************************************************/
+CpaStatus cpaGetDeviceInfo(Cpa16U device, CpaDeviceInfo *deviceInfo);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

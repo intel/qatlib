@@ -390,12 +390,14 @@ void Lac_MemPoolStatsShow(void);
  * @threadSafe
  *      No
  * @param[in] poolID   ID of the pool
+ * @param[in] instanceHandle   instanceHandle
  *
  * @retval CPA_STATUS_FAIL           function failed
  * @retval CPA_STATUS_SUCCESS        function executed successfully
  *
  ******************************************************************************/
-CpaStatus Lac_MemPoolInitSymCookiesPhyAddr(lac_memory_pool_id_t poolID);
+CpaStatus Lac_MemPoolInitSymCookiesPhyAddr(lac_memory_pool_id_t poolID,
+                                           CpaInstanceHandle instanceHandle);
 
 /**
  *******************************************************************************

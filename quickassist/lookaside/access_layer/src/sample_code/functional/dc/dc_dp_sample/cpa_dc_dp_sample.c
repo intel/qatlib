@@ -164,6 +164,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     Cpa8U *pDst2Buffer = NULL;
     CpaDcDpOpData *pOpData = NULL;
     Cpa32U checksum = 0;
+#if defined(SC_BSD_UPSTREAM)
+    CpaInstanceInfo2 info2 = { 0 };
+#endif
 
     //<snippet name="memAlloc">
     numBuffers = 2;
@@ -217,6 +220,15 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     {
         PRINT_ERR("cpaDcDeflateCompressBound API failed. (status = %d)\n",
                   status);
+        return CPA_STATUS_FAIL;
+    }
+#endif
+
+#if defined(SC_BSD_UPSTREAM)
+    status = cpaDcInstanceGetInfo2(dcInstHandle, &info2);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaDcInstanceGetInfo2 API failed. (status = %d)\n", status);
         return CPA_STATUS_FAIL;
     }
 #endif
@@ -291,11 +303,16 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /* Poll for responses.
+        /* Poll for responses if instance configured for polling.
          * Polling functions are implementation specific */
         do
         {
-            status = icp_sal_DcPollDpInstance(dcInstHandle, 1);
+#if defined(SC_BSD_UPSTREAM)
+            if (CPA_TRUE == info2.isPolled)
+#endif
+            {
+                status = icp_sal_DcPollDpInstance(dcInstHandle, 1);
+            }
         } while (
             ((CPA_STATUS_SUCCESS == status) || (CPA_STATUS_RETRY == status)) &&
             (pOpData->pCallbackTag == (void *)0));
@@ -400,11 +417,16 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
 
         if (CPA_STATUS_SUCCESS == status)
         {
-            /* Poll for responses.
+            /* Poll for responses if instance configured for polling.
              * Polling functions are implementation specific */
             do
             {
-                status = icp_sal_DcPollDpInstance(dcInstHandle, 1);
+#if defined(SC_BSD_UPSTREAM)
+                if (CPA_TRUE == info2.isPolled)
+#endif
+                {
+                    status = icp_sal_DcPollDpInstance(dcInstHandle, 1);
+                }
             } while (((CPA_STATUS_SUCCESS == status) ||
                       (CPA_STATUS_RETRY == status)) &&
                      (pOpData->pCallbackTag == (void *)0));

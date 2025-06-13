@@ -120,6 +120,32 @@ extern "C" {
 /**
  *****************************************************************************
  * @ingroup cpaDcDp
+ *      Decompression partial read data.
+ * @description
+ *      This structure contains configuration related to requesting
+ *      specific chunk of decompression data.
+ *
+ ****************************************************************************/
+typedef struct _CpaDcDpPartialReadData
+{
+    Cpa32U bufferOffset;
+    /**< Number of bytes to skip in the destination buffer (or buffers list)
+     * before writing. At this point only zero is supported.
+     */
+    Cpa32U dataOffset;
+    /**< The offset in the decompressed data of the first byte written to
+     * the destination buffer. The data offset length should be an integer
+     * multiple of 4KB in order to achieve the best performance.
+     */
+    Cpa32U length;
+    /**< Size in bytes of requested decompressed data chunk. The length should be
+     * an integer multiple of 4KB in order to achieve the best performance.
+     */
+} CpaDcDpPartialReadData;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDcDp
  *      Operation Data for compression data plane API.
  *
  * @description
@@ -137,45 +163,45 @@ extern "C" {
  ****************************************************************************/
 typedef struct _CpaDcDpOpData
 {
-    Cpa64U          reserved0;
+    Cpa64U reserved0;
     /**< Reserved for internal use.  Source code should not read or write
-      * this field.
-      */
-    Cpa32U          bufferLenToCompress;
+     * this field.
+     */
+    Cpa32U bufferLenToCompress;
     /**< The number of bytes from the source buffer to compress.  This must be
      * less than, or more typically equal to, the total size of the source
      * buffer (or buffer list).
      */
 
-    Cpa32U          bufferLenForData;
+    Cpa32U bufferLenForData;
     /**< The maximum number of bytes that should be written to the destination
      * buffer.  This must be less than, or more typically equal to, the total
      * size of the destination buffer (or buffer list).
      */
 
-    Cpa64U          reserved1;
+    Cpa64U reserved1;
     /**< Reserved for internal use.  Source code should not read or write */
 
-    Cpa64U          reserved2;
+    Cpa64U reserved2;
     /**< Reserved for internal use.  Source code should not read or write */
 
-    Cpa64U          reserved3;
+    Cpa64U reserved3;
     /**< Reserved for internal use.  Source code should not read or write */
 
-    CpaDcRqResults      results;
+    CpaDcRqResults results;
     /**< Results of the operation.  Contents are valid upon completion. */
 
-    CpaInstanceHandle   dcInstance;
+    CpaInstanceHandle dcInstance;
     /**< Instance to which the request is to be enqueued */
 
-    CpaDcSessionHandle  pSessionHandle;
+    CpaDcSessionHandle pSessionHandle;
     /**< DC Session associated with the stream of requests.
      * This field is only valid when using the session based API functions.
      * This field must be set to NULL if the application wishes to use
      * the No-Session (Ns) API.
      */
 
-    CpaPhysicalAddr     srcBuffer;
+    CpaPhysicalAddr srcBuffer;
     /**< Physical address of the source buffer on which to operate.
      * This is either the location of the data, of length srcBufferLen; or,
      * if srcBufferLen has the special value @ref CPA_DP_BUFLIST, then
@@ -183,14 +209,14 @@ typedef struct _CpaDcDpOpData
      * stored.
      */
 
-    Cpa32U          srcBufferLen;
+    Cpa32U srcBufferLen;
     /**< If the source buffer is a "flat buffer", then this field
      * specifies the size of the buffer, in bytes. If the source buffer
      * is a "buffer list" (of type @ref CpaPhysBufferList), then this field
      * should be set to the value @ref CPA_DP_BUFLIST.
      */
 
-    CpaPhysicalAddr     destBuffer;
+    CpaPhysicalAddr destBuffer;
     /**< Physical address of the destination buffer on which to operate.
      * This is either the location of the data, of length destBufferLen; or,
      * if destBufferLen has the special value @ref CPA_DP_BUFLIST, then
@@ -198,7 +224,7 @@ typedef struct _CpaDcDpOpData
      * stored.
      */
 
-    Cpa32U          destBufferLen;
+    Cpa32U destBufferLen;
     /**< If the destination buffer is a "flat buffer", then this field
      * specifies the size of the buffer, in bytes.  If the destination buffer
      * is a "buffer list" (of type @ref CpaPhysBufferList), then this field
@@ -206,10 +232,10 @@ typedef struct _CpaDcDpOpData
      */
 
     CpaDcSessionDir sessDirection;
-     /**<Session direction indicating whether session is used for
-      * compression, decompression.  For the DP implementation,
-      * CPA_DC_DIR_COMBINED is not a valid selection.
-      */
+    /**<Session direction indicating whether session is used for
+     * compression, decompression.  For the DP implementation,
+     * CPA_DC_DIR_COMBINED is not a valid selection.
+     */
 
     CpaBoolean compressAndVerify;
     /**< If set to true, for compression operations, the implementation
@@ -236,7 +262,7 @@ typedef struct _CpaDcDpOpData
     CpaPhysicalAddr thisPhys;
     /**< Physical address of this data structure */
 
-    void* pCallbackTag;
+    void *pCallbackTag;
     /**< Opaque data that will be returned to the client in the function
      * completion callback.
      *
@@ -246,7 +272,7 @@ typedef struct _CpaDcDpOpData
      * processing the response later.
      */
 
-    CpaDcNsSetupData    *pSetupData;
+    CpaDcNsSetupData *pSetupData;
     /**< Pointer to the No-session (Ns) Setup data for configuration of this
      * request.
      *
@@ -361,11 +387,9 @@ typedef void (*CpaDcDpCallbackFn)(CpaDcDpOpData *pOpData);
  *      cpaDcDpInitSession()
  *
  *****************************************************************************/
-CpaStatus
-cpaDcDpGetSessionSize(CpaInstanceHandle dcInstance,
-        CpaDcSessionSetupData* pSessionData,
-        Cpa32U* pSessionSize );
-
+CpaStatus cpaDcDpGetSessionSize(CpaInstanceHandle dcInstance,
+                                CpaDcSessionSetupData *pSessionData,
+                                Cpa32U *pSessionSize);
 
 /**
  *****************************************************************************
@@ -439,11 +463,9 @@ cpaDcDpGetSessionSize(CpaInstanceHandle dcInstance,
  *      None
  *
  *****************************************************************************/
-CpaStatus
-cpaDcDpInitSession( CpaInstanceHandle       dcInstance,
-        CpaDcSessionHandle              pSessionHandle,
-        CpaDcSessionSetupData           *pSessionData );
-
+CpaStatus cpaDcDpInitSession(CpaInstanceHandle dcInstance,
+                             CpaDcSessionHandle pSessionHandle,
+                             CpaDcSessionSetupData *pSessionData);
 
 /**
  *****************************************************************************
@@ -500,9 +522,9 @@ cpaDcDpInitSession( CpaInstanceHandle       dcInstance,
  *      cpaDcDpInitSession()
  *
  *****************************************************************************/
-CpaStatus cpaDcDpUpdateSession( const CpaInstanceHandle dcInstance,
-        CpaDcSessionHandle pSessionHandle,
-        CpaDcSessionUpdateData *pSessionUpdateData );
+CpaStatus cpaDcDpUpdateSession(const CpaInstanceHandle dcInstance,
+                               CpaDcSessionHandle pSessionHandle,
+                               CpaDcSessionUpdateData *pSessionUpdateData);
 
 /**
  *****************************************************************************
@@ -555,9 +577,8 @@ CpaStatus cpaDcDpUpdateSession( const CpaInstanceHandle dcInstance,
  *      @ref cpaDcDpInitSession
  *
  *****************************************************************************/
-CpaStatus
-cpaDcDpRemoveSession(const CpaInstanceHandle dcInstance,
-        CpaDcSessionHandle pSessionHandle );
+CpaStatus cpaDcDpRemoveSession(const CpaInstanceHandle dcInstance,
+                               CpaDcSessionHandle pSessionHandle);
 
 /**
  *****************************************************************************
@@ -603,7 +624,7 @@ cpaDcDpRemoveSession(const CpaInstanceHandle dcInstance,
  *      cpaDcDpCbFunc
  *****************************************************************************/
 CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
-        const CpaDcDpCallbackFn pNewCb);
+                           const CpaDcDpCallbackFn pNewCb);
 
 /**
  *****************************************************************************
@@ -684,10 +705,153 @@ CpaStatus cpaDcDpRegCbFunc(const CpaInstanceHandle dcInstance,
  * @see
  *      @ref cpaDcDpPerformOpNow
  *****************************************************************************/
-CpaStatus
-cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
-        const CpaBoolean performOpNow);
+CpaStatus cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
+                           const CpaBoolean performOpNow);
 
+/**
+ *****************************************************************************
+ * @ingroup cpaDcDp
+ *      Enqueue a single decompression request with partial read configuration.
+ *      See @CpaDcDpPartialReadData for more details.
+ *
+ * @description
+ *      This function enqueues a single request to perform a decompression
+ *      operation and allows to specify particular region of decompressed
+ *      data to be placed in the destination buffer (or buffer list).
+ *
+ *      The function is asynchronous. The control is returned to the user once
+ *      the request has been submitted. On completion of the request, the
+ *      application may poll for responses, which will cause a callback
+ *      function (registered via @ref cpaDcDpRegCbFunc) to be invoked.
+ *      Callbacks within a session are guaranteed to be in the same order
+ *      in which they were submitted.
+ *
+ *      The following restrictions apply to the pOpData parameter:
+ *
+ *      - The memory MUST be aligned on an 8-byte boundary.
+ *      - The reserved fields of the structure MUST NOT be written to
+ *        or read from.
+ *      - The structure MUST reside in physically contiguous memory.
+ *
+ * @context
+ *      This function will not sleep, and hence can be executed in a context
+ *      that does not permit sleeping.
+ *
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in,out] pOpData       See @ref cpaDcDpEnqueueOp pOpData description.
+ *
+ * @param[in] pPartReadData     Pointer to a structure containing the partial
+ *                              read configuration parameters.
+ *                              See @CpaDcDpPartialReadData for more details.
+ *
+ * @param[in] performOpNow      See @ref cpaDcDpEnqueueOp performOpNow input
+ *                              parameter.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RETRY          Resubmit the request.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
+ *                                   the request.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The session identified by pOpData->pSessionHandle was setup using
+ *      @ref cpaDcDpInitSession. The instance identified by pOpData->dcInstance
+ *      has had a callback function registered via @ref cpaDcDpRegCbFunc.
+ *
+ * @post
+ *      None
+ *
+ * @note
+ *      A callback of type @ref CpaDcDpCallbackFn is generated in
+ *      response to this function call. Any errors generated during
+ *      processing are reported as part of the callback status code.
+ *
+ * @see
+ *      @ref cpaDcDpPerformOpNow
+ *****************************************************************************/
+CpaStatus cpaDcDpEnqueueOpWithPartRead(CpaDcDpOpData *pOpData,
+                                       CpaDcDpPartialReadData *pPartReadData,
+                                       const CpaBoolean performOpNow);
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDcDp
+ *      Enqueue a single compression request with an option set to zero-fill
+ *      data after the compression output in the leftover bytes.
+ *
+ * @description
+ *      This function enqueues a single request to perform a compression
+ *      operation with zero-filling leftover bytes with 4KB alignment
+ *      in the destination buffer (or buffer list).
+ *
+ *      The function is asynchronous. The control is returned to the user once
+ *      the request has been submitted. On completion of the request, the
+ *      application may poll for responses, which will cause a callback
+ *      function (registered via @ref cpaDcDpRegCbFunc) to be invoked.
+ *      Callbacks within a session are guaranteed to be in the same order
+ *      in which they were submitted.
+ *
+ *      The following restrictions apply to the pOpData parameter:
+ *
+ *      - The memory MUST be aligned on an 8-byte boundary.
+ *      - The reserved fields of the structure MUST NOT be written to
+ *        or read from.
+ *      - The structure MUST reside in physically contiguous memory.
+ *
+ * @context
+ *      This function will not sleep, and hence can be executed in a context
+ *      that does not permit sleeping.
+ *
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in,out] pOpData       See @ref cpaDcDpEnqueueOp pOpData description.
+ *
+ * @param[in] performOpNow      See @ref cpaDcDpEnqueueOp performOpNow input
+ *                              parameter.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RETRY          Resubmit the request.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
+ *                                   the request.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The session identified by pOpData->pSessionHandle was setup using
+ *      @ref cpaDcDpInitSession. The instance identified by pOpData->dcInstance
+ *      has had a callback function registered via @ref cpaDcDpRegCbFunc.
+ *
+ * @post
+ *      None
+ *
+ * @note
+ *      A callback of type @ref CpaDcDpCallbackFn is generated in
+ *      response to this function call. Any errors generated during
+ *      processing are reported as part of the callback status code.
+ *
+ * @see
+ *      @ref cpaDcDpPerformOpNow
+ *****************************************************************************/
+CpaStatus cpaDcDpEnqueueOpWithZeroPad(CpaDcDpOpData *pOpData,
+                                      const CpaBoolean performOpNow);
 
 /**
  *****************************************************************************
@@ -780,11 +944,180 @@ cpaDcDpEnqueueOp(CpaDcDpOpData *pOpData,
  * @see
  *      cpaDcDpEnqueueOp
  *****************************************************************************/
-CpaStatus
-cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
-        CpaDcDpOpData *pOpData[],
-        const CpaBoolean performOpNow);
+CpaStatus cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
+                                CpaDcDpOpData *pOpData[],
+                                const CpaBoolean performOpNow);
 
+/**
+ *****************************************************************************
+ * @ingroup cpaDcDp
+ *      Enqueue multiple decompression request with partial read configuration.
+ *      See @CpaDcDpPartialReadData for more details.
+ *
+ * @description
+ *      This function enqueues multiple requests to perform decompression
+ *      operations and allows to specify particular region of decompressed
+ *      data to be placed in the destination buffer (or buffer list) for
+ *      each individual request.
+ *
+ *      The function is asynchronous. The control is returned to the user once
+ *      the request has been submitted. On completion of the request, the
+ *      application may poll for responses, which will cause a callback
+ *      function (registered via @ref cpaDcDpRegCbFunc) to be invoked.
+ *      Separate callbacks will be invoked for each request.
+ *      Callbacks within a session and at the same priority are guaranteed
+ *      to be in the same order in which they were submitted.
+ *
+ *      The following restrictions apply to each element of the pOpData
+ *      array:
+ *
+ *      - The memory MUST be aligned on an 8-byte boundary.
+ *      - The reserved fields of the structure MUST be set to zero.
+ *      - The structure MUST reside in physically contiguous memory.
+ *
+ * @context
+ *      See @ref cpaDcDpEnqueueOpBatch context.
+ *
+ * @assumptions
+ *      See @ref cpaDcDpEnqueueOpBatch assumptions.
+ *
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] numberRequests    The number of requests in the array of
+ *                              CpaDcDpOpData structures.
+ *
+ * @param[in,out] pOpData       See @ref cpaDcDpEnqueueOpBatch pOpData for more
+ *                              details.
+ *
+ * @param[in] pPartReadData     An array of pointers to a structures containing
+ *                              the partial read configuration parameters.
+ *                              See @CpaDcDpPartialReadData for more details.
+ *
+ * @param[in] performOpNow      See @ref cpaDcDpEnqueueOpBatch performOpNow
+ *                              input parameter.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RETRY          Resubmit the request.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
+ *                                   the request.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ *
+ * @pre
+ *      The session identified by pOpData[i]->pSessionHandle was setup using
+ *      @ref cpaDcDpInitSession. The instance identified by
+ *      pOpData[i]->dcInstance has had a callback function registered via
+ *      @ref cpaDcDpRegCbFunc.
+ *
+ * @post
+ *      None
+ *
+ * @note
+ *      Multiple callbacks of type @ref CpaDcDpCallbackFn are generated in
+ *      response to this function call (one per request).  Any errors
+ *      generated during processing are reported as part of the callback
+ *      status code.
+ *
+ * @see
+ *      @ref cpaDcDpEnqueueOp
+ *****************************************************************************/
+CpaStatus cpaDcDpEnqueueOpWithPartReadBatch(
+    const Cpa32U numberRequests,
+    CpaDcDpOpData *pOpData[],
+    CpaDcDpPartialReadData *pPartReadData[],
+    const CpaBoolean performOpNow);
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDcDp
+ *      Enqueue multiple compression requests with an option set to zero-fill
+ *      data after the compression output in the leftover bytes.
+ *
+ * @description
+ *      This function enqueues multiple requests to perform compression
+ *      operations with an option set to zero-fill leftover bytes in the
+ *      destination buffer (of buffer list) for each individual request.
+ *      Please note that optional zero-filling leftover output buffer bytes
+ *      is aligned to 4KB.
+ *
+ *      The function is asynchronous. The control is returned to the user once
+ *      the request has been submitted. On completion of the request, the
+ *      application may poll for responses, which will cause a callback
+ *      function (registered via @ref cpaDcDpRegCbFunc) to be invoked.
+ *      Separate callbacks will be invoked for each request.
+ *      Callbacks within a session and at the same priority are guaranteed
+ *      to be in the same order in which they were submitted.
+ *
+ *      The following restrictions apply to each element of the pOpData
+ *      array:
+ *
+ *      - The memory MUST be aligned on an 8-byte boundary.
+ *      - The reserved fields of the structure MUST be set to zero.
+ *      - The structure MUST reside in physically contiguous memory.
+ *
+ * @context
+ *      See @ref cpaDcDpEnqueueOpBatch context.
+ *
+ * @assumptions
+ *      See @ref cpaDcDpEnqueueOpBatch assumptions.
+ *
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      No
+ *
+ * @param[in] numberRequests    The number of requests in the array of
+ *                              CpaDcDpOpData structures.
+ *
+ * @param[in,out] pOpData       See @ref cpaDcDpEnqueueOpBatch pOpData for more
+ *                              details.
+ *
+ * @param[in] performOpNow      See @ref cpaDcDpEnqueueOpBatch performOpNow
+ *                              input parameter.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_RETRY          Resubmit the request.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESTARTING     API implementation is restarting. Resubmit
+ *                                   the request.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ *
+ * @pre
+ *      The session identified by pOpData[i]->pSessionHandle was setup using
+ *      @ref cpaDcDpInitSession. The instance identified by
+ *      pOpData[i]->dcInstance has had a callback function registered via
+ *      @ref cpaDcDpRegCbFunc.
+ *
+ * @post
+ *      None
+ *
+ * @note
+ *      Multiple callbacks of type @ref CpaDcDpCallbackFn are generated in
+ *      response to this function call (one per request).  Any errors
+ *      generated during processing are reported as part of the callback
+ *      status code.
+ *
+ * @see
+ *      @ref cpaDcDpEnqueueOp
+ *****************************************************************************/
+CpaStatus cpaDcDpEnqueueOpWithZeroPadBatch(const Cpa32U numberRequests,
+                                           CpaDcDpOpData *pOpData[],
+                                           const CpaBoolean performOpNow);
 
 /**
  *****************************************************************************
@@ -832,14 +1165,98 @@ cpaDcDpEnqueueOpBatch(const Cpa32U numberRequests,
  * @see
  *      cpaDcDpEnqueueOp, cpaDcDpEnqueueOpBatch
  *****************************************************************************/
-CpaStatus
-cpaDcDpPerformOpNow(CpaInstanceHandle dcInstance);
+CpaStatus cpaDcDpPerformOpNow(CpaInstanceHandle dcInstance);
 
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Function to return the "partial read" feature support.
+ *
+ * @description
+ *      This function is used to determine if given instance supports
+ *      "partial read" feature.
+ *
+ * @context
+ *      This function may be called from any context.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  instanceHandle      Handle to an instance of this API.
+ * @param[out] pFlag               Pointer to boolean flag which indicates
+ *                                 whether a feature is supported.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @note
+ *      None
+ * @see
+ *      cpaDcQueryCapabilities()
+ *
+ *****************************************************************************/
+CpaStatus cpaDcDpIsPartReadSupported(const CpaInstanceHandle instanceHandle,
+                                     CpaBoolean *pFlag);
 
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Function to return the "zero pad" feature support.
+ *
+ * @description
+ *      This function is used to determine if given instance supports
+ *      "zero pad" feature.
+ *
+ * @context
+ *      This function may be called from any context.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  instanceHandle      Handle to an instance of this API.
+ * @param[out] pFlag               Pointer to boolean flag which indicates
+ *                                 whether a feature is supported.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @note
+ *      None
+ * @see
+ *      cpaDcQueryCapabilities()
+ *
+ *****************************************************************************/
+CpaStatus cpaDcDpIsZeroPadSupported(const CpaInstanceHandle instanceHandle,
+                                    CpaBoolean *pFlag);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */
 #endif
 
 #endif /* CPA_DC_DP_H */
-

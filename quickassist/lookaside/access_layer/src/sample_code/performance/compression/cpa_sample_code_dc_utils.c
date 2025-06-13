@@ -127,7 +127,16 @@ CpaStatus setTestOverFlow(CpaBoolean value);
 CpaStatus setFuzzFile(const char *fileName);
 CpaStatus printFuzzFile(void);
 
-
+volatile CpaBoolean enableDcDpFlatsToSGLConv_g = CPA_FALSE;
+EXPORT_SYMBOL(enableDcDpFlatsToSGLConv_g);
+volatile Cpa32U dcDpNumFlatsPerSGL_g = 4;
+EXPORT_SYMBOL(dcDpNumFlatsPerSGL_g);
+#if DC_API_VERSION_AT_LEAST(3, 2)
+volatile Cpa32U dcDpPartialReadBufferMask_g = 0;
+EXPORT_SYMBOL(dcDpPartialReadBufferMask_g);
+volatile CpaBoolean dcDpEnableZeroPad_g = CPA_FALSE;
+EXPORT_SYMBOL(dcDpEnableZeroPad_g);
+#endif /* #if DC_API_VERSION_AT_LEAST(3, 2) */
 #if DC_API_VERSION_AT_LEAST(3, 1)
 volatile CpaBoolean LZ4BlockIndependence_g = CPA_TRUE;
 CpaStatus setLZ4BlockIndependence(CpaBoolean val)
@@ -151,7 +160,6 @@ CpaStatus setChecksum(CpaDcChecksum checksum)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(setChecksum);
-
 
 CpaStatus setAutoSelectBestMode(CpaDcAutoSelectBest mode)
 {
@@ -179,7 +187,6 @@ void setDcPollingThreadsInterval(long interval)
     dcPollingThreadsInterval_g = interval;
 }
 EXPORT_SYMBOL(setDcPollingThreadsInterval);
-
 
 /*********** Call Back Function **************/
 void dcPerformCallback(void *pCallbackTag, CpaStatus status)
@@ -375,7 +382,6 @@ static void freeDcBufferList(CpaBufferList **buffListArray,
     }
 }
 
-
 static char *canterburyFileNames[] = {
     /* Single Canterbury corpus file is a concatenation of the following
      * files:
@@ -415,7 +421,6 @@ static char *calgaryFileNames[] = {
      * in calgaryFullFileNames.
      */
     "calgary"};
-
 
 static char *signOfLifeFile[] = {/* 1st 32k of calgary corpus file */
                                  "calgary32"};
@@ -968,7 +973,6 @@ CpaStatus calculateRequireBuffers(compression_test_params_t *dcSetup)
     Cpa32U numFiles = getNumFilesInCorpus(dcSetup->corpus);
     const corpus_file_t *const pCorpusFile = getFilesInCorpus(dcSetup->corpus);
 
-
     if (dcSetup->corpusFileIndex >= numFiles)
     {
         dcSetup->corpusFileIndex = 0;
@@ -1170,16 +1174,27 @@ CpaStatus dcDpPollNumOperationsRetries(perf_data_t *pPerfData,
 
     perf_cycles_t startCycles = 0, totalCycles = 0;
     Cpa32U freq = sampleCodeGetCpuFreq();
+    CpaInstanceInfo2 info2 = { 0 };
     *retries = 0;
     startCycles = sampleCodeTimestamp();
 
+    status = cpaDcInstanceGetInfo2(instanceHandle, &info2);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaDcInstanceGetInfo2 failed. (status = %d)\n", status);
+        return status;
+    }
+
     while (pPerfData->responses != numOperations)
     {
-        coo_poll_dp_dc(pPerfData, instanceHandle, &status);
-        /* in case when polling is used to process request's response
-           which is not handled by coo measurement */
-        if (CPA_STATUS_FAIL == status)
-            status = icp_sal_DcPollDpInstance(instanceHandle, 0);
+        if (CPA_TRUE == info2.isPolled)
+        {
+            coo_poll_dp_dc(pPerfData, instanceHandle, &status);
+            /* in case when polling is used to process request's response
+               which is not handled by coo measurement */
+            if (CPA_STATUS_FAIL == status)
+                 status = icp_sal_DcPollDpInstance(instanceHandle, 0);
+        }
         if (CPA_STATUS_FAIL == status)
         {
             PRINT_ERR("Error polling instance\n");
@@ -1327,7 +1342,6 @@ void sampleCodeDcPoll(CpaInstanceHandle instanceHandle_in)
     sampleCodeThreadExit();
 }
 
-
 CpaStatus stopDcServicesFromPrintStats(thread_creation_data_t *dummy_ptr)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -1353,7 +1367,8 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
     Cpa32U averageNumLoops = 0;
     compression_test_params_t *dcSetup =
         (compression_test_params_t *)data->setupPtr;
-
+    Cpa32U numberOfUnsupportedThreads = 0;
+    Cpa32U totalThreadsRan = 0;
 
     /* stop DC Services */
     status = stopDcServices();
@@ -1375,12 +1390,21 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
      * for all the threads */
     for (i = 0; i < data->numberOfThreads; i++)
     {
-        if (CPA_STATUS_FAIL == data->performanceStats[i]->threadReturnStatus)
+        if (CPA_STATUS_UNSUPPORTED ==
+            data->performanceStats[i]->threadReturnStatus)
+        {
+            numberOfUnsupportedThreads++;
+        }
+        else if (CPA_STATUS_FAIL ==
+                 data->performanceStats[i]->threadReturnStatus)
         {
             return CPA_STATUS_FAIL;
         }
-        if (!signOfLife)
+        if (CPA_STATUS_SUCCESS == data->performanceStats[i]->threadReturnStatus)
         {
+            if (!signOfLife)
+            {
+
             if (latency_enable)
             {
                 /* Accumulate over all tests. Before using later we divide
@@ -1410,7 +1434,9 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
         bytesProduced += data->performanceStats[i]->bytesProducedPerLoop;
         dcSetup->numLoops = data->performanceStats[i]->numLoops;
         clearPerfStats(data->performanceStats[i]);
+        }
     }
+    totalThreadsRan = data->numberOfThreads - numberOfUnsupportedThreads;
     /* get the maximum number of cycles Required */
     numOfCycles = (stats.endCyclesTimestamp - stats.startCyclesTimestamp);
 
@@ -1418,9 +1444,9 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
      * if the averageNumLoops does not equal the plan then that means
      * the thread exited early, so we need to use the average to calculate the
      * throughput*/
-    if (data->numberOfThreads != 0)
+    if (totalThreadsRan != 0)
     {
-        do_div(averageNumLoops, data->numberOfThreads);
+        do_div(averageNumLoops, totalThreadsRan);
     }
     if (averageNumLoops != dcSetup->numLoops)
     {
@@ -1429,6 +1455,11 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
     /* Print Statistics */
     dcPrintTestData(dcSetup);
     PRINT("Number of threads      %d\n", data->numberOfThreads);
+    if (numberOfUnsupportedThreads)
+    {
+        PRINT("Unsupported Threads      %u\n", numberOfUnsupportedThreads);
+    }
+    PRINT("Total Threads ran      %u\n", totalThreadsRan);
     PRINT("Total Responses        %llu\n", (unsigned long long)stats.responses);
     PRINT("Total Retries          %llu\n", (unsigned long long)stats.retries);
     PRINT("Clock Cycles Start     %llu\n", stats.startCyclesTimestamp);
@@ -1444,27 +1475,27 @@ CpaStatus dcPrintStats(thread_creation_data_t *data)
         }
 
         dcCalculateAndPrintCompressionRatio(bytesConsumed, bytesProduced);
-        if (iaCycleCount_g && (data->numberOfThreads != 0))
+        if (iaCycleCount_g && (totalThreadsRan != 0))
         {
-            do_div(stats.offloadCycles, data->numberOfThreads);
+            do_div(stats.offloadCycles, totalThreadsRan);
             PRINT("Avg Offload Cycles        %llu\n", stats.offloadCycles);
         }
-        if (latency_enable && (data->numberOfThreads != 0))
+        if (latency_enable && (totalThreadsRan != 0))
         {
             perf_cycles_t statsLatency = 0;
             perf_cycles_t cpuFreqKHz = sampleCodeGetCpuFreq();
 
             /* Display how long it took on average to process a buffer in uSecs
              * Also include min/max to show variance */
-            do_div(stats.minLatency, data->numberOfThreads);
+            do_div(stats.minLatency, totalThreadsRan);
             statsLatency = 1000 * stats.minLatency;
             do_div(statsLatency, cpuFreqKHz);
             PRINT("Min. Latency (uSecs)      %llu\n", statsLatency);
-            do_div(stats.aveLatency, data->numberOfThreads);
+            do_div(stats.aveLatency, totalThreadsRan);
             statsLatency = 1000 * stats.aveLatency;
             do_div(statsLatency, cpuFreqKHz);
             PRINT("Ave. Latency (uSecs)      %llu\n", statsLatency);
-            do_div(stats.maxLatency, data->numberOfThreads);
+            do_div(stats.maxLatency, totalThreadsRan);
             statsLatency = 1000 * stats.maxLatency;
             do_div(statsLatency, cpuFreqKHz);
             PRINT("Max. Latency (uSecs)      %llu\n", statsLatency);
@@ -1486,7 +1517,6 @@ CpaStatus dcChainPrintStats(thread_creation_data_t *data)
     Cpa32U averageNumLoops = 0;
     compression_test_params_t *dcSetup =
         (compression_test_params_t *)data->setupPtr;
-
 
     /* stop DC Services */
     status = stopDcServices();
@@ -1734,7 +1764,16 @@ void dcPrintTestData(compression_test_params_t *dcSetup)
         PRINT("\n");
     }
 
-    PRINT("Packet Size            %d\n", dcSetup->bufferSize);
+    if (dcSetup->isUseSGL)
+    {
+        PRINT("Packet Size            %d x %d\n",
+              dcSetup->numFlatsPerSGL,
+              dcSetup->bufferSize);
+    }
+    else
+    {
+        PRINT("Packet Size            %d\n", dcSetup->bufferSize);
+    }
 
     PRINT("Compression Level      %d\n", dcSetup->setupData.compLevel);
 
@@ -1840,7 +1879,7 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
                 chainSetup->setupData.sessState == CPA_DC_STATELESS &&
                 chainSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
             {
-                PRINT("Static Stateless Compress AES_GCM Encrypt Chaining\n");
+                PRINT("Dynamic Stateless Compress AES_GCM Encrypt Chaining\n");
             }
             break;
         case (CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS):
@@ -1849,7 +1888,7 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
                 chainSetup->setupData.sessState == CPA_DC_STATELESS &&
                 chainSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
             {
-                PRINT("Static Stateless AES_GCM Decrypt Decompression "
+                PRINT("Dynamic Stateless AES_GCM Decrypt Decompression "
                       "Chaining\n");
             }
             break;
@@ -1889,7 +1928,6 @@ void dcChainPrintTestData(compression_test_params_t *chainSetup)
                 break;
         }
     }
-
 
     PRINT("Direction              ");
     switch (chainSetup->dcSessDir)
@@ -1950,12 +1988,16 @@ void dcDpSetBytesProducedAndConsumed(CpaDcDpOpData ***opdata,
                                      perf_data_t *perfData,
                                      compression_test_params_t *setup)
 {
-    Cpa32U i = 0, j = 0;
+    Cpa32U i = 0, j = 0, numSamples;
     Cpa32U numFiles = getNumFilesInCorpus(setup->corpus);
 
     for (i = 0; i < numFiles; i++)
     {
-        for (j = 0; j < setup->numberOfBuffers[i]; j++)
+        if (setup->isUseSGL)
+            numSamples = setup->numberOfSGLs[i];
+        else
+            numSamples = setup->numberOfBuffers[i];
+        for (j = 0; j < numSamples; j++)
         {
             perfData->bytesConsumedPerLoop += opdata[i][j]->results.consumed;
             perfData->bytesProducedPerLoop += opdata[i][j]->results.produced;
@@ -2191,7 +2233,6 @@ CpaStatus dcSampleCreateStatefulContextBuffer(Cpa32U buffSize,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-
     *pBuffListArray =
         qaeMemAllocNUMA((sizeof(CpaBufferList)), nodeId, BYTE_ALIGNMENT_64);
     if (NULL == (*pBuffListArray))
@@ -2285,7 +2326,6 @@ void freeBuffers(CpaBufferList ***pBuffListArray,
                  compression_test_params_t *setup)
 {
     Cpa32U i = 0, j = 0;
-
 
     if (NULL == pBuffListArray)
     {
@@ -2402,7 +2442,6 @@ void freeResults(CpaDcRqResults ***ppDcResult,
 {
     Cpa32U i = 0, j = 0;
 
-
     if (NULL == ppDcResult)
     {
         /* Return Silent */
@@ -2434,7 +2473,6 @@ void freeCbTags(dc_callbacktag_t ***callbackTag,
 {
     Cpa32U i = 0, j = 0;
 
-
     if (NULL == callbackTag)
     {
         /* Return Silent */
@@ -2460,8 +2498,6 @@ void freeCbTags(dc_callbacktag_t ***callbackTag,
     }
     qaeMemFreeNUMA((void **)&callbackTag);
 }
-
-
 
 CpaStatus sampleRemoveDcDpSession(CpaInstanceHandle dcInstance,
                                   CpaDcSessionHandle pSessionHandle)

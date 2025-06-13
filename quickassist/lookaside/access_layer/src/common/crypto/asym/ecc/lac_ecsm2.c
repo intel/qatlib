@@ -49,7 +49,7 @@
  * @lld_start
  *
  * @lld_overview
- * This file implements SM2 api funcitons.
+ * This file implements SM2 api functions.
  * @lld_dependencies
  * - \ref LacAsymCommonQatComms "PKE QAT Comms" : For creating and sending
  * messages to the QAT
@@ -87,13 +87,13 @@
 #include "icp_accel_devices.h"
 #include "icp_adf_debug.h"
 
-/* QAT includes */
+/* QAT Includes */
 #include "icp_qat_fw_la.h"
 #include "icp_qat_fw_mmp.h"
 #include "icp_qat_fw_mmp_ids.h"
 #include "icp_qat_fw_pke.h"
 
-/* Look Aside Includes */
+/* Lookaside Includes */
 #include "lac_log.h"
 #include "lac_common.h"
 #include "lac_mem.h"
@@ -145,27 +145,27 @@
         }                                                                      \
     } while (0)
 /**< @ingroup Lac_Ec
- * macro to collect a ECDSA stat in sample period of performance counters */
+ * macro to collect an ECDSA stat in sample period of performance counters */
 
 #if defined(COUNTERS) && !defined(DISABLE_STATS)
 
-#define LAC_ECSM2_TIMESTAMP_BEGIN(pCbData, OperationDir, instanceHandle)       \
-    LacEcsm2_StatsBegin(pCbData, OperationDir, instanceHandle);
+#define LAC_ECSM2_TIMESTAMP_BEGIN(pCbData, operationDir, instanceHandle)       \
+    LacEcsm2_StatsBegin(pCbData, operationDir, instanceHandle);
 
-#define LAC_ECSM2_TIMESTAMP_END(pCbData, OperationDir, instanceHandle)         \
-    LacEcsm2_StatsEnd(pCbData, OperationDir, instanceHandle);
+#define LAC_ECSM2_TIMESTAMP_END(pCbData, operationDir, instanceHandle)         \
+    LacEcsm2_StatsEnd(pCbData, operationDir, instanceHandle);
 
 void LacEcsm2_StatsBegin(void *pCbData,
-                         ecsm2_request_type_t OperationDir,
+                         ecsm2_request_type_t operationDir,
                          CpaInstanceHandle instanceHandle);
 
 void LacEcsm2_StatsEnd(void *pCbData,
-                       ecsm2_request_type_t OperationDir,
+                       ecsm2_request_type_t operationDir,
                        CpaInstanceHandle instanceHandle);
 
 #else
-#define LAC_ECSM2_TIMESTAMP_BEGIN(pCbData, OperationDir, instanceHandle)
-#define LAC_ECSM2_TIMESTAMP_END(pCbData, OperationDir, instanceHandle)
+#define LAC_ECSM2_TIMESTAMP_BEGIN(pCbData, operationDir, instanceHandle)
+#define LAC_ECSM2_TIMESTAMP_END(pCbData, operationDir, instanceHandle)
 #endif
 
 /*
@@ -177,13 +177,13 @@ void LacEcsm2_StatsEnd(void *pCbData,
  ***************************************************************************
  * @ingroup Lac_Ecsm2
  *      return the size in bytes of biggest number in
- *CpaCyEcsm2PointMultiplyOpData
+ *      CpaCyEcsm2PointMultiplyOpData
  *
  * @description
  *      return the size of the biggest number in
  *      CpaCyEcsm2PointMultiplyOpData.
  *
- * @param[in]  pOpData      Pointer to a CpaCyEcsm2PointMultiplyOpData structure
+ * @param[in]  pOpData  Pointer to a CpaCyEcsm2PointMultiplyOpData structure
  *
  * @retval max  the size in bytes of the biggest number
  *
@@ -193,7 +193,7 @@ LacEcsm2_PointMulOpDataSizeGetMax(const CpaCyEcsm2PointMultiplyOpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->x)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->y)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->k)), max);
@@ -205,7 +205,7 @@ STATIC Cpa32U LacEcsm2_GeneratorMulOpDataSizeGetMax(
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->k)), max);
     return max;
 }
@@ -215,7 +215,7 @@ LacEcsm2_PointVerifyOpDataSizeGetMax(const CpaCyEcsm2PointVerifyOpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->x)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->y)), max);
     return max;
@@ -225,7 +225,7 @@ STATIC Cpa32U LacEcsm2_SignOpDataSizeGetMax(const CpaCyEcsm2SignOpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->k)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->e)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->d)), max);
@@ -237,7 +237,7 @@ LacEcsm2_VerifyOpDataSizeGetMax(const CpaCyEcsm2VerifyOpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->e)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->r)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->s)), max);
@@ -251,7 +251,7 @@ LacEcsm2_EncOpDataSizeGetMax(const CpaCyEcsm2EncryptOpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->k)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->xP)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->yP)), max);
@@ -263,7 +263,7 @@ LacEcsm2_DecOpDataSizeGetMax(const CpaCyEcsm2DecryptOpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->d)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->x1)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->y1)), max);
@@ -275,7 +275,7 @@ LacEcsm2_KeyExPhase1OpDataSizeGetMax(const CpaCyEcsm2KeyExPhase1OpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->r)), max);
     return max;
 }
@@ -285,7 +285,7 @@ LacEcsm2_KeyExPhase2OpDataSizeGetMax(const CpaCyEcsm2KeyExPhase2OpData *pOpData)
 {
     Cpa32U max = 0;
 
-    /* need to find max size in bytes of number in input buffers */
+    /* Get maximal size in bytes with number of input buffers */
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->r)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->d)), max);
     max = LAC_MAX(LacPke_GetMinBytes(&(pOpData->x1)), max);
@@ -314,10 +314,9 @@ STATIC CpaStatus LacEcsm2_SignSyn(const CpaInstanceHandle instanceHandle,
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status =
             cpaCyEcsm2Sign(instanceHandle,
                            (CpaCyEcsm2SignCbFunc)LacSync_GenDualFlatBufVerifyCb,
@@ -347,8 +346,8 @@ STATIC CpaStatus LacEcsm2_SignSyn(const CpaInstanceHandle instanceHandle,
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -372,10 +371,9 @@ STATIC CpaStatus LacEcsm2_VerifySyn(const CpaInstanceHandle instanceHandle,
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the generic synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the generic synchronous callback
+         * function as a parameter. */
         status = cpaCyEcsm2Verify(instanceHandle,
                                   (CpaCyEcsm2VerifyCbFunc)LacSync_GenVerifyCb,
                                   pSyncCallbackData,
@@ -403,8 +401,8 @@ STATIC CpaStatus LacEcsm2_VerifySyn(const CpaInstanceHandle instanceHandle,
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -431,10 +429,9 @@ STATIC CpaStatus LacEcsm2_PointMultiplySyn(
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status = cpaCyEcsm2PointMultiply(
             instanceHandle,
             (CpaCyEcPointMultiplyCbFunc)LacSync_GenDualFlatBufVerifyCb,
@@ -464,8 +461,8 @@ STATIC CpaStatus LacEcsm2_PointMultiplySyn(
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -492,10 +489,9 @@ STATIC CpaStatus LacEcsm2_GenMultiplySyn(
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status = cpaCyEcsm2GeneratorMultiply(
             instanceHandle,
             (CpaCyEcPointMultiplyCbFunc)LacSync_GenDualFlatBufVerifyCb,
@@ -525,8 +521,8 @@ STATIC CpaStatus LacEcsm2_GenMultiplySyn(
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -550,10 +546,9 @@ LacEcsm2_PointVerifySyn(const CpaInstanceHandle instanceHandle,
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the generic synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the generic synchronous callback
+         * function as a parameter. */
         status =
             cpaCyEcsm2PointVerify(instanceHandle,
                                   (CpaCyEcPointVerifyCbFunc)LacSync_GenVerifyCb,
@@ -582,8 +577,8 @@ LacEcsm2_PointVerifySyn(const CpaInstanceHandle instanceHandle,
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -607,10 +602,9 @@ STATIC CpaStatus LacEcsm2_EncSyn(const CpaInstanceHandle instanceHandle,
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status = cpaCyEcsm2Encrypt(instanceHandle,
                                    (CpaCyGenFlatBufCbFunc)LacSync_GenFlatBufCb,
                                    pSyncCallbackData,
@@ -635,8 +629,8 @@ STATIC CpaStatus LacEcsm2_EncSyn(const CpaInstanceHandle instanceHandle,
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -660,10 +654,9 @@ STATIC CpaStatus LacEcsm2_DecSyn(const CpaInstanceHandle instanceHandle,
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status = cpaCyEcsm2Decrypt(instanceHandle,
                                    (CpaCyGenFlatBufCbFunc)LacSync_GenFlatBufCb,
                                    pSyncCallbackData,
@@ -689,8 +682,8 @@ STATIC CpaStatus LacEcsm2_DecSyn(const CpaInstanceHandle instanceHandle,
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -715,10 +708,9 @@ STATIC CpaStatus LacEcsm2_KeyexPhase1Syn(
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status =
             cpaCyEcsm2KeyExPhase1(instanceHandle,
                                   (CpaCyGenFlatBufCbFunc)LacSync_GenFlatBufCb,
@@ -744,8 +736,8 @@ STATIC CpaStatus LacEcsm2_KeyexPhase1Syn(
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -770,10 +762,9 @@ STATIC CpaStatus LacEcsm2_KeyexPhase2Syn(
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
     if (CPA_STATUS_SUCCESS == status)
     {
-        /*
-         * Call the asynchronous version of the function
-         * with the synchronous callback function as a parameter.
-         */
+        /* Call the asynchronous version of the function
+         * with the synchronous callback
+         * function as a parameter. */
         status =
             cpaCyEcsm2KeyExPhase2(instanceHandle,
                                   (CpaCyGenFlatBufCbFunc)LacSync_GenFlatBufCb,
@@ -799,8 +790,8 @@ STATIC CpaStatus LacEcsm2_KeyexPhase2Syn(
     else
     {
         /* As the Request was not sent the Callback will never
-         * be called, so need to indicate that we're finished
-         * with cookie so it can be destroyed. */
+         * be called, so need to indicate that we are finished
+         * with cookie so that it can be destroyed. */
         LacSync_SetSyncCookieComplete(pSyncCallbackData);
     }
 
@@ -822,7 +813,8 @@ STATIC void LacEcsm2_SignCb(CpaStatus status,
     CpaCyEcsm2SignOpData *pOpData = NULL;
     CpaFlatBuffer *pR = NULL;
     CpaFlatBuffer *pS = NULL;
-    /* extract info from callback data structure */
+
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -834,7 +826,7 @@ STATIC void LacEcsm2_SignCb(CpaStatus status,
     sal_crypto_service_t *pCryptoService =
         (sal_crypto_service_t *)instanceHandle;
 
-    /* increment Sign stats */
+    /* Increment Sign stats */
     LAC_ECSM2_TIMESTAMP_END(pCbData, LAC_ECSM2_SIGN_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -849,7 +841,7 @@ STATIC void LacEcsm2_SignCb(CpaStatus status,
         LAC_ECSM2_STAT_INC(numEcsm2SignCompletedOutputInvalid, pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, signStatus, pR, pS);
 }
 
@@ -871,14 +863,14 @@ STATIC void LacEcsm2_VerifyCb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
     pCb = (CpaCyEcsm2VerifyCbFunc)LAC_CONST_PTR_CAST(pCbData->pClientCb);
 
 #ifndef DISABLE_STATS
-    /* increment Verify stats */
+    /* Increment Verify stats */
     LAC_ECSM2_TIMESTAMP_END(pCbData, LAC_ECSM2_VERIFY_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -895,7 +887,7 @@ STATIC void LacEcsm2_VerifyCb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, verifyStatus);
 }
 
@@ -917,7 +909,7 @@ STATIC void LacEcsm2_EncCb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -926,7 +918,7 @@ STATIC void LacEcsm2_EncCb(CpaStatus status,
     LAC_ASSERT_NOT_NULL(pOutData);
 
 #ifndef DISABLE_STATS
-    /* increment Enc stats */
+    /* Increment Enc stats */
     LAC_ECSM2_TIMESTAMP_END(pCbData, LAC_ECSM2_ENC_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -942,7 +934,7 @@ STATIC void LacEcsm2_EncCb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, (void *)pOutData);
 }
 
@@ -965,7 +957,7 @@ STATIC void LacEcsm2_DecCb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -974,7 +966,7 @@ STATIC void LacEcsm2_DecCb(CpaStatus status,
     LAC_ASSERT_NOT_NULL(pOutData);
 
 #ifndef DISABLE_STATS
-    /* increment Decrypt stats */
+    /* Increment Decrypt stats */
     LAC_ECSM2_TIMESTAMP_END(pCbData, LAC_ECSM2_DEC_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -991,7 +983,7 @@ STATIC void LacEcsm2_DecCb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, (void *)pOutData);
 }
 
@@ -1013,7 +1005,7 @@ STATIC void LacEcsm2_KeyExPhase1Cb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -1022,7 +1014,7 @@ STATIC void LacEcsm2_KeyExPhase1Cb(CpaStatus status,
     LAC_ASSERT_NOT_NULL(pOutData);
 
 #ifndef DISABLE_STATS
-    /* increment Key Exchange Phase1 stats */
+    /* Increment Key Exchange Phase1 stats */
     LAC_ECSM2_TIMESTAMP_END(
         pCbData, LAC_ECSM2_KEY_EXCHANGE_P1_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
@@ -1039,7 +1031,7 @@ STATIC void LacEcsm2_KeyExPhase1Cb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, (void *)pOutData);
 }
 
@@ -1061,7 +1053,7 @@ STATIC void LacEcsm2_KeyExPhase2Cb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -1070,7 +1062,7 @@ STATIC void LacEcsm2_KeyExPhase2Cb(CpaStatus status,
     LAC_ASSERT_NOT_NULL(pOutData);
 
 #ifndef DISABLE_STATS
-    /* increment Key Exchange Phase 2 stats */
+    /* Increment Key Exchange Phase 2 stats */
     LAC_ECSM2_TIMESTAMP_END(
         pCbData, LAC_ECSM2_KEY_EXCHANGE_P2_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
@@ -1087,7 +1079,7 @@ STATIC void LacEcsm2_KeyExPhase2Cb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, (void *)pOutData);
 }
 
@@ -1110,7 +1102,7 @@ STATIC void LacEcsm2_PointMulCb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -1121,7 +1113,7 @@ STATIC void LacEcsm2_PointMulCb(CpaStatus status,
     LAC_ASSERT_NOT_NULL(pYk);
 
 #ifndef DISABLE_STATS
-    /* increment Point Multiply stats */
+    /* Increment Point Multiply stats */
     LAC_ECSM2_TIMESTAMP_END(
         pCbData, LAC_ECSM2_POINT_MULTIPLY_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
@@ -1138,7 +1130,7 @@ STATIC void LacEcsm2_PointMulCb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, multiplyStatus, pXk, pYk);
 }
 
@@ -1161,7 +1153,7 @@ STATIC void LacEcsm2_GenMulCb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
@@ -1172,7 +1164,7 @@ STATIC void LacEcsm2_GenMulCb(CpaStatus status,
     LAC_ASSERT_NOT_NULL(pYk);
 
 #ifndef DISABLE_STATS
-    /* increment Point Generator stats */
+    /* Increment Point Generator stats */
     LAC_ECSM2_TIMESTAMP_END(
         pCbData, LAC_ECSM2_GEN_POINT_MULTIPLY_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
@@ -1190,7 +1182,7 @@ STATIC void LacEcsm2_GenMulCb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, multiplyStatus, pXk, pYk);
 }
 
@@ -1211,14 +1203,14 @@ STATIC void LacEcsm2_PointVerifyCb(CpaStatus status,
         (sal_crypto_service_t *)instanceHandle;
 #endif
 
-    /* extract info from callback data structure */
+    /* Extract info from callback data structure */
     LAC_ASSERT_NOT_NULL(pCbData);
     pCallbackTag = pCbData->pCallbackTag;
     pOpData = (void *)LAC_CONST_PTR_CAST(pCbData->pClientOpData);
     pCb = (CpaCyEcPointVerifyCbFunc)LAC_CONST_PTR_CAST(pCbData->pClientCb);
 
 #ifndef DISABLE_STATS
-    /* increment Point Verify stats */
+    /* Increment Point Verify stats */
     LAC_ECSM2_TIMESTAMP_END(
         pCbData, LAC_ECSM2_POINT_VERIFY_REQUEST, instanceHandle);
     if (CPA_STATUS_SUCCESS == status)
@@ -1235,7 +1227,7 @@ STATIC void LacEcsm2_PointVerifyCb(CpaStatus status,
                            pCryptoService);
     }
 #endif
-    /* invoke the user callback */
+    /* Invoke the user callback */
     pCb(pCallbackTag, status, pOpData, verifyStatus);
 }
 
@@ -1247,14 +1239,21 @@ STATIC void LacEcsm2_PointVerifyCb(CpaStatus status,
 STATIC CpaStatus
 LacEcsm2_HwCapabilityCheck(const CpaInstanceHandle instanceHandle)
 {
-    CpaCyCapabilitiesInfo capInfo;
-    cpaCyQueryCapabilities(instanceHandle, &capInfo);
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaCyCapabilitiesInfo capInfo = { 0 };
+
+    status = cpaCyQueryCapabilities(instanceHandle, &capInfo);
+    if (status != CPA_STATUS_SUCCESS)
+    {
+        LAC_LOG_ERROR("Failed to query instance capabilities");
+        return status;
+    }
     if (!capInfo.ecSm2Supported)
     {
         LAC_UNSUPPORTED_PARAM_LOG("Unsupported Algorithm ECSM2");
         return CPA_STATUS_UNSUPPORTED;
     }
-    return CPA_STATUS_SUCCESS;
+    return status;
 }
 
 #ifdef ICP_PARAM_CHECK
@@ -1265,20 +1264,18 @@ LacEcsm2_HwCapabilityCheck(const CpaInstanceHandle instanceHandle)
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus LacEcsm2_PointMultiplyBasicParamCheck(
-    const CpaInstanceHandle instanceHandle,
     const CpaCyEcsm2PointMultiplyOpData *pOpData,
     const CpaBoolean *pMultiplyStatus,
     const CpaFlatBuffer *pXk,
     const CpaFlatBuffer *pYk)
 {
-    /* check for null parameters */
-    LAC_CHECK_NULL_PARAM(instanceHandle);
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pMultiplyStatus);
     LAC_CHECK_NULL_PARAM(pXk);
     LAC_CHECK_NULL_PARAM(pYk);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->k.pData);
     LAC_CHECK_SIZE(&(pOpData->k), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->x.pData);
@@ -1300,19 +1297,18 @@ STATIC CpaStatus LacEcsm2_PointMultiplyBasicParamCheck(
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus LacEcsm2_GenMultiplyBasicParamCheck(
-    const CpaInstanceHandle instanceHandle,
     const CpaCyEcsm2GeneratorMultiplyOpData *pOpData,
     const CpaBoolean *pMultiplyStatus,
     const CpaFlatBuffer *pXk,
     const CpaFlatBuffer *pYk)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pMultiplyStatus);
     LAC_CHECK_NULL_PARAM(pXk);
     LAC_CHECK_NULL_PARAM(pYk);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->k.pData);
     LAC_CHECK_SIZE(&(pOpData->k), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pXk->pData);
@@ -1330,15 +1326,14 @@ STATIC CpaStatus LacEcsm2_GenMultiplyBasicParamCheck(
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_PointVerifyBasicParamCheck(const CpaInstanceHandle instanceHandle,
-                                    const CpaCyEcsm2PointVerifyOpData *pOpData,
+LacEcsm2_PointVerifyBasicParamCheck(const CpaCyEcsm2PointVerifyOpData *pOpData,
                                     const CpaBoolean *pVerifyStatus)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pVerifyStatus);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->x.pData);
     LAC_CHECK_SIZE(&(pOpData->x), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->y.pData);
@@ -1354,17 +1349,16 @@ LacEcsm2_PointVerifyBasicParamCheck(const CpaInstanceHandle instanceHandle,
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_SignBasicParamCheck(const CpaInstanceHandle instanceHandle,
-                             const CpaBoolean *pSignStatus,
+LacEcsm2_SignBasicParamCheck(const CpaBoolean *pSignStatus,
                              const CpaCyEcsm2SignOpData *pOpData,
                              CpaFlatBuffer *pR,
                              CpaFlatBuffer *pS)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pSignStatus);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->k.pData);
     LAC_CHECK_SIZE(&(pOpData->k), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->e.pData);
@@ -1388,15 +1382,14 @@ LacEcsm2_SignBasicParamCheck(const CpaInstanceHandle instanceHandle,
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_VerifyBasicParamCheck(const CpaInstanceHandle instanceHandle,
-                               const CpaCyEcsm2VerifyOpData *pOpData,
+LacEcsm2_VerifyBasicParamCheck(const CpaCyEcsm2VerifyOpData *pOpData,
                                const CpaBoolean *pVerifyStatus)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pVerifyStatus);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->e.pData);
     LAC_CHECK_SIZE(&(pOpData->e), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->r.pData);
@@ -1418,14 +1411,13 @@ LacEcsm2_VerifyBasicParamCheck(const CpaInstanceHandle instanceHandle,
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_EncBasicParamCheck(const CpaInstanceHandle instanceHandle,
-                            const CpaCyEcsm2EncryptOpData *pOpData,
+LacEcsm2_EncBasicParamCheck(const CpaCyEcsm2EncryptOpData *pOpData,
                             const CpaCyEcsm2EncryptOutputData *pOut)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->k.pData);
     LAC_CHECK_SIZE(&(pOpData->k), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->xP.pData);
@@ -1452,14 +1444,13 @@ LacEcsm2_EncBasicParamCheck(const CpaInstanceHandle instanceHandle,
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_DecBasicParamCheck(const CpaInstanceHandle instanceHandle,
-                            const CpaCyEcsm2DecryptOpData *pOpData,
+LacEcsm2_DecBasicParamCheck(const CpaCyEcsm2DecryptOpData *pOpData,
                             const CpaCyEcsm2DecryptOutputData *pOut)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->d.pData);
     LAC_CHECK_SIZE(&(pOpData->d), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->x1.pData);
@@ -1482,14 +1473,13 @@ LacEcsm2_DecBasicParamCheck(const CpaInstanceHandle instanceHandle,
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_KeyExPhase1BasicParamCheck(const CpaInstanceHandle instanceHandle,
-                                    const CpaCyEcsm2KeyExPhase1OpData *pOpData,
+LacEcsm2_KeyExPhase1BasicParamCheck(const CpaCyEcsm2KeyExPhase1OpData *pOpData,
                                     const CpaCyEcsm2KeyExOutputData *pOut)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->r.pData);
     LAC_CHECK_SIZE(&(pOpData->r), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOut);
@@ -1508,14 +1498,13 @@ LacEcsm2_KeyExPhase1BasicParamCheck(const CpaInstanceHandle instanceHandle,
  *      parameters (e.g. checks data buffers for NULL and 0 dataLen)
  ***************************************************************************/
 STATIC CpaStatus
-LacEcsm2_KeyExPhase2BasicParamCheck(const CpaInstanceHandle instanceHandle,
-                                    const CpaCyEcsm2KeyExPhase2OpData *pOpData,
+LacEcsm2_KeyExPhase2BasicParamCheck(const CpaCyEcsm2KeyExPhase2OpData *pOpData,
                                     const CpaCyEcsm2KeyExOutputData *pOut)
 {
-    /* check for null parameters */
+    /* Check for null parameters */
     LAC_CHECK_NULL_PARAM(pOpData);
 
-    /* Check flat buffers in pOpData for NULL and dataLen of 0*/
+    /* Check flat buffers in pOpData for NULL and dataLen of 0 */
     LAC_CHECK_NULL_PARAM(pOpData->r.pData);
     LAC_CHECK_SIZE(&(pOpData->r), CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pOpData->d.pData);
@@ -1560,22 +1549,22 @@ CpaStatus cpaCyEcsm2PointMultiply(
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -1586,30 +1575,29 @@ CpaStatus cpaCyEcsm2PointMultiply(
             instanceHandle, pEcsm2PointMulOpData, pMultiplyStatus, pXk, pYk);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
+    /* Parameter check - NULL params, buffer lengths etc. */
     status = LacEcsm2_PointMultiplyBasicParamCheck(
-        instanceHandle, pEcsm2PointMulOpData, pMultiplyStatus, pXk, pYk);
-#endif
+        pEcsm2PointMulOpData, pMultiplyStatus, pXk, pYk);
 
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* Determine size - based on input numbers */
-        status = LacEc_GetRange(
-            LacEcsm2_PointMulOpDataSizeGetMax(pEcsm2PointMulOpData),
-            &dataOperationSizeBytes);
-    }
-    if (CPA_STATUS_SUCCESS == status)
+    if (status == CPA_STATUS_SUCCESS)
     {
         /* Check that output buffers are big enough
-         * for SM2 algorithm, the length is fixed
-         * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
-         */
+         * for SM2 algorithm, the length is fixed,
+         * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes) */
         if ((pXk->dataLenInBytes < LAC_EC_SM2_SIZE_BYTES) ||
             (pYk->dataLenInBytes < LAC_EC_SM2_SIZE_BYTES))
         {
             LAC_INVALID_PARAM_LOG("Output buffers not big enough");
             status = CPA_STATUS_INVALID_PARAM;
         }
+    }
+#endif
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Determine size - based on input numbers */
+        status = LacEc_GetRange(
+            LacEcsm2_PointMulOpDataSizeGetMax(pEcsm2PointMulOpData),
+            &dataOperationSizeBytes);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -1624,12 +1612,12 @@ CpaStatus cpaCyEcsm2PointMultiply(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -1715,7 +1703,7 @@ CpaStatus cpaCyEcsm2PointMultiply(
 
 #ifndef DISABLE_STATS
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
-    /* increment stats */
+    /* Increment stats */
     if (CPA_STATUS_SUCCESS == status)
     {
         LAC_ECSM2_STAT_INC(numEcsm2PointMultiplyRequests, pCryptoService);
@@ -1749,22 +1737,22 @@ CpaStatus cpaCyEcsm2GeneratorMultiply(
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -1775,24 +1763,14 @@ CpaStatus cpaCyEcsm2GeneratorMultiply(
             instanceHandle, pEcsm2GenMulOpData, pMultiplyStatus, pXk, pYk);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
+    /* Parameter check - NULL params, buffer lengths etc. */
     status = LacEcsm2_GenMultiplyBasicParamCheck(
-        instanceHandle, pEcsm2GenMulOpData, pMultiplyStatus, pXk, pYk);
-#endif
+        pEcsm2GenMulOpData, pMultiplyStatus, pXk, pYk);
 
     /* Check that output buffers are big enough
-     * for SM2 algorithm, the length is fixed
+     * for SM2 algorithm, the length is fixed,
      * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
      */
-
-    /* Determine size - based on input numbers */
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        status = LacEc_GetRange(
-            LacEcsm2_GeneratorMulOpDataSizeGetMax(pEcsm2GenMulOpData),
-            &dataOperationSizeBytes);
-    }
-
     if (CPA_STATUS_SUCCESS == status)
     {
         if ((pXk->dataLenInBytes < LAC_EC_SM2_SIZE_BYTES) ||
@@ -1801,6 +1779,14 @@ CpaStatus cpaCyEcsm2GeneratorMultiply(
             LAC_INVALID_PARAM_LOG("Output buffers not big enough");
             status = CPA_STATUS_INVALID_PARAM;
         }
+    }
+#endif
+    /* Determine size - based on input numbers */
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        status = LacEc_GetRange(
+            LacEcsm2_GeneratorMulOpDataSizeGetMax(pEcsm2GenMulOpData),
+            &dataOperationSizeBytes);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -1815,12 +1801,12 @@ CpaStatus cpaCyEcsm2GeneratorMultiply(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -1888,7 +1874,7 @@ CpaStatus cpaCyEcsm2GeneratorMultiply(
 
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2GeneratorMultiplyRequests,
@@ -1922,22 +1908,22 @@ CpaStatus cpaCyEcsm2PointVerify(
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -1948,9 +1934,9 @@ CpaStatus cpaCyEcsm2PointVerify(
             instanceHandle, pEcsm2PointVerifyOpData, pPointVerifyStatus);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_PointVerifyBasicParamCheck(
-        instanceHandle, pEcsm2PointVerifyOpData, pPointVerifyStatus);
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status = LacEcsm2_PointVerifyBasicParamCheck(pEcsm2PointVerifyOpData,
+                                                 pPointVerifyStatus);
 #endif
 
     if (CPA_STATUS_SUCCESS == status)
@@ -1972,12 +1958,12 @@ CpaStatus cpaCyEcsm2PointVerify(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2030,7 +2016,7 @@ CpaStatus cpaCyEcsm2PointVerify(
 
 #ifndef DISABLE_STATS
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
-    /* increment stats */
+    /* Increment stats */
     if (CPA_STATUS_SUCCESS == status)
     {
         LAC_ECSM2_STAT_INC(numEcsm2PointVerifyRequests, pCryptoService);
@@ -2062,22 +2048,22 @@ CpaStatus cpaCyEcsm2Sign(const CpaInstanceHandle instanceHandle_in,
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -2088,22 +2074,14 @@ CpaStatus cpaCyEcsm2Sign(const CpaInstanceHandle instanceHandle_in,
             instanceHandle, pEcsm2SignOpData, pSignStatus, pR, pS);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_SignBasicParamCheck(
-        instanceHandle, pSignStatus, pEcsm2SignOpData, pR, pS);
-#endif
-
-    /* Determine size - based on input numbers */
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        status = LacEc_GetRange(LacEcsm2_SignOpDataSizeGetMax(pEcsm2SignOpData),
-                                &dataOperationSizeBytes);
-    }
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status =
+        LacEcsm2_SignBasicParamCheck(pSignStatus, pEcsm2SignOpData, pR, pS);
 
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Check that output buffers are big enough
-         * for SM2 algorithm, the length is fixed
+         * for SM2 algorithm, the length is fixed,
          * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
          */
         if ((pR->dataLenInBytes < LAC_EC_SM2_SIZE_BYTES) ||
@@ -2112,6 +2090,13 @@ CpaStatus cpaCyEcsm2Sign(const CpaInstanceHandle instanceHandle_in,
             LAC_INVALID_PARAM_LOG("Output buffers not big enough");
             status = CPA_STATUS_INVALID_PARAM;
         }
+    }
+#endif
+    /* Determine size - based on input numbers */
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        status = LacEc_GetRange(LacEcsm2_SignOpDataSizeGetMax(pEcsm2SignOpData),
+                                &dataOperationSizeBytes);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -2126,12 +2111,12 @@ CpaStatus cpaCyEcsm2Sign(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2203,7 +2188,7 @@ CpaStatus cpaCyEcsm2Sign(const CpaInstanceHandle instanceHandle_in,
 
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2SignRequests, pCryptoService);
@@ -2234,22 +2219,22 @@ CpaStatus cpaCyEcsm2Verify(const CpaInstanceHandle instanceHandle_in,
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -2260,9 +2245,8 @@ CpaStatus cpaCyEcsm2Verify(const CpaInstanceHandle instanceHandle_in,
             instanceHandle, pEcsm2VerifyOpData, pVerifyStatus);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_VerifyBasicParamCheck(
-        instanceHandle, pEcsm2VerifyOpData, pVerifyStatus);
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status = LacEcsm2_VerifyBasicParamCheck(pEcsm2VerifyOpData, pVerifyStatus);
 #endif
 
     if (CPA_STATUS_SUCCESS == status)
@@ -2284,12 +2268,12 @@ CpaStatus cpaCyEcsm2Verify(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2360,7 +2344,7 @@ CpaStatus cpaCyEcsm2Verify(const CpaInstanceHandle instanceHandle_in,
                                           instanceHandle);
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2VerifyRequests, pCryptoService);
@@ -2391,22 +2375,22 @@ CpaStatus cpaCyEcsm2Encrypt(const CpaInstanceHandle instanceHandle_in,
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -2417,22 +2401,12 @@ CpaStatus cpaCyEcsm2Encrypt(const CpaInstanceHandle instanceHandle_in,
             instanceHandle, pEcsm2EncOpData, pEcsm2EncOutputData);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_EncBasicParamCheck(
-        instanceHandle, pEcsm2EncOpData, pEcsm2EncOutputData);
-#endif
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* Determine size - based on input numbers */
-        status = LacEc_GetRange(LacEcsm2_EncOpDataSizeGetMax(pEcsm2EncOpData),
-                                &dataOperationSizeBytes);
-    }
-
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status = LacEcsm2_EncBasicParamCheck(pEcsm2EncOpData, pEcsm2EncOutputData);
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Check that output buffers are big enough
-         * for SM2 algorithm, the length is fixed
+         * for SM2 algorithm, the length is fixed,
          * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
          */
         if ((pEcsm2EncOutputData->x1.dataLenInBytes < LAC_EC_SM2_SIZE_BYTES) ||
@@ -2443,6 +2417,13 @@ CpaStatus cpaCyEcsm2Encrypt(const CpaInstanceHandle instanceHandle_in,
             LAC_INVALID_PARAM_LOG("Output buffers not big enough");
             status = CPA_STATUS_INVALID_PARAM;
         }
+    }
+#endif
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Determine size - based on input numbers */
+        status = LacEc_GetRange(LacEcsm2_EncOpDataSizeGetMax(pEcsm2EncOpData),
+                                &dataOperationSizeBytes);
     }
 
     if (CPA_STATUS_SUCCESS == status)
@@ -2457,12 +2438,12 @@ CpaStatus cpaCyEcsm2Encrypt(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2549,7 +2530,7 @@ CpaStatus cpaCyEcsm2Encrypt(const CpaInstanceHandle instanceHandle_in,
 
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2EncryptRequests, pCryptoService);
@@ -2580,22 +2561,22 @@ CpaStatus cpaCyEcsm2Decrypt(const CpaInstanceHandle instanceHandle_in,
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -2606,21 +2587,12 @@ CpaStatus cpaCyEcsm2Decrypt(const CpaInstanceHandle instanceHandle_in,
             instanceHandle, pEcsm2DecOpData, pEcsm2DecOutputData);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_DecBasicParamCheck(
-        instanceHandle, pEcsm2DecOpData, pEcsm2DecOutputData);
-#endif
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* Determine size - based on input numbers */
-        status = LacEc_GetRange(LacEcsm2_DecOpDataSizeGetMax(pEcsm2DecOpData),
-                                &dataOperationSizeBytes);
-    }
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status = LacEcsm2_DecBasicParamCheck(pEcsm2DecOpData, pEcsm2DecOutputData);
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Check that output buffers are big enough
-         * for SM2 algorithm, the length is fixed
+         * for SM2 algorithm, the length is fixed,
          * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
          */
         if ((pEcsm2DecOutputData->x2.dataLenInBytes < LAC_EC_SM2_SIZE_BYTES) ||
@@ -2630,6 +2602,14 @@ CpaStatus cpaCyEcsm2Decrypt(const CpaInstanceHandle instanceHandle_in,
             status = CPA_STATUS_INVALID_PARAM;
         }
     }
+#endif
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Determine size - based on input numbers */
+        status = LacEc_GetRange(LacEcsm2_DecOpDataSizeGetMax(pEcsm2DecOpData),
+                                &dataOperationSizeBytes);
+    }
+
     if (CPA_STATUS_SUCCESS == status)
     {
         if (CPA_CY_EC_FIELD_TYPE_PRIME == pEcsm2DecOpData->fieldType)
@@ -2642,12 +2622,12 @@ CpaStatus cpaCyEcsm2Decrypt(const CpaInstanceHandle instanceHandle_in,
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2720,7 +2700,7 @@ CpaStatus cpaCyEcsm2Decrypt(const CpaInstanceHandle instanceHandle_in,
 
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2DecryptRequests, pCryptoService);
@@ -2752,22 +2732,22 @@ CpaStatus cpaCyEcsm2KeyExPhase1(
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -2779,22 +2759,13 @@ CpaStatus cpaCyEcsm2KeyExPhase1(
                                        pEcsm2KeyExPhase1OutputData);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_KeyExPhase1BasicParamCheck(
-        instanceHandle, pEcsm2KeyExPhase1OpData, pEcsm2KeyExPhase1OutputData);
-#endif
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* Determine size - based on input numbers */
-        status = LacEc_GetRange(
-            LacEcsm2_KeyExPhase1OpDataSizeGetMax(pEcsm2KeyExPhase1OpData),
-            &dataOperationSizeBytes);
-    }
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status = LacEcsm2_KeyExPhase1BasicParamCheck(pEcsm2KeyExPhase1OpData,
+                                                 pEcsm2KeyExPhase1OutputData);
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Check that output buffers are big enough
-         * for SM2 algorithm, the length is fixed
+         * for SM2 algorithm, the length is fixed,
          * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
          */
         if ((pEcsm2KeyExPhase1OutputData->x.dataLenInBytes <
@@ -2806,6 +2777,15 @@ CpaStatus cpaCyEcsm2KeyExPhase1(
             status = CPA_STATUS_INVALID_PARAM;
         }
     }
+#endif
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Determine size - based on input numbers */
+        status = LacEc_GetRange(
+            LacEcsm2_KeyExPhase1OpDataSizeGetMax(pEcsm2KeyExPhase1OpData),
+            &dataOperationSizeBytes);
+    }
+
     if (CPA_STATUS_SUCCESS == status)
     {
         if (CPA_CY_EC_FIELD_TYPE_PRIME == pEcsm2KeyExPhase1OpData->fieldType)
@@ -2818,12 +2798,12 @@ CpaStatus cpaCyEcsm2KeyExPhase1(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -2882,7 +2862,7 @@ CpaStatus cpaCyEcsm2KeyExPhase1(
                                           instanceHandle);
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2KeyExPhase1Requests, pCryptoService);
@@ -2915,22 +2895,22 @@ CpaStatus cpaCyEcsm2KeyExPhase2(
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaInstanceHandle instanceHandle = instanceHandle_in;
     Cpa32U dataOperationSizeBytes = 0;
-    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = {0};
-    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = {0};
-    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = {CPA_FALSE};
-    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = {CPA_FALSE};
-    icp_qat_fw_mmp_input_param_t inArgList = {.flat_array = {0}};
-    icp_qat_fw_mmp_output_param_t outArgList = {.flat_array = {0}};
+    Cpa32U pInArgSizeList[LAC_MAX_MMP_INPUT_PARAMS] = { 0 };
+    Cpa32U pOutArgSizeList[LAC_MAX_MMP_OUTPUT_PARAMS] = { 0 };
+    CpaBoolean internalMemInList[LAC_MAX_MMP_INPUT_PARAMS] = { CPA_FALSE };
+    CpaBoolean internalMemOutList[LAC_MAX_MMP_OUTPUT_PARAMS] = { CPA_FALSE };
+    icp_qat_fw_mmp_input_param_t inArgList = { .flat_array = { 0 } };
+    icp_qat_fw_mmp_output_param_t outArgList = { .flat_array = { 0 } };
     Cpa32U functionalityId = 0;
-    lac_pke_op_cb_data_t cbData = {0};
+    lac_pke_op_cb_data_t cbData = { 0 };
 #ifndef DISABLE_STATS
     sal_crypto_service_t *pCryptoService = NULL;
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
 
-    /* check for HW support */
+    /* Check for HW support */
     LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     /* Check if the API has been called in synchronous mode */
@@ -2942,22 +2922,13 @@ CpaStatus cpaCyEcsm2KeyExPhase2(
                                        pEcsm2KeyExPhase2OutputData);
     }
 #ifdef ICP_PARAM_CHECK
-    /* Basic Param Checking - NULL params, buffer lengths etc. */
-    status = LacEcsm2_KeyExPhase2BasicParamCheck(
-        instanceHandle, pEcsm2KeyExPhase2OpData, pEcsm2KeyExPhase2OutputData);
-#endif
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* Determine size - based on input numbers */
-        status = LacEc_GetRange(
-            LacEcsm2_KeyExPhase2OpDataSizeGetMax(pEcsm2KeyExPhase2OpData),
-            &dataOperationSizeBytes);
-    }
+    /* Parameter check - NULL params, buffer lengths etc. */
+    status = LacEcsm2_KeyExPhase2BasicParamCheck(pEcsm2KeyExPhase2OpData,
+                                                 pEcsm2KeyExPhase2OutputData);
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Check that output buffers are big enough
-         * for SM2 algorithm, the length is fixed
+         * for SM2 algorithm, the length is fixed,
          * equal to LAC_EC_SM2_SIZE_BYTES (32 bytes)
          */
         if ((pEcsm2KeyExPhase2OutputData->x.dataLenInBytes <
@@ -2969,6 +2940,15 @@ CpaStatus cpaCyEcsm2KeyExPhase2(
             status = CPA_STATUS_INVALID_PARAM;
         }
     }
+#endif
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Determine size - based on input numbers */
+        status = LacEc_GetRange(
+            LacEcsm2_KeyExPhase2OpDataSizeGetMax(pEcsm2KeyExPhase2OpData),
+            &dataOperationSizeBytes);
+    }
+
     if (CPA_STATUS_SUCCESS == status)
     {
         if (CPA_CY_EC_FIELD_TYPE_PRIME == pEcsm2KeyExPhase2OpData->fieldType)
@@ -2981,12 +2961,12 @@ CpaStatus cpaCyEcsm2KeyExPhase2(
                 case LAC_EC_SIZE_QW8_IN_BYTES:
                 case LAC_EC_SIZE_QW9_IN_BYTES:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
                 default:
                     LAC_INVALID_PARAM_LOG(
-                        "SM2 curves other than GFP P-256 not supported");
+                        "SM2 curves other than GFP P-256 are not supported");
                     status = CPA_STATUS_INVALID_PARAM;
                     break;
             }
@@ -3088,7 +3068,7 @@ CpaStatus cpaCyEcsm2KeyExPhase2(
 
 #ifndef DISABLE_STATS
         pCryptoService = (sal_crypto_service_t *)instanceHandle;
-        /* increment stats */
+        /* Increment stats */
         if (CPA_STATUS_SUCCESS == status)
         {
             LAC_ECSM2_STAT_INC(numEcsm2KeyExPhase2Requests, pCryptoService);
@@ -3114,14 +3094,17 @@ CpaStatus cpaCyEcsm2QueryStats64(const CpaInstanceHandle instanceHandle_in,
              (LAC_ARCH_UINT)pEcsm2Stats);
 #endif
 
-    /* instance checks */
+    /* Instance checks */
     LAC_CHECK_STATUS(LacEc_ValidateInstance(&instanceHandle));
+
+    /* Check for HW support */
+    LAC_CHECK_STATUS(LacEcsm2_HwCapabilityCheck(instanceHandle));
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
 
     LAC_CHECK_NULL_PARAM(pEcsm2Stats);
 
-    /* get stats into user supplied stats structure */
+    /* Get stats into user supplied stats structure */
     LAC_ECSM2_STATS_GET(*pEcsm2Stats, pCryptoService);
 
     return CPA_STATUS_SUCCESS;

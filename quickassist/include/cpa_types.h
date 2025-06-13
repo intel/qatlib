@@ -85,24 +85,47 @@
 extern "C" {
 #endif
 
-#if defined (__linux__) && defined (__KERNEL__)
+#if defined(__linux__) && defined(__KERNEL__)
 
 /* Linux kernel mode */
 #include <linux/kernel.h>
 #include <linux/types.h>
 
-#else
+#elif defined(__FreeBSD__) && defined(_KERNEL)
+
+/* FreeBSD kernel mode */
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/kernel.h>
+
+#elif defined(_WIN64) && defined(KERNEL_SPACE)
+
+/* Windows kernel mode */
+#include <ntddk.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(WIN32) ||          \
+    defined(_WIN64)
 
 /* Linux, FreeBSD, or Windows user mode */
 #include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#endif
+#elif defined(_WRS_KERNEL)
 
-#if defined (WIN32) || defined (_WIN64)
+/* Wind River VxWorks kernel mode */
+#include <types/vxTypes.h>
+
+#else
+#error Unsupported operating system
+#endif /* OS and mode */
+
+#if defined(WIN32) || defined(_WIN64)
 /* nonstandard extension used : zero-sized array in struct/union */
-#pragma warning (disable: 4200)
+#pragma warning(disable : 4200)
 #endif
 
 typedef uint8_t Cpa8U;
@@ -169,10 +192,9 @@ typedef int64_t Cpa64S;
  *****************************************************************************/
 typedef enum _CpaBoolean
 {
-    CPA_FALSE = (0==1), /**< False value */
-    CPA_TRUE = (1==1) /**< True value */
+    CPA_FALSE = (0 == 1), /**< False value */
+    CPA_TRUE = (1 == 1)   /**< True value */
 } CpaBoolean;
-
 
 /**
  *****************************************************************************
@@ -189,32 +211,30 @@ typedef enum _CpaBoolean
  *      provided to set (see @ref CPA_BITMAP_BIT_SET) and clear (see @ref
  *      CPA_BITMAP_BIT_CLEAR) bits in the bitmap.
  *****************************************************************************/
-#define CPA_BITMAP(name, sizeInBits) \
-        Cpa32U name[((sizeInBits)+31)/32]
+#define CPA_BITMAP(name, sizeInBits) Cpa32U name[((sizeInBits) + 31) / 32]
 
-#define CPA_BITMAP_BIT_TEST(bitmask, bit) \
-        ((bitmask[(bit)/32]) & (0x1 << ((bit)%32)))
+#define CPA_BITMAP_BIT_TEST(bitmask, bit)                                      \
+    ((bitmask[(bit) / 32]) & (0x1 << ((bit) % 32)))
 /**<
  * @ingroup cpa_Types
  * Test a specified bit in the specified bitmap.  The bitmap may have been
  * declared using @ref CPA_BITMAP.  Returns a Boolean (true if the bit is
  * set, false otherwise). */
 
-#define CPA_BITMAP_BIT_SET(bitmask, bit) \
-        (bitmask[(bit)/32] |= (0x1 << ((bit)%32)))
+#define CPA_BITMAP_BIT_SET(bitmask, bit)                                       \
+    (bitmask[(bit) / 32] |= (0x1 << ((bit) % 32)))
 /**<
  * @file cpa_types.h
  * @ingroup cpa_Types
  * Set a specified bit in the specified bitmap.  The bitmap may have been
  * declared using @ref CPA_BITMAP. */
 
-#define CPA_BITMAP_BIT_CLEAR(bitmask, bit) \
-        (bitmask[(bit)/32] &= ~(0x1 << ((bit)%32)))
+#define CPA_BITMAP_BIT_CLEAR(bitmask, bit)                                     \
+    (bitmask[(bit) / 32] &= ~(0x1 << ((bit) % 32)))
 /**<
  * @ingroup cpa_Types
  * Clear a specified bit in the specified bitmap.  The bitmap may have been
  * declared using @ref CPA_BITMAP. */
-
 
 /**
  **********************************************************************
@@ -233,9 +253,10 @@ typedef enum _CpaBoolean
  * functions and other constructs as deprecated.
  */
 /*
- * Uncomment the deprecated macro if you need to see which structs are deprecated
+ * Uncomment the deprecated macro if you need to see which structs are
+ * deprecated
  */
-#define CPA_DEPRECATED 
+#define CPA_DEPRECATED
 /*#define CPA_DEPRECATED __attribute__ ((deprecated)) */
 #else
 /*
@@ -243,9 +264,12 @@ typedef enum _CpaBoolean
  *
  */
 /* #define CPA_DEPRECATED_FUNC(func) func; #pragma deprecated(func) */
-#pragma message("WARNING: You need to implement the CPA_DEPRECATED macro for this compiler")
+#pragma message(                                                               \
+    "WARNING: You need to implement the CPA_DEPRECATED macro for this compiler")
 #define CPA_DEPRECATED
 #endif
+
+#define CPA_BITMASK(bit) (1UL << (bit))
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

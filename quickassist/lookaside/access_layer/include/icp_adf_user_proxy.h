@@ -221,7 +221,6 @@ CpaStatus icp_adf_heartbeatSimulateFailure(Cpa32U packageId);
 
 #endif
 
-
 /*
  * icp_adf_resetDevice
  *

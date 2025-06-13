@@ -81,7 +81,6 @@
 #include "cpa_cy_im.h"
 #include "cpa_dc.h"
 
-
 #ifdef DO_CRYPTO
 #include "cpa_cy_sym.h"
 #endif
@@ -598,7 +597,6 @@ void sampleDcStopPolling(void);
 Cpa64U sampleCoderdtsc(void);
 
 void hexLog(Cpa8U *pData, Cpa32U numBytes, const char *caption);
-
 
 #ifdef __x86_64__
 #define SAMPLE_CODE_UINT Cpa64U

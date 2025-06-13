@@ -506,6 +506,9 @@ EXPORT_SYMBOL(calcEcPoint);
             qaeMemFreeNUMA((void **)&pDigest->pData);                          \
     } while (0)
 
+#ifdef USER_SPACE
+#endif /* USER_SPACE */
+
 CpaStatus ecdsaSignRSOpDataSetup(ecdsa_test_params_t *setup,
                                  CpaFlatBuffer *d,
                                  CpaFlatBuffer *r,
@@ -998,8 +1001,14 @@ static void ecdsaMemFree(ecdsa_test_params_t *setup,
         }
     }
     /* free all memory */
-    qaeMemFreeNUMA((void **)&pX->pData);
-    qaeMemFreeNUMA((void **)&pY->pData);
+    if (NULL != pX && NULL != pX->pData)
+    {
+        qaeMemFreeNUMA((void **)&pX->pData);
+    }
+    if (NULL != pY && NULL != pY->pData)
+    {
+        qaeMemFreeNUMA((void **)&pY->pData);
+    }
     qaeMemFree((void **)&pX);
     qaeMemFree((void **)&pY);
     qaeMemFree((void **)&pR);
@@ -1702,7 +1711,6 @@ barrier:
 }
 EXPORT_SYMBOL(ecdsaPerform);
 
-
 /***************************************************************************
  * @ingroup cryptoThreads
  *
@@ -1994,3 +2002,4 @@ CpaStatus setupEcdsaTest(Cpa32U nLenInBits,
     ecdsaSetup->step = step;
     return CPA_STATUS_SUCCESS;
 }
+

@@ -701,7 +701,6 @@ static CpaStatus drbgPerform(drbg_test_params_t *setup)
     CpaCyDrbgSessionSetupData *pSessionSetupData;
     Cpa32U numSessions;
 
-
     if (NULL == setup)
     {
         PRINT_ERR("Setup Pointer is NULL\n");

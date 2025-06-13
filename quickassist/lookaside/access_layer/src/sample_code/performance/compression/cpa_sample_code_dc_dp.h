@@ -106,7 +106,7 @@
  *  @param[in]  compLevel       compression Level
  *  @param[in]  HuffmanType     HuffMantype Dynamic/static
  *  @param[in]  testBuffersize  size of the flat Buffer to use
- *  @parma[in]  corpusType      type of corpus Calgary/Canterbury corpus
+ *  @param[in]  corpusType      type of corpus Calgary/Canterbury corpus
  *  @param[in]  syncFlag        synchronous/Asynchronous operation
  *  @param[in]  dpTestType      If set to DC_DP_BATCHING, then the number of
  *                              requests to batch is set by the numRequests

@@ -117,7 +117,7 @@ CpaStatus SalCtrl_ServiceCreate(sal_service_type_t service,
 * @ingroup SalCtl
 * @description
 *      This macro goes through the 'list' passed in as a parameter. For each
-*      element found in the list, it peforms a cast to the type of the element
+*      element found in the list, it performs a cast to the type of the element
 *      given by the 'type' parameter. Finally, it calls the function given by
 *      the 'function' parameter, passing itself and the device as parameters.
 *
@@ -179,7 +179,7 @@ CpaStatus SalCtrl_ServiceCreate(sal_service_type_t service,
 * @ingroup SalCtl
 * @description
 *      This macro goes through the 'list' passed in as a parameter. For each
-*      element found in the list, it peforms a cast to the type of the element
+*      element found in the list, it performs a cast to the type of the element
 *      given by the 'type' parameter. Finally, it checks the state of the
 *      element and if it is in state 'state_check' then it calls the
 *      function given by the 'function' parameter, passing itself

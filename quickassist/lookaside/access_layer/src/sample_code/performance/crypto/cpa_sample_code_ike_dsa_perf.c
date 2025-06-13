@@ -583,7 +583,6 @@ static CpaStatus genDsaPara(dsa_test_params_t *setup,
     CpaInstanceInfo2 *instanceInfo2 = NULL;
 #endif
 
-
 #ifdef POLL_INLINE
     instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
     if (instanceInfo2 == NULL)
@@ -1023,7 +1022,6 @@ static CpaStatus sampleDsaSign(dsa_test_params_t *setup,
     Cpa32U i = 0;
     CpaStatus status = CPA_STATUS_SUCCESS;
 
-
     for (outerLoop = 0; outerLoop < setup->numLoops; outerLoop++)
     {
         for (i = 0; i < setup->numBuffers; i++)
@@ -1126,7 +1124,6 @@ static CpaStatus dsaZSetup(CpaFlatBuffer **ppPublicValues,
 #ifdef POLL_INLINE
     CpaInstanceInfo2 instanceInfo2 = {0};
 #endif
-
 
 #ifdef POLL_INLINE
     if (poll_inline_g)

@@ -207,12 +207,29 @@ typedef enum
 #define ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_AS_INTMD_BUF_BITPOS 7
 /**< @ingroup icp_qat_fw_comp
  * Starting bit position for flag used to disable secure ram from
-   being used as an intermediate buffer.  */
+ * being used as an intermediate buffer. */
 
 #define ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_AS_INTMD_BUF_MASK 0x1
 /**< @ingroup icp_qat_fw_comp
  * One bit mask for disable secure ram for use as an intermediate
    buffer.  */
+
+#define ICP_QAT_FW_COMP_DICTIONARY_TYPE_BITPOS 24
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for the dictionary type in the dictionary
+   parameters received in the compression request parameters.  */
+#define ICP_QAT_FW_COMP_DICTIONARY_TYPE_MASK 0xFF
+/**< @ingroup icp_qat_fw_comp
+ * One Most Significant Byte mask for the dictionary type in the
+   dictionary parameters received in the compression request parameters.  */
+#define ICP_QAT_FW_COMP_DICTIONARY_LENGTH_BITPOS 0
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for the dictionary length in the dictionary
+   parameters received in the compression request parameters.  */
+#define ICP_QAT_FW_COMP_DICTIONARY_LENGTH_MASK 0xFFFFFF
+/**< @ingroup icp_qat_fw_comp
+ * Three Least Significant Bytes mask for the dictionary length in the
+   dictionary parameters received in the compression request parameters.  */
 
 /**
  ******************************************************************************
@@ -341,6 +358,56 @@ typedef enum
                   ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_AS_INTMD_BUF_MASK)
 
 /**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ *        Macro for extraction of the dictionary type byte
+ *
+ * @param dict_params     LW parameter to extract the dictionary type byte from
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMP_DICTIONARY_TYPE_GET(dict_params)                       \
+    QAT_FIELD_GET(dict_params,                                                 \
+                  ICP_QAT_FW_COMP_DICTIONARY_TYPE_BITPOS,                      \
+                  ICP_QAT_FW_COMP_DICTIONARY_TYPE_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ *        Macro for extraction of the dictionary length byte
+ *
+ * @param dict_params    LW parameter to extract the dictionary type byte from
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMP_DICTIONARY_LEN_GET(dict_params)                        \
+    QAT_FIELD_GET(dict_params,                                                 \
+                  ICP_QAT_FW_COMP_DICTIONARY_LENGTH_BITPOS,                    \
+                  ICP_QAT_FW_COMP_DICTIONARY_LENGTH_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ * Macro used for the generation of the dictionary parameters for compression
+ * request.
+ *
+ * @param dict_type       Dictionary type to be encoded into dictionary
+ *                        parameters
+ * @param dict_len        Dictionary length to be encoded into dictionary
+ *                        parameters
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMP_DICTIONARY_PARAMS_BUILD(dict_type, dict_len)           \
+    (((dict_type & ICP_QAT_FW_COMP_DICTIONARY_TYPE_MASK)                       \
+      << ICP_QAT_FW_COMP_DICTIONARY_TYPE_BITPOS) |                             \
+     ((dict_len & ICP_QAT_FW_COMP_DICTIONARY_LENGTH_MASK)                      \
+      << ICP_QAT_FW_COMP_DICTIONARY_LENGTH_BITPOS))
+
+/**
  *****************************************************************************
  * @ingroup icp_qat_fw_comp
  *        Definition of the compression header cd pars block
@@ -430,7 +497,7 @@ typedef struct icp_qat_fw_comp_req_params_s
     uint32_t req_par_flags;
 
     /**< LW 19 */
-    uint32_t rsrvd;
+    uint32_t dictionary_params;
 
 } icp_qat_fw_comp_req_params_t;
 
@@ -456,9 +523,38 @@ typedef struct icp_qat_fw_comp_req_params_s
  *                            * ICP_QAT_FW_COMP_NO_CNV_DFX
  *                            * ICP_QAT_FW_COMP_CNV_DFX
  * @param crc                CRC Mode Flag - 0 legacy, 1 crc data struct
+ * @param xxhash_acc         xxHash accumulate flag
+ *                            * ICP_QAT_FW_COMP_NO_XXHASH_ACC - xxHash32 is not
+ *                              accumulated across requests
+ *                            * ICP_QAT_FW_COMP_XXHASH_ACC - xxhash32 is
+ *                              accumulated across requests
+ * @param cnv_error_type     CnV error type to inject
+ *                            * ICP_QAT_FW_COMP_CNV_ERROR_CHECKSUM
+ *                               checksum mismatch
+ *                            * ICP_QAT_FW_COMP_CNV_ERROR_DCPR_OBC_DIFF
+ *                               DCPR produced length difference
+ *                            * ICP_QAT_FW_COMP_CNV_ERROR_DCPR
+ *                               DCPR error
+ *                            * ICP_QAT_FW_COMP_CNV_ERROR_XLT
+ *                               Translator error
+ *                            * ICP_QAT_FW_COMP_CNV_ERROR_DCPR_IBC_DIFF
+ *                               DCPR consumed length difference
+ * @param append_crc          Append CRC flag
+ * @param drop_data           Drop the result data
+ * @param partial_decomp      Return only part of the decompressed data
  *****************************************************************************/
-#define ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(                                 \
-    sop, eop, bfinal, cnv, cnvnr, cnvdfx, crc)                                 \
+#define ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(sop,                             \
+                                              eop,                             \
+                                              bfinal,                          \
+                                              cnv,                             \
+                                              cnvnr,                           \
+                                              cnvdfx,                          \
+                                              crc,                             \
+                                              xxhash_acc,                      \
+                                              cnv_error_type,                  \
+                                              append_crc,                      \
+                                              drop_data,                       \
+                                              partial_decomp)                  \
     (((sop & ICP_QAT_FW_COMP_SOP_MASK) << ICP_QAT_FW_COMP_SOP_BITPOS) |        \
      ((eop & ICP_QAT_FW_COMP_EOP_MASK) << ICP_QAT_FW_COMP_EOP_BITPOS) |        \
      ((bfinal & ICP_QAT_FW_COMP_BFINAL_MASK)                                   \
@@ -468,7 +564,17 @@ typedef struct icp_qat_fw_comp_req_params_s
      ((cnvdfx & ICP_QAT_FW_COMP_CNV_DFX_MASK)                                  \
       << ICP_QAT_FW_COMP_CNV_DFX_BITPOS) |                                     \
      ((crc & ICP_QAT_FW_COMP_CRC_MODE_MASK)                                    \
-      << ICP_QAT_FW_COMP_CRC_MODE_BITPOS))
+      << ICP_QAT_FW_COMP_CRC_MODE_BITPOS) |                                    \
+     ((xxhash_acc & ICP_QAT_FW_COMP_XXHASH_ACC_MODE_MASK)                      \
+      << ICP_QAT_FW_COMP_XXHASH_ACC_MODE_BITPOS) |                             \
+     ((cnv_error_type & ICP_QAT_FW_COMP_CNV_ERROR_MASK)                        \
+      << ICP_QAT_FW_COMP_CNV_ERROR_BITPOS) |                                   \
+     ((append_crc & ICP_QAT_FW_COMP_APPEND_CRC_MASK)                           \
+      << ICP_QAT_FW_COMP_APPEND_CRC_BITPOS) |                                  \
+     ((drop_data & ICP_QAT_FW_COMP_DROP_DATA_MASK)                             \
+      << ICP_QAT_FW_COMP_DROP_DATA_BITPOS) |                                   \
+     ((partial_decomp & ICP_QAT_FW_COMP_PARTIAL_DECOMP_MASK)                   \
+      << ICP_QAT_FW_COMP_PARTIAL_DECOMP_BITPOS))
 
 /*
  * REQUEST FLAGS IN REQUEST PARAMETERS COMPRESSION
@@ -515,7 +621,6 @@ typedef enum
     /**< Delimiter type */
 
 } icp_qat_fw_comp_20_cmd_id_t;
-
 
 /*
  *  REQUEST FLAGS IN REQUEST PARAMETERS COMPRESSION
@@ -593,6 +698,35 @@ typedef enum
 /**< @ingroup icp_qat_fw_comp
  *  * Flag indicating that xxHash WILL be accumulated across requests */
 
+#define ICP_QAT_FW_COMP_APPEND_CRC 1
+/**< @ingroup icp_qat_fw_comp
+ * Flag indicating to append CRC to the compressed data
+ * or extract the appended CRC for decompression */
+
+#define ICP_QAT_FW_COMP_NO_APPEND_CRC 0
+/**< @ingroup icp_qat_fw_comp
+ * Flag indicating to not append CRC to the compressed data */
+
+#define ICP_QAT_FW_COMP_DROP_DATA 1
+/**< @ingroup icp_qat_fw_comp
+ * Flag representing to drop the data. The decompressed data
+ * is not returned */
+
+#define ICP_QAT_FW_COMP_NO_DROP_DATA 0
+/**< @ingroup icp_qat_fw_comp
+ * Flag representing to not drop the data. The decompressed data
+ * is returned */
+
+#define ICP_QAT_FW_COMP_NO_PARTIAL_DECOMPRESS 0
+/**< @ingroup icp_qat_fw_comp
+ * Flag representing to not do partial decompression.
+ * The entire decompressed data is returned */
+
+#define ICP_QAT_FW_COMP_PARTIAL_DECOMPRESS 1
+/**< @ingroup icp_qat_fw_comp
+ * Flag representing to do partial decompression. The decompressed
+ * data returned is defined by the offset and length in request */
+
 #define ICP_QAT_FW_COMP_SOP_BITPOS 0
 /**< @ingroup icp_qat_fw_comp
  * Starting bit position for SOP */
@@ -656,6 +790,70 @@ typedef enum
 #define ICP_QAT_FW_COMP_XXHASH_ACC_MODE_MASK 0x1
 /**< @ingroup icp_qat_fw_comp
  * One bit mask used to determine xxHash accumulate mode */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_BITPOS 21
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for CnV error type */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_MASK 0b111
+/**< @ingroup icp_qat_fw_comp
+ * Three bit mask used to determine CnV error type */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_NONE 0b000
+/**< @ingroup icp_qat_fw_comp
+ * The CnV error type for no error */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_CHECKSUM 0b001
+/**< @ingroup icp_qat_fw_comp
+ * The CnV error type for checksum mismatch */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_DCPR_OBC_DIFF 0b010
+/**< @ingroup icp_qat_fw_comp
+ * The CnV error type for DCPR produced length difference */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_DCPR 0b011
+/**< @ingroup icp_qat_fw_comp
+ * The CnV error type for DCPR error */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_XLT 0b100
+/**< @ingroup icp_qat_fw_comp
+ * The CnV error type for translator error */
+
+#define ICP_QAT_FW_COMP_CNV_ERROR_DCPR_IBC_DIFF 0b101
+/**< @ingroup icp_qat_fw_comp
+ * The CnV error type for DCPR consumed length difference */
+
+#define ICP_QAT_FW_COMP_APPEND_CRC_BITPOS 24
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for append CRC flag */
+
+#define ICP_QAT_FW_COMP_APPEND_CRC_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask used to determine if append CRC is enabled */
+
+#define ICP_QAT_FW_COMP_DROP_DATA_BITPOS 25
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position to indicate dropping the return data */
+
+#define ICP_QAT_FW_COMP_DROP_DATA_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask used to determine if data should be returned */
+
+#define ICP_QAT_FW_COMP_PARTIAL_DECOMP_BITPOS 27
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position to indicate partial decompression */
+
+#define ICP_QAT_FW_COMP_PARTIAL_DECOMP_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask used to determine if data should be partially decompressed */
+
+#define ICP_QAT_FW_COMP_LZ4_OUTPUT_CRC_MODE_BITPOS 28
+/**< @ingroup icp_qat_fw_comp
+ * Starting bit position for LZ4 CRC output mode */
+
+#define ICP_QAT_FW_COMP_LZ4_OUTPUT_CRC_MODE_MASK 0x1
+/**< @ingroup icp_qat_fw_comp
+ * One bit mask used to determine LZ4 CRC output mode */
 
 /**
  ******************************************************************************
@@ -756,6 +954,23 @@ typedef enum
                   val,                                                         \
                   ICP_QAT_FW_COMP_XXHASH_ACC_MODE_BITPOS,                      \
                   ICP_QAT_FW_COMP_XXHASH_ACC_MODE_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *
+ * @description
+ *        Macro for setting of the LZ4 output crc mode bit
+ *
+ * @param flags        Flags to set the LZ4 output crc mode bit to
+ * @param val          LZ4 output crc mode to set
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMP_LZ4_OUTPUT_CRC_MODE_SET(flags, val)                    \
+    QAT_FIELD_SET(flags,                                                       \
+                  val,                                                         \
+                  ICP_QAT_FW_COMP_LZ4_OUTPUT_CRC_MODE_BITPOS,                  \
+                  ICP_QAT_FW_COMP_LZ4_OUTPUT_CRC_MODE_MASK)
 
 /**
  ******************************************************************************
@@ -900,7 +1115,15 @@ typedef struct icp_qat_fw_comp_req_s
 
         uint32_t resrvd1[ICP_QAT_FW_NUM_LONGWORDS_2];
         /**< Reserved if not used for translation */
+        struct
+        {
+            uint32_t partial_decompress_length;
+            /**< LW 20 \n Length of the decompressed data to return */
 
+            uint32_t partial_decompress_offset;
+            /**< LW 21 \n Offset of the decompressed data at which to return */
+
+        } partial_decompress;
     } u1;
 
     /**< LWs 22-23 */
@@ -991,6 +1214,32 @@ typedef struct icp_qat_fw_comp_resp_s
     /**< Common response params (checksums and byte counts) */
 
 } icp_qat_fw_comp_resp_t;
+
+/**
+ *****************************************************************************
+ * @ingroup icp_qat_fw_comp
+ *        Definition of the compression dictionary types
+ * @description
+ *        Enumeration which is used to indicate the type of the dictionary
+ *              received for the compression service
+ *
+ *****************************************************************************/
+
+typedef enum
+{
+    ICP_QAT_FW_COMP_DICT_TYPE_NONE = 0,
+    /*!< No Dictionary Mode */
+
+    ICP_QAT_FW_COMP_DICT_TYPE_UNCOMPRESSED = 1,
+    /*!< Uncompressed Dictionary */
+
+    ICP_QAT_FW_COMP_DICT_TYPE_COMPRESSED = 2,
+    /*!< Compressed Dictionary */
+
+    ICP_QAT_FW_COMP_DICT_TYPE_DELIMITER
+    /**< Delimiter type */
+
+} icp_qat_fw_comp_dict_type_t;
 
 /* RAM Bank defines */
 #define QAT_FW_COMP_BANK_FLAG_MASK 0x1

@@ -83,7 +83,6 @@
 #include "icp_qat_fw_comp.h"
 #include "icp_qat_hw.h"
 #include "icp_qat_hw_20_comp.h"
-
 /*
  *******************************************************************************
  * Include private header files
@@ -91,13 +90,231 @@
  */
 #include "dc_session.h"
 #include "dc_datapath.h"
+#include "dc_capabilities.h"
 #include "lac_mem_pools.h"
 #include "sal_types_compression.h"
 #include "lac_buffer_desc.h"
 #include "sal_service_state.h"
 #include "sal_qat_cmn_msg.h"
+#include "dc_crc64.h"
 
 #ifdef ICP_PARAM_CHECK
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Check supported session data
+ *
+ * @description
+ *      Check that all the parameters defined in the pSessionData are
+ *      supported
+ *
+ * @param[in]       pSessionData     Pointer to a user instantiated structure
+ *                                   containing session data
+ * @param[in]       dcInstance       DC Instance Handle
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter
+ *
+ *****************************************************************************/
+STATIC CpaStatus
+dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
+                         CpaInstanceHandle dcInstance)
+{
+    sal_compression_service_t *pCompService =
+        (sal_compression_service_t *)dcInstance;
+    dc_capabilities_t *pDcCapabilities = &pCompService->dc_capabilities;
+    CpaBoolean deflateSupported = CPA_FALSE;
+    CpaBoolean lz4Supported = CPA_FALSE;
+    CpaBoolean lz4sSupported = CPA_FALSE;
+    CpaBoolean staticSupported = CPA_FALSE;
+    CpaBoolean dynamicSupported = CPA_FALSE;
+    Cpa8U huffmanTypeSupport = 0;
+    CpaBoolean asbEnablePref = CPA_FALSE;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    switch (pCompService->generic_service_info.type)
+    {
+        case SAL_SERVICE_TYPE_COMPRESSION:
+            if (CPA_FALSE ==
+                pDcCapabilities->deviceData.compressionServiceSupported)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Dc capability not supported");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            break;
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            if (CPA_FALSE ==
+                pDcCapabilities->deviceData.decompressionServiceSupported)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Decomp capability not supported");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            break;
+        default:
+            LAC_INVALID_PARAM_LOG("Invalid service type for compression");
+            return CPA_STATUS_INVALID_PARAM;
+    }
+
+    deflateSupported = pDcCapabilities->deflate.supported;
+    lz4Supported = pDcCapabilities->lz4.supported;
+    lz4sSupported = pDcCapabilities->lz4s.supported;
+
+    switch (pSessionData->compType)
+    {
+        case CPA_DC_DEFLATE:
+            if (CPA_FALSE == deflateSupported)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Deflate algorithm not supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            /* Retrieve internal capabilities */
+            huffmanTypeSupport = pDcCapabilities->deflate.typeSupport;
+            staticSupported = DC_CAPS_DEFLATE_TYPE_SUPPORT_GET(
+                huffmanTypeSupport,
+                DC_CAPS_DEFLATE_TYPE_STATIC,
+                DC_CAPS_DEFLATE_TYPE_SUPPORTED);
+
+            dynamicSupported = DC_CAPS_DEFLATE_TYPE_SUPPORT_GET(
+                huffmanTypeSupport,
+                DC_CAPS_DEFLATE_TYPE_DYNAMIC,
+                DC_CAPS_DEFLATE_TYPE_SUPPORTED);
+
+            if ((CPA_DC_HT_STATIC == pSessionData->huffType) &&
+                (CPA_FALSE == staticSupported))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Static huffman encoding not supported "
+                    "on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if ((CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType) &&
+                (CPA_FALSE == dynamicSupported))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Dynamic huffman encoding not supported "
+                    "on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->deflate.dirMask & DC_CAPS_COMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Deflate compression direction not "
+                                          "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_DECOMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->deflate.dirMask & DC_CAPS_DECOMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Deflate decompression direction not "
+                                          "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMBINED == pSessionData->sessDirection &&
+                (!(pDcCapabilities->deflate.dirMask & DC_CAPS_COMPRESSION) ||
+                 !(pDcCapabilities->deflate.dirMask & DC_CAPS_DECOMPRESSION)))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Deflate not supported for combined "
+                                          "sessions on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            break;
+        case CPA_DC_LZ4:
+            if (CPA_FALSE == lz4Supported)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "LZ4 algorithm not supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_FALSE == pDcCapabilities->lz4.accumulateXXHash &&
+                CPA_TRUE == pSessionData->accumulateXXHash)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "XXHash32 Accumulate not supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->lz4.dirMask & DC_CAPS_COMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "LZ4 compression direction not supported "
+                    "on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_DECOMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->lz4.dirMask & DC_CAPS_DECOMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("LZ4 decompression direction not "
+                                          "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMBINED == pSessionData->sessDirection &&
+                (!(pDcCapabilities->lz4.dirMask & DC_CAPS_COMPRESSION) ||
+                 !(pDcCapabilities->lz4.dirMask & DC_CAPS_DECOMPRESSION)))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "LZ4 not supported for combined sessions "
+                    "on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            break;
+        case CPA_DC_LZ4S:
+            if (CPA_FALSE == lz4sSupported)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "LZ4s algorithm not supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->lz4s.dirMask & DC_CAPS_COMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("LZ4s compression direction not "
+                                          "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_DECOMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->lz4s.dirMask & DC_CAPS_DECOMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("LZ4s decompression direction not "
+                                          "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMBINED == pSessionData->sessDirection &&
+                (!(pDcCapabilities->lz4s.dirMask & DC_CAPS_COMPRESSION) ||
+                 !(pDcCapabilities->lz4s.dirMask & DC_CAPS_DECOMPRESSION)))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("LZ4s not supported for combined "
+                                          "sessions on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            break;
+        default:
+            LAC_INVALID_PARAM_LOG("Invalid compType value");
+            return CPA_STATUS_INVALID_PARAM;
+    }
+
+    /* Retrieve capability */
+    if (CPA_DC_DIR_COMPRESS == pSessionData->sessDirection)
+    {
+        status = dcGetAsbEnablePrefCapabilityStatus(
+            pDcCapabilities, pSessionData->compType, &asbEnablePref);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+        if ((pSessionData->autoSelectBestHuffmanTree == CPA_DC_ASB_DISABLED) &&
+            (CPA_TRUE == asbEnablePref))
+        {
+            LAC_UNSUPPORTED_PARAM_LOG(
+                "CPA_DC_ASB_DISABLED is not supported.\n");
+            return CPA_STATUS_UNSUPPORTED;
+        }
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
@@ -108,6 +325,7 @@
  *
  * @param[in]       pSessionData     Pointer to a user instantiated structure
  *                                   containing session data
+ * @param[in]       dcInstance       DC Instance Handle
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully
  * @retval CPA_STATUS_FAIL           Function failed to find device
@@ -118,9 +336,20 @@
 CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
                              CpaInstanceHandle dcInstance)
 {
+    CpaStatus status = CPA_STATUS_FAIL;
     CpaDcInstanceCapabilities instanceCapabilities = {0};
+    sal_compression_service_t *pService =
+        (sal_compression_service_t *)dcInstance;
+    dc_capabilities_t *pDcCapabilities = &pService->dc_capabilities;
 
     cpaDcQueryCapabilities(dcInstance, &instanceCapabilities);
+
+    status = dcCheckUnsupportedParams(pSessionData, dcInstance);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_INVALID_PARAM_LOG("Trying to set unsupported features");
+        return status;
+    }
 
     if ((pSessionData->compLevel < CPA_DC_L1) ||
         (pSessionData->compLevel > CPA_DC_L12))
@@ -134,13 +363,6 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
         LAC_INVALID_PARAM_LOG("Invalid autoSelectBestHuffmanTree value");
         return CPA_STATUS_INVALID_PARAM;
     }
-    if ((pSessionData->compType < CPA_DC_DEFLATE) ||
-        (pSessionData->compType > CPA_DC_LZ4S))
-    {
-        LAC_INVALID_PARAM_LOG("Invalid compType value");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
     if ((pSessionData->huffType < CPA_DC_HT_STATIC) ||
         (pSessionData->huffType > CPA_DC_HT_FULL_DYNAMIC) ||
         (CPA_DC_HT_PRECOMP == pSessionData->huffType))
@@ -153,6 +375,23 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
         (pSessionData->sessDirection > CPA_DC_DIR_COMBINED))
     {
         LAC_INVALID_PARAM_LOG("Invalid sessDirection value");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if ((pService->generic_service_info.type ==
+         SAL_SERVICE_TYPE_DECOMPRESSION) &&
+        ((pSessionData->sessDirection == CPA_DC_DIR_COMPRESS) ||
+         (pSessionData->sessDirection == CPA_DC_DIR_COMBINED)))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid Service Type and SessDirection");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    if ((pService->generic_service_info.type ==
+         SAL_SERVICE_TYPE_DECOMPRESSION) &&
+        (pSessionData->sessState == CPA_DC_STATEFUL))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid Service Type and sessState");
         return CPA_STATUS_INVALID_PARAM;
     }
 
@@ -219,6 +458,13 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
             LAC_INVALID_PARAM_LOG("Invalid LZ4 accumulateXXHash setting.");
             return CPA_STATUS_INVALID_PARAM;
         }
+        if (CPA_DC_DIR_DECOMPRESS != pSessionData->sessDirection &&
+            (!((1 << (pSessionData->lz4BlockMaxSize)) &
+               pDcCapabilities->lz4.maxBlockSize)))
+        {
+            LAC_UNSUPPORTED_PARAM_LOG("UnSupported LZ4 Block Max Size value");
+            return CPA_STATUS_UNSUPPORTED;
+        }
     }
 
     if (CPA_DC_LZ4S == pSessionData->compType)
@@ -229,6 +475,33 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
             LAC_INVALID_PARAM_LOG("Invalid LZ4S Min match value.");
             return CPA_STATUS_INVALID_PARAM;
         }
+    }
+
+    return CPA_STATUS_SUCCESS;
+}
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Check that pCrcControlData is valid
+ *
+ * @description
+ *      Check that all the parameters defined in the pCrcControlData are valid
+ *
+ * @param[in]       pCrcControlData   Pointer to a user instantiated structure
+ *                                    containing session CRC control data.
+ *
+ * @retval CPA_STATUS_SUCCESS         Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM   Invalid parameter passed in
+ *
+ *****************************************************************************/
+CpaStatus dcCheckSessionCrcControlData(const CpaCrcControlData *pCrcControlData)
+{
+    /* CRC polynomial must not be zero */
+    if (pCrcControlData->polynomial == 0)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid CRC polynomial value = 0");
+        return CPA_STATUS_INVALID_PARAM;
     }
 
     return CPA_STATUS_SUCCESS;
@@ -262,10 +535,12 @@ static void setBlockDep(icp_qat_hw_comp_20_config_csr_upper_t *conf)
  * @param[in]   compDecomp              Direction of the operation
  *
  *****************************************************************************/
-STATIC void dcCompHwBlockPopulate(sal_compression_service_t *pService,
-                                  dc_session_desc_t *pSessionDesc,
-                                  icp_qat_hw_compression_config_t *pCompConfig,
-                                  dc_request_dir_t compDecomp)
+void dcCompHwBlockPopulate(void *pServiceType,
+                           void *pSessionDescp,
+                           CpaDcNsSetupData *pSetupData,
+                           icp_qat_hw_compression_config_t *pCompConfig,
+                           void *compDecompDir,
+                           CpaBoolean bNsOp)
 {
     icp_qat_hw_compression_direction_t dir =
         ICP_QAT_HW_COMPRESSION_DIR_COMPRESS;
@@ -274,6 +549,16 @@ STATIC void dcCompHwBlockPopulate(sal_compression_service_t *pService,
     icp_qat_hw_compression_file_type_t filetype =
         ICP_QAT_HW_COMPRESSION_FILE_TYPE_0;
     icp_qat_hw_compression_delayed_match_t dmm;
+    sal_compression_service_t *pService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+    dc_request_dir_t compDecomp;
+
+    pService = (sal_compression_service_t *)pServiceType;
+    pSessionDesc = (dc_session_desc_t *)pSessionDescp;
+
+    pDcCapabilities = &pService->dc_capabilities;
+    compDecomp = *(dc_request_dir_t *)compDecompDir;
 
     /* Set the direction */
     if (DC_COMPRESSION_REQUEST == compDecomp)
@@ -291,11 +576,11 @@ STATIC void dcCompHwBlockPopulate(sal_compression_service_t *pService,
     }
     else
     {
-        LAC_ENSURE(CPA_FALSE, "Algorithm not supported for Compression\n");
+        LAC_LOG_ERROR("Algorithm not supported for Compression\n");
     }
 
     /* Set delay match mode */
-    if (CPA_TRUE == pService->comp_device_data.enableDmm)
+    if (CPA_TRUE == pDcCapabilities->deviceData.enableDmm)
     {
         dmm = ICP_QAT_HW_COMPRESSION_DELAYED_MATCH_ENABLED;
     }
@@ -343,24 +628,64 @@ STATIC void dcCompHwBlockPopulate(sal_compression_service_t *pService,
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
- *      Populate the compression hardware block for CPM 2.0
+ *      Populate the compression hardware block for QAT Gen4
  *
  * @description
  *      This function will populate the compression hardware block and update
- *      for CPM 2.0 the size in bytes of the block
+ *      for QAT Gen4 the size in bytes of the block
  *
  * @param[in]   pService                Pointer to the service
  * @param[in]   pSessionDesc            Pointer to the session descriptor
+ * @param[in]   pSetupData              Pointer to setup data
  * @param[in]   pCompConfig             Pointer to slice config word
  * @param[in]   compDecomp              Direction of the operation
+ * @param[in]   bNsOp                   Boolean to indicate no session operation
  *
  *****************************************************************************/
-STATIC void dcCompHwBlockPopulateGen4(
-    sal_compression_service_t *pService,
-    dc_session_desc_t *pSessionDesc,
-    icp_qat_hw_compression_config_t *pCompConfig,
-    dc_request_dir_t compDecomp)
+void dcCompHwBlockPopulateGen4(void *pServiceType,
+                               void *pSessionDescp,
+                               CpaDcNsSetupData *pSetupData,
+                               icp_qat_hw_compression_config_t *pCompConfig,
+                               void *compDecompDir,
+                               CpaBoolean bNsOp)
 {
+    CpaDcCompType compType = 0;
+    CpaDcCompLvl compLevel = 0;
+    CpaDcHuffType huffType;
+    CpaDcCompMinMatch minMatch;
+    CpaDcCompLZ4BlockMaxSize lz4BlockMaxSize;
+    CpaBoolean lz4BlockChecksum, lz4BlockIndependence;
+    sal_compression_service_t *pService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+    dc_request_dir_t compDecomp;
+
+    pService = (sal_compression_service_t *)pServiceType;
+    pSessionDesc = (dc_session_desc_t *)pSessionDescp;
+    pDcCapabilities = &pService->dc_capabilities;
+    compDecomp = *(dc_request_dir_t *)compDecompDir;
+
+    if (bNsOp)
+    {
+        compType = pSetupData->compType;
+        compLevel = pSetupData->compLevel;
+        huffType = pSetupData->huffType;
+        minMatch = pSetupData->minMatch;
+        lz4BlockMaxSize = pSetupData->lz4BlockMaxSize;
+        lz4BlockChecksum = pSetupData->lz4BlockChecksum;
+        lz4BlockIndependence = pSetupData->lz4BlockIndependence;
+    }
+    else
+    {
+        compType = pSessionDesc->compType;
+        compLevel = pSessionDesc->compLevel;
+        huffType = pSessionDesc->huffType;
+        minMatch = pSessionDesc->minMatch;
+        lz4BlockMaxSize = pSessionDesc->lz4BlockMaxSize;
+        lz4BlockChecksum = pSessionDesc->lz4BlockChecksum;
+        lz4BlockIndependence = pSessionDesc->lz4BlockIndependence;
+    }
+
     /* Direction: Compression */
     if (DC_COMPRESSION_REQUEST == compDecomp)
     {
@@ -373,14 +698,14 @@ STATIC void dcCompHwBlockPopulateGen4(
         /* Disable Literal + Length Limit Block Drop by default */
         hw_comp_lower_csr.lllbd = ICP_QAT_HW_COMP_20_LLLBD_CTRL_LLLBD_DISABLED;
 
-        switch (pSessionDesc->compType)
+        switch (compType)
         {
             case CPA_DC_DEFLATE:
                 /* DEFLATE algorithm settings */
                 hw_comp_lower_csr.skip_ctrl =
                     ICP_QAT_HW_COMP_20_BYTE_SKIP_3BYTE_LITERAL;
 
-                if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)
+                if (CPA_DC_HT_FULL_DYNAMIC == huffType)
                 {
                     hw_comp_lower_csr.algo =
                         ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_ILZ77;
@@ -393,20 +718,16 @@ STATIC void dcCompHwBlockPopulateGen4(
                         ICP_QAT_HW_COMP_20_SCB_CONTROL_DISABLE;
                 }
 
-                if (CPA_DC_STATEFUL == pSessionDesc->sessState)
-                {
-                    hw_comp_upper_csr.som_ctrl =
-                        ICP_QAT_HW_COMP_20_SOM_CONTROL_REPLAY_MODE;
-                }
                 break;
             case CPA_DC_LZ4:
                 /* LZ4 algorithm settings */
                 hw_comp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
-                hw_comp_upper_csr.lbms = pSessionDesc->lz4BlockMaxSize;
+                hw_comp_upper_csr.lbms =
+                    (icp_qat_hw_comp_20_lbms_t)lz4BlockMaxSize;
                 hw_comp_lower_csr.mmctrl =
                     ICP_QAT_HW_COMP_20_MIN_MATCH_CONTROL_MATCH_4B;
 
-                if (CPA_TRUE == pSessionDesc->lz4BlockIndependence)
+                if (CPA_TRUE == lz4BlockIndependence)
                 {
                     setBlockIndep(&hw_comp_upper_csr);
                 }
@@ -418,17 +739,18 @@ STATIC void dcCompHwBlockPopulateGen4(
             case CPA_DC_LZ4S:
                 /* LZ4S algorithm settings */
                 hw_comp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
-                hw_comp_lower_csr.mmctrl = pSessionDesc->minMatch;
+                hw_comp_lower_csr.mmctrl =
+                    (icp_qat_hw_comp_20_min_match_control_t)minMatch;
                 hw_comp_upper_csr.scb_ctrl =
                     ICP_QAT_HW_COMP_20_SCB_CONTROL_DISABLE;
                 break;
             default:
-                LAC_ENSURE(CPA_FALSE, "Compression algorithm not supported\n");
+                LAC_LOG_ERROR("Compression algorithm not supported\n");
                 break;
         }
 
         /* Set the search depth */
-        switch (pSessionDesc->compLevel)
+        switch (compLevel)
         {
             case CPA_DC_L1:
             case CPA_DC_L2:
@@ -449,9 +771,9 @@ STATIC void dcCompHwBlockPopulateGen4(
                 break;
             default:
                 hw_comp_lower_csr.sd =
-                    pService->comp_device_data.highestHwCompressionDepth;
-                if ((CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType) &&
-                    (CPA_DC_DEFLATE == pSessionDesc->compType))
+                    pDcCapabilities->deviceData.highestHwCompressionDepth;
+                if ((CPA_DC_HT_FULL_DYNAMIC == huffType) &&
+                    (CPA_DC_DEFLATE == compType))
                 {
                     /* Enable Literal + Length Limit Block Drop
                      * with dynamic deflate compression when
@@ -468,20 +790,19 @@ STATIC void dcCompHwBlockPopulateGen4(
         hw_comp_lower_csr.hash_update =
             ICP_QAT_HW_COMP_20_SKIP_HASH_UPDATE_DONT_ALLOW;
         hw_comp_lower_csr.edmm =
-            (CPA_TRUE == pService->comp_device_data.enableDmm)
+            (CPA_TRUE == pDcCapabilities->deviceData.enableDmm)
                 ? ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_ENABLED
                 : ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_DISABLED;
 
-        if ((CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType) &&
-            (CPA_DC_DEFLATE == pSessionDesc->compType) &&
-            (CPA_DC_L10 == pSessionDesc->compLevel ||
-             CPA_DC_L11 == pSessionDesc->compLevel ||
-             CPA_DC_L12 == pSessionDesc->compLevel))
+        /* Enable Adaptive Block Drop with dynamic deflate
+         * compression when levels 10-12 are selected.
+         * This field is ignored by firmware for devices that
+         * do not support adaptive block drop */
+        if ((CPA_DC_HT_FULL_DYNAMIC == huffType) &&
+            (CPA_DC_DEFLATE == compType) &&
+            (CPA_DC_L10 == compLevel || CPA_DC_L11 == compLevel ||
+             CPA_DC_L12 == compLevel))
         {
-            /* Enable Adaptive Block Drop with dynamic deflate
-             * compression when levels 10-12 are selected.
-             * This field is ignored by firmware for devices that
-             * do not support adaptive block drop */
             hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_20_ABD_ABD_ENABLED;
         }
         /* Hard-coded HW-specific values */
@@ -503,16 +824,18 @@ STATIC void dcCompHwBlockPopulateGen4(
         osalMemSet(&hw_decomp_lower_csr, 0, sizeof hw_decomp_lower_csr);
 
         /* Set the algorithm */
-        if (CPA_DC_DEFLATE == pSessionDesc->compType)
+        if (CPA_DC_DEFLATE == compType)
         {
             hw_decomp_lower_csr.algo =
                 ICP_QAT_HW_DECOMP_20_HW_DECOMP_FORMAT_DEFLATE;
         }
-        else if (CPA_DC_LZ4 == pSessionDesc->compType)
+        else if (CPA_DC_LZ4 == compType)
         {
-            hw_decomp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
-            hw_decomp_lower_csr.lbms = pSessionDesc->lz4BlockMaxSize;
-            if (CPA_TRUE == pSessionDesc->lz4BlockChecksum)
+            hw_decomp_lower_csr.algo = (icp_qat_hw_decomp_20_hw_comp_format_t)
+                ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
+            hw_decomp_lower_csr.lbms =
+                (icp_qat_hw_decomp_20_lbms_t)lz4BlockMaxSize;
+            if (CPA_TRUE == lz4BlockChecksum)
             {
                 hw_decomp_lower_csr.lbc =
                     ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_PRESENT;
@@ -523,9 +846,16 @@ STATIC void dcCompHwBlockPopulateGen4(
                     ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_ABSENT;
             }
         }
+        else if (CPA_DC_LZ4S == compType)
+        {
+            hw_decomp_lower_csr.algo = (icp_qat_hw_decomp_20_hw_comp_format_t)
+                ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
+            hw_decomp_lower_csr.mmctrl =
+                (icp_qat_hw_decomp_20_min_match_control_t)minMatch;
+        }
         else
         {
-            LAC_ENSURE(CPA_FALSE, "Algo not supported for Decompression\n");
+            LAC_LOG_ERROR("Algorithm not supported for Decompression\n");
         }
 
         pCompConfig->upper_val = 0;
@@ -561,6 +891,9 @@ STATIC void dcCompContentDescPopulate(sal_compression_service_t *pService,
     icp_qat_fw_comp_cd_hdr_t *pCompControlBlock = NULL;
     icp_qat_hw_compression_config_t *pCompConfig = NULL;
     CpaBoolean bankEnabled = CPA_FALSE;
+
+    /* Retrieve internal capabilities */
+    dc_capabilities_t *pDcCapabilities = &pService->dc_capabilities;
 
     LAC_ENSURE_NOT_NULL(pService);
     LAC_ENSURE_NOT_NULL(pSessionDesc);
@@ -651,15 +984,12 @@ STATIC void dcCompContentDescPopulate(sal_compression_service_t *pService,
     pCompControlBlock->resrvd = 0;
 
     /* Populate Compression Hardware Setup Block */
-    if (pService->generic_service_info.isGen4)
-    {
-        dcCompHwBlockPopulateGen4(
-            pService, pSessionDesc, pCompConfig, compDecomp);
-    }
-    else
-    {
-        dcCompHwBlockPopulate(pService, pSessionDesc, pCompConfig, compDecomp);
-    }
+    (pDcCapabilities->dcCompHwBlockPopulate)((void *)pService,
+                                             (void *)pSessionDesc,
+                                             NULL,
+                                             pCompConfig,
+                                             (void *)&compDecomp,
+                                             CPA_FALSE);
 }
 
 /**
@@ -715,9 +1045,12 @@ STATIC CpaStatus dcGetContextSize(CpaInstanceHandle dcInstance,
                                   CpaDcSessionSetupData *pSessionData,
                                   Cpa32U *pContextSize)
 {
+    CpaStatus status = CPA_STATUS_SUCCESS;
     sal_compression_service_t *pCompService = NULL;
 
     pCompService = (sal_compression_service_t *)dcInstance;
+
+    dc_capabilities_t *pDcCapabilities = &pCompService->dc_capabilities;
 
     *pContextSize = 0;
     if ((CPA_DC_STATEFUL == pSessionData->sessState) &&
@@ -726,19 +1059,19 @@ STATIC CpaStatus dcGetContextSize(CpaInstanceHandle dcInstance,
         switch (pSessionData->compType)
         {
             case CPA_DC_DEFLATE:
-                *pContextSize =
-                    pCompService->comp_device_data.inflateContextSize;
+                *pContextSize = pDcCapabilities->deflate.inflateContextSize;
                 break;
             case CPA_DC_LZ4:
-                *pContextSize =
-                    pCompService->comp_device_data.lz4DecompContextSize;
+                *pContextSize = pDcCapabilities->lz4.decompContextSize;
                 break;
             default:
                 LAC_LOG_ERROR("Invalid compression algorithm.");
-                return CPA_STATUS_FAIL;
+                status = CPA_STATUS_UNSUPPORTED;
+                break;
         }
     }
-    return CPA_STATUS_SUCCESS;
+
+    return status;
 }
 
 /**
@@ -769,45 +1102,31 @@ CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
     LAC_CHECK_NULL_PARAM(pSessionData);
     LAC_CHECK_NULL_PARAM(pDcCmdId);
 #endif
-    *pDcCmdId = -1;
 
-    if (pService->generic_service_info.isGen4)
+    *pDcCmdId = ICP_QAT_FW_COMP_CMD_DELIMITER;
+
+    switch (pSessionData->compType)
     {
-        switch (pSessionData->compType)
-        {
-            case CPA_DC_DEFLATE:
-                *pDcCmdId = (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
-                                ? ICP_QAT_FW_COMP_CMD_DYNAMIC
-                                : ICP_QAT_FW_COMP_CMD_STATIC;
-                break;
-            case CPA_DC_LZ4:
-                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4_COMPRESS;
-                break;
-            case CPA_DC_LZ4S:
-                *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4S_COMPRESS;
-                break;
-            default:
-                LAC_ENSURE(CPA_FALSE,
-                           "Algorithm not supported for compression\n");
-                status = CPA_STATUS_UNSUPPORTED;
-                break;
-        }
-    }
-    else /* !isGen4 path*/
-    {
-        switch (pSessionData->compType)
-        {
-            case CPA_DC_DEFLATE:
-                *pDcCmdId = (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
-                                ? ICP_QAT_FW_COMP_CMD_DYNAMIC
-                                : ICP_QAT_FW_COMP_CMD_STATIC;
-                break;
-            default:
-                LAC_ENSURE(CPA_FALSE,
-                           "Algorithm not supported for compression\n");
-                status = CPA_STATUS_UNSUPPORTED;
-                break;
-        }
+        case CPA_DC_DEFLATE:
+            if (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
+            {
+                *pDcCmdId = ICP_QAT_FW_COMP_CMD_DYNAMIC;
+            }
+            else if (CPA_DC_HT_STATIC == pSessionData->huffType)
+            {
+                *pDcCmdId = ICP_QAT_FW_COMP_CMD_STATIC;
+            }
+            break;
+        case CPA_DC_LZ4:
+            *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4_COMPRESS;
+            break;
+        case CPA_DC_LZ4S:
+            *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4S_COMPRESS;
+            break;
+        default:
+            LAC_LOG_ERROR("Algorithm not supported for compression\n");
+            status = CPA_STATUS_UNSUPPORTED;
+            break;
     }
 
     return status;
@@ -844,8 +1163,6 @@ CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
 #endif
     *pDcCmdId = -1;
 
-    if (pService->generic_service_info.isGen4)
-    {
         switch (pSessionData->compType)
         {
             case CPA_DC_DEFLATE:
@@ -859,22 +1176,6 @@ CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
                 status = CPA_STATUS_UNSUPPORTED;
                 break;
         }
-    }
-    else
-    {
-        switch (pSessionData->compType)
-        {
-            case CPA_DC_DEFLATE:
-                *pDcCmdId = ICP_QAT_FW_COMP_CMD_DECOMPRESS;
-                break;
-            default:
-                LAC_ENSURE(CPA_FALSE,
-                           "Algorithm not supported for decompression\n");
-                status = CPA_STATUS_UNSUPPORTED;
-                break;
-        }
-    }
-
     return status;
 }
 
@@ -895,6 +1196,68 @@ CpaStatus dcXxhash32SetState(dc_session_desc_t *pSessionDesc, Cpa32U seed)
     xxhashStateBuffer->xxhash_state[1] = seed + XXHASH_PRIME32_B;
     xxhashStateBuffer->xxhash_state[2] = seed + 0;
     xxhashStateBuffer->xxhash_state[3] = seed - XXHASH_PRIME32_A;
+
+    return status;
+}
+
+CpaStatus dcInitSessionCrcControl(CpaInstanceHandle dcInstance,
+                                  CpaDcSessionHandle pSessionHandle,
+                                  CpaCrcControlData *pCrcControlData)
+{
+    dc_session_desc_t *pSessionDesc = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    sal_compression_service_t *pService = NULL;
+    CpaBoolean bPcrc64Supported = CPA_FALSE;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionHandle);
+    LAC_CHECK_NULL_PARAM(pCrcControlData);
+
+    /* Check that the parameters defined in the pCrcControlData are valid for
+     * the device */
+    if (CPA_STATUS_SUCCESS != dcCheckSessionCrcControlData(pCrcControlData))
+    {
+        return CPA_STATUS_INVALID_PARAM;
+    }
+#endif
+
+    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+#endif
+    pService = (sal_compression_service_t *)dcInstance;
+    pDcCapabilities = &pService->dc_capabilities;
+    dcGetPcrc64CapabilityStatus(
+        pDcCapabilities, pSessionDesc->compType, &bPcrc64Supported);
+    if (!bPcrc64Supported)
+    {
+        LAC_LOG_ERROR("Programmable CRC64 is unsupported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+    /* Generate the CRC64 lookup table for the provided polynomial */
+    status = dcGenerateLookupTable(pCrcControlData->polynomial,
+                                   &pSessionDesc->crcConfig.pCrcLookupTable);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Set CRC parameters provided */
+        pSessionDesc->crcConfig.crcParam.crc64Poly =
+            pCrcControlData->polynomial;
+        pSessionDesc->crcConfig.crcParam.iCrc64Cpr =
+            pCrcControlData->initialValue;
+        pSessionDesc->crcConfig.crcParam.oCrc64Cpr =
+            pCrcControlData->initialValue;
+        pSessionDesc->crcConfig.crcParam.reflectIn =
+            (Cpa32U)pCrcControlData->reflectIn;
+        pSessionDesc->crcConfig.crcParam.reflectOut =
+            (Cpa32U)pCrcControlData->reflectOut;
+        pSessionDesc->crcConfig.crcParam.oCrc64Xlt =
+            pCrcControlData->initialValue;
+        pSessionDesc->crcConfig.crcParam.xor64Out = pCrcControlData->xorOut;
+
+        pSessionDesc->crcConfig.useProgCrcSetup = CPA_TRUE;
+    }
 
     return status;
 }
@@ -923,21 +1286,32 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     Cpa8U dcCmdId = ICP_QAT_FW_COMP_CMD_STATIC;
     icp_qat_fw_comn_flags cmnRequestFlags = 0;
     icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags = 0;
+    dc_capabilities_t *pDcCapabilities;
+    CpaBoolean capabilityDcStateful = CPA_FALSE;
+    Cpa16U numInterBuffs = 0;
 
     cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
         DC_DEFAULT_QAT_PTR_TYPE, QAT_COMN_CD_FLD_TYPE_16BYTE_DATA);
 
     pService = (sal_compression_service_t *)dcInstance;
 
+    /* Retrieve internal capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+    capabilityDcStateful =
+        DC_CAPS_BITFIELD_GET(pDcCapabilities->sessState, CPA_DC_STATEFUL);
+    numInterBuffs = pDcCapabilities->numInterBuffs;
+
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pSessionHandle);
     LAC_CHECK_NULL_PARAM(pSessionData);
 
-    /* Check that the parameters defined in the pSessionData are valid for the
-     * device */
-    if (CPA_STATUS_SUCCESS != dcCheckSessionData(pSessionData, dcInstance))
+    /* Check that the parameters defined in the pSessionData are valid and
+     * supported by the device
+     */
+    status = dcCheckSessionData(pSessionData, dcInstance);
+    if (CPA_STATUS_SUCCESS != status)
     {
-        return CPA_STATUS_INVALID_PARAM;
+        return status;
     }
 #endif
 
@@ -948,16 +1322,16 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
         return CPA_STATUS_UNSUPPORTED;
     }
     /* Check for Gen4 and stateful, return error if both exist */
-    if (pService->generic_service_info.isGen4 &&
+    if ((CPA_FALSE == capabilityDcStateful) &&
         CPA_DC_STATEFUL == pSessionData->sessState)
     {
         LAC_INVALID_PARAM_LOG("Stateful sessions are not supported");
         return CPA_STATUS_UNSUPPORTED;
     }
 
-    secureRam = pService->comp_device_data.useDevRam;
+    secureRam = pDcCapabilities->deviceData.useDevRam;
 
-    if ((!pService->generic_service_info.isGen4) &&
+    if ((numInterBuffs > 0) &&
         (CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType))
     {
         /* Test if DRAM is available for the intermediate buffers */
@@ -989,7 +1363,7 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
         if (CPA_STATUS_SUCCESS != status)
         {
             LAC_LOG_ERROR("Unable to get the context size of the session\n");
-            return CPA_STATUS_FAIL;
+            return status;
         }
 
 #ifdef ICP_PARAM_CHECK
@@ -1087,9 +1461,13 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     pSessionDesc->minContextSize = minContextSize;
     pSessionDesc->isSopForCompressionProcessed = CPA_FALSE;
     pSessionDesc->isSopForDecompressionProcessed = CPA_FALSE;
+    pSessionDesc->crcConfig.useProgCrcSetup = CPA_FALSE;
+    pSessionDesc->crcConfig.pCrcLookupTable = NULL;
+    pSessionDesc->lz4OutputFormat = CPA_DC_LZ4_OUTPUT_WITH_HEADER;
 
     /* Alter auto select best setting depending on the hardware version */
-    if (!pService->generic_service_info.isGen4)
+    /* Configure CRC parameters based on the hardware version */
+    if (DC_CAPS_GEN4_HW != pDcCapabilities->deviceData.hw_gen)
     {
         /* Gen 2 hardware devices */
         if (CPA_DC_ASB_ENABLED == pSessionDesc->autoSelectBestHuffmanTree)
@@ -1098,6 +1476,16 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
             pSessionDesc->autoSelectBestHuffmanTree =
                 CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_STORED_HDRS;
         }
+
+        /* Gen2 hardcoded CRC parameters */
+        pSessionDesc->crcConfig.crcParam.crcPoly = DC_CRC_POLY_DEFAULT;
+        pSessionDesc->crcConfig.crcParam.iCrc32Cpr = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.oCrc32Cpr = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.iCrc32Xlt = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.oCrc32Xlt = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.xorFlags = DC_XOR_FLAGS_DEFAULT;
+        pSessionDesc->crcConfig.crcParam.xorOut = DC_XOR_OUT_DEFAULT;
+        pSessionDesc->crcConfig.crcParam.deflateBlockType = DC_STATIC_TYPE;
     }
     else
     {
@@ -1116,6 +1504,14 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
                 /* Keep setting from session setup data */
                 break;
         }
+            /* Gen4 hardcoded CRC parameters */
+        pSessionDesc->crcConfig.crcParam.crc64Poly = DC_CRC64_POLY_DEFAULT;
+        pSessionDesc->crcConfig.crcParam.iCrc64Cpr = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.oCrc64Cpr = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.reflectIn = DC_REFLECT_IN_DEFAULT;
+        pSessionDesc->crcConfig.crcParam.reflectOut = DC_REFLECT_OUT_DEFAULT;
+        pSessionDesc->crcConfig.crcParam.oCrc64Xlt = DC_DEFAULT_CRC;
+        pSessionDesc->crcConfig.crcParam.xor64Out = DC_XOR64_OUT_DEFAULT;
     }
 
     if (CPA_DC_LZ4 == pSessionDesc->compType &&
@@ -1177,7 +1573,7 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
 
     if (CPA_DC_DIR_DECOMPRESS != pSessionData->sessDirection)
     {
-        if ((!pService->generic_service_info.isGen4) &&
+        if ((DC_CAPS_GEN4_HW != pDcCapabilities->deviceData.hw_gen) &&
             CPA_DC_HT_FULL_DYNAMIC == pSessionData->huffType)
         {
             /* Populate the compression section of the content descriptor */
@@ -1323,9 +1719,12 @@ dcCheckUpdateSession(const CpaInstanceHandle insHandle,
     sal_compression_service_t *pService =
         (sal_compression_service_t *)insHandle;
 
+    /* Retrieve internal capabilities */
+    dc_capabilities_t *pDcCapabilities = &pService->dc_capabilities;
+
     /* Check if DRAM is available for the intermediate buffers
      * for dynamic compression */
-    if ((!pService->generic_service_info.isGen4) &&
+    if ((pDcCapabilities->numInterBuffs > 0) &&
         (CPA_DC_HT_FULL_DYNAMIC == pUpdateSessionData->huffType) &&
         (NULL == pService->pInterBuffPtrsArray) &&
         (0 == pService->pInterBuffPtrsArrayPhyAddr))
@@ -1364,6 +1763,12 @@ STATIC CpaStatus dcUpdateSession(const CpaInstanceHandle insHandle,
                                                 .comp_slice_cfg_word);
     icp_qat_fw_comp_cd_hdr_t *pCompControlBlock =
         (icp_qat_fw_comp_cd_hdr_t *)&(pReqCacheComp->comp_cd_ctrl);
+    dc_request_dir_t compDecomp;
+
+    /* Retrieve internal capabilities */
+    dc_capabilities_t *pDcCapabilities = &pService->dc_capabilities;
+
+    compDecomp = DC_COMPRESSION_REQUEST;
 
     /* Acquire a lock prior to updating the session parameters
      * for traditional only */
@@ -1372,7 +1777,7 @@ STATIC CpaStatus dcUpdateSession(const CpaInstanceHandle insHandle,
         LAC_SPINLOCK(&(pSessionDesc->updateLock));
     }
 
-    pService->comp_device_data.enableDmm =
+    pDcCapabilities->deviceData.enableDmm =
         pUpdateSessionData->enableDmm ? 1 : 0;
     pSessionDesc->compLevel = pUpdateSessionData->compLevel;
     pSessionDesc->huffType = pUpdateSessionData->huffType;
@@ -1397,16 +1802,12 @@ STATIC CpaStatus dcUpdateSession(const CpaInstanceHandle insHandle,
     }
 
     /* Populate Compression Hardware Setup Block */
-    if (pService->generic_service_info.isGen4)
-    {
-        dcCompHwBlockPopulateGen4(
-            pService, pSessionDesc, pCompConfig, DC_COMPRESSION_REQUEST);
-    }
-    else
-    {
-        dcCompHwBlockPopulate(
-            pService, pSessionDesc, pCompConfig, DC_COMPRESSION_REQUEST);
-    }
+    (pDcCapabilities->dcCompHwBlockPopulate)((void *)pService,
+                                             (void *)pSessionDesc,
+                                             NULL,
+                                             pCompConfig,
+                                             (void *)&compDecomp,
+                                             CPA_FALSE);
 
     /* Release the lock after updating session parameters */
     if (CPA_FALSE == pSessionDesc->isDcDp)
@@ -1447,7 +1848,10 @@ CpaStatus cpaDcInitSession(CpaInstanceHandle dcInstance,
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_INSTANCE_HANDLE(insHandle);
     SAL_CHECK_ADDR_TRANS_SETUP(insHandle);
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
 
     pService = (sal_compression_service_t *)insHandle;
@@ -1512,6 +1916,77 @@ CpaStatus cpaDcUpdateSession(const CpaInstanceHandle dcInstance,
     }
 
     return status;
+}
+
+CpaStatus cpaDcSetLZ4OutputFormat(CpaInstanceHandle dcInstance,
+                                  CpaDcSessionHandle pSessionHandle,
+                                  CpaDcLZ4OutputFormat outLZ4Format)
+{
+    CpaInstanceHandle insHandle = NULL;
+    sal_compression_service_t *pService = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionHandle);
+
+    if (CPA_DC_LZ4_OUTPUT_WITH_HEADER > outLZ4Format ||
+        CPA_DC_LZ4_OUTPUT_WITHOUT_HEADER < outLZ4Format)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid outLZ4Format");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+#endif
+
+    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+#endif
+
+#ifdef ICP_TRACE
+    LAC_LOG3("Called with params (0x%lx, 0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)dcInstance,
+             (LAC_ARCH_UINT)pSessionHandle,
+             (LAC_ARCH_UINT)outLZ4Format);
+#endif
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
+    {
+        insHandle = dcGetFirstHandle();
+    }
+    else
+    {
+        insHandle = dcInstance;
+    }
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(insHandle);
+    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+#endif
+
+    /* Check if SAL is running otherwise return an error */
+    SAL_RUNNING_CHECK(insHandle);
+
+    if (CPA_DC_LZ4 != pSessionDesc->compType)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid compression type");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    pService = (sal_compression_service_t *)insHandle;
+
+    if (!(pService->generic_service_info.dcExtendedFeatures &
+          DC_LZ4_E2E_COMP_CRC_OVER_BLOCK_EXTENDED_CAPABILITY) &&
+        (CPA_DC_LZ4_OUTPUT_WITHOUT_HEADER == outLZ4Format))
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("CRC over LZ4 data block (without header) "
+                                  "feature not supported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    pSessionDesc->lz4OutputFormat = outLZ4Format;
+
+    return CPA_STATUS_SUCCESS;
 }
 
 CpaStatus cpaDcResetXXHashState(const CpaInstanceHandle dcInstance,
@@ -1586,6 +2061,7 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
     Cpa64U numPendingStateless = 0;
     Cpa64U numPendingStateful = 0;
     icp_comms_trans_handle trans_handle = NULL;
+    sal_compression_service_t *pService = NULL;
 #ifdef ICP_DEBUG
     Cpa32U i = 0;
     CpaBufferList *pContextBuffer = NULL;
@@ -1621,26 +2097,47 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
     }
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
     /* Check if SAL is running otherwise return an error */
     SAL_RUNNING_CHECK(insHandle);
+
+    pService = (sal_compression_service_t *)(insHandle);
+
     if (CPA_TRUE == pSessionDesc->isDcDp)
     {
-        trans_handle = ((sal_compression_service_t *)insHandle)
-                           ->trans_handle_compression_tx;
+        if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+        {
+            trans_handle = ((sal_compression_service_t *)insHandle)
+                               ->trans_handle_compression_tx;
+        }
+        else
+        {
+            trans_handle = ((sal_compression_service_t *)insHandle)
+                               ->trans_handle_decompression_tx;
+        }
+
         if (CPA_TRUE == icp_adf_queueDataToSend(trans_handle))
         {
-            /* Process the remaining messages on the ring */
-            icp_adf_updateQueueTail(trans_handle);
             LAC_LOG_ERROR("There are remaining messages on the ring");
+
+            /* Process the remaining messages on the ring */
+            status = icp_adf_updateQueueTail(trans_handle);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                return status;
+            }
+
             return CPA_STATUS_RETRY;
         }
 
         /* Check if there are stateless pending requests */
         if (0 != pSessionDesc->pendingDpStatelessCbCount)
         {
-            LAC_LOG_ERROR1("There are %lld stateless DP requests pending",
+            LAC_LOG_ERROR1("There are %llu stateless DP requests pending",
                            pSessionDesc->pendingDpStatelessCbCount);
             return CPA_STATUS_RETRY;
         }
@@ -1654,14 +2151,14 @@ CpaStatus cpaDcResetSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateless pending requests */
         if (0 != numPendingStateless)
         {
-            LAC_LOG_ERROR1("There are %lld stateless requests pending",
+            LAC_LOG_ERROR1("There are %llu stateless requests pending",
                            numPendingStateless);
             return CPA_STATUS_RETRY;
         }
         /* Check if there are stateful pending requests */
         if (0 != numPendingStateful)
         {
-            LAC_LOG_ERROR1("There are %lld stateful requests pending",
+            LAC_LOG_ERROR1("There are %llu stateful requests pending",
                            numPendingStateful);
             return CPA_STATUS_RETRY;
         }
@@ -1708,6 +2205,7 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
     Cpa64U numPendingStateless = 0;
     Cpa64U numPendingStateful = 0;
     icp_comms_trans_handle trans_handle = NULL;
+    sal_compression_service_t *pService = NULL;
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pSessionHandle);
@@ -1741,29 +2239,48 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
 
     /* Check if SAL is running otherwise return an error */
     SAL_RUNNING_CHECK(insHandle);
 
+    pService = (sal_compression_service_t *)(insHandle);
+
     if (CPA_TRUE == pSessionDesc->isDcDp)
     {
-        trans_handle = ((sal_compression_service_t *)insHandle)
-                           ->trans_handle_compression_tx;
+        if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+        {
+            trans_handle = ((sal_compression_service_t *)insHandle)
+                               ->trans_handle_compression_tx;
+        }
+        else
+        {
+            trans_handle = ((sal_compression_service_t *)insHandle)
+                               ->trans_handle_decompression_tx;
+        }
 
         if (CPA_TRUE == icp_adf_queueDataToSend(trans_handle))
         {
-            /* Process the remaining messages on the ring */
-            icp_adf_updateQueueTail(trans_handle);
             LAC_LOG_ERROR("There are remaining messages on the ring");
+
+            /* Process the remaining messages on the ring */
+            status = icp_adf_updateQueueTail(trans_handle);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                return status;
+            }
+
             return CPA_STATUS_RETRY;
         }
 
         /* Check if there are stateless pending requests */
         if (0 != pSessionDesc->pendingDpStatelessCbCount)
         {
-            LAC_LOG_ERROR1("There are %lld stateless DP requests pending",
+            LAC_LOG_ERROR1("There are %llu stateless DP requests pending",
                            pSessionDesc->pendingDpStatelessCbCount);
             return CPA_STATUS_RETRY;
         }
@@ -1778,7 +2295,7 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateless pending requests */
         if (0 != numPendingStateless)
         {
-            LAC_LOG_ERROR1("There are %lld stateless requests pending",
+            LAC_LOG_ERROR1("There are %llu stateless requests pending",
                            numPendingStateless);
             status = CPA_STATUS_RETRY;
         }
@@ -1786,7 +2303,7 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
         /* Check if there are stateful pending requests */
         if (0 != numPendingStateful)
         {
-            LAC_LOG_ERROR1("There are %lld stateful requests pending",
+            LAC_LOG_ERROR1("There are %llu stateful requests pending",
                            numPendingStateful);
             status = CPA_STATUS_RETRY;
         }
@@ -1801,7 +2318,11 @@ CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
     {
         LAC_SPINLOCK_DESTROY(&(pSessionDesc->updateLock));
     }
-
+    /* Free the CRC lookup table if one was allocated */
+    if (NULL != pSessionDesc->crcConfig.pCrcLookupTable)
+    {
+        LAC_OS_FREE(pSessionDesc->crcConfig.pCrcLookupTable);
+    }
     return status;
 }
 
@@ -1827,11 +2348,10 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
     /* Check parameters */
     LAC_CHECK_NULL_PARAM(insHandle);
     LAC_CHECK_NULL_PARAM(pSessionData);
-    LAC_CHECK_NULL_PARAM(pSessionSize);
-
-    if (dcCheckSessionData(pSessionData, insHandle) != CPA_STATUS_SUCCESS)
+    status = dcCheckSessionData(pSessionData, insHandle);
+    if (CPA_STATUS_SUCCESS != status)
     {
-        return CPA_STATUS_INVALID_PARAM;
+        return status;
     }
 #endif
 
@@ -1846,7 +2366,7 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
         if (CPA_STATUS_SUCCESS != status)
         {
             LAC_LOG_ERROR("Unable to get the context size of the session\n");
-            return CPA_STATUS_FAIL;
+            return status;
         }
     }
 
@@ -1858,14 +2378,14 @@ CpaStatus cpaDcGetSessionSize(CpaInstanceHandle dcInstance,
                               Cpa32U *pSessionSize,
                               Cpa32U *pContextSize)
 {
+    CpaStatus status = CPA_STATUS_SUCCESS;
 /* Check parameter */
 #ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionSize);
     LAC_CHECK_NULL_PARAM(pContextSize);
 #endif
-
-    return dcGetSessionSize(
-        dcInstance, pSessionData, pSessionSize, pContextSize);
-
+    status =
+        dcGetSessionSize(dcInstance, pSessionData, pSessionSize, pContextSize);
 #ifdef ICP_TRACE
     LAC_LOG6("Called with params (0x%lx, 0x%lx, 0x%lx[%d], 0x%lx[%d])\n",
              (LAC_ARCH_UINT)dcInstance,
@@ -1875,6 +2395,7 @@ CpaStatus cpaDcGetSessionSize(CpaInstanceHandle dcInstance,
              (LAC_ARCH_UINT)pContextSize,
              *pContextSize);
 #endif
+    return status;
 }
 
 #ifdef ICP_DC_ERROR_SIMULATION
@@ -1890,6 +2411,9 @@ CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
     CpaInstanceHandle insHandle = NULL;
     sal_compression_service_t *pService = NULL;
 
+    /* Retrieve internal capabilities */
+    dc_capabilities_t *pDcCapabilities = NULL;
+
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
         insHandle = dcGetFirstHandle();
@@ -1901,12 +2425,13 @@ CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
 
     pService = (sal_compression_service_t *)insHandle;
 
-    if (!pService->generic_service_info.isGen4)
+    pDcCapabilities = &pService->dc_capabilities;
+
+    if (CPA_TRUE != pDcCapabilities->cnv.errorInjection)
     {
-        LAC_ENSURE(CPA_FALSE, "Unsupported compression feature.\n");
+        LAC_LOG_ERROR("Unsupported compression feature.\n");
         return CPA_STATUS_UNSUPPORTED;
     }
-
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
 
 #ifdef ICP_PARAM_CHECK
@@ -1918,3 +2443,16 @@ CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
     return CPA_STATUS_SUCCESS;
 }
 #endif /* ICP_DC_ERROR_SIMULATION */
+
+CpaStatus cpaDcSetCrcControlData(CpaInstanceHandle dcInstance,
+                                 CpaDcSessionHandle pSessionHandle,
+                                 CpaCrcControlData *pCrcControlData)
+{
+#ifdef ICP_TRACE
+    LAC_LOG3("Called with params (0x%lx, 0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)dcInstance,
+             (LAC_ARCH_UINT)pSessionHandle,
+             (LAC_ARCH_UINT)pCrcControlData);
+#endif
+    return dcInitSessionCrcControl(dcInstance, pSessionHandle, pCrcControlData);
+}

@@ -118,7 +118,8 @@ typedef enum
     SAL_SERVICE_TYPE_UNKNOWN = 0,
     /* symmetric and asymmetric crypto service */
     SAL_SERVICE_TYPE_CRYPTO = 1,
-    /* compression service */
+    /* legacy compression service (includes both compression and decompression
+       directions) */
     SAL_SERVICE_TYPE_COMPRESSION = 2,
     /* inline service */
     SAL_SERVICE_TYPE_INLINE = 4,
@@ -126,7 +127,10 @@ typedef enum
     SAL_SERVICE_TYPE_CRYPTO_ASYM = 8,
     /* symmetric crypto only service*/
     SAL_SERVICE_TYPE_CRYPTO_SYM = 16,
-    SAL_SERVICE_TYPE_QAT = 32
+    /* QAT service */
+    SAL_SERVICE_TYPE_QAT = 32,
+    /* decompression only service */
+    SAL_SERVICE_TYPE_DECOMPRESSION = 64
 } sal_service_type_t;
 
 /**
@@ -138,9 +142,6 @@ typedef enum
  *      Contains all the common information across the different instances.
  *
  *****************************************************************************/
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 typedef struct sal_service_s
 {
     sal_service_type_t type;
@@ -156,7 +157,6 @@ typedef struct sal_service_s
     CpaVirtualToPhysical virt2PhysClient;
     /**< Function pointer to client supplied virt_to_phys */
 
-
     CpaStatus (*init)(icp_accel_dev_t *device, struct sal_service_s *service);
     /**< Function pointer for instance INIT function */
     CpaStatus (*start)(icp_accel_dev_t *device, struct sal_service_s *service);
@@ -169,10 +169,12 @@ typedef struct sal_service_s
     CpaStatus (*error)(icp_accel_dev_t *device, struct sal_service_s *service);
     /**< Function pointer for instance ERROR function */
 
-    CpaStatus (*restarting)(icp_accel_dev_t *device, struct sal_service_s *service);
+    CpaStatus (*restarting)(icp_accel_dev_t *device,
+                            struct sal_service_s *service);
     /**< Function pointer for instance RESTARTING function */
 
-    CpaStatus (*restarted)(icp_accel_dev_t *device, struct sal_service_s *service);
+    CpaStatus (*restarted)(icp_accel_dev_t *device,
+                           struct sal_service_s *service);
     /**< Function pointer for instance RESTARTED function */
 
     CpaCyInstanceNotificationCbFunc notification_cb;
@@ -196,14 +198,13 @@ typedef struct sal_service_s
     CpaBoolean isInstanceStarted;
     /**< True if user called StartInstance on this instance */
 
-    CpaBoolean integrityCrcCheck;
-    /** < True if the device supports end to end data integrity checks */
-
     CpaBoolean isGen4;
     /* True if the device is qat_4xxx or qat_4xxxvf */
 
     CpaBoolean isGen4_2;
     /* True if the device is qat_420xx or qat_420xxvf */
+    CpaBoolean optimisedCurveSupport;
+    /* True if optimised curves are supported */
 
     CpaBoolean ns_isCnvErrorInjection;
     /** < Cnv Error Injection simulation is enabled.
@@ -211,9 +212,6 @@ typedef struct sal_service_s
      * structure available to store it for the NS case. */
 
 } sal_service_t;
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 
 /**
  *****************************************************************************
@@ -234,6 +232,8 @@ typedef struct sal_s
     /**< Container of sal_sym_service_t */
     sal_list_t *compression_services;
     /**< Container of sal_compression_service_t */
+    sal_list_t *decompression_services;
+    /**< Container of sal_compression_service_t for decomp only service */
     debug_dir_info_t *cy_dir;
     /**< Container for crypto proc debug */
     debug_dir_info_t *asym_dir;
@@ -241,7 +241,9 @@ typedef struct sal_s
     debug_dir_info_t *sym_dir;
     /**< Container for sym proc debug */
     debug_dir_info_t *dc_dir;
-    /**< Container for compression proc debug */
+    /**< Container for data compression proc debug */
+    debug_dir_info_t *decomp_dir;
+    /**< Container for decompression only proc debug */
     debug_file_info_t *ver_file;
     /**< Container for version debug file */
 } sal_t;

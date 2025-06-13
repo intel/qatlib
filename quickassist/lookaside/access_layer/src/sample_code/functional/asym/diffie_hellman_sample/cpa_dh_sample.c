@@ -182,7 +182,7 @@ static CpaStatus sampleDhPerformOp(CpaInstanceHandle cyInstHandle)
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
     void *pCallbackTagPh2 = (void *)&complete;
 
     /** Pointer that will contain the public value (returned by
@@ -195,6 +195,8 @@ static CpaStatus sampleDhPerformOp(CpaInstanceHandle cyInstHandle)
     CpaCyDhPhase2SecretKeyGenOpData *pCpaDhOpDataP2 = NULL;
 
     CpaCyDhPhase1KeyGenOpData *pCpaDhOpDataP1 = NULL;
+
+    COMPLETION_INIT(&complete); // Initialize the completion variable
 
     //<snippet name="memAlloc">
     status = OS_MALLOC(&pCpaDhOpDataP1, sizeof(CpaCyDhPhase1KeyGenOpData));
@@ -338,8 +340,6 @@ static CpaStatus sampleDhPerformOp(CpaInstanceHandle cyInstHandle)
             /** Perform Diffie-Hellman Phase 2 operation */
             PRINT_DBG("cpaCyDhKeyGenPhase2Secret\n");
             PRINT_DBG("Phase 2: generate the private key\n");
-
-            COMPLETION_INIT(&complete);
 
             //<snippet name="ph2OpPerform">
             status = cpaCyDhKeyGenPhase2Secret(

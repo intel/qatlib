@@ -92,7 +92,6 @@
 #include <sched.h>
 #endif
 
-
 #ifdef POLL_INLINE
 extern Cpa32U asymPollingInterval_g;
 #endif
@@ -420,6 +419,7 @@ typedef enum ec_gen_step_s
 #define ZUC_EIA3_BLOCK_LENGTH_IN_BYTES (4)
 #define SHA3_256_BLOCK_LENGTH_IN_BYTES (136)
 
+#define POLY_DIGEST_LENGTH_IN_BYTES (16)
 
 /*add for SM3 and SM4*/
 #define SM3_DIGEST_LENGTH_IN_BYTES (32)
@@ -467,6 +467,8 @@ typedef enum ec_gen_step_s
 #define IV_LEN_FOR_12_BYTE_GCM (12)
 #define IV_LEN_FOR_16_BYTE_GCM (16)
 
+#define IV_LEN_FOR_12_BYTE_CHACHA (12)
+#define CPA_CIPHER_SPC_IV_SIZE (12)
 
 #define DIGEST_RESULT_4BYTES (4)
 
@@ -572,12 +574,20 @@ typedef enum ec_gen_step_s
 
 /*the following are defined in the framework, these are used for setup only
  * and are not to be used in functions not thread safe*/
-extern Cpa8U thread_setup_g[MAX_THREAD_VARIATION]
-                           [MAX_SETUP_STRUCT_SIZE_IN_BYTES];
+#ifdef USER_SPACE
+extern Cpa8U (*thread_setup_g)[MAX_SETUP_STRUCT_SIZE_IN_BYTES];
+extern Cpa8U (*thread_name_g)[THREAD_NAME_LEN];
+extern thread_creation_data_t *testSetupData_g;
+extern sample_code_thread_t *threads_g;
+extern single_thread_test_data_t *singleThreadData_g;
+#else
+extern Cpa8U thread_setup_g[MAX_THREAD_VARIATION][MAX_SETUP_STRUCT_SIZE_IN_BYTES];
 extern Cpa8U thread_name_g[MAX_THREAD_VARIATION][THREAD_NAME_LEN];
+extern thread_creation_data_t testSetupData_g[MAX_THREAD_VARIATION];
+extern sample_code_thread_t threads_g[MAX_THREADS];
+extern single_thread_test_data_t singleThreadData_g[MAX_THREADS];
+#endif
 extern Cpa32U testTypeCount_g;
-extern thread_creation_data_t testSetupData_g[];
-extern single_thread_test_data_t singleThreadData_g[];
 extern CpaCySymCipherDirection cipherDirection_g;
 
 #define ONE_PACKET (1)
@@ -589,7 +599,6 @@ extern Cpa32U numModSizes;
 extern Cpa32U packetSizes[];
 extern Cpa32U wirelessPacketSizes[];
 extern Cpa32U modSizes[];
-
 
 /*define a back off mechanism to stop performance operations constantly using
  * up 100% CPU.*/
@@ -2190,7 +2199,6 @@ CpaStatus calcSWDigest(CpaFlatBuffer *msg,
                        CpaFlatBuffer *digest,
                        CpaCySymHashAlgorithm hashAlg);
 
-
 CpaStatus getCyInstanceCapabilities(CpaCyCapabilitiesInfo *pCap);
 
 CpaStatus getCySpecificInstanceCapabilities(CpaInstanceHandle instanceHandle,
@@ -2231,7 +2239,6 @@ CpaStatus bufferDataMemAlloc(CpaInstanceHandle instanceHandle,
                              Cpa32U size,
                              Cpa8U *copyData,
                              Cpa32U sizeOfCopyData);
-
 
 /**
  *****************************************************************************
@@ -2506,7 +2513,6 @@ CpaStatus allocArrayOfVirtPointers(void **buf, Cpa32U numBuffs);
  *****************************************************************************/
 CpaStatus cyAllocAndSetupInstances(void);
 
-
 /**
  *****************************************************************************
  * @ingroup cryptoThreads
@@ -2536,7 +2542,6 @@ CpaStatus waitForResponses(perf_data_t *perfData,
  *
  *****************************************************************************/
 CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void);
-
 
 /**
  *****************************************************************************
@@ -2611,7 +2616,6 @@ void printSymTestType(symmetric_test_params_t *setup);
  * were all running the same setup
  ******************************************************************************/
 CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data);
-
 
 CpaStatus cyPollNumOperations(perf_data_t *pPerfData,
                               CpaInstanceHandle instanceHandle,

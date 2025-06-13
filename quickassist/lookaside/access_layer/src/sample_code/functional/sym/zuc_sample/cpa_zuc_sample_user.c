@@ -99,7 +99,7 @@ int main(int argc, const char **argv)
     }
 
     stat = algChainSample();
-    if (CPA_STATUS_SUCCESS != stat)
+    if ((CPA_STATUS_SUCCESS != stat) && (CPA_STATUS_UNSUPPORTED != stat))
     {
         PRINT_ERR("\nZUC Sample Code App failed\n");
     }

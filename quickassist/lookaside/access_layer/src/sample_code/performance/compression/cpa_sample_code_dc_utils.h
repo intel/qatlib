@@ -120,6 +120,15 @@ extern CpaBoolean testOverFlow_g;
 extern volatile CpaBoolean dc_service_started_g;
 extern CpaBoolean gRetainPartials;
 extern CpaBoolean disableAdditionalCmpbufferSize_g;
+extern volatile CpaBoolean enableDcDpFlatsToSGLConv_g;
+extern volatile Cpa32U dcDpNumFlatsPerSGL_g;
+#if DC_API_VERSION_AT_LEAST(3, 2)
+extern volatile Cpa32U dcDpPartialReadBufferMask_g;
+extern volatile CpaBoolean dcDpEnableZeroPad_g;
+#define IS_PARTREAD_TEST()                                                     \
+    ((dcDpPartialReadBufferMask_g > 0) ? CPA_TRUE : CPA_FALSE)
+#define IS_ZEROPAD_TEST() (dcDpEnableZeroPad_g)
+#endif /* DC_API_VERSION_AT_LEAST(3, 2) */
 extern Cpa32U getThroughput(Cpa64U numPackets,
                             Cpa32U packetSize,
                             perf_cycles_t cycles);

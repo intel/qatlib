@@ -93,7 +93,7 @@ extern "C" {
  *       OSAL_RETRY, OSAL_RESOURCE, OSAL_INVALID_PARAM, OSAL_FATAL
  *       and OSAL_UNSUPPORTED.
  */
-typedef UINT32 OSAL_STATUS;
+typedef INT32 OSAL_STATUS;
 
 /**
  * @brief VUINT32

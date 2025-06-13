@@ -123,7 +123,8 @@ extern "C" {
  *      cpaCyEcdsaSignR()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcdsaSignROpData {
+typedef struct _CpaCyEcdsaSignROpData
+{
     CpaFlatBuffer xg;
     /**< x coordinate of base point G */
     CpaFlatBuffer yg;
@@ -142,7 +143,6 @@ typedef struct _CpaCyEcdsaSignROpData {
     CpaCyEcFieldType fieldType;
     /**< field type for the operation */
 } CpaCyEcdsaSignROpData;
-
 
 /**
  *****************************************************************************
@@ -171,7 +171,8 @@ typedef struct _CpaCyEcdsaSignROpData {
  *      cpaCyEcdsaSignS()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcdsaSignSOpData {
+typedef struct _CpaCyEcdsaSignSOpData
+{
     CpaFlatBuffer m;
     /**< digest of the message to be signed */
     CpaFlatBuffer d;
@@ -185,7 +186,6 @@ typedef struct _CpaCyEcdsaSignSOpData {
     CpaCyEcFieldType fieldType;
     /**< field type for the operation */
 } CpaCyEcdsaSignSOpData;
-
 
 /**
  *****************************************************************************
@@ -214,7 +214,8 @@ typedef struct _CpaCyEcdsaSignSOpData {
  *      cpaCyEcdsaSignRS()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcdsaSignRSOpData {
+typedef struct _CpaCyEcdsaSignRSOpData
+{
     CpaFlatBuffer xg;
     /**< x coordinate of base point G */
     CpaFlatBuffer yg;
@@ -236,7 +237,6 @@ typedef struct _CpaCyEcdsaSignRSOpData {
     CpaCyEcFieldType fieldType;
     /**< field type for the operation */
 } CpaCyEcdsaSignRSOpData;
-
 
 /**
  *****************************************************************************
@@ -266,7 +266,8 @@ typedef struct _CpaCyEcdsaSignRSOpData {
  *      CpaCyEcdsaVerify()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcdsaVerifyOpData {
+typedef struct _CpaCyEcdsaVerifyOpData
+{
     CpaFlatBuffer xg;
     /**< x coordinate of base point G */
     CpaFlatBuffer yg;
@@ -303,7 +304,8 @@ typedef struct _CpaCyEcdsaVerifyOpData {
  *      initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyEcdsaStats64 {
+typedef struct _CpaCyEcdsaStats64
+{
     Cpa64U numEcdsaSignRRequests;
     /**< Total number of ECDSA Sign R operation requests. */
     Cpa64U numEcdsaSignRRequestErrors;
@@ -381,7 +383,6 @@ typedef struct _CpaCyEcdsaStats64 {
      * not be completed successfully due to errors. */
 } CpaCyEcdsaStats64;
 
-
 /**
  *****************************************************************************
  * @ingroup cpaCyEcdsa
@@ -426,11 +427,10 @@ typedef struct _CpaCyEcdsaStats64 {
  *
  *****************************************************************************/
 typedef void (*CpaCyEcdsaGenSignCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean multiplyStatus,
-        CpaFlatBuffer *pOut);
-
+                                        CpaStatus status,
+                                        void *pOpData,
+                                        CpaBoolean multiplyStatus,
+                                        CpaFlatBuffer *pOut);
 
 /**
  *****************************************************************************
@@ -477,12 +477,11 @@ typedef void (*CpaCyEcdsaGenSignCbFunc)(void *pCallbackTag,
  *
  *****************************************************************************/
 typedef void (*CpaCyEcdsaSignRSCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean multiplyStatus,
-        CpaFlatBuffer *pR,
-        CpaFlatBuffer *pS);
-
+                                       CpaStatus status,
+                                       void *pOpData,
+                                       CpaBoolean multiplyStatus,
+                                       CpaFlatBuffer *pR,
+                                       CpaFlatBuffer *pS);
 
 /**
  *****************************************************************************
@@ -524,10 +523,9 @@ typedef void (*CpaCyEcdsaSignRSCbFunc)(void *pCallbackTag,
  *
  *****************************************************************************/
 typedef void (*CpaCyEcdsaVerifyCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean verifyStatus);
-
+                                       CpaStatus status,
+                                       void *pOpData,
+                                       CpaBoolean verifyStatus);
 
 /**
  *****************************************************************************
@@ -591,14 +589,12 @@ typedef void (*CpaCyEcdsaVerifyCbFunc)(void *pCallbackTag,
  * @see
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyEcdsaSignR(const CpaInstanceHandle instanceHandle,
-        const CpaCyEcdsaGenSignCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyEcdsaSignROpData *pOpData,
-        CpaBoolean *pSignStatus,
-        CpaFlatBuffer *pR);
-
+CpaStatus cpaCyEcdsaSignR(const CpaInstanceHandle instanceHandle,
+                          const CpaCyEcdsaGenSignCbFunc pCb,
+                          void *pCallbackTag,
+                          const CpaCyEcdsaSignROpData *pOpData,
+                          CpaBoolean *pSignStatus,
+                          CpaFlatBuffer *pR);
 
 /**
  *****************************************************************************
@@ -662,14 +658,12 @@ cpaCyEcdsaSignR(const CpaInstanceHandle instanceHandle,
  * @see
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle,
-        const CpaCyEcdsaGenSignCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyEcdsaSignSOpData *pOpData,
-        CpaBoolean *pSignStatus,
-        CpaFlatBuffer *pS);
-
+CpaStatus cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle,
+                          const CpaCyEcdsaGenSignCbFunc pCb,
+                          void *pCallbackTag,
+                          const CpaCyEcdsaSignSOpData *pOpData,
+                          CpaBoolean *pSignStatus,
+                          CpaFlatBuffer *pS);
 
 /**
  *****************************************************************************
@@ -733,15 +727,92 @@ cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle,
  * @see
  *      None
  *****************************************************************************/
-CpaStatus
-cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle,
-        const CpaCyEcdsaSignRSCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyEcdsaSignRSOpData *pOpData,
-        CpaBoolean *pSignStatus,
-        CpaFlatBuffer *pR,
-        CpaFlatBuffer *pS);
+CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle,
+                           const CpaCyEcdsaSignRSCbFunc pCb,
+                           void *pCallbackTag,
+                           const CpaCyEcdsaSignRSOpData *pOpData,
+                           CpaBoolean *pSignStatus,
+                           CpaFlatBuffer *pR,
+                           CpaFlatBuffer *pS);
 
+/**
+ *****************************************************************************
+ * @ingroup cpaCyEcdsa
+ *      Differential Power Analysis (DPA) Resistant Generation of ECDSA
+ *      Signature R & S. This is a variation of the cpaCyEcdsaSignRS() API.
+ *
+ * @description
+ *      This function generates ECDSA Signature R & S in a DPA resistant
+ *      way as per ANSI X9.62 2005 section 7.3.
+ *
+ * @context
+ *      When called as an asynchronous function it cannot sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ *      When called as a synchronous function it may sleep. It MUST NOT be
+ *      executed in a context that DOES NOT permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      Yes when configured to operate in synchronous mode.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]  instanceHandle   Instance handle.
+ * @param[in]  pCb              Callback function pointer. If this is set to a
+ *                              NULL value the function will operate
+ *                              synchronously.
+ * @param[in]  pCallbackTag     User-supplied value to help identify request.
+ * @param[in]  pOpData          Structure containing all the data needed to
+ *                              perform the operation. The client code
+ *                              allocates the memory for this structure. This
+ *                              component takes ownership of the memory until
+ *                              it is returned in the callback.
+ * @param[in]  pRandom          Pointer to buffer containing cryptographically
+ *                              secure random data.
+ * @param[in]  createRandomData Control parameter to delegate the random
+ *                              data generation to QAT. If set to CPA_TRUE,
+ *                              input parameter pRandom is ignored.
+ * @param[out] pSignStatus      In synchronous mode, the multiply output is
+ *                              valid (CPA_TRUE) or the output is invalid
+ *                              (CPA_FALSE).
+ * @param[out] pR               ECDSA message signature r.
+ * @param[out] pS               ECDSA message signature s.
+ *
+ * @retval CPA_STATUS_SUCCESS       Function executed successfully.
+ * @retval CPA_STATUS_FAIL          Function failed.
+ * @retval CPA_STATUS_RETRY         Resubmit the request.
+ * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in.
+ * @retval CPA_STATUS_RESOURCE      Error related to system resources.
+ * @retval CPA_STATUS_RESTARTING    API implementation is restarting. Resubmit
+ *                                  the request.
+ * @retval CPA_STATUS_UNSUPPORTED   Function is not supported.
+ *
+ * @pre
+ *      The component has been initialized via cpaCyStartInstance function.
+ * @post
+ *      None
+ * @note
+ *      When pCb is non-NULL an asynchronous callback is generated in response
+ *      to this function call.
+ *      For optimal performance, data pointers SHOULD be 8-byte aligned.
+ *
+ * @see
+ *      None
+ *****************************************************************************/
+CpaStatus
+cpaCyEcdsaDpaSignRS(const CpaInstanceHandle instanceHandle,
+                    const CpaCyEcdsaSignRSCbFunc pCb,
+                    void *pCallbackTag,
+                    const CpaCyEcdsaSignRSOpData *pOpData,
+                    const CpaFlatBuffer *pRandom,
+                    const CpaBoolean createRandomData,
+                    CpaBoolean *pSignStatus,
+                    CpaFlatBuffer *pR,
+                    CpaFlatBuffer *pS);
 
 /**
  *****************************************************************************
@@ -808,12 +879,11 @@ cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle,
  *      CpaCyEcdsaVerifyCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyEcdsaVerify(const CpaInstanceHandle instanceHandle,
-        const CpaCyEcdsaVerifyCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyEcdsaVerifyOpData *pOpData,
-        CpaBoolean *pVerifyStatus);
+CpaStatus cpaCyEcdsaVerify(const CpaInstanceHandle instanceHandle,
+                           const CpaCyEcdsaVerifyCbFunc pCb,
+                           void *pCallbackTag,
+                           const CpaCyEcdsaVerifyOpData *pOpData,
+                           CpaBoolean *pVerifyStatus);
 
 /**
  *****************************************************************************
@@ -867,9 +937,8 @@ cpaCyEcdsaVerify(const CpaInstanceHandle instanceHandle,
  * @see
  *      CpaCyEcdsaStats64
  *****************************************************************************/
-CpaStatus
-cpaCyEcdsaQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyEcdsaStats64 *pEcdsaStats);
+CpaStatus cpaCyEcdsaQueryStats64(const CpaInstanceHandle instanceHandle,
+                                 CpaCyEcdsaStats64 *pEcdsaStats);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

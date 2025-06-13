@@ -457,7 +457,6 @@ CpaStatus sm2VerifyPerform(sm2_test_params_t *setup)
             pSm2Data, setup->syncMode, setup->numBuffers, setup->numLoops);
     }
 
-
     sampleCodeSemaphoreDestroy(&pSm2Data->comp);
     /*Free all memory*/
     SM2_PERFORM_VERIFY_MEM_FREE();

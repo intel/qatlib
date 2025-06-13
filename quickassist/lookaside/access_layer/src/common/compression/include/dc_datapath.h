@@ -78,25 +78,13 @@
 #include "dc_session.h"
 #include "sal_types_compression.h"
 #include "lac_mem_pools.h"
+#include "icp_qat_fw_dc_chain.h"
 
 #define LAC_QAT_DC_REQ_SZ_LW 32
 #define LAC_QAT_DC_RESP_SZ_LW 8
 
-/* Restriction on the source buffer size for compression due to the firmware
- * processing */
-#define DC_SRC_BUFFER_MIN_SIZE (15)
-
-/* Restriction on the destination buffer size for compression due to
- * the management of skid buffers in the firmware */
-#define DC_DEST_BUFFER_STA_MIN_SIZE (64)
-#define DC_DEST_BUFFER_DYN_MIN_SIZE_GEN4 (512)
-#define DC_DEST_BUFFER_STA_MIN_SIZE_GEN4 (1024)
 /* C62x and C3xxx pcie rev0 devices require an additional 32bytes */
 #define DC_DEST_BUFFER_STA_ADDITIONAL_SIZE (32)
-
-/* C4xxx device requires minimum 47 bytes for output buffer
- * size for static compression */
-#define DC_DEST_BUFFER_MIN_SIZE (47)
 
 /* Minimum destination buffer size for decompression */
 #define DC_DEST_BUFFER_DEC_MIN_SIZE (1)
@@ -149,12 +137,6 @@
  * align the results field with the API struct  */
 #define DC_API_ALIGNMENT_OFFSET (offsetof(CpaDcDpOpData, results))
 
-/* Mask used to check the CompressAndVerify capability bit */
-#define DC_CNV_EXTENDED_CAPABILITY (0x01)
-
-/* Mask used to check the CompressAndVerifyAndRecover capability bit */
-#define DC_CNVNR_EXTENDED_CAPABILITY (0x100)
-
 /* Default values for CNV integrity checks,
  * those are used to inform hardware of specifying CRC parameters to be used
  * when calculating CRCs */
@@ -166,6 +148,8 @@
 #define DC_XOR64_MASK_DEFAULT 0x0ULL
 #define DC_DEFAULT_CRC 0x0
 #define DC_DEFAULT_ADLER32 0x1
+#define DC_REFLECT_IN_DEFAULT 0x0
+#define DC_REFLECT_OUT_DEFAULT 0x0
 
 /* DC Chain info in compression cookie */
 typedef struct dc_chain_info_s
@@ -174,12 +158,32 @@ typedef struct dc_chain_info_s
     /* True if this request is part of a DC Chain operation */
 } dc_chain_info_t;
 
+/* List of the different OpData types supported as defined in the DC API header
+ * file.
+ */
+typedef enum dc_opdata_type_e
+{
+    DC_OPDATA_TYPE0 = 0,
+    /**< Refer to the API definition for CpaDcOpData format */
+    DC_OPDATA_TYPE1
+    /**< Refer to the API definition for CpaDcOpData2 format */
+} dc_opdata_type_t;
+
+typedef struct dc_opdata_ext_s
+{
+    void *pOpData;
+    /**< Pointer to the OpData structure being used */
+    dc_opdata_type_t opDataType;
+    /**< Indicates the type of OpData being used */
+} dc_opdata_ext_t;
+
 /**
 *******************************************************************************
 * @ingroup cpaDc Data Compression
 *      Compression cookie
 * @description
-*      This cookie stores information for a particular compression perform op.
+*      This cookie stores information for a particular compression or
+*      decompression perform op.
 *      This includes various user-supplied parameters for the operation which
 *      will be needed in our callback function.
 *      A pointer to this cookie is stored in the opaque data field of the QAT
@@ -272,7 +276,8 @@ void dcCompression_ProcessCallback(void *pRespMsg);
 #ifndef KERNEL_SPACE
 #ifdef ICP_PARAM_CHECK
 CpaStatus dcCheckOpData(sal_compression_service_t *pService,
-                        CpaDcOpData *pOpData);
+                        CpaDcOpData *pOpData,
+                        CpaDcSessionDir sessDirection);
 #endif
 #endif
 
@@ -339,6 +344,11 @@ typedef enum dc_cnv_mode_s
  * @param[in]   callbackTag         Pointer to the callback tag
  * @param[in]   compDecomp          Direction of the operation
  * @param[in]   cnvMode             CNV Mode
+ * @param[in]   pDictionaryData     Pointer to CpaDcDictionaryData structure
+ *                                  containing parameters for dictionary
+ *                                  compression requests. If it is not a
+ *                                  dictionary request then this parameter
+ *                                  should be passed as NULL.
  *
  * @retval CPA_STATUS_SUCCESS       Function executed successfully
  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in
@@ -355,6 +365,87 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
                           CpaDcOpData *pOpData,
                           void *callbackTag,
                           dc_request_dir_t compDecomp,
-                          dc_cnv_mode_t cnvMode);
+                          dc_cnv_mode_t cnvMode,
+                          CpaDcDictionaryData *pDictionaryData);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Populate the compression request parameters
+ *
+ * @description
+ *      This function will populate the compression request parameters
+ *
+ * @param[out]  pCompReqParams   Pointer to the compression request parameters
+ * @param[in]   pCookie          Pointer to the compression cookie
+ *
+ *****************************************************************************/
+void dcCompRequestParamsPopulate(icp_qat_fw_comp_req_params_t *pCompReqParams,
+                                 dc_compression_cookie_t *pCookie);
+
+void dcHandleIntegrityChecksums(dc_compression_cookie_t *pCookie,
+                                CpaCrcData *crc_external,
+                                CpaDcRqResults *pDcResults,
+                                CpaDcHuffType huffType,
+                                CpaDcCompType compType,
+                                CpaDcChecksum checksumType,
+                                CpaBoolean isDcNs,
+                                icp_qat_comp_chain_20_cmd_id_t chain_id);
+
+void dcHandleIntegrityChecksumsLegacy(dc_compression_cookie_t *pCookie,
+                                      CpaCrcData *crc_external,
+                                      CpaDcRqResults *pDcResults,
+                                      CpaDcHuffType huffType,
+                                      CpaDcChecksum checksumType,
+                                      CpaDcSessionState sessState,
+                                      CpaDcSessionDir sessDirection,
+                                      CpaBoolean isDcNs);
+
+CpaStatus dcParamCheck(const CpaInstanceHandle dcInstance,
+                       const CpaDcSessionHandle pSessionHandle,
+                       const sal_compression_service_t *pService,
+                       const CpaBufferList *pSrcBuff,
+                       const CpaBufferList *pDestBuff,
+                       const CpaDcRqResults *pResults,
+                       const dc_session_desc_t *pSessionDesc,
+                       const CpaDcFlush flushFlag,
+                       const Cpa64U srcBuffSize);
+
+CpaStatus dcCompDecompData(sal_compression_service_t *pService,
+                           dc_session_desc_t *pSessionDesc,
+                           CpaInstanceHandle dcInstance,
+                           CpaDcSessionHandle pSessionHandle,
+                           CpaBufferList *pSrcBuff,
+                           CpaBufferList *pDestBuff,
+                           CpaDcRqResults *pResults,
+                           CpaDcFlush flushFlag,
+                           CpaDcOpData *pOpData,
+                           void *callbackTag,
+                           dc_request_dir_t compDecomp,
+                           CpaBoolean isAsyncMode,
+                           dc_cnv_mode_t cnvMode,
+                           CpaDcDictionaryData *pDictionaryData);
+
+CpaStatus dcCheckSourceData(sal_compression_service_t *pService,
+                            CpaDcSessionHandle pSessionHandle,
+                            CpaBufferList *pSrcBuff,
+                            CpaBufferList *pDestBuff,
+                            CpaDcRqResults *pResults,
+                            CpaDcFlush flushFlag,
+                            Cpa64U srcBuffSize,
+                            CpaDcSkipData *skipData);
+
+CpaStatus dcCheckDestinationData(sal_compression_service_t *pService,
+                                 CpaDcSessionHandle pSessionHandle,
+                                 CpaBufferList *pDestBuff,
+                                 dc_request_dir_t compDecomp);
+
+CpaStatus dcCheckOpData(sal_compression_service_t *pService,
+                        CpaDcOpData *pOpData,
+                        CpaDcSessionDir sessDirection);
+
+CpaStatus dcCheckDictData(CpaDcDictionaryData *pDictionaryData,
+                          sal_compression_service_t *pService,
+                          dc_session_desc_t *pSessionDesc);
 
 #endif /* DC_DATAPATH_H_ */

@@ -117,14 +117,22 @@
 #define SAL_USER_SPACE_START_TIMEOUT_MS 120000
 #define MAX_SUBSYSTEM_RETRY 64
 
+#define ASYM_SERVICE "asym"
+#define SYM_SERVICE "sym"
+#define CY_SERVICE "cy"
+#define DECOMP_SERVICE "decomp"
+#define DC_SERVICE "dc"
+#define INLINE_SERVICE "inline"
+
 static char *subsystem_name = "SAL";
 /**< Name used by ADF to identify this component. */
 #ifndef ICP_DC_ONLY
-static char *cy_dir_name = "cy";
-static char *asym_dir_name = "asym";
-static char *sym_dir_name = "sym";
+static char *cy_dir_name = CY_SERVICE;
+static char *asym_dir_name = ASYM_SERVICE;
+static char *sym_dir_name = SYM_SERVICE;
 #endif
-static char *dc_dir_name = "dc";
+static char *dc_dir_name = DC_SERVICE;
+static char *decomp_dir_name = DECOMP_SERVICE;
 /**< Stats dir names. */
 static char *ver_file_name = "version";
 
@@ -203,28 +211,33 @@ CpaStatus SalCtrl_GetEnabledServices(icp_accel_dev_t *device,
             do
             {
 #ifndef ICP_DC_ONLY
-                if (strncmp(token, "asym", strlen("asym")) == 0)
+                if (strncmp(token, ASYM_SERVICE, strlen(ASYM_SERVICE)) == 0)
                 {
                     *pEnabledServices |= SAL_SERVICE_TYPE_CRYPTO_ASYM;
                     break;
                 }
-                if (strncmp(token, "sym", strlen("sym")) == 0)
+                if (strncmp(token, SYM_SERVICE, strlen(SYM_SERVICE)) == 0)
                 {
                     *pEnabledServices |= SAL_SERVICE_TYPE_CRYPTO_SYM;
                     break;
                 }
-                if (strncmp(token, "cy", strlen("cy")) == 0)
+                if (strncmp(token, CY_SERVICE, strlen(CY_SERVICE)) == 0)
                 {
                     *pEnabledServices |= SAL_SERVICE_TYPE_CRYPTO;
                     break;
                 }
 #endif
-                if (strncmp(token, "dc", strlen("dc")) == 0)
+                if (strncmp(token, DECOMP_SERVICE, strlen(DECOMP_SERVICE)) == 0)
+                {
+                    *pEnabledServices |= SAL_SERVICE_TYPE_DECOMPRESSION;
+                    break;
+                }
+                if (strncmp(token, DC_SERVICE, strlen(DC_SERVICE)) == 0)
                 {
                     *pEnabledServices |= SAL_SERVICE_TYPE_COMPRESSION;
                     break;
                 }
-                if (strncmp(token, "inline", strlen("inline")) == 0)
+                if (strncmp(token, INLINE_SERVICE, strlen(INLINE_SERVICE)) == 0)
                 {
                     *pEnabledServices |= SAL_SERVICE_TYPE_INLINE;
                     break;
@@ -339,6 +352,16 @@ CpaStatus SalCtrl_GetSupportedServices(icp_accel_dev_t *device,
                 status = CPA_STATUS_FAIL;
             }
         }
+
+        if (SalCtrl_IsServiceEnabled(enabled_services,
+                                     SAL_SERVICE_TYPE_DECOMPRESSION))
+        {
+            if (!(device->services & SERV_TYPE_DECOMP))
+            {
+                LAC_LOG_ERROR("Device does not support DeComp only service");
+                status = CPA_STATUS_FAIL;
+            }
+        }
     }
 
     return status;
@@ -382,7 +405,9 @@ CpaBoolean SalCtrl_IsServiceSupported(icp_accel_dev_t *device,
         !(SalCtrl_IsServiceEnabled((Cpa32U)service_to_check,
                                    SAL_SERVICE_TYPE_CRYPTO_SYM)) &&
         !(SalCtrl_IsServiceEnabled((Cpa32U)service_to_check,
-                                   SAL_SERVICE_TYPE_COMPRESSION)))
+                                   SAL_SERVICE_TYPE_COMPRESSION)) &&
+        !(SalCtrl_IsServiceEnabled((Cpa32U)service_to_check,
+                                   SAL_SERVICE_TYPE_DECOMPRESSION)))
     {
         LAC_LOG_ERROR("Invalid service type");
         service_supported = CPA_FALSE;
@@ -432,6 +457,15 @@ CpaBoolean SalCtrl_IsServiceSupported(icp_accel_dev_t *device,
         if (!(capabilitiesMask & ICP_ACCEL_CAPABILITIES_COMPRESSION))
         {
             LAC_LOG_DEBUG("Device does not support Compression service");
+            service_supported = CPA_FALSE;
+        }
+    }
+    if (SalCtrl_IsServiceEnabled((Cpa32U)service_to_check,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        if (!(device->services & SERV_TYPE_DECOMP))
+        {
+            LAC_LOG_DEBUG("Device does not support Decompression service");
             service_supported = CPA_FALSE;
         }
     }
@@ -600,10 +634,16 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         pInst->isGen4 = IS_QAT_GEN4(device->deviceType);
         pInst->isGen4_2 = IS_QAT_GEN4_2(device->deviceType);
         pInst->ns_isCnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
+        if (pInst->isGen4)
+        {
+            pInst->optimisedCurveSupport = CPA_TRUE;
+        }
+
         status = SalList_add(services, &tail_list, pInst);
         if (CPA_STATUS_SUCCESS != status)
         {
             osalMemFree(pInst);
+            break;
         }
     }
 
@@ -1105,6 +1145,34 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
         }
     }
 
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status =
+            SalCtrl_ServiceShutdown(device,
+                                    &service_container->decompression_services,
+                                    &service_container->decomp_dir,
+                                    SAL_SERVICE_TYPE_DECOMPRESSION);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            ret_status = status;
+        }
+    }
+
+    /* This condition is only met for aysm;asym;dc or asym;asym;decomp configurations. 
+     * In such cases, service_container->crypto_services may be initialized if
+     * the function Lac_GetCyNumInstancesByType is invoked with CPA_ACC_SVC_TYPE_CRYPTO
+     * as the first parameter.
+     * To ensure all allocated structures are properly cleaned up, the SalList_free
+     * operation should be executed for crypto_services during the Service Shutdown phase.
+     */
+    if (SalCtrl_IsServiceEnabled(enabled_services,SAL_SERVICE_TYPE_CRYPTO_SYM) 
+            && SalCtrl_IsServiceEnabled(enabled_services,SAL_SERVICE_TYPE_CRYPTO_ASYM) 
+            && !SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO))
+    {
+        SalList_free(&service_container->crypto_services);
+    }
+
     if (service_container->ver_file)
     {
         LAC_OS_FREE(service_container->ver_file);
@@ -1169,11 +1237,13 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
     service_container->sym_services = NULL;
     service_container->crypto_services = NULL;
     service_container->compression_services = NULL;
+    service_container->decompression_services = NULL;
 
     service_container->asym_dir = NULL;
     service_container->sym_dir = NULL;
     service_container->cy_dir = NULL;
     service_container->dc_dir = NULL;
+    service_container->decomp_dir = NULL;
     service_container->ver_file = NULL;
 
     status =
@@ -1195,7 +1265,7 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
                                  SAL_SERVICE_TYPE_CRYPTO_ASYM))
     {
         status = SalCtrl_GetInstanceCount(
-            device, "NumberCyInstances", &instance_count);
+            device, "NumberAsymInstances", &instance_count);
         if (CPA_STATUS_SUCCESS != status)
         {
             instance_count = 0;
@@ -1216,7 +1286,7 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
     if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO_SYM))
     {
         status = SalCtrl_GetInstanceCount(
-            device, "NumberCyInstances", &instance_count);
+            device, "NumberSymInstances", &instance_count);
         if (CPA_STATUS_SUCCESS != status)
         {
             instance_count = 0;
@@ -1276,7 +1346,27 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
             goto err_init;
         }
     }
-
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status = SalCtrl_GetInstanceCount(
+            device, "NumberDecompInstances", &instance_count);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            instance_count = 0;
+        }
+        status = SalCtrl_ServiceInit(device,
+                                     &service_container->decompression_services,
+                                     &service_container->decomp_dir,
+                                     decomp_dir_name,
+                                     tail_list,
+                                     instance_count,
+                                     SAL_SERVICE_TYPE_DECOMPRESSION);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_init;
+        }
+    }
     return status;
 
 err_init:
@@ -1352,6 +1442,17 @@ STATIC CpaStatus SalCtrl_ServiceEventStop(icp_accel_dev_t *device,
     {
         status = SalCtrl_ServiceStop(device,
                                      service_container->compression_services);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            ret_status = status;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status = SalCtrl_ServiceStop(device,
+                                     service_container->decompression_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             ret_status = status;
@@ -1434,6 +1535,17 @@ STATIC CpaStatus SalCtrl_ServiceEventStart(icp_accel_dev_t *device,
         }
     }
 
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status = SalCtrl_ServiceStart(
+            device, service_container->decompression_services);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_start;
+        }
+    }
+
     return status;
 err_start:
     SalCtrl_ServiceEventStop(device, enabled_services);
@@ -1509,6 +1621,17 @@ STATIC CpaStatus SalCtrl_ServiceEventError(icp_accel_dev_t *device,
     {
         status = SalCtrl_ServiceError(device,
                                       service_container->compression_services);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status = SalCtrl_ServiceError(
+            device, service_container->decompression_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
@@ -1604,6 +1727,19 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
         }
     }
 
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status =
+            SalCtrl_ServiceRestarting(device,
+                                      service_container->decompression_services,
+                                      &service_container->decomp_dir);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
+    }
+
     if (service_container->ver_file)
     {
         LAC_OS_FREE(service_container->ver_file);
@@ -1655,6 +1791,7 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
     service_container->sym_dir = NULL;
     service_container->cy_dir = NULL;
     service_container->dc_dir = NULL;
+    service_container->decomp_dir = NULL;
     service_container->ver_file = NULL;
 
     status =
@@ -1675,7 +1812,7 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
                                  SAL_SERVICE_TYPE_CRYPTO_ASYM))
     {
         status = SalCtrl_GetInstanceCount(
-            device, "NumberCyInstances", &instance_count);
+            device, "NumberAsymInstances", &instance_count);
         if (CPA_STATUS_SUCCESS != status)
         {
             instance_count = 0;
@@ -1696,7 +1833,7 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
     if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO_SYM))
     {
         status = SalCtrl_GetInstanceCount(
-            device, "NumberCyInstances", &instance_count);
+            device, "NumberSymInstances", &instance_count);
         if (CPA_STATUS_SUCCESS != status)
         {
             instance_count = 0;
@@ -1758,6 +1895,29 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         }
     }
 
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status = SalCtrl_GetInstanceCount(
+            device, "NumberDecompInstances", &instance_count);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            instance_count = 0;
+        }
+        status =
+            SalCtrl_ServiceRestarted(device,
+                                     &service_container->decompression_services,
+                                     &service_container->decomp_dir,
+                                     decomp_dir_name,
+                                     tail_list,
+                                     instance_count,
+                                     SAL_SERVICE_TYPE_DECOMPRESSION);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            goto err_restarted;
+        }
+    }
+
     return status;
 
 err_restarted:
@@ -1765,6 +1925,7 @@ err_restarted:
     SalCtrl_ServiceEventShutdown(device, enabled_services);
     return status;
 }
+
 /*************************************************************************
  * @ingroup SalCtrl
  * @description

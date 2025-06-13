@@ -65,7 +65,6 @@
 
 #include "cpa_sample_code_kpt2_common.h"
 
-
 #if CY_API_VERSION_AT_LEAST(3, 0)
 CpaStatus setKpt2RsaDecryptOpData(CpaInstanceHandle instanceHandle,
                                   CpaCyKptRsaDecryptOpData **pKPTDecryptOpData,

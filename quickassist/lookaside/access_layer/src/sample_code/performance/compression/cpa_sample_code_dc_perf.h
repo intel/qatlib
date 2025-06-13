@@ -102,6 +102,12 @@
       CPA_DC_API_VERSION_NUM_MINOR >= minor))
 #endif
 
+#ifndef DC_API_VERSION_LESS_THAN
+#define DC_API_VERSION_LESS_THAN(major, minor)                                 \
+    (CPA_DC_API_VERSION_NUM_MAJOR < major ||                                   \
+     (CPA_DC_API_VERSION_NUM_MAJOR == major &&                                 \
+      CPA_DC_API_VERSION_NUM_MINOR < minor))
+#endif
 /* Dynamic number of buffers to be created while initializing the Compression
  * session
  */
@@ -110,10 +116,15 @@
 /* Extra buffer */
 #define EXTRA_BUFFER (2)
 #define MIN_DST_BUFFER_SIZE (8192)
-#define MIN_DST_BUFFER_SIZE_GEN4 (1024)
+#define MIN_DST_BUFFER_SIZE_GEN4 (1026)
 #define DEFAULT_INCLUDE_LZ4 (0)
 #define DEFAULT_COMPRESSION_LOOPS (100)
-#define DEFAULT_COMPRESSION_WINDOW_SIZE (7)
+#if DC_API_VERSION_LESS_THAN(1, 6)
+    #define DEFAULT_COMPRESSION_WINDOW_SIZE (7)
+#endif
+#if DC_API_VERSION_AT_LEAST(3, 1)
+    #define DEFAULT_COMPRESSION_WINDOW_SIZE (0)
+#endif
 #define INITIAL_RESPONSE_COUNT (-1)
 #define SCALING_FACTOR_100 (100)
 #define SCALING_FACTOR_1000 (1000)
@@ -145,11 +156,16 @@
 /* the following are defined in the framework, these are used for setup only
  * and are not to be used in functions not thread safe
  */
-
-extern Cpa8U thread_setup_g[MAX_THREAD_VARIATION]
-                           [MAX_SETUP_STRUCT_SIZE_IN_BYTES];
+#ifdef USER_SPACE
+extern Cpa8U (*thread_setup_g)[MAX_SETUP_STRUCT_SIZE_IN_BYTES];
+extern thread_creation_data_t *testSetupData_g;
+extern sample_code_thread_t *threads_g;
+#else
+extern Cpa8U thread_setup_g[MAX_THREAD_VARIATION][MAX_SETUP_STRUCT_SIZE_IN_BYTES];
+extern thread_creation_data_t testSetupData_g[MAX_THREAD_VARIATION];
+extern sample_code_thread_t threads_g[MAX_THREADS];
+#endif
 extern Cpa32U testTypeCount_g;
-extern thread_creation_data_t testSetupData_g[];
 
 /**
  * *****************************************************************************
@@ -283,6 +299,8 @@ typedef struct compression_test_params_s
     Cpa32U numRequests;
     /* Array of buffers required, indexed by corpus file number */
     Cpa32U *numberOfBuffers;
+    /* Array of SGLs required, indexed by corpus file number */
+    Cpa32U *numberOfSGLs;
     /* Unique thread ID based on the order in which the thread was created */
     Cpa32U threadID;
     /* identifies if Data Plane API is used */
@@ -324,6 +342,19 @@ typedef struct compression_test_params_s
 #endif
     /*the logicalQaInstance for the cipher to use*/
     Cpa32U logicalQaInstance;
+#if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
+#if DC_API_VERSION_AT_LEAST(3, 2)
+#if !defined(SC_BSD_UPSTREAM)
+    /**<The Crc control data used for this session's data integrity
+     * computations  */
+    CpaCrcControlData dcSessionCrcControlData;
+    /**<The Crc control data used for this session's data integrity
+     * computations  */
+    CpaCrcControlData cySessionCrcControlData;
+#endif
+#endif
+#else
+#endif
     /*stores the setup data thread running symmetric operations*/
     CpaCySymSessionSetupData symSetupData;
     sample_code_semaphore_t comp;
@@ -340,6 +371,8 @@ typedef struct compression_test_params_s
     /* the Destination Buffer size obtained using
      * Compress Bound API, for Compress operation */
     Cpa32U dcDestBufferSize;
+    CpaBoolean isUseSGL;
+    Cpa32U numFlatsPerSGL;
 } compression_test_params_t;
 
 /**
@@ -474,7 +507,7 @@ CpaStatus dcPerform(compression_test_params_t *setup);
  *  @param[in]  compLevel compression Level
  *  @param[in]  state stateful operation or stateless operation
  *  @param[in]  testBuffersize size of the flat Buffer to use
- *  @parma[in]  corpusType type of corpus calgary/cantrbury corpus
+ *  @param[in]  corpusType type of corpus calgary/cantrbury corpus
  *  @param[in]  syncFlag synchronous/Asynchronous operation
  *  @param[in]  minMatch size that will be used for the search algorithm.
  *  It is only configurable for LZ4S
@@ -492,7 +525,6 @@ CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
                          sync_mode_t syncFlag,
                          Cpa32U numLoops);
 #endif
-
 
 /**
  * *****************************************************************************
@@ -514,7 +546,7 @@ CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
  *  @param[in]  state stateful operation or stateless operation
  *  @param[in]  windowSize window size to be used for compression/decompression
  *  @param[in]  testBuffersize size of the flat Buffer to use
- *  @parma[in]  corpusType type of corpus calgary/cantrbury corpus
+ *  @param[in]  corpusType type of corpus calgary/cantrbury corpus
  *  @param[in]  syncFlag synchronous/Asynchronous operation
  *  @param[in]  numloops Number of loops to compress or decompress
  ******************************************************************************/
@@ -528,7 +560,6 @@ CpaStatus setupDcTest(CpaDcCompType algorithm,
                       corpus_type_t corpusType,
                       sync_mode_t syncFlag,
                       Cpa32U numLoops);
-
 
 #ifdef SC_CHAINING_ENABLED
 /**
@@ -575,7 +606,7 @@ CpaStatus qatDcChainPerform(compression_test_params_t *setup);
  *  @param[in]  windowSize         window size to be used for
  *compression/decompression
  *  @param[in]  testBuffersize     size of the flat Buffer to use
- *  @parma[in]  corpusType         type of corpus calgary/cantrbury corpus
+ *  @param[in]  corpusType         type of corpus calgary/cantrbury corpus
  *  @param[in]  syncFlag           synchronous/Asynchronous operation
  *  @param[in]  opType             operation type
  *  @param[in]  cipherAlg          Indicates cipher algorithms and modes
@@ -609,7 +640,6 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
                            Cpa32U numLoops);
 #endif
 
-
 /**
  * *****************************************************************************
  *  @ingroup compressionThreads
@@ -630,7 +660,7 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
  *  @param[in]  state stateful operation or stateless operation
  *  @param[in]  windowSize window size to be used for compression/decompression
  *  @param[in]  testBuffersize size of the flat Buffer to use
- *  @parma[in]  corpusType type of corpus calgary/cantrbury corpus
+ *  @param[in]  corpusType type of corpus calgary/cantrbury corpus
  *  @param[in]  syncFlag synchronous/Asynchronous operation
  *  @param[in]  numloops Number of loops to compress or decompress
  ******************************************************************************/
@@ -735,7 +765,6 @@ CpaStatus compareBuffers(CpaBufferList ***ppSrc,
                          CpaBufferList ***ppDst,
                          compression_test_params_t *setup);
 
-
 /**
  * *****************************************************************************
  *  @ingroup compressionThreads
@@ -830,7 +859,6 @@ void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
                           Cpa32U numLists,
                           Cpa32U numSessions);
 #endif
-
 
 /**
  * *****************************************************************************

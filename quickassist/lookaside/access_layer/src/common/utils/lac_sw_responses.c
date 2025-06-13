@@ -79,6 +79,8 @@
 #include "lac_mem_pools.h"
 #include "lac_mem.h"
 #include "lac_common.h"
+#include "lac_session.h"
+#include "lac_sym_cb.h"
 #include "Osal.h"
 
 #ifndef ICP_DC_ONLY
@@ -218,13 +220,20 @@ CpaStatus LacSwResp_GenRespMsgCallback(lac_memblk_bucket_t *pBucket,
 {
     CpaStatus status = CPA_STATUS_RETRY;
 
-    if (SAL_SERVICE_TYPE_COMPRESSION == type)
+    switch (type)
     {
-        status = dcCompression_SwRespMsgCallback(pBucket);
-    }
-    else
-    {
-        status = LacPke_SwRespMsgCallback(pBucket);
+        case SAL_SERVICE_TYPE_COMPRESSION:
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            status = dcCompression_SwRespMsgCallback(pBucket);
+            break;
+        case SAL_SERVICE_TYPE_CRYPTO_SYM:
+            status = LacSym_SwRespMsgCallback(pBucket);
+            break;
+        case SAL_SERVICE_TYPE_CRYPTO_ASYM:
+            status = LacPke_SwRespMsgCallback(pBucket);
+            break;
+        default:
+            break;
     }
 
     return status;

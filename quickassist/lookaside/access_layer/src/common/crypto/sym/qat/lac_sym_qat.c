@@ -148,10 +148,16 @@ void LacSymQat_SymRespHandler(void *pRespMsg)
     pInst = (sal_crypto_service_t *)(((lac_sym_bulk_cookie_t *)pOpaqueData)
                                          ->instanceHandle);
 
-    /* log the slice hang and endpoint push/pull error inside the response */
+    /* log the slice hang, ssm parity and endpoint push/pull error inside the
+     * response */
     if (ERR_CODE_SSM_ERROR == (Cpa8S)comnErr)
     {
         LacSymQat_SymLogSliceHangError(lacCmdId);
+    }
+    else if (ERR_CODE_SSM_PARITY_ERROR == (Cpa8S)comnErr)
+    {
+        LAC_LOG_ERROR("Operation resulted in a parity error in one or more "
+                      "accelerators.");
     }
     else if (ERR_CODE_ENDPOINT_ERROR == (Cpa8S)comnErr)
     {
@@ -183,9 +189,8 @@ CpaStatus LacSymQat_Init(CpaInstanceHandle instanceHandle)
 void LacSymQat_RespHandlerRegister(icp_qat_fw_la_cmd_id_t lacCmdId,
                                    sal_qat_resp_handler_func_t pCbHandler)
 {
-    /* clang-format off */
+
     LAC_ENSURE_RETURN_VOID((lacCmdId < ICP_QAT_FW_LA_CMD_DELIMITER), "Invalid Command ID");
-    /* clang-format on */
 
     /* set the response handler for the command ID */
     respHandlerSymTbl[lacCmdId] = pCbHandler;
@@ -317,7 +322,7 @@ CpaBoolean LacSymQat_UseSymConstantsTable(lac_session_desc_t *pSession,
     LAC_LOG_DEBUG1("UseSymConstantsTable called. laCmdId = %d ",
                    pSession->laCmdId);
 
-    /* for chaining can we use the optimised content descritor */
+    /* for chaining can we use the optimised content descriptor */
     if (pSession->laCmdId == ICP_QAT_FW_LA_CMD_CIPHER_HASH ||
         pSession->laCmdId == ICP_QAT_FW_LA_CMD_HASH_CIPHER)
     {
@@ -381,7 +386,7 @@ CpaBoolean LacSymQat_UseSymConstantsTable(lac_session_desc_t *pSession,
             (pSession->qatHashMode == ICP_QAT_HW_AUTH_MODE1))
         {
             /* we can only use the SHA1-mode1 in the SHRAM constants table when
-             * we are using the opimised content desc */
+             * we are using the optimised content desc */
             LAC_LOG_DEBUG("HASH only SHA1-MODE1 - don't use SymConstTable");
             return CPA_FALSE;
         }

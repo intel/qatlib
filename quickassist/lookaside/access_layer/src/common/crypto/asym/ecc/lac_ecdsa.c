@@ -281,6 +281,7 @@ typedef struct _OptCurveParams
         LAC_MEM_SHARED_WRITE_FROM_PTR(out.r, pR);                              \
         LAC_MEM_SHARED_WRITE_FROM_PTR(out.s, pS);                              \
     } while (0);
+
 /**< @ingroup Lac_Ec
  * macro to write in/out parameters for the P256 and P384
  * Ecdsa SignRS operation */
@@ -299,6 +300,13 @@ typedef struct _OptCurveParams
 * Define static function definitions
 ****************************************************************************
 */
+STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
+                                      const CpaCyEcdsaSignRSCbFunc pCb,
+                                      void *pCallbackTag,
+                                      const CpaCyEcdsaSignRSOpData *pOpData,
+                                      CpaBoolean *pMultiplyStatus,
+                                      CpaFlatBuffer *pR,
+                                      CpaFlatBuffer *pS);
 
 /**
  ***************************************************************************
@@ -502,7 +510,7 @@ LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
           .p = nist_p384_p,
           .n = nist_p384_n,
           .a = nist_p384_a,
-          .b = nist_p384_b }
+          .b = nist_p384_b },
     };
 
     *function = 0;
@@ -811,6 +819,7 @@ CpaStatus cpaCyEcdsaSignR(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecdsa);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)
@@ -1317,6 +1326,7 @@ CpaStatus cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecdsa);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)
@@ -1563,13 +1573,13 @@ STATIC CpaStatus LacEcdsa_SignRSSyn(const CpaInstanceHandle instanceHandle,
      */
     if (CPA_STATUS_SUCCESS == status)
     {
-        status = cpaCyEcdsaSignRS(instanceHandle,
-                                  LacSync_GenDualFlatBufVerifyCb,
-                                  pSyncCallbackData,
-                                  pOpData,
-                                  pMultiplyStatus,
-                                  pR,
-                                  pS);
+        status = LacEcdsa_EcdsaSignRS(instanceHandle,
+                                      LacSync_GenDualFlatBufVerifyCb,
+                                      pSyncCallbackData,
+                                      pOpData,
+                                      pMultiplyStatus,
+                                      pR,
+                                      pS);
     }
     else
     {
@@ -1710,7 +1720,6 @@ CpaStatus LacEcdsa_SignRSBasicParamCheck(const CpaInstanceHandle instanceHandle,
     LAC_CHECK_SIZE(pR, CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pS->pData);
     LAC_CHECK_SIZE(pS, CHECK_NONE, 0);
-
     if (CPA_CY_EC_FIELD_TYPE_PRIME != pOpData->fieldType &&
         CPA_CY_EC_FIELD_TYPE_BINARY != pOpData->fieldType)
     {
@@ -1742,6 +1751,8 @@ CpaStatus LacEcdsa_OptimisedSignRS(const CpaInstanceHandle instanceHandle,
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
 
+    if (!pCryptoService->generic_service_info.optimisedCurveSupport)
+        return CPA_STATUS_UNSUPPORTED;
 
 #ifdef ICP_PARAM_CHECK
     Cpa32S compare = 0;
@@ -1852,6 +1863,35 @@ CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
                            CpaFlatBuffer *pR,
                            CpaFlatBuffer *pS)
 {
+#ifdef ICP_TRACE
+    LAC_LOG7("Called with params (0x%lx, 0x%lx, 0x%lx, 0x%lx, "
+             "0x%lx, 0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)instanceHandle_in,
+             (LAC_ARCH_UINT)pCb,
+             (LAC_ARCH_UINT)pCallbackTag,
+             (LAC_ARCH_UINT)pOpData,
+             (LAC_ARCH_UINT)pMultiplyStatus,
+             (LAC_ARCH_UINT)pR,
+             (LAC_ARCH_UINT)pS);
+#endif
+
+    return LacEcdsa_EcdsaSignRS(instanceHandle_in,
+                                pCb,
+                                pCallbackTag,
+                                pOpData,
+                                pMultiplyStatus,
+                                pR,
+                                pS);
+}
+
+STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
+                                      const CpaCyEcdsaSignRSCbFunc pCb,
+                                      void *pCallbackTag,
+                                      const CpaCyEcdsaSignRSOpData *pOpData,
+                                      CpaBoolean *pMultiplyStatus,
+                                      CpaFlatBuffer *pR,
+                                      CpaFlatBuffer *pS)
+{
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U dataOperationSizeBytes = 0;
     CpaInstanceHandle instanceHandle = NULL;
@@ -1887,39 +1927,28 @@ CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecdsa);
+
+    pCryptoService = (sal_crypto_service_t *)instanceHandle;
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)
     {
-#ifdef ICP_TRACE
-#ifdef ICP_PARAM_CHECK
-        /* Check for valid pointers */
-        LAC_CHECK_NULL_PARAM(pMultiplyStatus);
-#endif
-        status = LacEcdsa_SignRSSyn(
-            instanceHandle, pOpData, pMultiplyStatus, pR, pS);
-
-        LAC_LOG7("Called with params (0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-                 "%d, 0x%lx, 0x%lx)\n",
-                 (LAC_ARCH_UINT)instanceHandle_in,
-                 (LAC_ARCH_UINT)pCb,
-                 (LAC_ARCH_UINT)pCallbackTag,
-                 (LAC_ARCH_UINT)pOpData,
-                 *pMultiplyStatus,
-                 (LAC_ARCH_UINT)pR,
-                 (LAC_ARCH_UINT)pS);
-        return status;
-#else
         /* Call synchronous mode function */
-        return LacEcdsa_SignRSSyn(
-            instanceHandle, pOpData, pMultiplyStatus, pR, pS);
-#endif
+        return LacEcdsa_SignRSSyn(instanceHandle,
+                                  pOpData,
+                                  pMultiplyStatus,
+                                  pR,
+                                  pS);
     }
 
 #ifdef ICP_PARAM_CHECK
     /* Basic Param Checking */
-    status = LacEcdsa_SignRSBasicParamCheck(
-        instanceHandle, pOpData, pMultiplyStatus, pR, pS);
+    status = LacEcdsa_SignRSBasicParamCheck(instanceHandle,
+                                            pOpData,
+                                            pMultiplyStatus,
+                                            pR,
+                                            pS);
 
     /* Check that output buffers are big enough */
     if (CPA_STATUS_SUCCESS == status)
@@ -1949,8 +1978,6 @@ CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
         if (CPA_STATUS_UNSUPPORTED != isSupported)
             return isSupported;
     }
-
-    pCryptoService = (sal_crypto_service_t *)instanceHandle;
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -2299,6 +2326,19 @@ CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
     return status;
 }
 
+CpaStatus cpaCyEcdsaDpaSignRS(const CpaInstanceHandle instanceHandle,
+                              const CpaCyEcdsaSignRSCbFunc pCb,
+                              void *pCallbackTag,
+                              const CpaCyEcdsaSignRSOpData *pOpData,
+                              const CpaFlatBuffer *pRandom,
+                              const CpaBoolean createRandomData,
+                              CpaBoolean *pSignStatus,
+                              CpaFlatBuffer *pR,
+                              CpaFlatBuffer *pS)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
 /**
  ***************************************************************************
  * @ingroup Lac_Ec
@@ -2511,6 +2551,7 @@ CpaStatus cpaCyEcdsaVerify(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecdsa);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)
@@ -2936,6 +2977,7 @@ CpaStatus cpaCyEcdsaQueryStats64(const CpaInstanceHandle instanceHandle_in,
     SAL_CHECK_INSTANCE_TYPE(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecdsa);
     LAC_CHECK_NULL_PARAM(pEcdsaStats);
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;

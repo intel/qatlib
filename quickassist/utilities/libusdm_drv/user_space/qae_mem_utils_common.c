@@ -90,7 +90,6 @@
 #include "qae_mem_user_utils.h"
 #include "qae_mem_utils_common.h"
 
-
 load_addr_fptr_t load_addr_fptr = load_addr;
 
 const uint64_t __qae_bitmask[65] = {

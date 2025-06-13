@@ -143,6 +143,7 @@ CpaStatus SalCtrl_ServiceCreate(sal_service_type_t serviceType,
         }
 #endif
         case SAL_SERVICE_TYPE_COMPRESSION:
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
         {
             pCompression_service =
                 osalMemAlloc(sizeof(sal_compression_service_t));

@@ -140,7 +140,6 @@ Cpa16U numAsymPolledInstances_g = 0;
 sample_code_thread_t *asymPollingThread_g;
 #endif
 
-
 Cpa32U packetSizes[] = {BUFFER_SIZE_64,
                         BUFFER_SIZE_128,
                         BUFFER_SIZE_256,
@@ -517,7 +516,6 @@ static const Cpa8U q_4096[] = {
     0x83, 0xE2, 0xAE, 0x46, 0x5F, 0xC5, 0x74, 0x31, 0x7D, 0x58, 0x47, 0xB7,
     0x84, 0x4E, 0xBF, 0x7B};
 
-
 #if CY_API_VERSION_AT_LEAST(3, 0)
 /*  add for SM3 and SM4  */
 smx_key_size_pairs_t cipherSM4TestList[] = {
@@ -566,7 +564,6 @@ int cipherSM4TestList_count =
 int algChainSM4SM3TestList_count =
     sizeof(algChainSM4SM3TestList) / (sizeof(smx_key_size_pairs_t));
 #endif
-
 
 Cpa32U getThroughput(Cpa64U numPackets, Cpa32U packetSize, perf_cycles_t cycles)
 {
@@ -635,7 +632,6 @@ static void accumulateAsymPerfData(Cpa32U numberOfThreads,
 {
     Cpa32U i = 0;
 
-
     /*accumulate the responses into one perf_data_t structure*/
     for (i = 0; i < numberOfThreads; i++)
     {
@@ -672,6 +668,8 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
     Cpa64U buffersProcessed = 0;
     Cpa32U opsPerSec = 0;
     Cpa32U devOpsperSec = 0;
+    Cpa32U numberOfUnsupportedThreads = 0;
+    Cpa32U totalThreadsRan = 0;
 
     /*stop all crypto instances, There is no other place we can stop CyServices
      * as all other function run in thread context and its not safe to call
@@ -714,7 +712,13 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
     }
     for (i = 0; i < data->numberOfThreads; i++)
     {
-        if (CPA_STATUS_FAIL == data->performanceStats[i]->threadReturnStatus)
+        if (CPA_STATUS_UNSUPPORTED ==
+            data->performanceStats[i]->threadReturnStatus)
+        {
+            numberOfUnsupportedThreads++;
+        }
+        else if (CPA_STATUS_FAIL ==
+                 data->performanceStats[i]->threadReturnStatus)
         {
             qaeMemFree((void **)&stats2);
             qaeMemFree((void **)&perfDataDeviceOffsets);
@@ -723,6 +727,7 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
             return CPA_STATUS_FAIL;
         }
     }
+    totalThreadsRan = data->numberOfThreads - numberOfUnsupportedThreads;
 
     /* Block to re-group the data per device */
     for (j = 0; j < (packageIdCount_g + 1); j++)
@@ -792,6 +797,11 @@ CpaStatus printAsymStatsAndStopServices(thread_creation_data_t *data)
         }
     }
     PRINT("Number of Threads     %u\n", data->numberOfThreads);
+    if (numberOfUnsupportedThreads)
+    {
+        PRINT("Unsupported Threads   %u\n", numberOfUnsupportedThreads);
+    }
+    PRINT("Total Threads ran     %u\n", totalThreadsRan);
     PRINT("Total Submissions     %llu\n",
           (unsigned long long)stats.numOperations);
     PRINT("Total Responses       %llu\n", (unsigned long long)stats.responses);
@@ -1109,7 +1119,6 @@ CpaStatus sampleCreateBuffers(CpaInstanceHandle instanceHandle,
     Cpa32U bufferSizeInBytes = 0;
     CpaFlatBuffer *pTempFlatBuffArray = NULL;
     Cpa32U lastBufferInListSize = 0;
-
 
     if (NULL == pFlatBuffArray)
     {
@@ -1867,7 +1876,7 @@ static void primeCallback(void *pCallbackTag,
     {
         /*record the index of the prime candidate where the primeCandidate
          * passed the primeTest, averagePacketSize in bytes
-         * is not the most logical variable to use,  we are re-using the
+         * is not the most logical variable to use,  we are reusing the
          * averagePacketSizeInBytes member for a completely different purpose
          * In this case we want to know how many requests it took to find a
          * prime number so that we can be sure we have set the
@@ -2171,7 +2180,7 @@ CpaStatus generatePrime(CpaFlatBuffer *primeCandidate,
             }
         }
         sampleCodeSemaphoreDestroy(&primePerfData.comp);
-        /*here we re-use averagePacketSizeInBytes for another purpose. In this
+        /*here we reuse averagePacketSizeInBytes for another purpose. In this
          * case we use it to record the index in our primeNumber candidates
          * that a prime was found
          * if the index has changed then we have found a prime number*/
@@ -2937,7 +2946,6 @@ CpaStatus allocArrayOfVirtPointers(void **buf, Cpa32U numBuffs)
 }
 EXPORT_SYMBOL(allocArrayOfVirtPointers);
 
-
 CpaStatus waitForResponses(perf_data_t *perfData,
                            sync_mode_t syncMode,
                            Cpa32U numBuffers,
@@ -3117,7 +3125,6 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
                 sampleCodeThreadBind(&pollingThread_g[numCreatedPollingThreads],
                                      coreAffinity);
 
-
                 sampleCodeThreadStart(
                     &pollingThread_g[numCreatedPollingThreads]);
 
@@ -3132,7 +3139,6 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(cyCreatePollingThreadsIfPollingIsEnabled);
-
 
 CpaBoolean cyCheckAllInstancesArePolled(void)
 {
@@ -3172,18 +3178,34 @@ CpaStatus cyDpPollRemainingOperations(perf_data_t *pPerfData,
 
     perf_cycles_t startCycles = 0, totalCycles = 0;
     Cpa32U freq = sampleCodeGetCpuFreq();
+    CpaInstanceInfo2 info2 = { 0 };
+
+    status = cpaCyInstanceGetInfo2(instanceHandle, &info2);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCyInstanceGetInfo2 failed. (status = %d)\n", status);
+        return CPA_STATUS_FAIL;
+    }
+
     startCycles = sampleCodeTimestamp();
 
     while (pPerfData->responses != pPerfData->numOperations)
     {
-        status = icp_sal_CyPollDpInstance(instanceHandle, 0);
-        if (CPA_STATUS_FAIL == status)
+        if (CPA_TRUE == info2.isPolled)
         {
-            PRINT_ERR("Error polling instance\n");
-            error_flag_g = CPA_TRUE;
-            return CPA_STATUS_FAIL;
+            status = icp_sal_CyPollDpInstance(instanceHandle, 0);
+            if (CPA_STATUS_FAIL == status)
+            {
+                PRINT_ERR("Error polling instance\n");
+                error_flag_g = CPA_TRUE;
+                return CPA_STATUS_FAIL;
+            }
+            if (CPA_STATUS_RETRY == status)
+            {
+                AVOID_SOFTLOCKUP;
+            }
         }
-        if (CPA_STATUS_RETRY == status)
+        else
         {
             AVOID_SOFTLOCKUP;
         }
@@ -3447,6 +3469,9 @@ void printHashAlg(CpaCySymHashSetupData hashSetupData)
             PRINT("AES-CBC-MAC");
             break;
 #endif
+        case CPA_CY_SYM_HASH_POLY:
+            PRINT("POLY-1305");
+            break;
         case CPA_CY_SYM_HASH_SM3:
             PRINT("SM3");
             break;
@@ -3528,7 +3553,6 @@ static void accumulateSymPerfData(Cpa32U numberOfThreads,
 {
     Cpa32U i = 0;
 
-
     /*accumulate the responses into one perf_data_t structure*/
     for (i = 0; i < numberOfThreads; i++)
     {
@@ -3600,8 +3624,6 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
         Cpa32U threadCountPerDevice[packageIdCount_g];
         perf_data_t stats2[packageIdCount_g];
     */
-
-
 
     /*stop crypto services if not already stopped, this is the only reasonable
      * location we can do this as this function is called after all threads are
@@ -3784,7 +3806,6 @@ CpaStatus printSymmetricPerfDataAndStopCyService(thread_creation_data_t *data)
             PRINT("Throughput(Mbps)      %u\n", throughput);
         }
 
-
         if (latency_enable)
         {
             perf_cycles_t statsLatency = 0;
@@ -3849,7 +3870,6 @@ CpaStatus setDigestAppend(CpaBoolean flag)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(setDigestAppend);
-
 
 void setBusyLoopMethod(Cpa32U method)
 {
@@ -3974,10 +3994,30 @@ CpaStatus getCryptoInstanceCapabilities(CpaCyCapabilitiesInfo *cap,
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa16U nSymInstances = 0;
     Cpa16U nAsymInstances = 0;
+    Cpa16U nCyInstances = 0;
 
 #if CY_API_VERSION_AT_LEAST(3, 0)
-    cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &nSymInstances);
-    cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &nAsymInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &nSymInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+	    PRINT_ERR("cpaGetNumInstances failed with status: %d\n", status);
+	    return status;
+
+    }
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &nAsymInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+            PRINT_ERR("cpaGetNumInstances failed with status: %d\n", status);
+            return status;
+
+    }
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO, &nCyInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+            PRINT_ERR("cpaGetNumInstances failed with status: %d\n", status);
+            return status;
+
+    }
 #endif
 
     /* Sym/Asym Instances will be 0 for 1.x platforms.
@@ -4015,6 +4055,16 @@ CpaStatus getCryptoInstanceCapabilities(CpaCyCapabilitiesInfo *cap,
             return status;
         }
         return CPA_STATUS_SUCCESS;
+    }
+    if(nCyInstances > (nAsymInstances + nSymInstances))
+    {
+	    status = getCyInstanceCapabilities(cap);
+	    if (CPA_STATUS_SUCCESS != status)
+	    {
+		    PRINT_ERR("getCyInstanceCapabilities failed with status: %d\n",
+				    status);
+	    }
+	    return status;
     }
 #endif
     return status;
@@ -4150,7 +4200,6 @@ void setCipherDirection(CpaCySymCipherDirection direction)
     }
 }
 EXPORT_SYMBOL(setCipherDirection);
-
 
 CpaStatus sampleCodeAsymPollInstance(CpaInstanceHandle instanceHandle_in,
                                      Cpa32U response_quota)

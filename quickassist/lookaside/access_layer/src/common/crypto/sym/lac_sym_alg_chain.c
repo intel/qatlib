@@ -1096,6 +1096,7 @@ LacAlgChain_SessionDirectionUpdate(lac_session_desc_t *pSessionDesc,
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U sizeInBytes = 0;
     Cpa8U *pCfgData = NULL;
+    CpaBoolean useSymConstants = CPA_FALSE;
     sal_qat_content_desc_info_t *pCdInfo = &(pSessionDesc->contentDescInfo);
     Cpa8U *pHwBlockBaseInDRAM = (Cpa8U *)pCdInfo->pData;
 
@@ -1158,9 +1159,15 @@ LacAlgChain_SessionDirectionUpdate(lac_session_desc_t *pSessionDesc,
                 Cpa8U hashOffsetInConstantsTable = 0;
                 Cpa8U cipherOffsetInConstantsTable = 0;
 
-                LacSymQat_UseSymConstantsTable(pSessionDesc,
-                                               &cipherOffsetInConstantsTable,
-                                               &hashOffsetInConstantsTable);
+                useSymConstants = LacSymQat_UseSymConstantsTable(
+                    pSessionDesc,
+                    &cipherOffsetInConstantsTable,
+                    &hashOffsetInConstantsTable);
+                if (useSymConstants != CPA_TRUE)
+                {
+                    status = CPA_STATUS_FAIL;
+                    break;
+                }
 
                 LacSymQat_CipherCtrlBlockWrite(
                     &(pSessionDesc->shramReqCacheFtr),
@@ -1625,7 +1632,8 @@ CpaStatus LacAlgChain_SessionInit(
     {
         /* Populate cipher specific session data */
 #ifdef ICP_PARAM_CHECK
-        status = LacCipher_SessionSetupDataCheck(pCipherData, capabilitiesMask);
+        status = LacCipher_SessionSetupDataCheck(
+            pCipherData, capabilitiesMask, (sal_service_t *)pService);
 #endif
 
         if (CPA_STATUS_SUCCESS == status)
@@ -1716,8 +1724,8 @@ CpaStatus LacAlgChain_SessionInit(
                     }
                     else
                     {
-                        /* HMAC Hash mode is determined by the config value */
-                        pSessionDesc->qatHashMode = pService->qatHmacMode;
+                        /* Set default HMAC Hash mode value */
+                        pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE1;
                     }
                 }
                 else
@@ -1752,17 +1760,23 @@ CpaStatus LacAlgChain_SessionInit(
                      &cmnRequestFlags);
 
         /* Disable SymConstantsTable based CD optimization when UCS slice is
-         * used */
-        if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == pSessionDesc->cipherSliceType)
+         * used for Gen4 device.
+         */
+        if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == pSessionDesc->cipherSliceType &&
+            pService->generic_service_info.isGen4)
+        {
             pSessionDesc->useSymConstantsTable = CPA_FALSE;
+        }
         else
+        {
             pSessionDesc->useSymConstantsTable =
                 LacSymQat_UseSymConstantsTable(pSessionDesc,
                                                &cipherOffsetInConstantsTable,
                                                &hashOffsetInConstantsTable);
+        }
 
         /* for a certain combination of Algorithm Chaining we want to
-           use an optimised cd block */
+           use an optimised content descriptor (CD) block */
 
         if (pSessionDesc->symOperation == CPA_CY_SYM_OP_ALGORITHM_CHAINING &&
             pSessionDesc->useSymConstantsTable == CPA_TRUE)
@@ -1856,7 +1870,6 @@ CpaStatus LacAlgChain_SessionInit(
                                             &hwBlockOffsetInDRAM,
                                             pOptimisedHwBlockBaseInDRAM,
                                             &optimisedHwBlockOffsetInDRAM);
-
                     LacAlgChain_CipherCDBuild(pCipherData,
                                               pSessionDesc,
                                               ICP_QAT_FW_SLICE_DRAM_WR,
@@ -1971,21 +1984,28 @@ CpaStatus LacAlgChain_SessionInit(
         /* populate the hash state prefix buffer info structure
          * (part of user allocated session memory & the
          * buffer itself. For CCM/GCM the buffer is stored in the
-         * cookie and is not initialised here) */
+         * cookie and is not initialised here).
+         */
         if (CPA_FALSE == pSessionDesc->isAuthEncryptOp)
         {
 #ifdef ICP_PARAM_CHECK
             LAC_CHECK_64_BYTE_ALIGNMENT(
                 &(pSessionDesc->hashStatePrefixBuffer[0]));
 #endif
-            status = LacHash_StatePrefixAadBufferInit(
-                &(pService->generic_service_info),
-                pHashData,
-                &(pSessionDesc->reqCacheFtr),
-                pSessionDesc->qatHashMode,
-                pSessionDesc->hashStatePrefixBuffer,
-                pHashStateBufferInfo);
-            /* SHRAM Constants Table not used for Auth-Enc */
+            {
+                status = LacHash_StatePrefixAadBufferInit(
+                    &(pService->generic_service_info),
+                    pHashData,
+                    &(pSessionDesc->reqCacheFtr),
+                    pSessionDesc->qatHashMode,
+                    pSessionDesc->hashStatePrefixBuffer,
+                    pHashStateBufferInfo);
+                /* SHRAM Constants Table not used for Auth-Enc */
+            }
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                LAC_LOG_ERROR("Failed to populate hash state buffer or key.\n");
+            }
         }
 
         if (CPA_STATUS_SUCCESS == status)
@@ -2070,8 +2090,8 @@ CpaStatus LacAlgChain_SessionInit(
                 pSessionDesc->laCmdFlags,
                 ICP_QAT_FW_CIPH_AUTH_CFG_OFFSET_IN_SHRAM_CP);
 
-            if (pSessionDesc->isCipher &&
-                !pSessionDesc->useOptimisedContentDesc)
+            /* Only Direct CD can be used with SHRAM constants page */
+            if (!pSessionDesc->useOptimisedContentDesc)
             {
                 ICP_QAT_FW_COMN_CD_FLD_TYPE_SET(
                     cmnRequestFlags, QAT_COMN_CD_FLD_TYPE_16BYTE_DATA);
@@ -2104,6 +2124,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
     Cpa32U capabilitiesMask = pService->generic_service_info.capabilitiesMask;
     lac_sym_cookie_t *pSymCookie = NULL;
     icp_qat_fw_la_bulk_req_t *pMsg = NULL;
+    icp_qat_fw_la_cipher_20_req_params_t *pCipher20ReqParams = NULL;
     Cpa8U *pMsgDummy = NULL;
     Cpa8U *pCacheDummyHdr = NULL;
     Cpa8U *pCacheDummyFtr = NULL;
@@ -2379,7 +2400,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             else
             {
                 pCookie = &(pSymCookie->u.bulkCookie);
-
+                pSymCookie->cookieType = LAC_SYM_BULK_COOKIE_TYPE;
                 /* Initialize cookie isDcChaining field. This function uses
                  * a local variable for isDcChaining but other places may use
                  * the cookie so it needs to be correctly initialized.
@@ -2398,7 +2419,8 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
     if (CPA_STATUS_SUCCESS == status)
     {
         /* write the buffer descriptors */
-        if (IS_ZERO_LENGTH_BUFFER_SUPPORTED(cipher, hash))
+        if (IS_ZERO_LENGTH_BUFFER_SUPPORTED(cipher, hash) ||
+            (pSessionDesc->symOperation == CPA_CY_SYM_OP_HASH))
         {
             status = LacBuffDesc_BufferListDescWriteAndAllowZeroBuffer(
                 (CpaBufferList *)pSrcBuffer,
@@ -2685,16 +2707,20 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                 if (CPA_STATUS_SUCCESS == status)
                 {
 
-                    icp_qat_fw_la_cipher_20_req_params_t *pCipher20ReqParams =
+                    pCipher20ReqParams =
                         (void *)((Cpa8U *)&(pMsg->serv_specif_rqpars) +
                                  ICP_QAT_FW_CIPHER_REQUEST_PARAMETERS_OFFSET);
-                        pCipher20ReqParams->spc_aad_addr = aadBufferPhysAddr;
-                        pCipher20ReqParams->spc_aad_sz =
-                            pSessionDesc->aadLenInBytes;
-                        pCipher20ReqParams->spc_aad_offset = 0;
-                        if (isSpCcm)
-                            pCipher20ReqParams->spc_aad_sz +=
-                                LAC_CIPHER_CCM_AAD_OFFSET;
+                    if (pService->generic_service_info.isGen4)
+                        {
+                            pCipher20ReqParams->spc_aad_addr =
+                                aadBufferPhysAddr;
+                            pCipher20ReqParams->spc_aad_sz =
+                                pSessionDesc->aadLenInBytes;
+                            pCipher20ReqParams->spc_aad_offset = 0;
+                            if (isSpCcm)
+                                pCipher20ReqParams->spc_aad_sz +=
+                                    LAC_CIPHER_CCM_AAD_OFFSET;
+                        }
 
                     if (CPA_TRUE != pSessionDesc->digestIsAppended)
                     {
@@ -2706,10 +2732,13 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                             pOpData->pDigestResult);
                         if (0 != digestBufferPhysAddr)
                         {
-                                pCipher20ReqParams->spc_auth_res_addr =
-                                    digestBufferPhysAddr;
-                                pCipher20ReqParams->spc_auth_res_sz =
-                                    (Cpa8U)pSessionDesc->hashResultSize;
+                                if (pService->generic_service_info.isGen4)
+                                {
+                                    pCipher20ReqParams->spc_auth_res_addr =
+                                        digestBufferPhysAddr;
+                                    pCipher20ReqParams->spc_auth_res_sz =
+                                        (Cpa8U)pSessionDesc->hashResultSize;
+                                }
                         }
                         else
                         {
@@ -2734,8 +2763,11 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                         }
 #endif
 
-                            pCipher20ReqParams->spc_auth_res_sz =
-                                (Cpa8U)pSessionDesc->hashResultSize;
+                            if (pService->generic_service_info.isGen4)
+                            {
+                                pCipher20ReqParams->spc_auth_res_sz =
+                                    (Cpa8U)pSessionDesc->hashResultSize;
+                            }
                     }
                 }
             }

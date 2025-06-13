@@ -186,8 +186,10 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
     BIGNUM *pN_bn = NULL;
     OSSL_PARAM *pParams = NULL;
 #else
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
     CpaBoolean retStatus = CPA_TRUE;
     RSA *pKey = NULL;
+#endif
 #endif
 
     int ret = 0;
@@ -312,6 +314,7 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
         }
     }
 #else
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
     if (CPA_STATUS_SUCCESS == status)
     {
         pKey = RSA_new();
@@ -356,6 +359,7 @@ CpaStatus kptEncryptSWK(CpaInstanceHandle instanceHandle,
             status = CPA_STATUS_FAIL;
         }
     }
+#endif
 #endif // #if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
     if (CPA_STATUS_SUCCESS == status)
     {

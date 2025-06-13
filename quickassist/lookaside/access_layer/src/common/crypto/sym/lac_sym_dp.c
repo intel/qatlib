@@ -606,7 +606,6 @@ void LacDp_WriteRingMsgOpt(CpaCySymDpOpData *pRequest,
                 LAC_QUADWORDS_TO_BYTES(
                     pHashStateBufferInfo->stateStorageSzQuadWords);
         }
-
         /* The first 24 bytes in icp_qat_fw_la_auth_req_params_t can be
          * copied directly from the op request data because they share a
          * corresponding layout.  The remaining 4 bytes are taken
@@ -659,6 +658,7 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
     Cpa8U *pCacheDummyHdr = NULL;
     Cpa8U *pCacheDummyFtr = NULL;
     sal_qat_content_desc_info_t *pCdInfo = NULL;
+    icp_qat_fw_la_cipher_20_req_params_t *pCipher20ReqParams = NULL;
     Cpa8U *pHwBlockBaseInDRAM = NULL;
     Cpa32U hwBlockOffsetInDRAM = 0;
     Cpa32U sizeInBytes = 0;
@@ -668,6 +668,8 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
         (sal_crypto_service_t *)pRequest->instanceHandle;
     Cpa32U capabilitiesMask = ((sal_crypto_service_t *)pRequest->instanceHandle)
                                   ->generic_service_info.capabilitiesMask;
+    CpaBoolean isGen4 = ((sal_crypto_service_t *)pRequest->instanceHandle)
+                            ->generic_service_info.isGen4;
 
     CpaBoolean isSpGcm = LAC_CIPHER_IS_SPC_GCM(cipher, hash, capabilitiesMask);
     CpaBoolean isSpCcp = LAC_CIPHER_IS_SPC_CCP(cipher, hash, capabilitiesMask);
@@ -850,7 +852,7 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
             pRequest->cryptoStartSrcOffsetInBytes;
         pRequest->messageLenToHashInBytes = pRequest->messageLenToCipherInBytes;
     }
-    else if ((SPC_NO == pSessionDesc->singlePassState) &&
+    else if ((SPC_YES != pSessionDesc->singlePassState) &&
              (CPA_CY_SYM_HASH_AES_GCM == pSessionDesc->hashAlgorithm ||
               CPA_CY_SYM_HASH_AES_GMAC == pSessionDesc->hashAlgorithm))
     {
@@ -901,21 +903,26 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
             pRequest->pIv);
         if (SPC_YES == pSessionDesc->singlePassState)
         {
-            icp_qat_fw_la_cipher_20_req_params_t *pCipher20ReqParams =
+            pCipher20ReqParams =
                 (void *)((Cpa8U *)&(pCurrentQatMsg->serv_specif_rqpars) +
                          ICP_QAT_FW_CIPHER_REQUEST_PARAMETERS_OFFSET);
 
-                pCipher20ReqParams->spc_aad_addr =
-                    (Cpa64U)pRequest->additionalAuthData;
-                pCipher20ReqParams->spc_aad_sz = pSessionDesc->aadLenInBytes;
-                pCipher20ReqParams->spc_aad_offset = 0;
-                if (isSpCcm)
-                    pCipher20ReqParams->spc_aad_sz += LAC_CIPHER_CCM_AAD_OFFSET;
+                if (isGen4)
+                {
+                    pCipher20ReqParams->spc_aad_addr =
+                        (Cpa64U)pRequest->additionalAuthData;
+                    pCipher20ReqParams->spc_aad_sz =
+                        pSessionDesc->aadLenInBytes;
+                    pCipher20ReqParams->spc_aad_offset = 0;
+                    if (isSpCcm)
+                        pCipher20ReqParams->spc_aad_sz +=
+                            LAC_CIPHER_CCM_AAD_OFFSET;
 
-                pCipher20ReqParams->spc_auth_res_addr =
-                    (Cpa64U)pRequest->digestResult;
-                pCipher20ReqParams->spc_auth_res_sz =
-                    (Cpa8U)pSessionDesc->hashResultSize;
+                    pCipher20ReqParams->spc_auth_res_addr =
+                        (Cpa64U)pRequest->digestResult;
+                    pCipher20ReqParams->spc_auth_res_sz =
+                        (Cpa8U)pSessionDesc->hashResultSize;
+                }
 
             /* For CHACHA, AES_GCM and AES_CCM single pass AAD buffer needs
              * alignment if aadLenInBytes is nonzero.
@@ -1140,10 +1147,7 @@ CpaStatus cpaCySymDpEnqueueOp(CpaCySymDpOpData *pRequest,
     icp_comms_trans_handle trans_handle = NULL;
     lac_session_desc_t *pSessionDesc = NULL;
     write_ringMsgFunc_t callFunc;
-
-#ifdef ICP_PARAM_CHECK
     CpaStatus status = CPA_STATUS_SUCCESS;
-#endif
 
 #ifdef ICP_TRACE
     LAC_LOG2("Called with params (0x%lx, %d)\n",
@@ -1187,7 +1191,12 @@ CpaStatus cpaCySymDpEnqueueOp(CpaCySymDpOpData *pRequest,
 
     if (CPA_TRUE == performOpNow)
     {
-        SalQatMsg_updateQueueTail(trans_handle);
+        status = SalQatMsg_updateQueueTail(trans_handle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            pSessionDesc->u.pendingDpCbCount--;
+            return status;
+        }
     }
 
     return CPA_STATUS_SUCCESS;
@@ -1196,6 +1205,7 @@ CpaStatus cpaCySymDpEnqueueOp(CpaCySymDpOpData *pRequest,
 CpaStatus cpaCySymDpPerformOpNow(const CpaInstanceHandle instanceHandle)
 {
     icp_comms_trans_handle trans_handle = NULL;
+    CpaStatus status;
 
 #ifdef ICP_TRACE
     LAC_LOG1("Called with param (0x%lx)\n", (LAC_ARCH_UINT)instanceHandle);
@@ -1216,7 +1226,11 @@ CpaStatus cpaCySymDpPerformOpNow(const CpaInstanceHandle instanceHandle)
 
     if (CPA_TRUE == icp_adf_queueDataToSend(trans_handle))
     {
-        SalQatMsg_updateQueueTail(trans_handle);
+        status = SalQatMsg_updateQueueTail(trans_handle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            return status;
+        }
     }
 
     return CPA_STATUS_SUCCESS;
@@ -1229,11 +1243,11 @@ CpaStatus cpaCySymDpEnqueueOpBatch(const Cpa32U numberRequests,
     icp_qat_fw_la_bulk_req_t *pCurrentQatMsg = NULL;
     icp_comms_trans_handle trans_handle = NULL;
     lac_session_desc_t *pSessionDesc = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
     write_ringMsgFunc_t callFunc;
     Cpa32U i = 0;
 
 #ifdef ICP_PARAM_CHECK
-    CpaStatus status = CPA_STATUS_SUCCESS;
     sal_crypto_service_t *pService = NULL;
 #endif
 
@@ -1305,7 +1319,12 @@ CpaStatus cpaCySymDpEnqueueOpBatch(const Cpa32U numberRequests,
 
     if (CPA_TRUE == performOpNow)
     {
-        SalQatMsg_updateQueueTail(trans_handle);
+        status = SalQatMsg_updateQueueTail(trans_handle);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            pSessionDesc->u.pendingDpCbCount -= numberRequests;
+            return status;
+        }
     }
 
     return CPA_STATUS_SUCCESS;

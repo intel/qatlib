@@ -110,4 +110,53 @@ Cpa64U dcCalculateCrc64(const CpaBufferList *pBufferList,
                         Cpa32U consumedBytes,
                         Cpa64U seedChecksum);
 
+/**
+ * @description
+ *     Creates a lookup table for CRC64 calculation
+ *
+ *     Function creates a lookup table for a given polynomial. This table is
+ *     used to speed up CRC64 calculation at runtime.
+ *
+ * @param[in]  crc64Polynomial  CRC64 polynomial used for generating the CRC
+ *                              lookup table.
+ * @param[out] pCrcLookupTable  Address of pointer to the CRC lookup table
+ *                              created.
+ *
+ * @retval CPA_STATUS_SUCCESS   Function executed successfully
+ * @retval CPA_STATUS_RESOURCE  Memory allocation error
+ *
+ */
+CpaStatus dcGenerateLookupTable(Cpa64U crc64Polynomial,
+                                Cpa64U **pCrcLookupTable);
+
+/**
+ * @description
+ *     Calculates programmable CRC-64 checksum for given Buffer List
+ *
+ *     Function loops through all of the flat buffers in the buffer list.
+ *     CRC is calculated for each flat buffer, but output CRC from
+ *     buffer[0] is used as input seed for buffer[1] CRC calculation
+ *     (and so on until looped through all flat buffers).
+ *     Resulting CRC is final CRC for all buffers in the buffer list struct
+ *
+ * @param[in]  pCrcConfig           Pointer to the CRC configuration used for
+ *                                  calculating the checksum.
+ * @param[in]  pCrcLookupTable      Pointer to the CRC lookup table used for
+ *                                  calculating the checksum.
+ * @param[in]  bufferList           Pointer to data byte array to calculate CRC
+ *                                  on.
+ * @param[in]  consumedBytes        Total number of bytes to calculate CRC on
+ *                                  (for all buffer in buffer list)
+ * @param[out] pSwCrc               Pointer to 64bit long CRC checksum for the
+ *                                  given buffer list.
+ *
+ * @retval CPA_STATUS_SUCCESS       Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in
+ */
+CpaStatus dcCalculateProgCrc64(const CpaCrcControlData *pCrcConfig,
+                               Cpa64U *pCrcLookupTable,
+                               const CpaBufferList *pBufferList,
+                               Cpa32U consumedBytes,
+                               Cpa64U *pSwCrc);
+
 #endif /* end of DC_CRC64_H_ */

@@ -156,7 +156,6 @@ static CpaStatus performOpAndVerify(CpaInstanceHandle cyInstHandle,
         status = CPA_STATUS_FAIL;
     }
 
-
     return status;
 }
 
@@ -853,7 +852,6 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
         return status;
     }
 
-
     // Alloc IV
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -862,6 +860,12 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
             if (setup->setupData.cipherSetupData.cipherAlgorithm ==
                 CPA_CY_SYM_CIPHER_AES_CCM)
             {
+
+                /* Although the IV data length for CCM must be 16 bytes,
+		 * the nonce length must be between 7 and 13 inclusive */
+                ivBufferLen = AES_CCM_DEFAULT_NONCE_LENGTH;
+                setup->ivLength = AES_CCM_DEFAULT_NONCE_LENGTH;
+
                 pIvBuffer =
                     qaeMemAllocNUMA(ivBufferLen, node, BYTE_ALIGNMENT_64);
                 if (NULL == pIvBuffer)
@@ -873,10 +877,6 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                 if (CPA_STATUS_SUCCESS == status)
                 {
                     memset(pIvBuffer, 0, ivBufferLen);
-                    /*Although the IV data length for CCM must be 16 bytes,
-                      The nonce length must be between 7 and 13 inclusive*/
-                    ivBufferLen = AES_CCM_DEFAULT_NONCE_LENGTH;
-                    setup->ivLength = AES_CCM_DEFAULT_NONCE_LENGTH;
                     /*generate a random IV*/
                     generateRandomData(&pIvBuffer[1], ivBufferLen);
                 }
@@ -889,6 +889,11 @@ static CpaStatus updatePerform(symmetric_test_params_t *setup)
                     PRINT_ERR("Alloc iv failed with status %u\n", status);
                 }
             }
+        }
+        else
+        {
+            PRINT_ERR("Invalid iv buffer length\n");
+            status = CPA_STATUS_FAIL;
         }
     }
 

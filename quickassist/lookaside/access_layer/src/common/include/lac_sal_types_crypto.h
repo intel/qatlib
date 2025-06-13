@@ -77,6 +77,7 @@
 #include "lac_sym_qat_constants_table.h"
 #include "lac_sym_key.h"
 #include "cpa_cy_sym_dp.h"
+#include "cpa_cy_im.h"
 
 #include "icp_adf_debug.h"
 #include "lac_sal_types.h"
@@ -199,6 +200,9 @@ typedef struct sal_crypto_service_s
 
     debug_file_info_t *debug_file;
     /**< Statistics handler */
+
+    CpaCyCapabilitiesInfo capInfo;
+    /* Cryptographic Capabilities Info */
 
 } sal_crypto_service_t;
 

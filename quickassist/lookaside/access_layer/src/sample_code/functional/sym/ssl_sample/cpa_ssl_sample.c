@@ -207,7 +207,9 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
+
+    COMPLETION_INIT(&complete); // Initialize the completion variable
 
     /* get meta information size */
     status =
@@ -362,10 +364,6 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /** initialization for callback; the "complete" variable is used by the
-         * callback function to indicate it has been called*/
-        COMPLETION_INIT(&complete);
-
         PRINT_DBG("cpaCySymPerformOp\n");
 
         /** Perform symmetric operation */

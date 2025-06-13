@@ -140,6 +140,35 @@ CpaStatus LacBuffDesc_BufferListDescWriteAndAllowZeroBuffer(
 *      Write the buffer descriptor in QAT friendly format.
 *
 * @description
+*      Updates the Meta Data associated with the pUserBufferList CpaBufferList
+*      This function will also return the (aligned) physical address
+*      associated with this CpaBufferList and the total data length of the
+*      buffer list. Zero length buffers are allowed.
+*      Should be used with HW devices supporting zero length payloads.
+*
+* @param[in]  pUserBufferList           A pointer to the buffer list to
+*                                       create the meta data for the QAT.
+* @param[out] pBufferListAlignedPhyAddr The pointer to the aligned physical
+*                                       address.
+* @param[in]  isPhysicalAddress         Type of address
+* @param[out] totalDataLenInBytes       The pointer to the total data length
+*                                       of the buffer list
+* @param[in]  pService                  Pointer to generic service
+*
+*****************************************************************************/
+CpaStatus LacBuffDesc_BufferListDescWriteAllow0BuffGetSize(
+    const CpaBufferList *pUserBufferList,
+    Cpa64U *pBufferListAlignedPhyAddr,
+    CpaBoolean isPhysicalAddress,
+    Cpa64U *totalDataLenInBytes,
+    sal_service_t *pService);
+
+/**
+*******************************************************************************
+* @ingroup LacBufferDesc
+*      Write the buffer descriptor in QAT friendly format.
+*
+* @description
 *      Updates the Meta Data associated with the PClientList CpaBufferList
 *      This function will also return the (aligned) physical address
 *      associated with this CpaBufferList and the total data length of the
@@ -157,6 +186,40 @@ CpaStatus LacBuffDesc_BufferListDescWriteAndAllowZeroBuffer(
 *****************************************************************************/
 CpaStatus LacBuffDesc_BufferListDescWriteAndGetSize(
     const CpaBufferList *pUserBufferList,
+    Cpa64U *pBufListAlignedPhyAddr,
+    CpaBoolean isPhysicalAddress,
+    Cpa64U *totalDataLenInBytes,
+    sal_service_t *pService);
+
+/**
+*******************************************************************************
+* @ingroup LacBufferDesc
+*      Write the buffer descriptor in QAT friendly format with the addition
+*      of a dictionary buffer included at the start.
+*
+* @description
+*      Updates the meta data associated with the pUserBufferList CpaBufferList
+*      This function will also return the (aligned) physical address
+*      associated with this CpaBufferList.
+*
+* @param[in]  pUserBufferList           A pointer to the buffer list to
+*                                       create the meta data for the QAT.
+* @param[in]  pDictionaryBufferList     A pointer to the buffer list whose
+*                                       flat buffers will be added at the start
+*                                       of the meta data for the dictionary
+*                                       data.
+* @param[out] pBufListAlignedPhyAddr    The pointer to the aligned physical
+*                                       address.
+* @param[in]  isPhysicalAddress         Type of address
+* @param[out] totalDataLenInBytes       The pointer to the total data length
+*                                       of the buffer list including the
+*                                       length of the dictionary.
+* @param[in]  pService                  Pointer to generic service
+*
+*****************************************************************************/
+CpaStatus LacBuffDesc_BufferListDescWriteWithDictAndGetSize(
+    const CpaBufferList *pUserBufferList,
+    const CpaBufferList *pDictionaryBufferList,
     Cpa64U *pBufListAlignedPhyAddr,
     CpaBoolean isPhysicalAddress,
     Cpa64U *totalDataLenInBytes,
@@ -237,6 +300,33 @@ CpaStatus LacBuffDesc_FlatBufferVerifyNull(
 *
 *****************************************************************************/
 CpaStatus LacBuffDesc_BufferListVerify(
+    const CpaBufferList *pUserBufferList,
+    Cpa64U *pPktSize,
+    lac_aligment_shift_t alignmentShiftExpected);
+
+/**
+*******************************************************************************
+* @ingroup LacBufferDesc
+*      Ensure the CpaBufferList is correctly formatted ignoring metadata.
+*
+* @description
+*      Ensures the CpaBufferList pUserBufferList is correctly formatted
+*      excluding the user supplied meta data.
+*      This function will also return the total size of the buffers
+*      in the scatter gather list.
+*
+* @param[in] pUserBufferList           A pointer to the buffer list to
+*                                      validate.
+* @param[out] pPktSize                 The total size of the buffers in the
+*                                      scatter gather list.
+* @param[in] alignmentShiftExpected    The expected alignment shift of each
+*                                      of the elements of the scatter gather
+*                                      list.
+* @retval CPA_STATUS_INVALID_PARAM     BufferList failed checks
+* @retval CPA_STATUS_SUCCESS           Function executed successfully
+*
+*****************************************************************************/
+CpaStatus LacBuffDesc_BufferListVerifyNoMetadata(
     const CpaBufferList *pUserBufferList,
     Cpa64U *pPktSize,
     lac_aligment_shift_t alignmentShiftExpected);

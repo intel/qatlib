@@ -259,9 +259,9 @@ CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey)
         case CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_1:
         {
             LAC_CHECK_FLAT_BUFFER_PARAM(
-                &(pPrivateKey->privateKeyRep1.modulusN), CHECK_NONE, 0);
-            LAC_CHECK_FLAT_BUFFER_PARAM(
                 &(pPrivateKey->privateKeyRep1.privateExponentD), CHECK_NONE, 0);
+            LAC_CHECK_FLAT_BUFFER_PARAM(
+                &(pPrivateKey->privateKeyRep1.modulusN), CHECK_NONE, 0);
         }
         break;
 

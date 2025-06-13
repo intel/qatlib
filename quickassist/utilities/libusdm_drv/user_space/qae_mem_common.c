@@ -83,18 +83,10 @@ size_t g_max_cache = MAX_CACHE_DEPTH_MB;
 /* The maximum number we allow to search for available size */
 size_t g_max_lookup_num = 10;
 
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
-
 /* User space page table for fast virtual to physical address translation */
-page_table_t g_page_table = {{{0}}};
+page_table_t g_page_table = { { { 0 } } };
 /* User space hash for fast slab searching */
-slab_list_t g_slab_list[PAGE_SIZE] = {{0}};
-
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
+slab_list_t g_slab_list[PAGE_SIZE] = { { 0 } };
 
 #ifndef ICP_WITHOUT_THREAD
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -106,7 +98,6 @@ API_LOCAL dev_mem_info_t *__qae_pUserMemListHead = NULL;
 API_LOCAL dev_mem_info_t *__qae_pUserMemListTail = NULL;
 API_LOCAL dev_mem_info_t *__qae_pUserLargeMemListHead = NULL;
 API_LOCAL dev_mem_info_t *__qae_pUserLargeMemListTail = NULL;
-
 
 free_page_table_fptr_t free_page_table_fptr = free_page_table;
 load_key_fptr_t load_key_fptr = load_key;

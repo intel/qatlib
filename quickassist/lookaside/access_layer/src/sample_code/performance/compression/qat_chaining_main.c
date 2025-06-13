@@ -116,8 +116,6 @@ extern int latency_enable;
 extern int latency_debug;
 extern int latency_single_buffer_mode;
 
-
-
 #define COUNT_RESPONSES dcPerformCallback(setup, status)
 
 static inline void bufferDump(Cpa8U *pBuffer, Cpa32U bufferLength)
@@ -573,7 +571,6 @@ void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
     CpaDcOpData *pDcOp = NULL;
     CpaCySymOpData *pCySymOp = NULL;
 
-
     for (k = 0; k < numLists; k++)
     {
         if (NULL != pOpdata)
@@ -615,7 +612,6 @@ void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
         }
     }
 }
-
 
 CpaStatus dcChainPerformOpDataSetup(compression_test_params_t *setup,
                                     CpaBufferList *srcBufferListArray,
@@ -1428,7 +1424,6 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
 
     dcSetup.induceOverflow = CPA_FALSE;
 
-
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Launch function that does all the work */
@@ -1529,7 +1524,7 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
         return CPA_STATUS_FAIL;
     }
 
-    /* Check that atleast 1 loop of the data set is to be submitted */
+    /* Check that at least 1 loop of the data set is to be submitted */
     if (numLoops == 0)
     {
         PRINT_ERR("numLoops must be > 0\n");
@@ -1622,7 +1617,6 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
     dcSetup->syncFlag = syncFlag;
     dcSetup->numLoops = numLoops;
     dcSetup->isDpApi = CPA_FALSE;
-
     dcSetup->setupData.autoSelectBestHuffmanTree = gAutoSelectBestMode;
     dcSetup->setupData.checksum = gChecksum;
     dcSetup->passCriteria = getPassCriteria();
@@ -1652,7 +1646,6 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
 
     return status;
 }
-
 
 static CpaStatus qatDcChainInduceOverflow(compression_test_params_t *setup,
                                           CpaDcSessionHandle pSessionHandle,

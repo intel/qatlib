@@ -99,6 +99,24 @@ CpaStatus LacSymCb_PendingReqsDequeue(lac_session_desc_t *pSessionDesc);
 /**
  *****************************************************************************
  * @ingroup LacSym
+ *      Generates Symmetric dummy responses
+ * @description
+ *      This function is called during the error state of the device to
+ *      generate dummy responses from the symmetric request memory pool.
+ *
+ * @param[in] pBucket               pointer to the bucket of memblks
+ *
+ * @retval CPA_STATUS_SUCCESS       Successfully polled a memory pool with data
+ *                                  that generate dummy responses.
+ * @retval CPA_STATUS_RETRY         There are no inflight requests in the
+ *                                  memory pool associated with the instance
+ *
+ ****************************************************************************/
+CpaStatus LacSym_SwRespMsgCallback(lac_memblk_bucket_t *pBucket);
+
+/**
+ *****************************************************************************
+ * @ingroup LacSym
  *      Register symmetric callback function handlers
  *
  * @description

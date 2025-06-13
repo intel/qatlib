@@ -100,7 +100,6 @@ static qae_dev_mem_info_t *pUserMemListHead = NULL;
 
 static int fd = 0;
 
-
 /**************************************
  * Memory functions
  *************************************/

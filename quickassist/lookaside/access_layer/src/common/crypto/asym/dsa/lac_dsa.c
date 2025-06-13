@@ -535,6 +535,8 @@ CpaStatus cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -882,6 +884,8 @@ CpaStatus cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -1232,6 +1236,8 @@ CpaStatus cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -1598,6 +1604,8 @@ CpaStatus cpaCyDsaSignR(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -1977,6 +1985,8 @@ CpaStatus cpaCyDsaSignS(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -2384,6 +2394,8 @@ CpaStatus cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -2815,6 +2827,8 @@ CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pCb)
@@ -3052,6 +3066,8 @@ CpaStatus cpaCyDsaQueryStats(CpaInstanceHandle instanceHandle,
     SAL_CHECK_INSTANCE_TYPE(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* check for null parameters */
     LAC_CHECK_NULL_PARAM(pDsaStats);
@@ -3099,6 +3115,9 @@ CpaStatus cpaCyDsaQueryStats64(CpaInstanceHandle instanceHandle,
     SAL_CHECK_INSTANCE_TYPE(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+
+    /* Check if dsa capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dsa);
 
     /* check for null parameters */
     LAC_CHECK_NULL_PARAM(pDsaStats);
@@ -3184,7 +3203,6 @@ void LacDsa_StatsShow(CpaInstanceHandle instanceHandle)
 {
 #ifdef QAT_LEGACY_ALGORITHMS
     CpaCyDsaStats64 dsaStats = {0};
-
 
     /* retrieve the stats */
     (void)cpaCyDsaQueryStats64(instanceHandle, &dsaStats);

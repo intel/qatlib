@@ -88,7 +88,7 @@
 #define ADF_CFG_MAX_VAL_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
 #define ADF_CFG_MAX_SECTION_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
 #define ADF_MAX_DEVICES (32 * 32)
-/* Max PFs = 8 sockets x 4 PFs per socket */
+/* Max PFs = num sockets x num PFs per socket */
 #define ADF_MAX_PF_DEVICES 32
 
 enum dev_sku_info
@@ -112,11 +112,11 @@ enum adf_event
     ADF_EVENT_ERROR,
 };
 
-
 #define ADF_CFG_NO_INSTANCE 0xFFFFFFFF
 #define ADF_CTL_DEVICE_NAME "/dev/qat_adf_ctl"
 
 #define ADF_DEVICE_TYPE_LENGTH 16
+#define BIT(n) (1 << n)
 
 /**
  *****************************************************************************
@@ -135,7 +135,7 @@ typedef enum
     ICP_ACCEL_CAPABILITIES_AUTHENTICATION = 0x08,
     ICP_ACCEL_CAPABILITIES_COMPRESSION = 0x20,
     ICP_ACCEL_CAPABILITIES_DEPRECATED = 0x40,
-    ICP_ACCEL_CAPABILITIES_RANDOM_NUMBER = 0x80,
+    ICP_ACCEL_CAPABILITIES_5G = 0x80,
     ICP_ACCEL_CAPABILITIES_CRYPTO_ZUC = 0x100,
     ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3 = 0x200,
     ICP_ACCEL_CAPABILITIES_RESERVED = 0x400,
@@ -155,11 +155,30 @@ typedef enum
     ICP_ACCEL_CAPABILITIES_LZ4_COMPRESSION = 0x1000000,
     ICP_ACCEL_CAPABILITIES_LZ4S_COMPRESSION = 0x2000000,
     ICP_ACCEL_CAPABILITIES_AES_V2 = 0x4000000,
-    ICP_ACCEL_CAPABILITIES_KPT2 = 0x8000000,
+    ICP_ACCEL_CAPABILITIES_KPT = 0x8000000,
     /* Reserved capability for CIPHER_CRC */
     ICP_ACCEL_CAPABILITIES_ZUC_256 = 0x20000000,
     ICP_ACCEL_CAPABILITIES_WIRELESS_CRYPTO_EXT = 0x40000000,
 } icp_accel_capabilities_t;
+
+enum serv_type
+{
+    SERV_TYPE_DC = BIT(0),
+    SERV_TYPE_SYM = BIT(1),
+    SERV_TYPE_ASYM = BIT(2),
+    SERV_TYPE_DECOMP = BIT(4),
+    SERV_TYPE_CY = (SERV_TYPE_SYM + SERV_TYPE_ASYM),
+    SERV_TYPE_SYM_DC = (SERV_TYPE_SYM + SERV_TYPE_DC),
+    SERV_TYPE_ASYM_DC = (SERV_TYPE_ASYM + SERV_TYPE_DC),
+    SERV_TYPE_DC_DECOMP = (SERV_TYPE_DC + SERV_TYPE_DECOMP),
+    SERV_TYPE_SYM_DECOMP = (SERV_TYPE_SYM + SERV_TYPE_DECOMP),
+    SERV_TYPE_ASYM_DECOMP = (SERV_TYPE_ASYM + SERV_TYPE_DECOMP),
+    SERV_TYPE_CY_DC = (SERV_TYPE_SYM + SERV_TYPE_ASYM + SERV_TYPE_DC),
+    SERV_TYPE_CY_DECOMP = (SERV_TYPE_SYM + SERV_TYPE_ASYM + SERV_TYPE_DECOMP),
+    SERV_TYPE_SYM_DC_DECOMP = (SERV_TYPE_SYM + SERV_TYPE_DC + SERV_TYPE_DECOMP),
+    SERV_TYPE_ASYM_DC_DECOMP =
+        (SERV_TYPE_ASYM + SERV_TYPE_DC + SERV_TYPE_DECOMP),
+};
 
 /**
  *****************************************************************************
@@ -187,10 +206,25 @@ typedef enum device_type_e
     DEVICE_4XXX,
     DEVICE_4XXXVF,
     DEVICE_420XX,
-    DEVICE_420XXVF
+    DEVICE_420XXVF,
 } device_type_t;
 
 #define QAT_GEN4_STR "4xxx"
+
+/*
+ * Macro for checking if given device_type_t enum value
+ * belongs to QAT_GEN2 generation.
+ */
+#ifdef IS_QAT_GEN2
+#undef IS_QAT_GEN2
+#endif
+#define IS_QAT_GEN2(dev_type)                                                  \
+    ({                                                                         \
+        int _dt = dev_type;                                                    \
+        _dt == DEVICE_C62X || _dt == DEVICE_C62XVF || _dt == DEVICE_C3XXX ||   \
+            _dt == DEVICE_C3XXXVF || _dt == DEVICE_D15XX ||                    \
+            _dt == DEVICE_D15XXVF;                                             \
+    })
 /*
  * Macro for checking if given device_type_t enum value
  * belongs to QAT 4 generation.
@@ -224,17 +258,35 @@ typedef enum adf_service_type_s
     ADF_SERVICE_MAX /* this is always the last one */
 } adf_service_type_t;
 
+struct fw_caps_accel
+{
+    uint16_t comp_algos;
+    uint16_t cksum_algos;
+    uint32_t deflate_caps;
+    uint16_t lz4_caps;
+    uint16_t lz4s_caps;
+    uint8_t is_fw_caps;
+};
+
+/* Enumeration on Ring Queue modes */
+typedef enum adf_ring_queue_mode
+{
+    ADF_RING_WQ_MODE = 0,
+} adf_ring_queue_mode_t;
+
 typedef struct accel_dev_s
 {
     /* Some generic information */
     Cpa32U accelId;
     device_type_t deviceType;                    /* Device Type */
     char deviceName[ADF_DEVICE_TYPE_LENGTH + 1]; /* Device name for SAL */
+    Cpa16U services;
     Cpa32U accelCapabilitiesMask; /* Accelerator's capabilities mask */
     Cpa32U cipherCapabilitiesMask; /* Cipher algorithms capabilities mask */
     Cpa32U hashCapabilitiesMask;   /* Hash algorithms capabilities mask */
     Cpa32U asymCapabilitiesMask;   /* Asym algorithms capabilities mask */
     Cpa32U dcExtendedFeatures;    /* bit field of features */
+    struct fw_caps_accel fw_caps;
     OsalAtomic usageCounter;      /* Prevents shutting down the dev if not 0 */
     void *pSalHandle;             /* For SAL */
     void *pQatStats;              /* For QATAL/SAL stats */
@@ -242,6 +294,7 @@ typedef struct accel_dev_s
     Cpa32U adfSubsystemStatus;    /* Status of ADF and registered subsystems */
     Cpa32S numa_node; /* Physical processor to which the dev is connected */
     enum dev_sku_info sku;
+    Cpa32U arb_mask;
     void *accel;
     Cpa32U maxNumBanks;
     Cpa32U maxNumRingsPerBank;
@@ -255,8 +308,8 @@ typedef struct accel_dev_s
     Cpa32U deviceMemAvail; /* Device memory for intermediate buffers */
     Cpa32U pciDevId;
     CpaBoolean isVf; /* Device runs on a virtual function */
-    Cpa32U arb_mask;
     void *ioPriv;
+    adf_ring_queue_mode_t ringMode;
 } icp_accel_dev_t;
 
 /*

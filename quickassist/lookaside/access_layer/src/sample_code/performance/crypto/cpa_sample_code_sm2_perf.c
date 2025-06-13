@@ -340,7 +340,7 @@ static CpaStatus sm2PerfDataSetup(sm2_test_params_t *setup)
             if (CPA_STATUS_SUCCESS != status)
             {
                 /* Not a success; could be a retry, a fail, an invalid param or
-                 * a resourse issue */
+                 * a resource issue */
                 PRINT_ERR("cpaCyEcsm2Sign() not a success. (status = %d)\n",
                           status);
                 goto cleanup;
@@ -560,7 +560,6 @@ void sm2Performance(single_thread_test_data_t *testSetup)
     CpaCyCapabilitiesInfo capInfo = {0};
     testSetup->passCriteria = getPassCriteria();
 
-
     /*this barrier is to halt this thread when run in user space context, the
      * startThreads function releases this barrier, in kernel space it does
      * nothing, but kernel space threads do not start until we call
@@ -634,7 +633,8 @@ void sm2Performance(single_thread_test_data_t *testSetup)
     if (!capInfo.ecSm2Supported)
     {
         PRINT_ERR("SM2 is Unsupported on Device\n");
-        sm2Setup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        sm2Setup.performanceStats->threadReturnStatus = CPA_STATUS_UNSUPPORTED;
+        numCreatedThreads_g--;
         goto exit;
     }
     if (instanceInfo.physInstId.packageId > packageIdCount_g)
@@ -770,4 +770,3 @@ CpaStatus setupSm2Test(Cpa32U nLenInBits,
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(setupSm2Test);
-

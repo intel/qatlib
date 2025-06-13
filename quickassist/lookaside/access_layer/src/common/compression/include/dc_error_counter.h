@@ -76,7 +76,7 @@
 #include "cpa_types.h"
 #include "cpa_dc.h"
 
-#define MAX_DC_ERROR_TYPE 20
+#define MAX_DC_ERROR_TYPE 101
 
 void dcErrorLog(CpaDcReqStatus dcError);
 Cpa64U getDcErrorCounter(CpaDcReqStatus dcError);

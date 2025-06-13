@@ -638,6 +638,8 @@ CpaStatus cpaCyPrimeTest(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if prime capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, prime);
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
     /* Check if the API has been called in sync mode */
@@ -1026,6 +1028,9 @@ CpaStatus cpaCyPrimeQueryStats(CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 
+    /* Check if prime capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, prime);
+
     /* check for null parameters */
     LAC_CHECK_NULL_PARAM(pPrimeStats);
 
@@ -1072,6 +1077,9 @@ CpaStatus cpaCyPrimeQueryStats64(CpaInstanceHandle instanceHandle_in,
     SAL_CHECK_INSTANCE_TYPE(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+
+    /* Check if prime capability is enabled */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, prime);
 
     /* check for null parameters */
     LAC_CHECK_NULL_PARAM(pPrimeStats);
