@@ -548,8 +548,9 @@ CpaStatus icp_sal_poll_device_events(void);
  * icp_sal_check_device
  *
  * @description:
- *  This function checks the status of the firmware/hardware for a given device.
- *  This function is used as part of the heartbeat functionality.
+ *    This function checks the status of the device and also if it supports
+ *    heartbeat or not.
+ *    This function is used as part of the heartbeat functionality.
  *
  * @context
  *      This function is called from the user process context
@@ -576,8 +577,9 @@ CpaStatus icp_sal_check_device(Cpa32U packageId);
  * icp_sal_check_all_devices
  *
  * @description:
- *  This function checks the status of the firmware/hardware for all devices.
- *  This function is used as part of the heartbeat functionality.
+ *    This function checks the status of the device and also if it supports
+ *    heartbeat or not.
+ *    This function is used as part of the heartbeat functionality.
  *
  * @context
  *      This function is called from the user process context
@@ -597,12 +599,11 @@ CpaStatus icp_sal_check_device(Cpa32U packageId);
  */
 CpaStatus icp_sal_check_all_devices(void);
 
-#ifdef ICP_HB_FAIL_SIM
 /*
  * icp_sal_heartbeat_simulate_failure
  *
  * @description:
- *  This function simulates a heartbeat failur
+ *  This function simulates a heartbeat failure
  *
  * @context
  *      This function is called from the user process context
@@ -623,8 +624,6 @@ CpaStatus icp_sal_check_all_devices(void);
  * @retval CPA_STATUS_FAIL           Operation failed
  */
 CpaStatus icp_sal_heartbeat_simulate_failure(Cpa32U packageId);
-
-#endif
 
 #define CPA_DEVICE_GEN_LEN 16
 typedef struct _CpaPfInfo
@@ -684,7 +683,6 @@ CpaStatus icp_sal_get_num_pfs(Cpa16U *pNumPFs);
  * @retval CPA_STATUS_FAIL           Operation failed
  */
 CpaStatus icp_sal_get_pf_info(CpaPfInfo *pPf_info);
-
 
 /*
  * @ingroup icp_sal_user
@@ -835,7 +833,6 @@ CpaStatus icp_sal_reset_device(Cpa32U accelId);
  */
 CpaBoolean icp_sal_userIsQatAvailable(void);
 
-#ifdef ICP_DC_ERROR_SIMULATION
 /*
  * icp_sal_cnv_simulate_error
  *
@@ -928,8 +925,6 @@ CpaStatus icp_sal_ns_cnv_simulate_error(CpaInstanceHandle dcInstance);
  *
  */
 CpaStatus icp_sal_ns_cnv_reset_error(CpaInstanceHandle dcInstance);
-
-#endif /* ICP_DC_ERROR_SIMULATION */
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

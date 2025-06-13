@@ -150,7 +150,7 @@ static CpaStatus ecMontEdwdsPrintStats(thread_creation_data_t *data)
             break;
 
         case CPA_FALSE:
-            generatorText = "Point multiplcation (kP)";
+            generatorText = "Point multiplication (kP)";
             break;
 
         default:
@@ -378,7 +378,6 @@ static CpaStatus ecMontEdwdsSetupData(
 
     return status;
 }
-
 
 /***************************************************************************
  * @ingroup ecMontEdwdsThreads

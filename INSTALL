@@ -199,7 +199,7 @@ Compilation and installation - quickstart instructions
     Summary if building from sources.
 
         # Install dependencies
-        sudo dnf install -y gcc systemd-devel automake autoconf libtool
+        sudo dnf install -y gcc systemd-devel automake autoconf autoconf-archive libtool
         sudo dnf install -y pkg-config openssl-devel zlib-devel nasm numactl-devel
 
         # Clone QATlib into ~/qatlib, i.e. in your home dir
@@ -257,7 +257,7 @@ Compilation and installation - detailed instructions
         tools:
             gcc
             make
-            autotools (automake, autoconf, libtool)
+            autotools (automake, autoconf, autoconf-archive, libtool)
             pkg-config
             systemd-devel
             nasm
@@ -545,9 +545,9 @@ Compilation and installation - detailed instructions
         called on the host to bind VFs to vfio-pci and to enable services based
         on the ServicesEnabled param. In this mode the POLICY parameter should
         not be set in /etc/sysconfig/qat, if it is set it will be ignored,
-        instead an environment variable QAT_POLICY can be set. Valid values
-        are the same as for POLICY, except that for QAT_POLICY=0 a maximum
-        of 6 VFs will be allocated.
+        instead an environment variable QAT_POLICY can be set. Please note that
+        the QAT_POLICY=0 is not a valid setting in standalone mode. The valid
+        setting range starts from 1 and goes up to max PFs * 16.
 
         Note1: The ServicesEnabled configuration requires Linux kernel v6.0
         or later and applies to all PFs on the platform. The script below can be
@@ -664,10 +664,6 @@ Full list of Configuration options
         --disable-silent-rules
                 Verbose build output (undo: "make V=0").
 
-        --enable-maintainer-mode
-                Enables make rules and dependencies not useful (and
-                sometimes confusing) to the casual installer.
-
         --enable-dependency-tracking
                 Does not reject slow dependency extractors.
 
@@ -730,6 +726,29 @@ Full list of Configuration options
                 The thread which did the allocation must live until after all
                 threads using the memory are finished with it, as any thread
                 memory not yet freed may be cleaned up on termination of the thread.
+
+        --enable-icp-without-qp-submission-lock
+                This allows for the removal of Queue Pair (QP) submission
+                locks and is designed to optimize performance in environments
+                where QPs assigned to one thread are not shared by another thread.
+                In these scenarios, the frequent invocation of mutex_lock/unlock
+                during hardware request submissions is unnecessary and can
+                affect performance. By enabling this flag, the locks around QP
+                submissions are eliminated, thus reducing the cost of offload.
+                As QPs are assigned to instances, only enable this if instances
+                are not shared across threads, else undefined behaviour could occur.
+
+        --enable-treat-crc-from-comp-engine-as-error
+                When the device calculates a CRC over the uncompressed data,
+                it usually uses the decompression engine to do the CRC calculation.
+                In compression operation cases where the stored block is returned
+                e.g. due to input data being incompressible, the returned CRC is
+                calculated using the compression engine, which should give exactly
+                the same CRC as the decompression engine would. Enabling this option
+                causes any case where the CRC is calculated by the compression engine
+                to be reported as a CPA_DC_E2E_NO_DECOMPRESSION error, rather than as a
+                successful operation. Please see below link for firmware needed to support
+                this feature. https://intel.github.io/quickassist/RN/In-Tree/in_tree_firmware_RN.html#qat-2-0-in-tree-kernel-requirements
 
         MAX_MR
                 Number of Miller Rabin rounds for prime operations. Setting this

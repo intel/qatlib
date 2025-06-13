@@ -95,7 +95,7 @@
 #ifdef USER_SPACE
 #define MAX_SETUP_STRUCT_SIZE_IN_BYTES (800)
 #else
-#define MAX_SETUP_STRUCT_SIZE_IN_BYTES (500)
+#define MAX_SETUP_STRUCT_SIZE_IN_BYTES (700)
 #endif
 
 /*the following macros are defined for default cores to be used in tests,
@@ -134,8 +134,6 @@
 #define MAX_RETRY (10)
 #define SLEEP_ONE_SEC (1)
 #define SLEEP_ONE_HUNDRED_MILLISEC (100)
-
-
 
 /* Common macro definitions */
 #ifndef DC_API_VERSION_AT_LEAST
@@ -673,6 +671,8 @@ CpaStatus startThreads(void);
 void killCreatedThreads(Cpa32U numThreadsToKill);
 CpaStatus createStartandWaitForCompletion(Cpa32U instType);
 CpaStatus createStartandWaitForCompletionCrypto(Cpa32U instType);
+CpaStatus allocThreadMem(void);
+void freeThreadMem(void);
 
 /**
  *****************************************************************************
@@ -751,10 +751,8 @@ CpaStatus getCoreAffinity(CpaInstanceHandle instance,
                           Cpa32U *coreAffinity,
                           Cpa32U instType);
 
-
 compute_test_result_func_t getPassCriteria(void);
 void setPassCriteria(compute_test_result_func_t pfunc);
 void saveClearRestorePerfStats(perf_data_t *perf);
-
 
 #endif /*_SAMPLECODEFRAMEWORK_H__*/

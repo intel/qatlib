@@ -193,6 +193,23 @@ typedef struct cy_chain_info_s
     /* True if this request is part of a DC Chain operation */
 } cy_chain_info_t;
 
+/* List of the different OpData types supported */
+typedef enum cy_opdata_type_s
+{
+    CY_OPDATA_TYPE0 = 0,
+    /**< CpaCySymOpData format */
+    CY_OPDATA_TYPE1
+    /**< CpaCySymOpData2 format */
+} cy_opdata_type_t;
+
+typedef struct cy_opdata_ext_s
+{
+    void *pOpData;
+    /**< Pointer to the OpData structure being used */
+    cy_opdata_type_t opDataType;
+    /**< Indicates the type of OpData being used */
+} cy_opdata_ext_t;
+
 /**
  *******************************************************************************
  * @ingroup LacSym
@@ -296,13 +313,29 @@ typedef struct lac_sym_key_cookie_s
 
 /**
 *******************************************************************************
+*****************************************************************************
 * @ingroup LacSym
-*      symmetric cookie
+*      symmetric cookie type.
 * @description
-*      used to determine the amount of memory to allocate for the symmetric
-*      cookie pool. As symmetric, random and key generation shared the same
-*      pool
+*      used to determine symmetric cookie type
+*
 *****************************************************************************/
+typedef enum lac_sym_cookie_type_t
+{
+    LAC_SYM_BULK_COOKIE_TYPE = 0,
+    /**< symmetric bulk cookie type */
+    LAC_SYM_KEY_COOKIE_TYPE = 1,
+    /**< symmetric key cookie type */
+} lac_sym_cookie_type_t;
+
+/**
+ * @ingroup LacSym
+ *      symmetric cookie
+ * @description
+ *      used to determine the amount of memory to allocate for the symmetric
+ *      cookie pool. As symmetric, random and key generation shared the same
+ *      pool
+ *****************************************************************************/
 typedef struct lac_sym_cookie_s
 {
     union {
@@ -311,10 +344,12 @@ typedef struct lac_sym_cookie_s
         lac_sym_key_cookie_t keyCookie;
         /**< symmetric key cookie */
     } u;
-    Cpa64U keyContentDescPhyAddr;
-    Cpa64U keyHashStateBufferPhyAddr;
-    Cpa64U keySslKeyInputPhyAddr;
-    Cpa64U keyTlsKeyInputPhyAddr;
+    Cpa64U keyContentDescDevAddr;
+    Cpa64U keyHashStateBufferDevAddr;
+    Cpa64U keySslKeyInputDevAddr;
+    Cpa64U keyTlsKeyInputDevAddr;
+    lac_sym_cookie_type_t cookieType;
+    /**< symmetric cookie type */
 } lac_sym_cookie_t;
 
 typedef struct icp_qat_la_auth_req_params_s

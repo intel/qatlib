@@ -689,12 +689,16 @@ void printMemAllocations(void);
 
 #define mem_ioctl(fd, cmd, pMemInfo) ioctl(fd, cmd, pMemInfo)
 #define qae_open(file, options) open(file, options)
+#define qae_close(fd) close(fd)
 #define qae_lseek(fd, offset, whence) lseek(fd, offset, whence)
 #define qae_read(fd, buf, nbytes) read(fd, buf, nbytes)
 #define qae_mmap(addr, length, prot, flags, fd, offset)                        \
     mmap(addr, length, prot, flags, fd, offset)
 #define qae_munmap(addr, length) munmap(addr, length)
 #define qae_madvise(addr, len, advice) madvise(addr, len, advice)
+#define qae_fopen(filename, operation) fopen(filename, operation)
+#define qae_fgets(str, n, stream) fgets(str, n, stream)
+#define qae_opendir(dirname) opendir(dirname)
 #define qae_mkstemp(template) mkstemp(template)
 #endif
 

@@ -186,16 +186,16 @@ typedef struct icp_qat_fw_req_pke_hdr_s
      * are therefore reserved and need to be set to 0. */
 
     /**< LW1 */
-    icp_qat_fw_comn_flags comn_req_flags;
+    icp_qat_fw_comn_flags_pke comn_req_flags;
     /**< Common Request flags must indicate flat buffer (as per DH89xxCC)
      * Common Request flags - PKE slice flags no longer used - slice
      * allocated to a threadstrand.*/
 
-    uint8_t resrvd3;
-    /**< reserved field */
+    icp_qat_fw_comn_flags comn_req_flags_ext;
+    /**< Extended Common Request flags */
 
-    uint8_t resrvd4;
-    /**< reserved field */
+    icp_qat_fw_ext_serv_specif_flags extended_serv_specif_flags;
+    /**< PKE service extension field */
 
     /**< LWs 2-5 */
     icp_qat_fw_req_hdr_pke_cd_pars_t cd_pars;
@@ -350,18 +350,12 @@ typedef struct icp_qat_fw_pke_resp_s
  *  header file(*).
  */
 
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 /*  + ===== + ----- + ---- + ----- + ----- + ----- + ----- + ----- + ----- + ----------------------- +
  *  |  Bit  |  15   |  14  |  13   |  12   |  11   |  10   |   9   |   8   |        [7....0]         |
  *  + ===== + ----- + ---- + ----- + ----- + ----- + ----- + ----- + ----- + ----------------------- +
  *  | Flags | Rsrvd | Pke  | Rsrvd | Rsrvd | Rsrvd | Rsrvd | Rsrvd | Rsrvd |   Common error codes(*) |
  *  + ===== + ----- + ---- + ----- + ----- + ----- + ----- + ----- + ----- + ----------------------- +
  */
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 
 /**
  ******************************************************************************

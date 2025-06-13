@@ -267,5 +267,5 @@ CpaStatus SalQatMsg_transPutMsg(icp_comms_trans_handle trans_handle,
  *      CpaStatus
  *
  *****************************************/
-void SalQatMsg_updateQueueTail(icp_comms_trans_handle trans_hnd);
+CpaStatus SalQatMsg_updateQueueTail(icp_comms_trans_handle trans_hnd);
 #endif

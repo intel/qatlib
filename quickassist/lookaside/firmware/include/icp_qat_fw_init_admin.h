@@ -91,9 +91,6 @@
  *      Enumeration which is used to indicate the ids of Init/Admin commands
  *
  *****************************************************************************/
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 typedef enum
 {
     ICP_QAT_FW_INIT_ME = 0,
@@ -132,9 +129,6 @@ typedef enum
     /**< Admin: Heartbeat Config Update command type */
 
 } icp_qat_fw_init_admin_cmd_id_t;
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 
 /**
  *****************************************************************************
@@ -287,12 +281,16 @@ typedef struct icp_qat_fw_init_admin_capability_resp_s
             uint32_t deflate_capabilities;
             /**< QAT FW supported Deflate capabilities */
 
-            uint32_t resrvd1;
-            /**< Reserved field */
+            uint16_t lz4_capabilities;
+            /**< QAT FW supported LZ4 capabilities */
 
-            uint32_t deprecated;
-            /**< Deprecated field */
+            uint16_t resrvd1;
+            /**< Reserved capabilities */
 
+            uint16_t lz4s_capabilities;
+            /**< QAT FW supported LZ4S capabilities */
+            uint16_t resrvd2;
+            /**< Reserved field for future expansion */
         } compression;
 
         /**< Specific to a crypto capability response only */

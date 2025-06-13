@@ -75,7 +75,6 @@
 #include "icp_qat_hw_20_comp_defs.h" /* For HW definitions */
 #include "icp_qat_fw.h"              /* For Set Field Macros. */
 
-
 #define BYTE_SWAP_32 __builtin_bswap32
 
 /**

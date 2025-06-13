@@ -183,7 +183,9 @@ static CpaStatus algChainPerformOpZUC(CpaInstanceHandle cyInstHandle,
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
+
+    COMPLETION_INIT(&complete); // Initialize the completion variable
 
     /* get meta information size */
     PRINT_DBG("cpaCyBufferListGetMetaSize\n");
@@ -276,10 +278,6 @@ static CpaStatus algChainPerformOpZUC(CpaInstanceHandle cyInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /** initialization for callback; the "complete" variable is used by the
-         * callback function to indicate it has been called*/
-        COMPLETION_INIT(&complete);
-
         PRINT_DBG("cpaCySymPerformOp\n");
 
         /** Perform symmetric operation */
@@ -342,6 +340,7 @@ CpaStatus algChainSample(void)
     CpaInstanceHandle cyInstHandle = NULL;
     CpaCySymSessionSetupData sessionSetupData;
     CpaCySymStats64 symStats;
+    CpaCySymCapabilitiesInfo symCapInfo = { { 0 } };
     memset(&sessionSetupData, 0, sizeof(CpaCySymSessionSetupData));
     memset(&symStats, 0, sizeof(CpaCySymStats64));
 
@@ -353,6 +352,21 @@ CpaStatus algChainSample(void)
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCySymQueryCapabilities(cyInstHandle, &symCapInfo);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to query capabilities, status = %d\n", status);
+        return status;
+    }
+    /* Check capabilities before running the test */
+    if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
+                              CPA_CY_SYM_CIPHER_ZUC_EEA3)) ||
+        (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes, CPA_CY_SYM_HASH_ZUC_EIA3)))
+    {
+        PRINT("ZUC algorithm chaining not supported on Instance\n");
+        return CPA_STATUS_UNSUPPORTED;
     }
 
     /* Start Cryptographic component */

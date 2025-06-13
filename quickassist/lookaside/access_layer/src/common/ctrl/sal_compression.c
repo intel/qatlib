@@ -100,8 +100,10 @@
 #include "dc_session.h"
 #include "dc_datapath.h"
 #include "dc_stats.h"
+#include "dc_capabilities.h"
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
+#include "sal_instances.h"
 #include "sal_string_parse.h"
 #include "sal_service_state.h"
 #include "lac_buffer_desc.h"
@@ -176,268 +178,20 @@ STATIC int SalCtrl_CompresionDebug(void *private_data,
     return 0;
 }
 
-STATIC void SalCtrl_Init_Compression_Levels_gen2(
-    sal_compression_device_data_t *comp_device_data)
-{
-    int level = 0;
-
-    for (level = CPA_DC_L1; level <= CPA_DC_L12; level++)
-    {
-        switch (level)
-        {
-            case CPA_DC_L1:
-            case CPA_DC_L2:
-            case CPA_DC_L3:
-            case CPA_DC_L4:
-                comp_device_data->uniqueCompressionLevels[level] = CPA_TRUE;
-                break;
-            default:
-                comp_device_data->uniqueCompressionLevels[level] = CPA_FALSE;
-                break;
-        }
-    }
-    comp_device_data->numCompressionLevels = DC_NUM_COMPRESSION_LEVELS;
-}
-
-/* Initialise device specific information needed by compression service */
-STATIC CpaStatus
-SalCtrl_CompressionInit_CompData(icp_accel_dev_t *device,
-                                 sal_compression_service_t *pCompService)
-{
-    int level = 0;
-
-    pCompService->comp_device_data.uniqueCompressionLevels[0] = CPA_FALSE;
-    switch (device->deviceType)
-    {
-        case DEVICE_DH895XCC:
-        case DEVICE_DH895XCCVF:
-            pCompService->numInterBuffs =
-                DC_QAT_MAX_NUM_INTER_BUFFERS_6COMP_SLICES;
-            pCompService->comp_device_data.minOutputBuffSize =
-                DC_DEST_BUFFER_STA_MIN_SIZE;
-            pCompService->comp_device_data.minOutputBuffSizeDynamic =
-                pCompService->comp_device_data.minOutputBuffSize;
-            pCompService->comp_device_data.oddByteDecompNobFinal = CPA_TRUE;
-            pCompService->comp_device_data.oddByteDecompInterim = CPA_FALSE;
-            pCompService->comp_device_data.translatorOverflow = CPA_FALSE;
-            pCompService->comp_device_data.useDevRam =
-                ICP_QAT_FW_COMP_ENABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            pCompService->comp_device_data.enableDmm = CPA_FALSE;
-            pCompService->comp_device_data.inflateContextSize =
-                DC_INFLATE_CONTEXT_SIZE;
-            pCompService->comp_device_data.highestHwCompressionDepth =
-                ICP_QAT_HW_COMPRESSION_DEPTH_16;
-            pCompService->comp_device_data.windowSizeMask =
-                (1 << DC_4K_WINDOW_SIZE | 1 << DC_8K_WINDOW_SIZE |
-                 1 << DC_16K_WINDOW_SIZE | 1 << DC_32K_WINDOW_SIZE);
-            SalCtrl_Init_Compression_Levels_gen2(
-                &pCompService->comp_device_data);
-            break;
-        case DEVICE_C3XXX:
-        case DEVICE_C3XXXVF:
-        case DEVICE_200XX:
-        case DEVICE_200XXVF:
-            pCompService->numInterBuffs =
-                DC_QAT_MAX_NUM_INTER_BUFFERS_6COMP_SLICES;
-            pCompService->comp_device_data.oddByteDecompNobFinal = CPA_FALSE;
-            pCompService->comp_device_data.oddByteDecompInterim = CPA_TRUE;
-            pCompService->comp_device_data.translatorOverflow = CPA_FALSE;
-            pCompService->comp_device_data.useDevRam =
-                ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            pCompService->comp_device_data.inflateContextSize =
-                DC_INFLATE_EH_CONTEXT_SIZE;
-            pCompService->comp_device_data.highestHwCompressionDepth =
-                ICP_QAT_HW_COMPRESSION_DEPTH_16;
-            pCompService->comp_device_data.windowSizeMask =
-                (1 << DC_4K_WINDOW_SIZE | 1 << DC_8K_WINDOW_SIZE |
-                 1 << DC_16K_WINDOW_SIZE | 1 << DC_32K_WINDOW_SIZE);
-            pCompService->comp_device_data.minOutputBuffSize =
-                DC_DEST_BUFFER_STA_MIN_SIZE;
-            pCompService->comp_device_data.minOutputBuffSizeDynamic =
-                pCompService->comp_device_data.minOutputBuffSize;
-            pCompService->comp_device_data.enableDmm = CPA_TRUE;
-            SalCtrl_Init_Compression_Levels_gen2(
-                &pCompService->comp_device_data);
-            break;
-        case DEVICE_C62X:
-        case DEVICE_C62XVF:
-            pCompService->numInterBuffs =
-                DC_QAT_MAX_NUM_INTER_BUFFERS_10COMP_SLICES;
-            pCompService->comp_device_data.oddByteDecompNobFinal = CPA_FALSE;
-            pCompService->comp_device_data.oddByteDecompInterim = CPA_TRUE;
-            pCompService->comp_device_data.translatorOverflow = CPA_FALSE;
-            pCompService->comp_device_data.useDevRam =
-                ICP_QAT_FW_COMP_ENABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            pCompService->comp_device_data.inflateContextSize =
-                DC_INFLATE_EH_CONTEXT_SIZE;
-            pCompService->comp_device_data.highestHwCompressionDepth =
-                ICP_QAT_HW_COMPRESSION_DEPTH_16;
-            pCompService->comp_device_data.windowSizeMask =
-                (1 << DC_4K_WINDOW_SIZE | 1 << DC_8K_WINDOW_SIZE |
-                 1 << DC_16K_WINDOW_SIZE | 1 << DC_32K_WINDOW_SIZE);
-            pCompService->comp_device_data.minOutputBuffSize =
-                DC_DEST_BUFFER_STA_MIN_SIZE;
-            pCompService->comp_device_data.minOutputBuffSizeDynamic =
-                pCompService->comp_device_data.minOutputBuffSize;
-            pCompService->comp_device_data.enableDmm = CPA_TRUE;
-            SalCtrl_Init_Compression_Levels_gen2(
-                &pCompService->comp_device_data);
-            break;
-        case DEVICE_D15XX:
-        case DEVICE_D15XXVF:
-            pCompService->numInterBuffs =
-                DC_QAT_MAX_NUM_INTER_BUFFERS_10COMP_SLICES;
-            pCompService->comp_device_data.minOutputBuffSize =
-                DC_DEST_BUFFER_STA_MIN_SIZE;
-            pCompService->comp_device_data.minOutputBuffSizeDynamic =
-                pCompService->comp_device_data.minOutputBuffSize;
-            pCompService->comp_device_data.oddByteDecompNobFinal = CPA_FALSE;
-            pCompService->comp_device_data.oddByteDecompInterim = CPA_TRUE;
-            pCompService->comp_device_data.translatorOverflow = CPA_FALSE;
-            pCompService->comp_device_data.useDevRam =
-                ICP_QAT_FW_COMP_ENABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            pCompService->comp_device_data.enableDmm = CPA_TRUE;
-            pCompService->comp_device_data.inflateContextSize =
-                DC_INFLATE_EH_CONTEXT_SIZE;
-            pCompService->comp_device_data.highestHwCompressionDepth =
-                ICP_QAT_HW_COMPRESSION_DEPTH_16;
-            pCompService->comp_device_data.windowSizeMask =
-                (1 << DC_4K_WINDOW_SIZE | 1 << DC_8K_WINDOW_SIZE |
-                 1 << DC_16K_WINDOW_SIZE | 1 << DC_32K_WINDOW_SIZE);
-            SalCtrl_Init_Compression_Levels_gen2(
-                &pCompService->comp_device_data);
-            break;
-        case DEVICE_4XXX:
-        case DEVICE_4XXXVF:
-        case DEVICE_420XX:
-        case DEVICE_420XXVF:
-            if ((device->accelCapabilitiesMask &
-                 ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY) ||
-                (device->accelCapabilitiesMask &
-                 ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY64))
-            {
-                pCompService->generic_service_info.integrityCrcCheck = CPA_TRUE;
-            }
-            pCompService->numInterBuffs = 0;
-            pCompService->comp_device_data.minOutputBuffSize =
-                DC_DEST_BUFFER_STA_MIN_SIZE_GEN4;
-            pCompService->comp_device_data.minOutputBuffSizeDynamic =
-                DC_DEST_BUFFER_DYN_MIN_SIZE_GEN4;
-            pCompService->comp_device_data.oddByteDecompNobFinal = CPA_TRUE;
-            pCompService->comp_device_data.oddByteDecompInterim = CPA_FALSE;
-            pCompService->comp_device_data.translatorOverflow = CPA_TRUE;
-            pCompService->comp_device_data.useDevRam =
-                ICP_QAT_FW_COMP_ENABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            pCompService->comp_device_data.enableDmm = CPA_TRUE;
-            pCompService->comp_device_data.inflateContextSize =
-                DC_INFLATE_CONTEXT_SIZE;
-            pCompService->comp_device_data.lz4DecompContextSize =
-                DC_LZ4_DECOMP_CONTEXT_SIZE;
-            pCompService->comp_device_data.highestHwCompressionDepth =
-                ICP_QAT_HW_COMP_20_SEARCH_DEPTH_LEVEL_9;
-            pCompService->comp_device_data.windowSizeMask =
-                (1 << DC_4K_WINDOW_SIZE | 1 << DC_8K_WINDOW_SIZE |
-                 1 << DC_16K_WINDOW_SIZE | 1 << DC_32K_WINDOW_SIZE);
-            for (level = CPA_DC_L1; level <= CPA_DC_L12; level++)
-            {
-                switch (level)
-                {
-                    case CPA_DC_L1:
-                    case CPA_DC_L6:
-                    case CPA_DC_L9:
-                        pCompService->comp_device_data
-                            .uniqueCompressionLevels[level] = CPA_TRUE;
-                        break;
-                    default:
-                        pCompService->comp_device_data
-                            .uniqueCompressionLevels[level] = CPA_FALSE;
-                        break;
-                }
-            }
-            pCompService->comp_device_data.numCompressionLevels =
-                DC_NUM_COMPRESSION_LEVELS;
-            break;
-        case DEVICE_C4XXX:
-        case DEVICE_C4XXXVF:
-            switch (device->sku)
-            {
-                case DEV_SKU_1:
-                case DEV_SKU_VF: /* Default to max buf for VF */
-                    pCompService->numInterBuffs =
-                        DC_QAT_MAX_NUM_INTER_BUFFERS_12COMP_SLICES;
-                    break;
-                case DEV_SKU_2:
-                    pCompService->numInterBuffs =
-                        DC_QAT_MAX_NUM_INTER_BUFFERS_8COMP_SLICES;
-                    break;
-                case DEV_SKU_3:
-                    pCompService->numInterBuffs =
-                        DC_QAT_MAX_NUM_INTER_BUFFERS_4COMP_SLICES;
-                    break;
-                default:
-                    LAC_LOG_ERROR1("Unknown sku type! - %d\n", device->sku);
-                    return CPA_STATUS_FAIL;
-            }
-
-            pCompService->generic_service_info.integrityCrcCheck = CPA_TRUE;
-            pCompService->comp_device_data.minOutputBuffSize =
-                DC_DEST_BUFFER_MIN_SIZE;
-            pCompService->comp_device_data.oddByteDecompNobFinal = CPA_TRUE;
-            pCompService->comp_device_data.oddByteDecompInterim = CPA_TRUE;
-            pCompService->comp_device_data.translatorOverflow = CPA_TRUE;
-            if (pCompService->generic_service_info.capabilitiesMask &
-                ICP_ACCEL_CAPABILITIES_INLINE)
-            {
-                pCompService->comp_device_data.useDevRam =
-                    ICP_QAT_FW_COMP_DISABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            }
-            else
-            {
-                pCompService->comp_device_data.useDevRam =
-                    ICP_QAT_FW_COMP_ENABLE_SECURE_RAM_USED_AS_INTMD_BUF;
-            }
-            pCompService->comp_device_data.enableDmm = CPA_TRUE;
-            pCompService->comp_device_data.inflateContextSize =
-                DC_INFLATE_EH_CONTEXT_SIZE;
-            pCompService->comp_device_data.highestHwCompressionDepth =
-                ICP_QAT_HW_COMPRESSION_DEPTH_128;
-            pCompService->comp_device_data.windowSizeMask =
-                (1 << DC_16K_WINDOW_SIZE | 1 << DC_32K_WINDOW_SIZE);
-            for (level = 0; level < DC_NUM_COMPRESSION_LEVELS; level++)
-            {
-                switch (level)
-                {
-                    case CPA_DC_L1:
-                    case CPA_DC_L2:
-                    case CPA_DC_L3:
-                    case CPA_DC_L4:
-                    case CPA_DC_L5:
-                        pCompService->comp_device_data
-                            .uniqueCompressionLevels[level] = CPA_TRUE;
-                        break;
-                    default:
-                        pCompService->comp_device_data
-                            .uniqueCompressionLevels[level] = CPA_FALSE;
-                        break;
-                }
-            }
-            pCompService->comp_device_data.numCompressionLevels =
-                DC_NUM_COMPRESSION_LEVELS;
-            break;
-        default:
-            LAC_LOG_ERROR1("Unknown device type! - %d\n", device->deviceType);
-            return CPA_STATUS_FAIL;
-    }
-    return CPA_STATUS_SUCCESS;
-}
-
 /* Disabling memory pool when the device is in error state */
 STATIC void SalCtrl_DcMemPoolDisable(sal_service_t *service)
 {
     sal_compression_service_t *pCompService =
         (sal_compression_service_t *)service;
 
-    Lac_MemPoolDisable(pCompService->compression_mem_pool);
+    if (pCompService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        Lac_MemPoolDisable(pCompService->compression_mem_pool);
+    }
+    else
+    {
+        Lac_MemPoolDisable(pCompService->decompression_mem_pool);
+    }
 
     return;
 }
@@ -450,7 +204,15 @@ STATIC void SalCtrl_DcUpdatePoolsBusy(sal_service_t *service)
 
     if (CPA_TRUE == isInstanceStarted)
     {
-        LacSwResp_IncNumPoolsBusy(pCompService->compression_mem_pool);
+        if (pCompService->generic_service_info.type ==
+            SAL_SERVICE_TYPE_COMPRESSION)
+        {
+            LacSwResp_IncNumPoolsBusy(pCompService->compression_mem_pool);
+        }
+        else
+        {
+            LacSwResp_IncNumPoolsBusy(pCompService->decompression_mem_pool);
+        }
     }
     return;
 }
@@ -460,8 +222,16 @@ STATIC
 CpaStatus SalCtrl_DcGenResponses(sal_compression_service_t *dc_handle)
 {
     CpaStatus status = CPA_STATUS_RETRY;
-    status = LacSwResp_GenResp(dc_handle->compression_mem_pool,
-                               dc_handle->generic_service_info.type);
+    if (dc_handle->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        status = LacSwResp_GenResp(dc_handle->compression_mem_pool,
+                                   dc_handle->generic_service_info.type);
+    }
+    else
+    {
+        status = LacSwResp_GenResp(dc_handle->decompression_mem_pool,
+                                   dc_handle->generic_service_info.type);
+    }
 
     if ((CPA_STATUS_SUCCESS != status) && (CPA_STATUS_RETRY != status))
     {
@@ -475,13 +245,28 @@ STATIC CpaStatus SalCtrl_DcCheckRespInstance(sal_service_t *service)
 {
     sal_compression_service_t *dc_handle = (sal_compression_service_t *)service;
     icp_comms_trans_handle trans_hndTable[DC_NUM_RX_RINGS];
+    sal_service_t *gen_handle = NULL;
+    gen_handle = &(dc_handle->generic_service_info);
 
-    trans_hndTable[0] = dc_handle->trans_handle_compression_rx;
+    switch (gen_handle->type)
+    {
+        case SAL_SERVICE_TYPE_COMPRESSION:
+            trans_hndTable[0] = dc_handle->trans_handle_compression_rx;
+            break;
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            trans_hndTable[0] = dc_handle->trans_handle_decompression_rx;
+            break;
+        default:
+            LAC_LOG_ERROR("The instance handle is the wrong type");
+            return CPA_STATUS_FAIL;
+    }
+
     return icp_adf_check_RespInstance(trans_hndTable, DC_NUM_RX_RINGS);
 }
 
 STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
-                                   sal_service_t *service)
+                                   sal_service_t *service,
+                                   char *serviceName)
 {
     char adfGetParam[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
@@ -491,15 +276,13 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     CpaStatus status = CPA_STATUS_SUCCESS;
     char *section = icpGetProcessName();
     Cpa32S strSize = 0;
-
+    Cpa16U bankNum = 0;
 
     /* Get Config Info: Accel Num, bank Num, packageID,
                             coreAffinity, nodeAffinity and response mode */
-
-    pCompressionService->acceleratorNum = device->accelId;
-
+    pCompressionService->acceleratorNum = (Cpa16U)device->accelId;
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_RING_BANK_NUM,
                           temp_string);
@@ -514,14 +297,15 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     }
     pCompressionService->bankNum =
         (Cpa16U)Sal_Strtoul(adfGetParam, NULL, SAL_CFG_BASE_DEC);
+    bankNum = pCompressionService->bankNum;
 
-    if (pCompressionService->bankNum > MAX_BANK_NUM)
+    if (bankNum > MAX_BANK_NUM)
     {
         return CPA_STATUS_FAIL;
     }
 
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_POLL_MODE,
                           temp_string);
@@ -595,7 +379,7 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
         LAC_CHECK_STATUS(status);
 
         status = Sal_StringParsing(SAL_CFG_ETRMGR_BANK,
-                                   pCompressionService->bankNum,
+                                   bankNum,
                                    SAL_CFG_ETRMGR_CORE_AFFINITY,
                                    temp_string);
         LAC_CHECK_STATUS(status);
@@ -606,7 +390,7 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
         LAC_CHECK_PARAM_RANGE(strSize, 1, sizeof(temp_string2));
 
         status = Sal_StringParsing(
-            SAL_CFG_DC,
+            serviceName,
             pCompressionService->generic_service_info.instance,
             SAL_CFG_ETRMGR_CORE_AFFINITY,
             temp_string);
@@ -663,7 +447,8 @@ STATIC void SalCtrl_DcDebugRestarting(icp_accel_dev_t *device,
 }
 
 STATIC CpaStatus SalCtrl_DcDebugInit(icp_accel_dev_t *device,
-                                     sal_service_t *service)
+                                     sal_service_t *service,
+                                     char *serviceName)
 {
     char adfGetParam[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
     char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
@@ -674,6 +459,7 @@ STATIC CpaStatus SalCtrl_DcDebugInit(icp_accel_dev_t *device,
         (sal_statistics_collection_t *)device->pQatStats;
     CpaStatus status = CPA_STATUS_SUCCESS;
     char *section = icpGetProcessName();
+
     if (CPA_TRUE == pStatsCollection->bStatsEnabled)
     {
         /* Get instance name for stats */
@@ -681,7 +467,7 @@ STATIC CpaStatus SalCtrl_DcDebugInit(icp_accel_dev_t *device,
         LAC_CHECK_STATUS(status);
 
         status = Sal_StringParsing(
-            SAL_CFG_DC,
+            serviceName,
             pCompressionService->generic_service_info.instance,
             SAL_CFG_NAME,
             temp_string);
@@ -690,6 +476,7 @@ STATIC CpaStatus SalCtrl_DcDebugInit(icp_accel_dev_t *device,
             LAC_OS_FREE(instance_name);
             return status;
         }
+
         status =
             icp_adf_cfgGetParamValue(device, section, temp_string, adfGetParam);
         if (CPA_STATUS_SUCCESS != status)
@@ -779,6 +566,12 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
         (sal_compression_service_t *)service;
     Cpa32U msgSize = 0;
     char *section = NULL;
+    char *serviceName = NULL;
+    char *memPoolName = NULL;
+    lac_memory_pool_id_t *poolID = NULL;
+    icp_comms_trans_handle trans_handle_tx = NULL;
+    icp_comms_trans_handle trans_handle_rx = NULL;
+
 #ifndef ICP_DC_ONLY
     sal_dc_chain_service_t *pChainService = NULL;
 #endif
@@ -798,15 +591,59 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 
     pCompressionService->acceleratorNum = 0;
     pCompressionService->compression_mem_pool = LAC_MEM_POOL_INIT_POOL_ID;
+    pCompressionService->decompression_mem_pool = LAC_MEM_POOL_INIT_POOL_ID;
     pCompressionService->trans_handle_compression_tx = NULL;
     pCompressionService->trans_handle_compression_rx = NULL;
+    pCompressionService->trans_handle_decompression_tx = NULL;
+    pCompressionService->trans_handle_decompression_rx = NULL;
     pCompressionService->debug_file = NULL;
 
-
     /* Initialise device specific compression data */
-    SalCtrl_CompressionInit_CompData(device, pCompressionService);
+    status = SalCtrl_SetDCCaps(&pCompressionService->dc_capabilities,
+                               device->deviceType,
+                               device->dcExtendedFeatures,
+                               (fw_caps_t *)&device->fw_caps);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to set capabilities");
+        return status;
+    }
 
-    status = SalCtr_DcInstInit(device, service);
+    switch (service->type)
+    {
+        case SAL_SERVICE_TYPE_COMPRESSION:
+            serviceName = SAL_CFG_DC;
+            memPoolName = SAL_CFG_MEMPOOL;
+            poolID = &pCompressionService->compression_mem_pool;
+            trans_handle_tx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_compression_tx);
+            trans_handle_rx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_compression_rx);
+            break;
+
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            if (!pCompressionService->dc_capabilities.deviceData
+                     .decompressionServiceSupported)
+            {
+                LAC_LOG_ERROR(
+                    "Capabilities not enabled for decompression service");
+                return CPA_STATUS_FAIL;
+            }
+            serviceName = SAL_CFG_DECOMP;
+            memPoolName = SAL_CFG_DECOMP_MEMPOOL;
+            poolID = &pCompressionService->decompression_mem_pool;
+            trans_handle_tx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_decompression_tx);
+            trans_handle_rx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_decompression_rx);
+            break;
+
+        default:
+            LAC_LOG_ERROR("Invalid service type");
+            return CPA_STATUS_FAIL;
+    }
+
+    status = SalCtr_DcInstInit(device, service, serviceName);
     LAC_CHECK_STATUS(status);
 
     if (SAL_RESP_POLL_CFG_FILE == pCompressionService->isPolled)
@@ -814,14 +651,15 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
         rx_resp_type = ICP_RESP_TYPE_POLL;
     }
 
-    if (SalCtrl_GetDcConcurrentReqNum(SAL_CFG_DC,
+    if (SalCtrl_GetDcConcurrentReqNum(serviceName,
                                       section,
                                       SAL_CFG_RING_DC_SIZE,
                                       pCompressionService,
                                       &numCompConcurrentReq,
                                       device))
     {
-        LAC_LOG_ERROR("Failed to get ConcurrentReqNum\n");
+        LAC_LOG_ERROR1("Failed to get ConcurrentReqNum for %s Service\n",
+                       serviceName);
         return CPA_STATUS_FAIL;
     }
 
@@ -831,44 +669,40 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 
     /* 1. Create transport handles */
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_RING_DC_TX,
                           temp_string);
     LAC_CHECK_STATUS(status);
 
     msgSize = LAC_QAT_DC_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES;
-    status = icp_adf_transCreateHandle(
-        device,
-        ICP_TRANS_TYPE_ETR,
-        section,
-        pCompressionService->acceleratorNum,
-        pCompressionService->bankNum,
-        temp_string,
-        lac_getRingType(SAL_RING_TYPE_DC),
-        NULL,
-        ICP_RESP_TYPE_NONE,
-        numCompConcurrentReq,
-        msgSize,
-        (icp_comms_trans_handle *)&(
-            pCompressionService->trans_handle_compression_tx));
+    status = icp_adf_transCreateHandle(device,
+                                       ICP_TRANS_TYPE_ETR,
+                                       section,
+                                       pCompressionService->acceleratorNum,
+                                       pCompressionService->bankNum,
+                                       temp_string,
+                                       lac_getRingType(SAL_RING_TYPE_DC),
+                                       NULL,
+                                       ICP_RESP_TYPE_NONE,
+                                       numCompConcurrentReq,
+                                       msgSize,
+                                       trans_handle_tx);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to create DC TX handle");
+        LAC_LOG_ERROR1("Failed to create %s TX handle", serviceName);
         goto cleanup;
     }
-
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_RING_DC_RX,
                           temp_string);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to parse DcRringRx string");
+        LAC_LOG_ERROR1("Failed to parse %sRingRx string", serviceName);
         goto cleanup;
     }
-
     msgSize = LAC_QAT_DC_RESP_SZ_LW * LAC_LONG_WORD_IN_BYTES;
     status = icp_adf_transCreateHandle(
         device,
@@ -882,27 +716,24 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
         rx_resp_type,
         numCompConcurrentReq,
         msgSize,
-        (icp_comms_trans_handle *)&(
-            pCompressionService->trans_handle_compression_rx));
+        trans_handle_rx);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to create DC RX handle");
+        LAC_LOG_ERROR1("Failed to create %s RX handle", serviceName);
         goto cleanup;
     }
-
     /* 2. Allocates memory pools */
     status =
         Sal_StringParsing(SAL_CFG_COMP,
                           pCompressionService->generic_service_info.instance,
-                          SAL_CFG_MEMPOOL,
+                          memPoolName,
                           compMemPool);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to parse Comp_MemPool string\n");
+        LAC_LOG_ERROR1("Failed to parse %s string\n", memPoolName);
         goto cleanup;
     }
-
-    status = Lac_MemPoolCreate(&pCompressionService->compression_mem_pool,
+    status = Lac_MemPoolCreate(poolID,
                                compMemPool,
                                (numCompConcurrentReq + 1),
                                sizeof(dc_compression_cookie_t),
@@ -911,25 +742,25 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
                                pCompressionService->nodeAffinity);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to create dc memory pool\n");
+        LAC_LOG_ERROR1("Failed to create %s memory pool\n", serviceName);
         goto cleanup;
     }
 
-    /* Init compression statistics */
+    /* Init compression/decompression statistics */
     status = dcStatsInit(pCompressionService);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to initialize compression statistics\n");
+        LAC_LOG_ERROR1("Failed to initialize %s statistics\n", serviceName);
         goto cleanup;
     }
 
-    /* Initialize Data Compression Cookies */
-    Lac_MemPoolInitDcCookies(pCompressionService->compression_mem_pool);
+    /* Initialize Data Compression/Decompression Cookies */
+    Lac_MemPoolInitDcCookies(*poolID);
 
-    status = SalCtrl_DcDebugInit(device, service);
+    status = SalCtrl_DcDebugInit(device, service, serviceName);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to initialize compression debugfs\n");
+        LAC_LOG_ERROR1("Failed to initialize %s debugfs\n", serviceName);
         goto cleanup;
     }
 
@@ -938,7 +769,9 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 #ifndef ICP_DC_ONLY
 #ifndef KERNEL_SPACE
     /* Only init Chaining service if loaded FW supports chaining */
-    if ((CHAINING_CAPABILITY_MASK & device->dcExtendedFeatures))
+    if ((CHAINING_CAPABILITY_MASK & device->dcExtendedFeatures) &&
+        (SAL_SERVICE_TYPE_COMPRESSION ==
+         pCompressionService->generic_service_info.type))
     {
         status = LAC_OS_MALLOC(&pChainService, sizeof(sal_dc_chain_service_t));
         if (CPA_STATUS_SUCCESS != status)
@@ -959,25 +792,22 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
 
     pCompressionService->generic_service_info.state =
         SAL_SERVICE_STATE_INITIALIZED;
-
     return status;
 
 cleanup:
-    if (pCompressionService->trans_handle_compression_tx)
+    if (*(icp_comms_trans_handle *)trans_handle_tx)
     {
-        icp_adf_transReleaseHandle(
-            pCompressionService->trans_handle_compression_tx);
+        icp_adf_transReleaseHandle(*(icp_comms_trans_handle *)trans_handle_tx);
     }
 
-    if (pCompressionService->trans_handle_compression_rx)
+    if (*(icp_comms_trans_handle *)trans_handle_rx)
     {
-        icp_adf_transReleaseHandle(
-            pCompressionService->trans_handle_compression_rx);
+        icp_adf_transReleaseHandle(*(icp_comms_trans_handle *)trans_handle_rx);
     }
 
-    if (LAC_MEM_POOL_INIT_POOL_ID != pCompressionService->compression_mem_pool)
+    if (LAC_MEM_POOL_INIT_POOL_ID != *poolID)
     {
-        Lac_MemPoolDestroy(pCompressionService->compression_mem_pool);
+        Lac_MemPoolDestroy(*poolID);
     }
 
     SalCtrl_DcDebugShutdown(device, service);
@@ -1054,16 +884,28 @@ CpaStatus SalCtrl_CompressionShutdown(icp_accel_dev_t *device,
         return CPA_STATUS_FAIL;
     }
 
+    if (SAL_SERVICE_TYPE_COMPRESSION == service->type)
+    {
+        Lac_MemPoolDestroy(pCompressionService->compression_mem_pool);
+        status = icp_adf_transReleaseHandle(
+            pCompressionService->trans_handle_compression_tx);
+        LAC_CHECK_STATUS(status);
+        status = icp_adf_transReleaseHandle(
+            pCompressionService->trans_handle_compression_rx);
+        LAC_CHECK_STATUS(status);
+    }
+    else if (SAL_SERVICE_TYPE_DECOMPRESSION == service->type)
+    {
+        Lac_MemPoolDestroy(pCompressionService->decompression_mem_pool);
 
-    Lac_MemPoolDestroy(pCompressionService->compression_mem_pool);
+        status = icp_adf_transReleaseHandle(
+            pCompressionService->trans_handle_decompression_tx);
+        LAC_CHECK_STATUS(status);
 
-    status = icp_adf_transReleaseHandle(
-        pCompressionService->trans_handle_compression_tx);
-    LAC_CHECK_STATUS(status);
-
-    status = icp_adf_transReleaseHandle(
-        pCompressionService->trans_handle_compression_rx);
-    LAC_CHECK_STATUS(status);
+        status = icp_adf_transReleaseHandle(
+            pCompressionService->trans_handle_decompression_rx);
+        LAC_CHECK_STATUS(status);
+    }
 
     if (CPA_TRUE == pStatsCollection->bDcStatsEnabled)
     {
@@ -1111,14 +953,25 @@ CpaStatus SalCtrl_CompressionRestarting(icp_accel_dev_t *device,
         return CPA_STATUS_FAIL;
     }
 
+    if (SAL_SERVICE_TYPE_COMPRESSION == service->type)
+    {
+        status = icp_adf_transResetHandle(
+            pCompressionService->trans_handle_compression_tx);
+        LAC_CHECK_STATUS(status);
+        status = icp_adf_transResetHandle(
+            pCompressionService->trans_handle_compression_rx);
+        LAC_CHECK_STATUS(status);
+    }
+    else if (SAL_SERVICE_TYPE_DECOMPRESSION == service->type)
+    {
+        status = icp_adf_transResetHandle(
+            pCompressionService->trans_handle_decompression_tx);
+        LAC_CHECK_STATUS(status);
 
-    status = icp_adf_transResetHandle(
-        pCompressionService->trans_handle_compression_tx);
-    LAC_CHECK_STATUS(status);
-
-    status = icp_adf_transResetHandle(
-        pCompressionService->trans_handle_compression_rx);
-    LAC_CHECK_STATUS(status);
+        status = icp_adf_transResetHandle(
+            pCompressionService->trans_handle_decompression_rx);
+        LAC_CHECK_STATUS(status);
+    }
 
     if (CPA_TRUE == pStatsCollection->bDcStatsEnabled)
     {
@@ -1156,6 +1009,10 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
         (sal_compression_service_t *)service;
     Cpa32U msgSize = 0;
     char *section = NULL;
+    char *serviceName = NULL;
+    lac_memory_pool_id_t poolID = LAC_MEM_POOL_INIT_POOL_ID;
+    icp_comms_trans_handle trans_handle_tx = NULL;
+    icp_comms_trans_handle trans_handle_rx = NULL;
 #ifndef ICP_DC_ONLY
     sal_dc_chain_service_t *pChainService = NULL;
 #endif
@@ -1164,8 +1021,7 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
     section = icpGetProcessName();
     if (pStatsCollection == NULL)
     {
-        status = CPA_STATUS_FAIL;
-        goto cleanup;
+        return CPA_STATUS_FAIL;
     }
 
     /* Get Config Info: Accel Num, bank Num, packageID,
@@ -1174,11 +1030,42 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
     pCompressionService->acceleratorNum = 0;
     pCompressionService->debug_file = NULL;
 
-
     /* Initialise device specific compression data */
-    SalCtrl_CompressionInit_CompData(device, pCompressionService);
+    status = SalCtrl_SetDCCaps(&pCompressionService->dc_capabilities,
+                               device->deviceType,
+                               device->dcExtendedFeatures,
+                               (fw_caps_t *)&device->fw_caps);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to set capabilities");
+        return status;
+    }
 
-    status = SalCtr_DcInstInit(device, service);
+    switch (service->type)
+    {
+        case SAL_SERVICE_TYPE_COMPRESSION:
+            serviceName = SAL_CFG_DC;
+            poolID = pCompressionService->compression_mem_pool;
+            trans_handle_tx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_compression_tx);
+            trans_handle_rx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_compression_rx);
+            break;
+
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            serviceName = SAL_CFG_DECOMP;
+            poolID = pCompressionService->decompression_mem_pool;
+            trans_handle_tx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_decompression_tx);
+            trans_handle_rx = (icp_comms_trans_handle *)&(
+                pCompressionService->trans_handle_decompression_rx);
+            break;
+        default:
+            LAC_LOG_ERROR("Invalid service type");
+            return CPA_STATUS_FAIL;
+    }
+
+    status = SalCtr_DcInstInit(device, service, serviceName);
     LAC_CHECK_STATUS(status);
 
     if (SAL_RESP_POLL_CFG_FILE == pCompressionService->isPolled)
@@ -1186,14 +1073,15 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
         rx_resp_type = ICP_RESP_TYPE_POLL;
     }
 
-    if (SalCtrl_GetDcConcurrentReqNum(SAL_CFG_DC,
+    if (SalCtrl_GetDcConcurrentReqNum(serviceName,
                                       section,
                                       SAL_CFG_RING_DC_SIZE,
                                       pCompressionService,
                                       &numCompConcurrentReq,
                                       device))
     {
-        LAC_LOG_ERROR("Failed to get ConcurrentReqNum\n");
+        LAC_LOG_ERROR1("Failed to get ConcurrentReqNum for %s service\n",
+                       serviceName);
         status = CPA_STATUS_FAIL;
         goto cleanup;
     }
@@ -1204,41 +1092,38 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
 
     /* 1. Create transport handles */
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_RING_DC_TX,
                           temp_string);
     LAC_CHECK_STATUS(status);
 
     msgSize = LAC_QAT_DC_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES;
-    status = icp_adf_transReinitHandle(
-        device,
-        ICP_TRANS_TYPE_ETR,
-        section,
-        pCompressionService->acceleratorNum,
-        pCompressionService->bankNum,
-        temp_string,
-        lac_getRingType(SAL_RING_TYPE_DC),
-        NULL,
-        ICP_RESP_TYPE_NONE,
-        numCompConcurrentReq,
-        msgSize,
-        (icp_comms_trans_handle *)&(
-            pCompressionService->trans_handle_compression_tx));
+    status = icp_adf_transReinitHandle(device,
+                                       ICP_TRANS_TYPE_ETR,
+                                       section,
+                                       pCompressionService->acceleratorNum,
+                                       pCompressionService->bankNum,
+                                       temp_string,
+                                       lac_getRingType(SAL_RING_TYPE_DC),
+                                       NULL,
+                                       ICP_RESP_TYPE_NONE,
+                                       numCompConcurrentReq,
+                                       msgSize,
+                                       trans_handle_tx);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to create DC TX handle");
+        LAC_LOG_ERROR1("Failed to create %s TX handle", serviceName);
         goto cleanup;
     }
-
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_RING_DC_RX,
                           temp_string);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to parse DcRringRx string");
+        LAC_LOG_ERROR1("Failed to parse %sRingRx string", serviceName);
         goto cleanup;
     }
 
@@ -1255,21 +1140,20 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
         rx_resp_type,
         numCompConcurrentReq,
         msgSize,
-        (icp_comms_trans_handle *)&(
-            pCompressionService->trans_handle_compression_rx));
+        trans_handle_rx);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to create DC RX handle");
+        LAC_LOG_ERROR1("Failed to create %s RX handle", serviceName);
         goto cleanup;
     }
 
-    /* enabling memory pool for generating dummy reposonse */
-    Lac_MemPoolEnable(pCompressionService->compression_mem_pool);
+    /* Enabling memory pool for generating dummy response */
+    Lac_MemPoolEnable(poolID);
 
-    status = SalCtrl_DcDebugInit(device, service);
+    status = SalCtrl_DcDebugInit(device, service, serviceName);
     if (CPA_STATUS_SUCCESS != status)
     {
-        LAC_LOG_ERROR("Failed to initialize compression debugfs\n");
+        LAC_LOG_ERROR1("Failed to initialize %s debugfs\n", serviceName);
         goto cleanup;
     }
 
@@ -1301,27 +1185,25 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
         device->dcExtendedFeatures;
     pCompressionService->generic_service_info.state = SAL_SERVICE_STATE_RUNNING;
 
-    /* Initialize Data Compression Cookies */
-    Lac_MemPoolInitDcCookies(pCompressionService->compression_mem_pool);
+    /* Initialize Data Compression/Decompression Cookies */
+    Lac_MemPoolInitDcCookies(poolID);
 
     return status;
 
 cleanup:
-    if (pCompressionService->trans_handle_compression_tx)
+    if (*(icp_comms_trans_handle *)trans_handle_tx)
     {
-        icp_adf_transReleaseHandle(
-            pCompressionService->trans_handle_compression_tx);
+        icp_adf_transReleaseHandle(*(icp_comms_trans_handle *)trans_handle_tx);
     }
 
-    if (pCompressionService->trans_handle_compression_rx)
+    if (*(icp_comms_trans_handle *)trans_handle_rx)
     {
-        icp_adf_transReleaseHandle(
-            pCompressionService->trans_handle_compression_rx);
+        icp_adf_transReleaseHandle(*(icp_comms_trans_handle *)trans_handle_rx);
     }
 
-    if (LAC_MEM_POOL_INIT_POOL_ID != pCompressionService->compression_mem_pool)
+    if (LAC_MEM_POOL_INIT_POOL_ID != poolID)
     {
-        Lac_MemPoolDestroy(pCompressionService->compression_mem_pool);
+        Lac_MemPoolDestroy(poolID);
     }
 
 #ifndef ICP_DC_ONLY
@@ -1422,6 +1304,7 @@ CpaStatus cpaDcGetNumIntermediateBuffers(CpaInstanceHandle dcInstance,
 {
     CpaInstanceHandle insHandle = NULL;
     sal_compression_service_t *pService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
@@ -1438,7 +1321,9 @@ CpaStatus cpaDcGetNumIntermediateBuffers(CpaInstanceHandle dcInstance,
 #endif
 
     pService = (sal_compression_service_t *)insHandle;
-    *pNumBuffers = pService->numInterBuffs;
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+    *pNumBuffers = pDcCapabilities->numInterBuffs;
 
 #ifdef ICP_TRACE
     LAC_LOG3("Called with params (0x%lx, 0x%lx[%d])\n",
@@ -1468,6 +1353,7 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
     Cpa32U numFlatBuffers = 0;
     Cpa64U clientListSize = 0;
     CpaBufferList *pClientCurrentIntermediateBuffer = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
 
 /* Check parameters */
 #ifdef ICP_PARAM_CHECK
@@ -1513,6 +1399,9 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
         return CPA_STATUS_SUCCESS;
     }
 
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
 /* Check parameters */
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
@@ -1524,7 +1413,7 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
     }
 
     /* Check number of intermediate buffers allocated by user */
-    if ((pService->numInterBuffs != numBuffers))
+    if ((pDcCapabilities->numInterBuffs != numBuffers))
     {
         LAC_LOG_ERROR("Invalid number of buffers\n");
         return CPA_STATUS_INVALID_PARAM;
@@ -1607,8 +1496,9 @@ CpaStatus cpaDcStartInstance(CpaInstanceHandle instanceHandle,
     }
 
     /* Get physical address of the intermediate buffer pointers array */
-    pArrayBufferListDescPhyAddr = LAC_MEM_CAST_PTR_TO_UINT64(
-        LAC_OS_VIRT_TO_PHYS_INTERNAL(pInterBuffPtrsArray));
+    pArrayBufferListDescPhyAddr =
+        LAC_MEM_CAST_PTR_TO_UINT64(LAC_OS_VIRT_TO_PHYS_INTERNAL(
+            &pService->generic_service_info, pInterBuffPtrsArray));
 
     pService->pInterBuffPtrsArray = pInterBuffPtrsArray;
     pService->pInterBuffPtrsArrayPhyAddr = pArrayBufferListDescPhyAddr;
@@ -1754,144 +1644,14 @@ CpaStatus cpaDcStopInstance(CpaInstanceHandle instanceHandle)
 
 CpaStatus cpaDcGetNumInstances(Cpa16U *pNumInstances)
 {
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    icp_accel_dev_t **pAdfInsts = NULL;
-    icp_accel_dev_t *dev_addr = NULL;
-    sal_t *base_addr = NULL;
-    sal_list_t *list_temp = NULL;
-    Cpa16U num_accel_dev = 0;
-    Cpa16U num = 0;
-    Cpa16U i = 0;
-
-    LAC_CHECK_NULL_PARAM(pNumInstances);
-
-    /* Get the number of accel_dev in the system */
-    status = icp_adf_getNumInstances(&num_accel_dev);
-    LAC_CHECK_STATUS(status);
-
-    /* Allocate memory to store addr of accel_devs */
-    pAdfInsts = osalMemAlloc(num_accel_dev * sizeof(icp_accel_dev_t *));
-    if (NULL == pAdfInsts)
-    {
-        LAC_LOG_ERROR("Failed to allocate dev instance memory");
-        return CPA_STATUS_RESOURCE;
-    }
-    num_accel_dev = 0;
-
-    /* Get ADF to return accel_devs with dc enabled */
-    status = icp_adf_getAllAccelDevByCapabilities(
-        ICP_ACCEL_CAPABILITIES_COMPRESSION, pAdfInsts, &num_accel_dev);
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        for (i = 0; i < num_accel_dev; i++)
-        {
-            dev_addr = (icp_accel_dev_t *)pAdfInsts[i];
-            if (NULL != dev_addr)
-            {
-                base_addr = dev_addr->pSalHandle;
-                if (NULL != base_addr)
-                {
-                    list_temp = base_addr->compression_services;
-                    while (NULL != list_temp)
-                    {
-                        num++;
-                        list_temp = SalList_next(list_temp);
-                    }
-                }
-            }
-        }
-
-        *pNumInstances = num;
-    }
-
-    osalMemFree(pAdfInsts);
-
-#ifdef ICP_TRACE
-    LAC_LOG2("Called with params (0x%lx[%d])\n",
-             (LAC_ARCH_UINT)pNumInstances,
-             *pNumInstances);
-#endif
-    return status;
+    return Lac_GetDcNumInstancesByType(CPA_ACC_SVC_TYPE_DATA_COMPRESSION,
+                                       pNumInstances);
 }
 
 CpaStatus cpaDcGetInstances(Cpa16U numInstances, CpaInstanceHandle *dcInstances)
 {
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    icp_accel_dev_t **pAdfInsts = NULL;
-    icp_accel_dev_t *dev_addr = NULL;
-    sal_t *base_addr = NULL;
-    sal_list_t *list_temp = NULL;
-    Cpa16U num_accel_dev = 0;
-    Cpa16U index = 0;
-    Cpa16U i = 0;
-
-#ifdef ICP_TRACE
-    LAC_LOG2("Called with params (%d, 0x%lx)\n",
-             numInstances,
-             (LAC_ARCH_UINT)dcInstances);
-#endif
-
-    LAC_CHECK_NULL_PARAM(dcInstances);
-    if (0 == numInstances)
-    {
-        LAC_INVALID_PARAM_LOG("numInstances is 0");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
-    /* Get the number of accel_dev in the system */
-    status = icp_adf_getNumInstances(&num_accel_dev);
-    LAC_CHECK_STATUS(status);
-
-    /* Allocate memory to store addr of accel_devs */
-    pAdfInsts = osalMemAlloc(num_accel_dev * sizeof(icp_accel_dev_t *));
-    if (pAdfInsts == NULL)
-    {
-        LAC_LOG_ERROR("Failed to allocate dev instance memory");
-        return CPA_STATUS_RESOURCE;
-    }
-
-    num_accel_dev = 0;
-    /* Get ADF to return accel_devs with dc enabled */
-    status = icp_adf_getAllAccelDevByCapabilities(
-        ICP_ACCEL_CAPABILITIES_COMPRESSION, pAdfInsts, &num_accel_dev);
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        /* First check the number of instances in the system */
-        for (i = 0; i < num_accel_dev; i++)
-        {
-            dev_addr = (icp_accel_dev_t *)pAdfInsts[i];
-            if (NULL != dev_addr)
-            {
-                base_addr = dev_addr->pSalHandle;
-                if (NULL != base_addr)
-                {
-                    list_temp = base_addr->compression_services;
-                    while (NULL != list_temp)
-                    {
-                        if (index > (numInstances - 1))
-                        {
-                            break;
-                        }
-
-                        dcInstances[index] = SalList_getObject(list_temp);
-                        list_temp = SalList_next(list_temp);
-                        index++;
-                    }
-                }
-            }
-        }
-
-        if (numInstances > index)
-        {
-            LAC_LOG_ERROR1("Only %d dc instances available", index);
-            status = CPA_STATUS_RESOURCE;
-        }
-    }
-
-    osalMemFree(pAdfInsts);
-
-    return status;
+    return Lac_GetDcInstancesByType(
+        CPA_ACC_SVC_TYPE_DATA_COMPRESSION, numInstances, dcInstances);
 }
 
 CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
@@ -1901,9 +1661,10 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     CpaInstanceHandle insHandle = NULL;
     icp_accel_dev_t *dev = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    char keyStr[ADF_CFG_MAX_KEY_LEN_IN_BYTES] = {0};
-    char valStr[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
+    char keyStr[ADF_CFG_MAX_KEY_LEN_IN_BYTES] = { '\0' };
+    char valStr[CPA_INST_NAME_SIZE] = { '\0' };
     char *section = NULL;
+    char *serviceName = NULL;
     Cpa32S strSize = 0;
 
 #ifdef ICP_TRACE
@@ -1922,11 +1683,13 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     }
 
     LAC_CHECK_NULL_PARAM(insHandle);
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
     LAC_CHECK_NULL_PARAM(pInstanceInfo2);
 
     LAC_OS_BZERO(pInstanceInfo2, sizeof(CpaInstanceInfo2));
-    pInstanceInfo2->accelerationServiceType = CPA_ACC_SVC_TYPE_DATA_COMPRESSION;
 
     snprintf((char *)pInstanceInfo2->vendorName,
              CPA_INST_VENDOR_NAME_SIZE,
@@ -1945,6 +1708,19 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
        here because icp_adf_getAccelDevByCapabilities() only returns devs
        that have started */
     pCompressionService = (sal_compression_service_t *)insHandle;
+    if (pCompressionService->generic_service_info.type ==
+        SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        pInstanceInfo2->accelerationServiceType =
+            CPA_ACC_SVC_TYPE_DATA_COMPRESSION;
+        serviceName = SAL_CFG_DC;
+    }
+    else
+    {
+        pInstanceInfo2->accelerationServiceType =
+            CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION;
+        serviceName = SAL_CFG_DECOMP;
+    }
     pInstanceInfo2->physInstId.packageId = pCompressionService->pkgID;
     pInstanceInfo2->physInstId.acceleratorId =
         pCompressionService->acceleratorNum;
@@ -1997,7 +1773,7 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     pInstanceInfo2->partName[CPA_INST_PART_NAME_SIZE - 1] = '\0';
     section = icpGetProcessName();
     status =
-        Sal_StringParsing(SAL_CFG_DC,
+        Sal_StringParsing(serviceName,
                           pCompressionService->generic_service_info.instance,
                           SAL_CFG_NAME,
                           keyStr);
@@ -2005,16 +1781,23 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     status = icp_adf_cfgGetParamValue(dev, section, keyStr, valStr);
     LAC_CHECK_STATUS(status);
 
-    strSize = snprintf(
-        (char *)pInstanceInfo2->instName, CPA_INST_NAME_SIZE, "%s", valStr);
+    strSize = strnlen(valStr, sizeof(valStr));
     LAC_CHECK_PARAM_RANGE(strSize, 1, CPA_INST_NAME_SIZE);
+    snprintf((char *)pInstanceInfo2->instName,
+             CPA_INST_NAME_SIZE,
+             "%.*s",
+             CPA_INST_NAME_SIZE - 1,
+             valStr);
 
-    strSize = snprintf((char *)pInstanceInfo2->instID,
-                       CPA_INST_ID_SIZE,
-                       "%s_%s",
-                       section,
-                       valStr);
+    strSize = strnlen(valStr, sizeof(valStr)) +
+              strnlen(section, LAC_USER_PROCESS_NAME_MAX_LEN) + 1;
+
     LAC_CHECK_PARAM_RANGE(strSize, 1, CPA_INST_ID_SIZE);
+    snprintf((char *)pInstanceInfo2->instID,
+             CPA_INST_ID_SIZE,
+             "%s_%s",
+             section,
+             valStr);
 
     return CPA_STATUS_SUCCESS;
 }
@@ -2025,7 +1808,7 @@ CpaStatus cpaDcQueryCapabilities(
 {
     CpaInstanceHandle insHandle = NULL;
     sal_compression_service_t *pService = NULL;
-    Cpa32U capabilitiesMask = 0;
+    dc_capabilities_t *pDcCapabilities = NULL;
     dc_extd_ftrs_t *pExtendedFtrs = NULL;
 
 #ifdef ICP_TRACE
@@ -2053,68 +1836,139 @@ CpaStatus cpaDcQueryCapabilities(
 /* Check parameters */
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
     LAC_CHECK_NULL_PARAM(pInstanceCapabilities);
 #endif
 
+    pDcCapabilities = &pService->dc_capabilities;
     osalMemSet(pInstanceCapabilities, 0, sizeof(CpaDcInstanceCapabilities));
 
-    capabilitiesMask = pService->generic_service_info.capabilitiesMask;
-
     /* Set compression capabilities */
-    if (pService->generic_service_info.capabilitiesMask &
-        ICP_ACCEL_CAPABILITIES_LZ4_COMPRESSION)
+    if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
     {
-        pInstanceCapabilities->statelessLZ4Compression = CPA_TRUE;
-        pInstanceCapabilities->statelessLZ4Decompression = CPA_TRUE;
-        pInstanceCapabilities->checksumXXHash32 = CPA_TRUE;
+        if (pDcCapabilities->lz4.supported == CPA_TRUE)
+        {
+            if (pDcCapabilities->lz4.dirMask & DC_CAPS_COMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessLZ4Compression = CPA_TRUE;
+            }
+            if (pDcCapabilities->lz4.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessLZ4Decompression = CPA_TRUE;
+            }
+            if (pDcCapabilities->lz4.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATEFUL)
+            {
+                pInstanceCapabilities->statefulLZ4Decompression = CPA_TRUE;
+            }
+
+            pInstanceCapabilities->checksumXXHash32 =
+                pDcCapabilities->lz4.checksumXXHash32;
+        }
+
+        if (pDcCapabilities->lz4s.supported == CPA_TRUE)
+        {
+            if (pDcCapabilities->lz4s.dirMask & DC_CAPS_COMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessLZ4SCompression = CPA_TRUE;
+            }
+
+            pInstanceCapabilities->checksumXXHash32 =
+                pDcCapabilities->lz4s.checksumXXHash32;
+        }
+        if (pDcCapabilities->deflate.supported == CPA_TRUE)
+        {
+            if (pDcCapabilities->deflate.dirMask & DC_CAPS_COMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATEFUL)
+            {
+                pInstanceCapabilities->statefulDeflateCompression = CPA_TRUE;
+            }
+            if (pDcCapabilities->deflate.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATEFUL)
+            {
+                pInstanceCapabilities->statefulDeflateDecompression = CPA_TRUE;
+            }
+            if (pDcCapabilities->deflate.dirMask & DC_CAPS_COMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessDeflateCompression = CPA_TRUE;
+            }
+            if (pDcCapabilities->deflate.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessDeflateDecompression = CPA_TRUE;
+            }
+        }
     }
-    if (pService->generic_service_info.capabilitiesMask &
-        ICP_ACCEL_CAPABILITIES_LZ4S_COMPRESSION)
+    /* Set decompression capabilities */
+    else
     {
-        pInstanceCapabilities->statelessLZ4SCompression = CPA_TRUE;
-        pInstanceCapabilities->checksumXXHash32 = CPA_TRUE;
+        if (pDcCapabilities->lz4.supported == CPA_TRUE)
+        {
+            if (pDcCapabilities->lz4.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessLZ4Decompression = CPA_TRUE;
+            }
+            pInstanceCapabilities->statefulLZ4Decompression = CPA_FALSE;
+            pInstanceCapabilities->checksumXXHash32 =
+                pDcCapabilities->lz4.checksumXXHash32;
+        }
+        if (pDcCapabilities->deflate.supported == CPA_TRUE)
+        {
+            if (pDcCapabilities->deflate.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATEFUL)
+            {
+                pInstanceCapabilities->statefulDeflateDecompression = CPA_FALSE;
+            }
+            if (pDcCapabilities->deflate.dirMask & DC_CAPS_DECOMPRESSION &&
+                pDcCapabilities->sessState & DC_CAPS_STATELESS)
+            {
+                pInstanceCapabilities->statelessDeflateDecompression = CPA_TRUE;
+            }
+        }
     }
 
-    if (capabilitiesMask & ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY)
+    pInstanceCapabilities->integrityCrcs =
+        pDcCapabilities->crcIntegrity.checkCRC32;
+    pInstanceCapabilities->integrityCrcs64b =
+        pDcCapabilities->crcIntegrity.checkCRC64;
+
+    pInstanceCapabilities->endOfLastBlock = pDcCapabilities->endOfLastBlock;
+    pInstanceCapabilities->checksumCRC32 =
+        (CpaBoolean)(pDcCapabilities->checksum & DC_CAPS_CRC32);
+    if (pDcCapabilities->checksum & DC_CAPS_ADLER32)
     {
-        pInstanceCapabilities->integrityCrcs = CPA_TRUE;
+        pInstanceCapabilities->checksumAdler32 = CPA_TRUE;
     }
 
-    if (capabilitiesMask & ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY64)
-    {
-        pInstanceCapabilities->integrityCrcs64b = CPA_TRUE;
-    }
-
-    pInstanceCapabilities->endOfLastBlock = CPA_TRUE;
-
-    pInstanceCapabilities->statefulDeflateCompression = CPA_FALSE;
-    pInstanceCapabilities->statefulDeflateDecompression = CPA_FALSE;
-    pInstanceCapabilities->statelessDeflateCompression = CPA_TRUE;
-    pInstanceCapabilities->statelessDeflateDecompression = CPA_TRUE;
-    pInstanceCapabilities->checksumCRC32 = CPA_TRUE;
-    pInstanceCapabilities->checksumAdler32 = CPA_TRUE;
 #ifndef ICP_DC_DYN_NOT_SUPPORTED
     pInstanceCapabilities->dynamicHuffman = CPA_TRUE;
 #else
     pInstanceCapabilities->dynamicHuffman = CPA_FALSE;
 #endif
-    pInstanceCapabilities->precompiledHuffman = CPA_FALSE;
-    pInstanceCapabilities->dynamicHuffmanBufferReq = CPA_TRUE;
-    pInstanceCapabilities->autoSelectBestHuffmanTree = CPA_TRUE;
+    pInstanceCapabilities->precompiledHuffman =
+        pDcCapabilities->deflate.precompiledHuffman;
+    pInstanceCapabilities->dynamicHuffmanBufferReq =
+        pDcCapabilities->deflate.dynamicHuffmanBufferReq;
+    pInstanceCapabilities->autoSelectBestHuffmanTree =
+        pDcCapabilities->asb.supported;
 
-    pInstanceCapabilities->validWindowSizeMaskCompression =
-        pService->comp_device_data.windowSizeMask;
-    pInstanceCapabilities->validWindowSizeMaskDecompression =
-        pService->comp_device_data.windowSizeMask;
     pExtendedFtrs =
         (dc_extd_ftrs_t *)&(((sal_service_t *)insHandle)->dcExtendedFeatures);
-    pInstanceCapabilities->batchAndPack = CPA_FALSE;
-    pInstanceCapabilities->compressAndVerify =
-        (CpaBoolean)pExtendedFtrs->is_cnv;
-    pInstanceCapabilities->compressAndVerifyStrict = CPA_TRUE;
+
+    pInstanceCapabilities->batchAndPack = pDcCapabilities->batchAndPack;
+    pInstanceCapabilities->compressAndVerify = pDcCapabilities->cnv.supported;
+    pInstanceCapabilities->compressAndVerifyStrict =
+        pDcCapabilities->cnv.strict;
     pInstanceCapabilities->compressAndVerifyAndRecover =
-        (CpaBoolean)pExtendedFtrs->is_cnvnr;
+        pDcCapabilities->cnv.recovery;
 
     /* Set chaining capabilities */
 #ifndef ICP_DC_ONLY
@@ -2212,7 +2066,10 @@ CpaStatus cpaDcSetAddressTranslation(const CpaInstanceHandle instanceHandle,
 /* Check parameters */
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
     LAC_CHECK_NULL_PARAM(virtual2Physical);
 #endif
 
@@ -2249,10 +2106,22 @@ CpaStatus icp_sal_DcPollInstance(CpaInstanceHandle instanceHandle_in,
     LAC_CHECK_NULL_PARAM(dc_handle);
 
     gen_handle = &(dc_handle->generic_service_info);
-    if (SAL_SERVICE_TYPE_COMPRESSION != gen_handle->type)
+    /*
+     * From the instanceHandle we must get the trans_handle and send
+     * down to adf for polling.
+     * Populate our trans handle table with the appropriate handles.
+     */
+    switch (gen_handle->type)
     {
-        LAC_LOG_ERROR("The instance handle is the wrong type");
-        return CPA_STATUS_FAIL;
+        case SAL_SERVICE_TYPE_COMPRESSION:
+            trans_hndTable[0] = dc_handle->trans_handle_compression_rx;
+            break;
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            trans_hndTable[0] = dc_handle->trans_handle_decompression_rx;
+            break;
+        default:
+            LAC_LOG_ERROR("The instance handle is the wrong type");
+            return CPA_STATUS_FAIL;
     }
 
     if ((Sal_ServiceIsInError(dc_handle)))
@@ -2267,13 +2136,6 @@ CpaStatus icp_sal_DcPollInstance(CpaInstanceHandle instanceHandle_in,
     }
 
     SAL_RUNNING_CHECK(dc_handle);
-
-    /*
-     * From the instanceHandle we must get the trans_handle and send
-     * down to adf for polling.
-     * Populate our trans handle table with the appropriate handles.
-     */
-    trans_hndTable[0] = dc_handle->trans_handle_compression_rx;
 
     /* Call adf to do the polling. */
     status =
@@ -2327,6 +2189,19 @@ CpaStatus SalCtrl_DcDevErr_GenResponses(icp_accel_dev_t *accel_dev,
             return status;
         }
     }
+
+    if (SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+        status = SalCtrl_DcService_GenResponses(
+            &service_container->decompression_services);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            LAC_LOG_ERROR("Failed to generate dummy responses for Data "
+                          "Decompression service");
+            return status;
+        }
+    }
     return status;
 }
 
@@ -2366,8 +2241,8 @@ CpaInstanceHandle dcGetFirstHandle(void)
     Cpa16U i, num_dc = 0;
 
     /* Only need 1 dev with compression enabled - so check all devices */
-    status = icp_adf_getAllAccelDevByCapabilities(
-        ICP_ACCEL_CAPABILITIES_COMPRESSION, adfInsts, &num_dc);
+    status = icp_adf_getAllAccelDevByServices(
+        (SERV_TYPE_DC | SERV_TYPE_DECOMP), adfInsts, &num_dc);
     if ((0 == num_dc) || (CPA_STATUS_SUCCESS != status))
     {
         LAC_LOG("No compression devices enabled in the system\n");
@@ -2383,6 +2258,12 @@ CpaInstanceHandle dcGetFirstHandle(void)
             if (NULL != base_addr)
             {
                 list_temp = base_addr->compression_services;
+                if (NULL != list_temp)
+                {
+                    dcInst = SalList_getObject(list_temp);
+                    break;
+                }
+                list_temp = base_addr->decompression_services;
                 if (NULL != list_temp)
                 {
                     dcInst = SalList_getObject(list_temp);
@@ -2407,19 +2288,28 @@ CpaStatus icp_sal_DcGetFileDescriptor(CpaInstanceHandle instanceHandle, int *fd)
     SAL_RUNNING_CHECK(dc_handle);
 
     gen_handle = &(dc_handle->generic_service_info);
-    if (SAL_SERVICE_TYPE_COMPRESSION != gen_handle->type)
-    {
-        LAC_LOG_ERROR("The instance handle is the wrong type");
-        return CPA_STATUS_FAIL;
-    }
 
     if (SAL_RESP_EPOLL_CFG_FILE != dc_handle->isPolled)
     {
         return CPA_STATUS_UNSUPPORTED;
     }
 
-    ret = icp_adf_transGetFdForHandle(dc_handle->trans_handle_compression_rx,
-                                      &dc_fd);
+    switch (gen_handle->type)
+    {
+        case SAL_SERVICE_TYPE_COMPRESSION:
+            ret = icp_adf_transGetFdForHandle(
+                dc_handle->trans_handle_compression_rx, &dc_fd);
+            break;
+        case SAL_SERVICE_TYPE_DECOMPRESSION:
+            ret = icp_adf_transGetFdForHandle(
+                dc_handle->trans_handle_decompression_rx, &dc_fd);
+            break;
+        default:
+            LAC_LOG_ERROR("The instance handle is the wrong type");
+            ret = CPA_STATUS_FAIL;
+            break;
+    }
+
     if (ret != CPA_STATUS_SUCCESS)
     {
         return CPA_STATUS_FAIL;
@@ -2442,7 +2332,8 @@ CpaStatus icp_sal_DcPutFileDescriptor(CpaInstanceHandle instanceHandle, int fd)
     SAL_RUNNING_CHECK(dc_handle);
 
     gen_handle = &(dc_handle->generic_service_info);
-    if (SAL_SERVICE_TYPE_COMPRESSION != gen_handle->type)
+    if (!((SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION) &
+          gen_handle->type))
     {
         LAC_LOG_ERROR("The instance handle is the wrong type");
         return CPA_STATUS_FAIL;

@@ -83,18 +83,29 @@ void *__qae_hugepage_mmap_phy_addr(const size_t len);
 API_LOCAL
 int __qae_hugepage_iommu_unmap(const int fd, const dev_mem_info_t *memInfo);
 
-
 API_LOCAL
 dev_mem_info_t *__qae_hugepage_alloc_slab(const int fd,
                                           const size_t size,
                                           const int node,
                                           enum slabType type);
+API_LOCAL
+dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
+                                               const size_t size,
+                                               const int node,
+                                               enum slabType type,
+                                               const uint32_t alignment);
 
 API_LOCAL
 void __qae_hugepage_free_slab(const dev_mem_info_t *memInfo);
 
 API_LOCAL
+void __qae_vfio_hugepage_free_slab(dev_mem_info_t *memInfo);
+
+API_LOCAL
 int __qae_init_hugepages(const int fd);
+
+API_LOCAL
+int __qae_vfio_init_hugepages(void);
 
 API_LOCAL
 int __qae_hugepage_enabled(void);

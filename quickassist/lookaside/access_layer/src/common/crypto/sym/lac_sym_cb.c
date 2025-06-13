@@ -328,6 +328,7 @@ STATIC void LacSymCb_ProcessCallbackInternal(lac_sym_bulk_cookie_t *pCookie,
         }
     }
 
+    LAC_MEM_POOL_BLK_SET_OPAQUE(pCookie, ICP_ADF_INVALID_SEND_SEQ);
     /* deallocate the memory for the internal callback cookie */
     Lac_MemPoolEntryFree(pCookie);
 
@@ -461,11 +462,132 @@ STATIC void LacSymCb_ProcessCallback(icp_qat_fw_la_cmd_id_t lacCmdId,
     }
 }
 
+static CpaStatus LacSym_SwRespMsgCallbackBulk(lac_sym_cookie_t *pCookie,
+                                              lac_mem_blk_t *pCurrentBlk)
+{
+    CpaCySymCbFunc pSymCb = NULL;
+    CpaCySymOpData *pOpData;
+    lac_sym_bulk_cookie_t *pBulkCookie;
+    lac_session_desc_t *pSessionDesc;
+    void *pCallbackTag;
+
+    pBulkCookie = &pCookie->u.bulkCookie;
+
+    /* For Traditional API - user callback is stored in session
+     * description structure */
+    pOpData = (CpaCySymOpData *)LAC_CONST_PTR_CAST(pBulkCookie->pOpData);
+    LAC_ASSERT_NOT_NULL(pOpData);
+    pSessionDesc = LAC_SYM_SESSION_DESC_FROM_CTX_GET(pOpData->sessionCtx);
+    LAC_ASSERT_NOT_NULL(pSessionDesc);
+
+    if (CPA_TRUE != pSessionDesc->isDPSession)
+    {
+        pSymCb = pSessionDesc->pSymCb;
+        LAC_ASSERT_NOT_NULL(pSymCb);
+
+        pCallbackTag = pBulkCookie->pCallbackTag;
+
+        LAC_LOG_DEBUG1("Sym dummy response index = %llx", pCurrentBlk->opaque);
+        pSymCb(pCallbackTag,
+               CPA_STATUS_FAIL,
+               pSessionDesc->symOperation,
+               pOpData,
+               pBulkCookie->pDstBuffer,
+               CPA_FALSE);
+        osalAtomicDec(&(pSessionDesc->u.pendingCbCount));
+    }
+    Lac_MemPoolEntryFree(pCookie);
+
+    return CPA_STATUS_SUCCESS;
+}
+
+static CpaStatus LacSym_SwRespMsgCallbackKey(lac_sym_cookie_t *pCookie,
+                                             lac_mem_blk_t *pCurrentBlk)
+{
+    CpaCyGenFlatBufCbFunc pKeyGenSslTlsCb = NULL;
+    lac_sym_key_cookie_t *pKeyCookie;
+
+    pKeyCookie = &pCookie->u.keyCookie;
+    pKeyGenSslTlsCb = (CpaCyGenFlatBufCbFunc)(pKeyCookie->pKeyGenCb);
+    LAC_ASSERT_NOT_NULL(pKeyGenSslTlsCb);
+
+    LAC_LOG_DEBUG1("Sym dummy response index = %llx", pCurrentBlk->opaque);
+    pKeyGenSslTlsCb(pKeyCookie->pCallbackTag,
+                    CPA_STATUS_FAIL,
+                    pKeyCookie->pKeyGenOpData,
+                    pKeyCookie->pKeyGenOutputData);
+
+    Lac_MemPoolEntryFree(pCookie);
+
+    return CPA_STATUS_SUCCESS;
+}
+
 /*
 *******************************************************************************
 * Define public/global function definitions
 *******************************************************************************
 */
+
+/**
+ ***************************************************************************
+ * @ingroup LacSymCb
+ *      Symmetric cryptography dummy response generation function.
+ ***************************************************************************/
+CpaStatus LacSym_SwRespMsgCallback(lac_memblk_bucket_t *pBucket)
+{
+    lac_mem_blk_t **pBucketBlk = NULL;
+    lac_mem_blk_t *pCurrentBlk = NULL;
+    Cpa32U numBucketBlks = 0;
+    Cpa32U numSwResp = 0;
+    Cpa32U startIndex = 0;
+    Cpa32U iter = 0;
+    lac_sym_cookie_t *pCookie = NULL;
+    CpaStatus status;
+
+    LAC_ASSERT_NOT_NULL(pBucket);
+    pBucketBlk = pBucket->mem_blk;
+    LAC_ASSERT_NOT_NULL(pBucketBlk);
+    startIndex = pBucket->startIndex;
+    numBucketBlks = pBucket->numBucketBlks;
+    numSwResp = pBucket->numBlksInRing;
+
+    for (iter = 0; iter < numSwResp; iter++)
+    {
+        status = CPA_STATUS_SUCCESS;
+        pCurrentBlk = pBucketBlk[(startIndex + iter) % numBucketBlks];
+        if (NULL == pCurrentBlk)
+            continue;
+        pCookie = (lac_sym_cookie_t *)((LAC_ARCH_UINT)(pCurrentBlk) +
+                                       sizeof(lac_mem_blk_t));
+        switch (pCookie->cookieType)
+        {
+            case LAC_SYM_BULK_COOKIE_TYPE:
+                status = LacSym_SwRespMsgCallbackBulk(pCookie, pCurrentBlk);
+                break;
+            case LAC_SYM_KEY_COOKIE_TYPE:
+                status = LacSym_SwRespMsgCallbackKey(pCookie, pCurrentBlk);
+                break;
+            default:
+                LAC_LOG_ERROR2(
+                    "Not supported cookie type: %d. SW response index = %llx.",
+                    pCookie->cookieType,
+                    pCurrentBlk->opaque);
+        }
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            LAC_LOG_ERROR2(
+                "Generating SW response (index = %llx) failed with status: %d.",
+                pCurrentBlk->opaque,
+                (int)status);
+        }
+    }
+
+    if (0 != numSwResp)
+        return CPA_STATUS_SUCCESS;
+
+    return CPA_STATUS_RETRY;
+}
 
 /**
  * @ingroup LacSymCb
@@ -478,6 +600,7 @@ CpaStatus LacSymCb_PendingReqsDequeue(lac_session_desc_t *pSessionDesc)
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_crypto_service_t *pService = NULL;
     Cpa32U retries = 0;
+    Cpa64U seq_num = ICP_ADF_INVALID_SEND_SEQ;
 
     LAC_ENSURE(pSessionDesc != NULL,
                "LacSymCb_PendingReqsDequeue - pSessionDesc NULL\n");
@@ -544,7 +667,7 @@ CpaStatus LacSymCb_PendingReqsDequeue(lac_session_desc_t *pSessionDesc)
                 pService->trans_handle_sym_tx,
                 (void *)&(pSessionDesc->pRequestQueueHead->qatMsg),
                 LAC_QAT_SYM_REQ_SZ_LW,
-                NULL);
+                &seq_num);
 
             retries++;
             /*
@@ -565,6 +688,7 @@ CpaStatus LacSymCb_PendingReqsDequeue(lac_session_desc_t *pSessionDesc)
                 "Failed to icp_adf_transPutMsg, maximum retries exceeded.");
             goto cleanup;
         }
+        LAC_MEM_POOL_BLK_SET_OPAQUE(pSessionDesc->pRequestQueueHead, seq_num);
 
         pSessionDesc->pRequestQueueHead =
             pSessionDesc->pRequestQueueHead->pNext;

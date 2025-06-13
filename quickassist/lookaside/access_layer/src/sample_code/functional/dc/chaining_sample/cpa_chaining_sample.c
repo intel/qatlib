@@ -78,6 +78,7 @@
 extern int gDebugParam;
 
 #define NUM_SESSIONS_TWO (2)
+#define SAMPLE_MAX_BUFF (1024)
 
 /* Used by ZLIB */
 #define DEFLATE_DEF_WINBITS (15)
@@ -124,7 +125,7 @@ static inline CpaStatus calSWDigest(Cpa8U *msg,
     }
 }
 
-/* Initilise a zlib stream */
+/* Initialise a zlib stream */
 static CpaStatus inflate_init(z_stream *stream)
 {
     int ret = 0;
@@ -349,8 +350,13 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
     CpaDcChainOperations operation = CPA_DC_CHAIN_HASH_THEN_COMPRESS;
     CpaCySymHashAlgorithm hashAlg = CPA_CY_SYM_HASH_SHA256;
     Cpa8U numSessions = NUM_SESSIONS_TWO;
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
     Cpa8U *pSWDigestBuffer = NULL;
+
+    /*
+     * Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     PRINT_DBG("cpaDcBufferListGetMetaSize\n");
 
@@ -415,13 +421,7 @@ static CpaStatus dcChainingPerformOp(CpaInstanceHandle dcInstHandle,
         chainOpData[1].opType = CPA_DC_CHAIN_COMPRESS_DECOMPRESS;
         chainOpData[1].pDcOp = &dcOpData;
 
-        /*
-         * Now, we initialize the completion variable which is used by the
-         * callback function to indicate that the operation is complete.
-         * We then perform the operation.
-         */
         //<snippet name="perfOp">
-        COMPLETION_INIT(&complete);
         status = cpaDcChainPerformOp(dcInstHandle,
                                      sessionHdl,
                                      pBufferListSrc,
@@ -610,6 +610,10 @@ CpaStatus dcChainSample(void)
     Cpa32U sess_size = 0;
     CpaDcStats dcStats = {0};
     CpaDcInstanceCapabilities cap = {0};
+    CpaBufferList **bufferInterArray = NULL;
+    Cpa16U numInterBuffLists = 0;
+    Cpa16U bufferNum = 0;
+    Cpa32U buffMetaSize = 0;
 
     /*
      * In this simplified version of instance discovery, we discover
@@ -645,11 +649,53 @@ CpaStatus dcChainSample(void)
     }
 
     if (!cap.statelessDeflateCompression || !cap.checksumCRC32 ||
-        !cap.checksumAdler32)
+        !cap.checksumAdler32 || !cap.dynamicHuffman)
     {
         PRINT_ERR("Error: Unsupported functionality\n");
         return CPA_STATUS_FAIL;
     }
+
+    status = cpaDcBufferListGetMetaSize(dcInstHandle, 1, &buffMetaSize);
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        status =
+            cpaDcGetNumIntermediateBuffers(dcInstHandle, &numInterBuffLists);
+    }
+    if (CPA_STATUS_SUCCESS == status && 0 != numInterBuffLists)
+    {
+        status = PHYS_CONTIG_ALLOC(&bufferInterArray,
+                                   numInterBuffLists * sizeof(CpaBufferList *));
+    }
+    for (bufferNum = 0; bufferNum < numInterBuffLists; bufferNum++)
+    {
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            status = PHYS_CONTIG_ALLOC(&bufferInterArray[bufferNum],
+                                       sizeof(CpaBufferList));
+        }
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            status = PHYS_CONTIG_ALLOC(
+                &bufferInterArray[bufferNum]->pPrivateMetaData, buffMetaSize);
+        }
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            status = PHYS_CONTIG_ALLOC(&bufferInterArray[bufferNum]->pBuffers,
+                                       sizeof(CpaFlatBuffer));
+        }
+        if (CPA_STATUS_SUCCESS == status)
+        {
+            /* Implementation requires an intermediate buffer approximately
+                       twice the size of the output buffer */
+            status =
+                PHYS_CONTIG_ALLOC(&bufferInterArray[bufferNum]->pBuffers->pData,
+                                  2 * SAMPLE_MAX_BUFF);
+            bufferInterArray[bufferNum]->numBuffers = 1;
+            bufferInterArray[bufferNum]->pBuffers->dataLenInBytes =
+                2 * SAMPLE_MAX_BUFF;
+        }
+    } /* End numInterBuffLists */
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -659,9 +705,10 @@ CpaStatus dcChainSample(void)
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /* Start static data compression component */
+        /* Start dynamic data compression component */
         PRINT_DBG("cpaDcStartInstance\n");
-        status = cpaDcStartInstance(dcInstHandle, 0, NULL);
+        status = cpaDcStartInstance(
+            dcInstHandle, numInterBuffLists, bufferInterArray);
     }
     //</snippet>
 
@@ -683,7 +730,7 @@ CpaStatus dcChainSample(void)
         /* Initialize compression session data */
         dcSessionData.compLevel = CPA_DC_L1;
         dcSessionData.compType = CPA_DC_DEFLATE;
-        dcSessionData.huffType = CPA_DC_HT_STATIC;
+        dcSessionData.huffType = CPA_DC_HT_FULL_DYNAMIC;
         dcSessionData.autoSelectBestHuffmanTree = CPA_DC_ASB_DISABLED;
         dcSessionData.sessDirection = CPA_DC_DIR_COMPRESS;
         dcSessionData.sessState = CPA_DC_STATELESS;
@@ -798,6 +845,19 @@ CpaStatus dcChainSample(void)
 
     /* Free session Context */
     PHYS_CONTIG_FREE(sessionHdl);
+
+    /* Free intermediate buffers */
+    if (bufferInterArray != NULL)
+    {
+        for (bufferNum = 0; bufferNum < numInterBuffLists; bufferNum++)
+        {
+            PHYS_CONTIG_FREE(bufferInterArray[bufferNum]->pBuffers->pData);
+            PHYS_CONTIG_FREE(bufferInterArray[bufferNum]->pBuffers);
+            PHYS_CONTIG_FREE(bufferInterArray[bufferNum]->pPrivateMetaData);
+            PHYS_CONTIG_FREE(bufferInterArray[bufferNum]);
+        }
+        PHYS_CONTIG_FREE(bufferInterArray);
+    }
 
     if (CPA_STATUS_SUCCESS == status)
     {

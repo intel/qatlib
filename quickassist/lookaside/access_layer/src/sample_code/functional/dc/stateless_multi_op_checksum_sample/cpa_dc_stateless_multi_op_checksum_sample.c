@@ -211,9 +211,9 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
                                CpaDcSessionSetupData sd)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    CpaBufferList bufferListSrcArray[NUM_SAMPLE_DATA_BUFFERS] = { 0 };
-    CpaBufferList bufferListDstArray[NUM_SAMPLE_DATA_BUFFERS] = { 0 };
-    CpaBufferList bufferListDstArray2[NUM_SAMPLE_DATA_BUFFERS] = { 0 };
+    CpaBufferList bufferListSrcArray[NUM_SAMPLE_DATA_BUFFERS] = { { 0 } };
+    CpaBufferList bufferListDstArray[NUM_SAMPLE_DATA_BUFFERS] = { { 0 } };
+    CpaBufferList bufferListDstArray2[NUM_SAMPLE_DATA_BUFFERS] = { { 0 } };
     Cpa32U srcBufferSize = SAMPLE_MAX_BUFF;
     Cpa32U dstBufferSize = srcBufferSize;
     Cpa32U numBuffers = NUM_SAMPLE_DATA_BUFFERS;
@@ -224,9 +224,13 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
     Cpa32U dataConsumed = 0;
     Cpa32U dataProduced = 0;
     Cpa32U checksum = 0;
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
 
     INIT_OPDATA(&opData, CPA_DC_FLUSH_FINAL);
+    /*
+     * Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     status = cpaDcBufferListGetMetaSize(
         dcInstHandle, SINGLE_BUFFER_PER_BUFFERLIST, &bufferMetaSize);
@@ -341,9 +345,6 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
 
         for (bufferNum = 0; bufferNum < numBuffers; bufferNum++)
         {
-
-            COMPLETION_INIT(&complete);
-
             PRINT_DBG("cpaDcCompressData2\n");
             status = cpaDcCompressData2(
                 dcInstHandle,
@@ -432,9 +433,6 @@ static CpaStatus compPerformOp(CpaInstanceHandle dcInstHandle,
         }
         for (bufferNum = 0; bufferNum < numBuffers; bufferNum++)
         {
-
-            COMPLETION_INIT(&complete);
-
             PRINT_DBG("cpaDcDecompressData2\n");
             status = cpaDcDecompressData2(
                 dcInstHandle,

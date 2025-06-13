@@ -249,17 +249,19 @@
 /**
  *******************************************************************************
  * @ingroup LacMem
- *      This macro uses an OSAL macro to convert from a virtual address to a
- *      physical address for internally allocated memory.
+ *      This macro converts from a virtual address to a physical address for
+ *      internally allocated memory.
  *
+ * @param[in] pGenService Pointer to sal_service_t structure.
  * @param[in] pVirtAddr   The address to be converted.
  *
  * @retval The converted physical address
  ******************************************************************************/
 #ifdef USER_SPACE
-#define LAC_OS_VIRT_TO_PHYS_INTERNAL(pVirtAddr) (qaeVirtToPhysNUMA(pVirtAddr))
+#define LAC_OS_VIRT_TO_PHYS_INTERNAL(pGenService, pVirtAddr)                   \
+    ((SalMem_virt2PhysInternal(pVirtAddr, (void *)pGenService)))
 #else
-#define LAC_OS_VIRT_TO_PHYS_INTERNAL(pVirtAddr)                                \
+#define LAC_OS_VIRT_TO_PHYS_INTERNAL(pGenService, pVirtAddr)                   \
     (OSAL_MMU_VIRT_TO_PHYS(pVirtAddr))
 #endif
 
@@ -278,29 +280,6 @@
  ******************************************************************************/
 #define LAC_OS_VIRT_TO_PHYS_EXTERNAL(genService, pVirtAddr)                    \
     ((SalMem_virt2PhysExternal(pVirtAddr, &(genService))))
-
-/**
- *******************************************************************************
- * @ingroup LacMem
- *      This macro can be used to write an address variable that will be read by
- * the QAT.  The macro will perform the necessary virt2phys address translation
- * This macro is only to be called on memory allocated internally by the driver.
- *
- * @param[out] var  The address variable to write. Can be a field of a struct.
- *
- * @param[in] pPtr  The pointer variable to containing the address to be
- *                  written
- *
- * @retval none
- ******************************************************************************/
-#define LAC_MEM_SHARED_WRITE_VIRT_TO_PHYS_PTR_INTERNAL(var, pPtr)              \
-    do                                                                         \
-    {                                                                          \
-        Cpa64U physAddr = 0;                                                   \
-        physAddr =                                                             \
-            LAC_MEM_CAST_PTR_TO_UINT64(LAC_OS_VIRT_TO_PHYS_INTERNAL(pPtr));    \
-        var = physAddr;                                                        \
-    } while (0)
 
 /**
  *******************************************************************************
@@ -440,9 +419,6 @@ static __inline CpaStatus LacMem_OsContigAlignMemAlloc(void **ppMemAddr,
  *  are strictly forbidden and will result in compilation error.
  *  Use typedef to provide one-word type name for MACRO's usage.
  ******************************************************************************/
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 #define LAC_DECLARE_HIGHEST_BIT_OF(TYPE)                                       \
   static const unsigned int highest_bit_of_##TYPE =                            \
     (sizeof(TYPE) & 0x80000000 ? 31 :                                          \
@@ -477,9 +453,6 @@ static __inline CpaStatus LacMem_OsContigAlignMemAlloc(void **ppMemAddr,
     (sizeof(TYPE) & 0x00000004 ?  2 :                                          \
     (sizeof(TYPE) & 0x00000002 ?  1 :                                          \
     (sizeof(TYPE) & 0x00000001 ?  0 : 32) ))))))))))))))))/*16*/))))))))))))))) /* 31 */
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 
 /**
  *******************************************************************************
@@ -551,7 +524,7 @@ static __inline void LacMem_OsContigAlignMemFree(void **ppMemAddr)
  *      This is because pInternalMem describes the memory that will be sent to
  *      QAT.
  *
- *      The caller must keep the original buffer pointer. The alllocated buffer
+ *      The caller must keep the original buffer pointer. The allocated buffer
  *      is freed (as necessary) using icp_LacBufferRestore().
  *
  * @param[in] instanceHandle Handle to crypto instance so pke_resize mem pool
@@ -640,5 +613,21 @@ CpaStatus icp_LacBufferRestore(Cpa8U *pUserBuffer,
  *
  ******************************************************************************/
 CpaPhysicalAddr SalMem_virt2PhysExternal(void *pVirtAddr, void *pServiceGen);
+
+/**
+*******************************************************************************
+* @ingroup LacMem
+*    Convert a virtual address to a physical address using internal function.
+*
+* @description
+*    Convert a virtual address to a physical address using internal function.
+*
+* @param[in] pVirtAddr         the virtual addr to be converted
+* @param[in] pServiceGen       Pointer on the sal_service_t structure
+*
+* @return the physical address
+*
+******************************************************************************/
+CpaPhysicalAddr SalMem_virt2PhysInternal(void *pVirtAddr, void *pServiceGen);
 
 #endif /* LAC_MEM_H */

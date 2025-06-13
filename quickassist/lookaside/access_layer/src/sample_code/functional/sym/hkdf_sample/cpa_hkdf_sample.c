@@ -229,8 +229,11 @@ static CpaStatus hkdfSampleExtractExpandLabelPerform(
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
     CpaFlatBuffer hkdfOut;
+    /* Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     status = PHYS_CONTIG_ALLOC(&pHkdfData, hkdfDataSize);
 
@@ -270,17 +273,9 @@ static CpaStatus hkdfSampleExtractExpandLabelPerform(
         pOpData->label[0].sublabelFlag = 0x00;
     }
 
-    /*
-     * Now, we initialize the completion variable which is used by the callback
-     * function
-     * to indicate that the operation is complete.  We then perform the
-     * operation.
-     */
     if (CPA_STATUS_SUCCESS == status)
     {
         PRINT_DBG("cpaCyKeyGenTls3\n");
-
-        COMPLETION_INIT(&complete);
 
         status = cpaCyKeyGenTls3(cyInstHandle,
                                  hkdfSampleCallback,
@@ -357,8 +352,11 @@ static CpaStatus hkdfSampleExtractExpandLabelSublabelsPerform(
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
     CpaFlatBuffer hkdfOut;
+    /* Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     status = PHYS_CONTIG_ALLOC(&pHkdfData, hkdfDataSize);
 
@@ -399,17 +397,9 @@ static CpaStatus hkdfSampleExtractExpandLabelSublabelsPerform(
         pOpData->label[0].sublabelFlag |= CPA_CY_HKDF_SUBLABEL_IV;
     }
 
-    /*
-     * Now, we initialize the completion variable which is used by the callback
-     * function
-     * to indicate that the operation is complete.  We then perform the
-     * operation.
-     */
     if (CPA_STATUS_SUCCESS == status)
     {
         PRINT_DBG("cpaCyKeyGenTls3\n");
-
-        COMPLETION_INIT(&complete);
 
         status = cpaCyKeyGenTls3(cyInstHandle,
                                  hkdfSampleCallback,
@@ -500,8 +490,12 @@ static CpaStatus hkdfSampleExtractExpandPerform(CpaInstanceHandle cyInstHandle)
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
     CpaFlatBuffer hkdfOut;
+    /*
+     * Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT(&complete);
 
     status = PHYS_CONTIG_ALLOC(&pHkdfData, hkdfDataSize);
 
@@ -537,17 +531,9 @@ static CpaStatus hkdfSampleExtractExpandPerform(CpaInstanceHandle cyInstHandle)
         memcpy(pOpData->info, sampleInf, pOpData->infoLen);
     }
 
-    /*
-     * Now, we initialize the completion variable which is used by the callback
-     * function
-     * to indicate that the operation is complete.  We then perform the
-     * operation.
-     */
     if (CPA_STATUS_SUCCESS == status)
     {
         PRINT_DBG("cpaCyKeyGenTls3\n");
-
-        COMPLETION_INIT(&complete);
 
         status = cpaCyKeyGenTls3(cyInstHandle,
                                  hkdfSampleCallback,
@@ -609,6 +595,7 @@ CpaStatus hkdfSample(void)
     CpaStatus status = CPA_STATUS_FAIL;
     CpaInstanceHandle cyInstHandle = NULL;
     CpaInstanceInfo2 info = {0};
+    CpaCyCapabilitiesInfo cyCap = { 0 };
 
     /*
      * In this simplified version of instance discovery, we discover
@@ -618,6 +605,19 @@ CpaStatus hkdfSample(void)
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCyQueryCapabilities(cyInstHandle, &cyCap);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to query capabilities, status = %d\n", status);
+        return status;
+    }
+
+    if (CPA_FALSE == cyCap.hkdfSupported)
+    {
+        PRINT("HKDF is not supported on this instance\n");
+        return CPA_STATUS_UNSUPPORTED;
     }
 
     status = cpaCyInstanceGetInfo2(cyInstHandle, &info);

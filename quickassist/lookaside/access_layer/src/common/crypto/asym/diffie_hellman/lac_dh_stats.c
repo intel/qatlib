@@ -163,6 +163,7 @@ CpaStatus cpaCyDhQueryStats(CpaInstanceHandle instanceHandle_in,
     SAL_CHECK_INSTANCE_TYPE(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dh);
     LAC_CHECK_NULL_PARAM(pDhStats);
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
@@ -202,6 +203,7 @@ CpaStatus cpaCyDhQueryStats64(const CpaInstanceHandle instanceHandle_in,
     SAL_CHECK_INSTANCE_TYPE(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dh);
     LAC_CHECK_NULL_PARAM(pDhStats);
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;

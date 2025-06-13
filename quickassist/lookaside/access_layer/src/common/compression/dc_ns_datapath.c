@@ -82,6 +82,7 @@
 #include "cpa.h"
 #include "cpa_dc.h"
 #include "cpa_dc_dp.h"
+
 #include "icp_qat_hw_20_comp.h"
 
 /*
@@ -112,224 +113,6 @@
 #include "dc_crc64.h"
 #include "sal_misc_error_stats.h"
 
-STATIC void dcNsHandleIntegrityChecksums(dc_compression_cookie_t *pCookie,
-                                         CpaCrcData *crc_external,
-                                         CpaDcRqResults *pDcResults,
-                                         CpaDcHuffType huffType)
-{
-    dc_integrity_crc_fw_t *crc_internal = &pCookie->dataIntegrityCrcs;
-    CpaBoolean integrityErrorOccurred = CPA_FALSE;
-    dc_request_dir_t compDecomp = pCookie->compDecomp;
-    Cpa32U swCrcI = DC_DEFAULT_CRC, swCrcO = DC_DEFAULT_CRC;
-    CpaBoolean verifyHwIntegrityCrcs =
-        pCookie->pDcOpData->verifyHwIntegrityCrcs;
-
-    /* Move results from internal firmware buffer (opaque to user)
-     * into structure fields visible to user
-     */
-    crc_external->crc32 = crc_internal->crc32;
-    crc_external->adler32 = crc_internal->adler32;
-
-    /* Copy compression input CRC to iCrc field of
-     * CpaIntegrityCrc structure
-     */
-    crc_external->integrityCrc.iCrc = crc_internal->iCrc32Cpr;
-
-    if (CPA_TRUE == verifyHwIntegrityCrcs ||
-        DC_CLEARTEXT_TYPE == (dc_block_type_t)crc_internal->deflateBlockType)
-    {
-        /* Calculate checksum on input data */
-        swCrcI =
-            dcCalculateCrc32(pCookie->pUserSrcBuff, pDcResults->consumed, 0);
-
-        /* Calculate checksum on output data */
-        swCrcO =
-            dcCalculateCrc32(pCookie->pUserDestBuff, pDcResults->produced, 0);
-    }
-
-    if (DC_STATIC_TYPE == (dc_block_type_t)crc_internal->deflateBlockType ||
-        DC_DECOMPRESSION_REQUEST == compDecomp)
-    {
-        crc_external->integrityCrc.oCrc = crc_internal->oCrc32Cpr;
-    }
-    else if (DC_DYNAMIC_TYPE == (dc_block_type_t)crc_internal->deflateBlockType)
-    {
-        /* Copy translator output CRC to oCrc field of
-         * CpaIntegrityCrc structure
-         */
-        crc_external->integrityCrc.oCrc = crc_internal->oCrc32Xlt;
-
-        /* Verify data integrity between compression and translator slices. */
-        if (crc_internal->oCrc32Cpr != crc_internal->iCrc32Xlt)
-        {
-            integrityErrorOccurred = CPA_TRUE;
-        }
-    }
-    else if (DC_CLEARTEXT_TYPE ==
-             (dc_block_type_t)crc_internal->deflateBlockType)
-    {
-        crc_external->integrityCrc.iCrc = swCrcI;
-        crc_external->integrityCrc.oCrc = swCrcO;
-    }
-
-    /* Compare H/W CRCs against software ones if required */
-    if (CPA_TRUE == verifyHwIntegrityCrcs)
-    {
-        if (crc_external->integrityCrc.iCrc != swCrcI ||
-            crc_external->integrityCrc.oCrc != swCrcO)
-        {
-            integrityErrorOccurred = CPA_TRUE;
-        }
-    }
-
-    if (CPA_TRUE == integrityErrorOccurred)
-    {
-        LAC_LOG_ERROR("CRC Data integrity failure detected.");
-        LAC_LOG_ERROR1("\tsoftware input  buffer CRC = 0x%08x", swCrcI);
-        LAC_LOG_ERROR1("\tsoftware output buffer CRC = 0x%08x", swCrcO);
-
-        LAC_LOG_ERROR1("\tinternal compression input CRC = 0x%08x",
-                       crc_internal->iCrc32Cpr);
-        LAC_LOG_ERROR1("\tinternal compression output CRC = 0x%08x",
-                       crc_internal->oCrc32Cpr);
-
-        /* Report extra CRCs for dynamic compression */
-        if (CPA_DC_HT_FULL_DYNAMIC == huffType)
-        {
-            LAC_LOG_ERROR1("\tinternal translator input CRC = 0x%08x",
-                           crc_internal->iCrc32Xlt);
-            LAC_LOG_ERROR1("\tinternal translator output CRC = 0x%08x",
-                           crc_internal->oCrc32Xlt);
-        }
-
-        /* IA should indicate CRC integrity error, but does not
-         * override hardware error code if one was already set
-         */
-        if (ERR_CODE_NO_ERROR == pDcResults->status ||
-            ERR_CODE_OVERFLOW_ERROR == pDcResults->status)
-        {
-            pDcResults->status = CPA_DC_CRC_INTEG_ERR;
-        }
-    }
-
-    if (CPA_DC_CRC32 == pCookie->checksumType)
-    {
-        pDcResults->checksum = crc_external->crc32;
-    }
-    else if (CPA_DC_ADLER32 == pCookie->checksumType)
-    {
-        pDcResults->checksum = crc_external->adler32;
-    }
-}
-
-STATIC void dcNsHandleIntegrityChecksumsGen4(dc_compression_cookie_t *pCookie,
-                                             CpaCrcData *crc_external,
-                                             CpaDcRqResults *pDcResults,
-                                             CpaDcHuffType huffType,
-                                             CpaDcCompType compType)
-{
-    dc_integrity_crc_fw_t *crc_internal = &pCookie->dataIntegrityCrcs;
-    CpaBoolean integrityErrorOccurred = CPA_FALSE;
-    Cpa64U swCrc64I = DC_DEFAULT_CRC, swCrc64O = DC_DEFAULT_CRC;
-    dc_block_type_t blockType = DC_STATIC_TYPE;
-    CpaBoolean verifyHwIntegrityCrcs =
-        pCookie->pDcOpData->verifyHwIntegrityCrcs;
-
-    /* Simply set block type as per huffman type */
-    if (CPA_DC_DEFLATE == compType && CPA_DC_HT_FULL_DYNAMIC == huffType &&
-        DC_COMPRESSION_REQUEST == pCookie->compDecomp)
-    {
-        blockType = DC_DYNAMIC_TYPE;
-    }
-
-    /* Move results from internal firmware buffer (opaque to user)
-     * into structure fields visible to user
-     */
-    crc_external->crc32 = crc_internal->crc32;
-    crc_external->adler32 = crc_internal->adler32;
-
-    /* Copy compression input CRC to iCrc field of
-     * CpaIntegrityCrc64b structure
-     */
-    crc_external->integrityCrc64b.iCrc = crc_internal->iCrc64Cpr;
-
-    if (DC_DYNAMIC_TYPE == blockType)
-    {
-        /* Copy translator output CRC to oCrc field of
-         * CpaIntegrityCrc64b structure
-         */
-        crc_external->integrityCrc64b.oCrc = crc_internal->oCrc64Xlt;
-    }
-    else
-    {
-        /* Copy compression output CRC to oCrc field of
-         * CpaIntegrityCrc64b structure
-         */
-        crc_external->integrityCrc64b.oCrc = crc_internal->oCrc64Cpr;
-    }
-
-    /* Compare H/W CRCs against software ones if required */
-    if (CPA_TRUE == verifyHwIntegrityCrcs)
-    {
-        /* Calculate checksum on input data */
-        swCrc64I = dcCalculateCrc64(
-            pCookie->pUserSrcBuff, pDcResults->consumed, DC_DEFAULT_CRC);
-
-        /* Calculate checksum on output data */
-        swCrc64O = dcCalculateCrc64(
-            pCookie->pUserDestBuff, pDcResults->produced, DC_DEFAULT_CRC);
-
-        if (crc_external->integrityCrc64b.iCrc != swCrc64I ||
-            crc_external->integrityCrc64b.oCrc != swCrc64O)
-        {
-            integrityErrorOccurred = CPA_TRUE;
-        }
-    }
-
-    if (CPA_TRUE == integrityErrorOccurred)
-    {
-        LAC_LOG_ERROR("CRC Data integrity failure detected.");
-        LAC_LOG_ERROR_PARAMS("\tsoftware input  buffer CRC64 = 0x%016lx",
-                             swCrc64I);
-
-        LAC_LOG_ERROR_PARAMS("\tsoftware output buffer CRC64 = 0x%016lx",
-                             swCrc64O);
-
-        LAC_LOG_ERROR_PARAMS("\tinternal compression input CRC64 = 0x%016lx",
-                             crc_internal->iCrc64Cpr);
-        LAC_LOG_ERROR_PARAMS("\tinternal compression output CRC64 = 0x%016lx",
-                             crc_internal->oCrc64Cpr);
-
-        /* Report extra CRCs for dynamic compression */
-        if (DC_DYNAMIC_TYPE == blockType)
-        {
-            LAC_LOG_ERROR_PARAMS(
-                "\tinternal translator output CRC64 = 0x%016lx",
-                crc_internal->oCrc64Xlt);
-        }
-
-        /* IA should indicate CRC integrity error, but does not
-         * override hardware error code if one was already set
-         */
-        if (ERR_CODE_NO_ERROR == pDcResults->status ||
-            ERR_CODE_OVERFLOW_ERROR == pDcResults->status)
-        {
-            pDcResults->status = CPA_DC_CRC_INTEG_ERR;
-        }
-    }
-
-    if (CPA_DC_CRC32 == pCookie->checksumType)
-    {
-        pDcResults->checksum = crc_external->crc32;
-    }
-    else if ((CPA_DC_ADLER32 == pCookie->checksumType) ||
-             (CPA_DC_XXHASH32 == pCookie->checksumType))
-    {
-        /* XXHASH32 and Adler share the same member */
-        pDcResults->checksum = crc_external->adler32;
-    }
-}
-
 void dcNsCompression_ProcessCallback(void *pRespMsg)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -355,6 +138,11 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
     CpaBoolean isDcDp = CPA_FALSE;
     CpaDcCompType compType = CPA_DC_DEFLATE;
     CpaDcHuffType huffType = CPA_DC_HT_STATIC;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    CpaBoolean bypassIncompleteFileErr = CPA_FALSE;
+    CpaBoolean uncompressedDataSupported = CPA_FALSE;
+    CpaDcSessionDir sessDirection = CPA_DC_DIR_COMPRESS;
+    dc_hw_gen_types_t hw_gen;
 
     /* Cast response message to compression response message type */
     pCompRespMsg = (icp_qat_fw_comp_resp_t *)pRespMsg;
@@ -378,6 +166,17 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
     pCookie = (dc_compression_cookie_t *)pReqData;
 
     pService = (sal_compression_service_t *)(pCookie->dcInstance);
+
+#ifdef ICP_PARAM_CHECK
+    LAC_ASSERT_NOT_NULL(pService);
+#endif
+
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+    bypassIncompleteFileErr = pDcCapabilities->deflate.bypassIncompleteFileErr;
+    uncompressedDataSupported =
+        pDcCapabilities->deviceData.uncompressedDataSupported;
+    hw_gen = pDcCapabilities->deviceData.hw_gen;
 
     if (DCDPNS == (LAC_ARCH_UINT)pCookie->pSessionHandle)
     {
@@ -420,6 +219,11 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
         {
             huffType = CPA_DC_HT_FULL_DYNAMIC;
         }
+    }
+
+    if (DC_DECOMPRESSION_REQUEST == compDecomp)
+    {
+        sessDirection = CPA_DC_DIR_DECOMPRESS;
     }
 
     opStatus = pCompRespMsg->comn_resp.comn_status;
@@ -497,10 +301,10 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
     switch (cmpErr)
     {
         case ERR_CODE_HW_INCOMPLETE_FILE:
-            /* QAT2.0 hardware cancels the incomplete file errors
-             * only for DEFLATE algorithm. */
-            if (!pService->generic_service_info.isGen4 ||
-                CPA_DC_DEFLATE == compType)
+            /* Cancel the incomplete file error code only for DEFLATE algorithm
+             */
+            if ((CPA_TRUE == bypassIncompleteFileErr) &&
+                (CPA_DC_DEFLATE == compType))
             {
                 cmpPass = CPA_TRUE;
                 cmpErr = ERR_CODE_NO_ERROR;
@@ -510,6 +314,11 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
             /* log the slice hang error inside the response */
             LAC_LOG_ERROR(
                 "The slice hang is detected on the compression slice");
+            break;
+        case ERR_CODE_SSM_PARITY_ERROR:
+            /* log ssm parity error inside the response */
+            LAC_LOG_ERROR("Operation resulted in a parity error in one or more "
+                          "accelerators.");
             break;
         case ERR_CODE_ENDPOINT_ERROR:
             /* log the endpoint push/pull error inside the response */
@@ -581,20 +390,30 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
         pResults->produced = pCompRespMsg->comp_resp_pars.output_byte_counter;
 
         /* Handle Checksum for end to end data integrity. */
-        if (CPA_TRUE == pService->generic_service_info.integrityCrcCheck &&
-            CPA_TRUE == integrityCrcCheck)
+        if ((CPA_TRUE == integrityCrcCheck) &&
+            (CPA_TRUE == pDcCapabilities->crcIntegrity.supported))
         {
-            if (pService->generic_service_info.isGen4)
+            if (hw_gen >= DC_CAPS_GEN4_HW)
             {
-                dcNsHandleIntegrityChecksumsGen4(
-                    pCookie, pOpData->pCrcData, pResults, huffType, compType);
+                dcHandleIntegrityChecksums(pCookie,
+                                           pOpData->pCrcData,
+                                           pResults,
+                                           huffType,
+                                           compType,
+                                           checksumType,
+                                           CPA_TRUE,
+                                           ICP_QAT_FW_NO_CHAINING_20);
             }
             else
             {
-                dcNsHandleIntegrityChecksums(pCookie,
-                                             pOpData->pCrcData,
-                                             pResults,
-                                             huffType);
+                dcHandleIntegrityChecksumsLegacy(pCookie,
+                                                 pOpData->pCrcData,
+                                                 pResults,
+                                                 huffType,
+                                                 checksumType,
+                                                 CPA_DC_STATELESS,
+                                                 sessDirection,
+                                                 CPA_TRUE);
             }
 
             if (pResults->status == CPA_DC_CRC_INTEG_ERR)
@@ -621,7 +440,7 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
     if ((CPA_TRUE == cmpPass) && (CPA_TRUE == xlatPass))
     {
         if ((DC_COMPRESSION_REQUEST == compDecomp) &&
-            (pService->generic_service_info.isGen4))
+            (CPA_TRUE == uncompressedDataSupported))
         {
             /* Check if returned data is a stored block
              * in compression direction
@@ -732,6 +551,8 @@ STATIC CpaStatus dcNsCheckDestinationData(sal_compression_service_t *pService,
                                           CpaBufferList *pDestBuff,
                                           dc_request_dir_t compDecomp)
 {
+    dc_capabilities_t *pDcCapabilities = &pService->dc_capabilities;
+    Cpa16U numInterBuffs = pDcCapabilities->numInterBuffs;
     Cpa64U destBuffSize = 0;
 
     if (LacBuffDesc_BufferListVerify(
@@ -748,7 +569,7 @@ STATIC CpaStatus dcNsCheckDestinationData(sal_compression_service_t *pService,
         {
 #ifndef ICP_DC_DYN_NOT_SUPPORTED
             /* Check if intermediate buffers are available */
-            if (!pService->generic_service_info.isGen4 &&
+            if ((numInterBuffs > 0) &&
                 (pService->pInterBuffPtrsArrayPhyAddr == 0 ||
                  pService->pInterBuffPtrsArray == NULL))
             {
@@ -761,12 +582,12 @@ STATIC CpaStatus dcNsCheckDestinationData(sal_compression_service_t *pService,
             /* Ensure that the destination buffer size is greater or equal
              * to devices min output buffer size for dynamic compression */
             if (destBuffSize <
-                pService->comp_device_data.minOutputBuffSizeDynamic)
+                pDcCapabilities->deviceData.minOutputBuffSizeDynamic)
             {
                 LAC_INVALID_PARAM_LOG1(
                     "Destination buffer size should be "
                     "greater or equal to %u bytes",
-                    pService->comp_device_data.minOutputBuffSizeDynamic);
+                    pDcCapabilities->deviceData.minOutputBuffSizeDynamic);
                 return CPA_STATUS_INVALID_PARAM;
             }
 #else
@@ -779,12 +600,12 @@ STATIC CpaStatus dcNsCheckDestinationData(sal_compression_service_t *pService,
         {
             /* Ensure that the destination buffer size is greater or equal
              * to devices min output buff size for static compression */
-            if (destBuffSize < pService->comp_device_data.minOutputBuffSize)
+            if (destBuffSize < pDcCapabilities->deviceData.minOutputBuffSize)
             {
                 LAC_INVALID_PARAM_LOG1(
                     "Destination buffer size should be "
                     "greater or equal to %d bytes",
-                    pService->comp_device_data.minOutputBuffSize);
+                    pDcCapabilities->deviceData.minOutputBuffSize);
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
@@ -839,23 +660,19 @@ STATIC CpaStatus dcNsCheckSourceData(Cpa64U srcBuffSize)
 }
 #endif
 
-STATIC void dcNsCompRequestParamsPopulate(
-    icp_qat_fw_comp_req_params_t *pCompReqParams,
-    dc_compression_cookie_t *pCookie)
+void dcNsCompHwBlockPopulate(void *pServiceType,
+                             void *pSessionDescp,
+                             CpaDcNsSetupData *pSetupData,
+                             icp_qat_hw_compression_config_t *pCompConfig,
+                             void *compDecompDir,
+                             CpaBoolean bNsOp)
 {
-    LAC_ENSURE_NOT_NULL(pCompReqParams);
-    LAC_ENSURE_NOT_NULL(pCookie);
+    sal_compression_service_t *pService = NULL;
+    dc_request_dir_t compDecomp;
 
-    pCompReqParams->comp_len = pCookie->srcTotalDataLenInBytes;
-    pCompReqParams->out_buffer_sz = pCookie->dstTotalDataLenInBytes;
-}
+    pService = (sal_compression_service_t *)pServiceType;
+    compDecomp = *(dc_request_dir_t *)compDecompDir;
 
-STATIC void dcNsCompHwBlockPopulate(
-    sal_compression_service_t *pService,
-    CpaDcNsSetupData *pSetupData,
-    icp_qat_hw_compression_config_t *pCompConfig,
-    dc_request_dir_t compDecomp)
-{
     icp_qat_hw_compression_direction_t dir =
         ICP_QAT_HW_COMPRESSION_DIR_DECOMPRESS;
     icp_qat_hw_compression_algo_t algo = ICP_QAT_HW_COMPRESSION_ALGO_DEFLATE;
@@ -872,7 +689,7 @@ STATIC void dcNsCompHwBlockPopulate(
     }
 
     /* Set delay match mode */
-    if (pService->comp_device_data.enableDmm == CPA_TRUE)
+    if (CPA_TRUE == pService->dc_capabilities.deviceData.enableDmm)
     {
         dmm = ICP_QAT_HW_COMPRESSION_DELAYED_MATCH_ENABLED;
     }
@@ -901,7 +718,8 @@ STATIC void dcNsCompHwBlockPopulate(
                 depth = ICP_QAT_HW_COMPRESSION_DEPTH_16;
                 break;
             default:
-                depth = pService->comp_device_data.highestHwCompressionDepth;
+                depth = pService->dc_capabilities.deviceData
+                            .highestHwCompressionDepth;
                 break;
         }
     }
@@ -915,181 +733,6 @@ STATIC void dcNsCompHwBlockPopulate(
     pCompConfig->upper_val = 0;
 }
 
-STATIC void dcNsCompHwBlockPopulateGen4(
-    sal_compression_service_t *pService,
-    CpaDcNsSetupData *pSetupData,
-    icp_qat_hw_compression_config_t *pCompConfig,
-    dc_request_dir_t compDecomp)
-{
-    icp_qat_hw_comp_20_config_csr_upper_t hw_comp_upper_csr;
-    icp_qat_hw_comp_20_config_csr_lower_t hw_comp_lower_csr;
-    icp_qat_hw_decomp_20_config_csr_lower_t hw_decomp_lower_csr;
-
-    /* Compression related */
-    if (compDecomp == DC_COMPRESSION_REQUEST)
-    {
-        osalMemSet(&hw_comp_upper_csr, 0, sizeof hw_comp_upper_csr);
-        osalMemSet(&hw_comp_lower_csr, 0, sizeof hw_comp_lower_csr);
-
-        /* Disable Literal + Length Limit Block Drop by default and
-         * enable it only for dynamic deflate compression.
-         */
-        hw_comp_lower_csr.lllbd = ICP_QAT_HW_COMP_20_LLLBD_CTRL_LLLBD_DISABLED;
-
-        switch (pSetupData->compType)
-        {
-            case CPA_DC_DEFLATE:
-                /* DEFLATE algorithm settings */
-                hw_comp_lower_csr.skip_ctrl =
-                    ICP_QAT_HW_COMP_20_BYTE_SKIP_3BYTE_LITERAL;
-
-                if (pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC)
-                {
-                    hw_comp_lower_csr.algo =
-                        ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_ILZ77;
-                }
-                else /* Static DEFLATE */
-                {
-                    hw_comp_lower_csr.algo =
-                        ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_DEFLATE;
-                    hw_comp_upper_csr.scb_ctrl =
-                        ICP_QAT_HW_COMP_20_SCB_CONTROL_DISABLE;
-                }
-                break;
-            case CPA_DC_LZ4:
-                /* LZ4 algorithm settings */
-                hw_comp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
-                hw_comp_upper_csr.lbms = pSetupData->lz4BlockMaxSize;
-                hw_comp_lower_csr.mmctrl =
-                    ICP_QAT_HW_COMP_20_MIN_MATCH_CONTROL_MATCH_4B;
-                break;
-            case CPA_DC_LZ4S:
-                /* LZ4S algorithm settings */
-                hw_comp_lower_csr.algo = ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
-                hw_comp_lower_csr.mmctrl = pSetupData->minMatch;
-                hw_comp_upper_csr.scb_ctrl =
-                    ICP_QAT_HW_COMP_20_SCB_CONTROL_DISABLE;
-                break;
-            default:
-                LAC_ENSURE(CPA_FALSE, "Compression algorithm not supported\n");
-        }
-
-        /* Set the search depth */
-        switch (pSetupData->compLevel)
-        {
-            case CPA_DC_L1:
-            case CPA_DC_L2:
-            case CPA_DC_L3:
-            case CPA_DC_L4:
-            case CPA_DC_L5:
-                hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_20_SEARCH_DEPTH_LEVEL_1;
-                hw_comp_lower_csr.hash_col =
-                    ICP_QAT_HW_COMP_20_SKIP_HASH_COLLISION_DONT_ALLOW;
-                break;
-            case CPA_DC_L6:
-            case CPA_DC_L7:
-            case CPA_DC_L8:
-                hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_20_SEARCH_DEPTH_LEVEL_6;
-                break;
-            case CPA_DC_L9:
-                hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_20_SEARCH_DEPTH_LEVEL_9;
-                break;
-            case CPA_DC_L10:
-            case CPA_DC_L11:
-            case CPA_DC_L12:
-            default:
-                hw_comp_lower_csr.sd =
-                    pService->comp_device_data.highestHwCompressionDepth;
-
-                if (pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC &&
-                    pSetupData->compType == CPA_DC_DEFLATE)
-                {
-                    /* Enable Literal + Length Limit Block Drop
-                     * with dynamic deflate compression when
-                     * highest compression levels are selected.
-                     */
-                    hw_comp_lower_csr.lllbd =
-                        ICP_QAT_HW_COMP_20_LLLBD_CTRL_LLLBD_ENABLED;
-                }
-                break;
-        }
-
-        /* Same for all algorithms */
-        hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_20_ABD_ABD_DISABLED;
-        hw_comp_lower_csr.hash_update =
-            ICP_QAT_HW_COMP_20_SKIP_HASH_UPDATE_DONT_ALLOW;
-        hw_comp_lower_csr.edmm =
-            (pService->comp_device_data.enableDmm == CPA_TRUE)
-                ? ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_ENABLED
-                : ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_DISABLED;
-        if ((pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC) &&
-            (pSetupData->compType == CPA_DC_DEFLATE) &&
-            (pSetupData->compLevel == CPA_DC_L10 ||
-             pSetupData->compLevel == CPA_DC_L11 ||
-             pSetupData->compLevel == CPA_DC_L12))
-        {
-            /* Enable Adaptive Block Drop with dynamic deflate
-             * compression when levels 10-12 are selected.
-             * This field is ignored by firmware for devices that
-             * do not support adaptive block drop */
-            hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_20_ABD_ABD_ENABLED;
-        }
-
-        /* Hard-coded HW-specific values */
-        hw_comp_upper_csr.nice =
-            ICP_QAT_HW_COMP_20_CONFIG_CSR_NICE_PARAM_DEFAULT_VAL;
-        hw_comp_upper_csr.lazy =
-            ICP_QAT_HW_COMP_20_CONFIG_CSR_LAZY_PARAM_DEFAULT_VAL;
-
-        pCompConfig->upper_val =
-            ICP_QAT_FW_COMP_20_BUILD_CONFIG_UPPER(hw_comp_upper_csr);
-
-        pCompConfig->lower_val =
-            ICP_QAT_FW_COMP_20_BUILD_CONFIG_LOWER(hw_comp_lower_csr);
-    }
-    else /* Decompress */
-    {
-        osalMemSet(&hw_decomp_lower_csr, 0, sizeof hw_decomp_lower_csr);
-
-        /* Set the algorithm */
-        switch (pSetupData->compType)
-        {
-            case CPA_DC_DEFLATE:
-                hw_decomp_lower_csr.algo =
-                    ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_DEFLATE;
-                break;
-            case CPA_DC_LZ4:
-                hw_decomp_lower_csr.algo =
-                    ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
-                hw_decomp_lower_csr.lbms = pSetupData->lz4BlockMaxSize;
-
-                if (pSetupData->lz4BlockChecksum == CPA_TRUE)
-                {
-                    hw_decomp_lower_csr.lbc =
-                        ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_PRESENT;
-                }
-                else
-                {
-                    hw_decomp_lower_csr.lbc =
-                        ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_ABSENT;
-                }
-                break;
-            case CPA_DC_LZ4S:
-                hw_decomp_lower_csr.algo =
-                    ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
-                hw_decomp_lower_csr.mmctrl = pSetupData->minMatch;
-                break;
-            default:
-                LAC_ENSURE(CPA_FALSE,
-                           "Algorithm not supported for Decompression\n");
-        }
-
-        pCompConfig->upper_val = 0;
-        pCompConfig->lower_val =
-            ICP_QAT_FW_DECOMP_20_BUILD_CONFIG_LOWER(hw_decomp_lower_csr);
-    }
-}
-
 STATIC void dcNsCompContentDescPopulate(sal_compression_service_t *pService,
                                         CpaDcNsSetupData *pSetupData,
                                         CpaPhysicalAddr contextBufferAddrPhys,
@@ -1099,12 +742,17 @@ STATIC void dcNsCompContentDescPopulate(sal_compression_service_t *pService,
 {
     icp_qat_fw_comp_cd_hdr_t *pCompControlBlock = NULL;
     icp_qat_hw_compression_config_t *pCompConfig = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
 
     LAC_ENSURE_NOT_NULL(pService);
     LAC_ENSURE_NOT_NULL(pSetupData);
     LAC_ENSURE_NOT_NULL(pMsg);
 
     pCompControlBlock = &pMsg->comp_cd_ctrl;
+
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
     /* Non-standard aliasing on the following line. */
     pCompConfig = (icp_qat_hw_compression_config_t *)(pMsg->cd_pars.sl
                                                           .comp_slice_cfg_word);
@@ -1123,15 +771,12 @@ STATIC void dcNsCompContentDescPopulate(sal_compression_service_t *pService,
     pCompControlBlock->resrvd = 0;
 
     /* Populate Compression Hardware Setup Block */
-    if (pService->generic_service_info.isGen4)
-    {
-        dcNsCompHwBlockPopulateGen4(
-            pService, pSetupData, pCompConfig, compDecomp);
-    }
-    else
-    {
-        dcNsCompHwBlockPopulate(pService, pSetupData, pCompConfig, compDecomp);
-    }
+    (pDcCapabilities->dcNsCompHwBlockPopulate)((void *)pService,
+                                               NULL,
+                                               pSetupData,
+                                               pCompConfig,
+                                               (void *)&compDecomp,
+                                               CPA_TRUE);
 }
 
 CpaStatus dcNsCreateBaseRequest(icp_qat_fw_comp_req_t *pMsg,
@@ -1150,9 +795,20 @@ CpaStatus dcNsCreateBaseRequest(icp_qat_fw_comp_req_t *pMsg,
     icp_qat_fw_comn_flags cmnRequestFlags = 0;
     icp_qat_fw_ext_serv_specif_flags extServiceCmdFlags = 0;
     CpaDcAutoSelectBest autoSelectBestProfile;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    Cpa16U numInterBuffs = 0;
+    dc_hw_gen_types_t hw_gen;
+
+    LAC_OS_BZERO(pMsg, sizeof(icp_qat_fw_comp_req_t));
 
     cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
         DC_DEFAULT_QAT_PTR_TYPE, QAT_COMN_CD_FLD_TYPE_16BYTE_DATA);
+
+    LAC_ASSERT_NOT_NULL(pService);
+
+    pDcCapabilities = &pService->dc_capabilities;
+    numInterBuffs = pDcCapabilities->numInterBuffs;
+    hw_gen = pDcCapabilities->deviceData.hw_gen;
 
     if (pService->generic_service_info.capabilitiesMask &
         ICP_ACCEL_CAPABILITIES_INLINE)
@@ -1161,13 +817,13 @@ CpaStatus dcNsCreateBaseRequest(icp_qat_fw_comp_req_t *pMsg,
     }
     else
     {
-        secureRam = pService->comp_device_data.useDevRam;
+        secureRam = pService->dc_capabilities.deviceData.useDevRam;
     }
 
     autoSelectBestProfile = pSetupData->autoSelectBestHuffmanTree;
 
-    /* Start moving away from legacy ASB profiles with Gen 4. */
-    if (pService->generic_service_info.isGen4)
+    /* Enable or disable ASB in the uniform manner for all the algorithms */
+    if (hw_gen >= DC_CAPS_GEN4_HW)
     {
         switch (autoSelectBestProfile)
         {
@@ -1204,9 +860,9 @@ CpaStatus dcNsCreateBaseRequest(icp_qat_fw_comp_req_t *pMsg,
     }
 
 #ifndef ICP_DC_DYN_NOT_SUPPORTED
-    if (!pService->generic_service_info.isGen4 &&
-        pSetupData->sessDirection == CPA_DC_DIR_COMPRESS &&
-        pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC)
+    if ((numInterBuffs > 0) &&
+        (pSetupData->sessDirection == CPA_DC_DIR_COMPRESS) &&
+        (pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC))
     {
         pMsg->u1.xlt_pars.inter_buff_ptr = pService->pInterBuffPtrsArrayPhyAddr;
     }
@@ -1302,6 +958,13 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
     Cpa32U initial_adler = 1;
     Cpa32U initial_xxhash = 0;
     Cpa32U initial_crc32 = 0;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    CpaBoolean errorInjectionSupported = CPA_FALSE;
+    Cpa32U errorInjectionCode = ICP_QAT_FW_COMP_CNV_ERROR_NONE;
+    Cpa16U numInterBuffs = 0;
+    dc_hw_gen_types_t hw_gen;
+
+    LAC_ASSERT_NOT_NULL(pService);
 
     pMsg = &pCookie->request;
 
@@ -1334,6 +997,11 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
     {
         return status;
     }
+
+    pDcCapabilities = &pService->dc_capabilities;
+    errorInjectionSupported = pDcCapabilities->cnv.errorInjection;
+    numInterBuffs = pDcCapabilities->numInterBuffs;
+    hw_gen = pDcCapabilities->deviceData.hw_gen;
 
     /* Populate the compression cookie */
     pCookie->dcInstance = pService;
@@ -1380,10 +1048,9 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
      * destination buffer and the intermediate buffer are synchronised. They
      * share the same field in the request message, and it is set to the
      * smaller of the two sizes. */
-    if ((!pService->generic_service_info.isGen4) &&
-        compDecomp == DC_COMPRESSION_REQUEST &&
-        pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC &&
-        (Cpa32U)dstTotalDataLenInBytes > pService->minInterBuffSizeInBytes)
+    if ((numInterBuffs > 0) && (compDecomp == DC_COMPRESSION_REQUEST) &&
+        (pSetupData->huffType == CPA_DC_HT_FULL_DYNAMIC) &&
+        ((Cpa32U)dstTotalDataLenInBytes > pService->minInterBuffSizeInBytes))
     {
         pCookie->dstTotalDataLenInBytes =
             (Cpa32U)pService->minInterBuffSizeInBytes;
@@ -1417,13 +1084,13 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
     pCookie->pUserSrcBuff = pSrcBuff;
     pCookie->pUserDestBuff = pDestBuff;
 
-    if (pService->generic_service_info.integrityCrcCheck == CPA_TRUE &&
-        integrityCrcCheck == CPA_TRUE)
+    if ((CPA_TRUE == integrityCrcCheck) &&
+        (CPA_TRUE == pDcCapabilities->crcIntegrity.supported))
     {
         /* Get physical address of E2E CRC buffer */
         pMsg->comp_pars.crc.crc_data_addr =
             (icp_qat_addr_width_t)LAC_OS_VIRT_TO_PHYS_INTERNAL(
-                &pCookie->dataIntegrityCrcs);
+                &pService->generic_service_info, &pCookie->dataIntegrityCrcs);
 
         if (!pMsg->comp_pars.crc.crc_data_addr)
         {
@@ -1442,7 +1109,7 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
             pCookie->dataIntegrityCrcs.adler32 = initial_adler;
         }
 
-        if (!pService->generic_service_info.isGen4)
+        if (hw_gen < DC_CAPS_GEN4_HW)
         {
             pCookie->dataIntegrityCrcs.oCrc32Cpr = DC_DEFAULT_CRC;
             pCookie->dataIntegrityCrcs.iCrc32Cpr = DC_DEFAULT_CRC;
@@ -1457,7 +1124,8 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
         {
             pCookie->dataIntegrityCrcs.iCrc64Cpr = DC_DEFAULT_CRC;
             pCookie->dataIntegrityCrcs.oCrc64Cpr = DC_DEFAULT_CRC;
-            pCookie->dataIntegrityCrcs.iCrc64Xlt = DC_DEFAULT_CRC;
+            pCookie->dataIntegrityCrcs.reflectIn = DC_REFLECT_IN_DEFAULT;
+            pCookie->dataIntegrityCrcs.reflectOut = DC_REFLECT_OUT_DEFAULT;
             pCookie->dataIntegrityCrcs.oCrc64Xlt = DC_DEFAULT_CRC;
             pCookie->dataIntegrityCrcs.crc64Poly = DC_CRC64_POLY_DEFAULT;
             pCookie->dataIntegrityCrcs.xor64Out = DC_XOR64_OUT_DEFAULT;
@@ -1485,7 +1153,7 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
 
     /* (LW 14 - 15) */
     pCompReqParams = &(pMsg->comp_pars);
-    dcNsCompRequestParamsPopulate(pCompReqParams, pCookie);
+    dcCompRequestParamsPopulate(pCompReqParams, pCookie);
     if (flush == CPA_DC_FLUSH_FINAL)
     {
         bFinal = ICP_QAT_FW_COMP_BFINAL;
@@ -1499,7 +1167,7 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
          * cnvDecompReq also needs to be set */
         case DC_CNV:
             cnvDecompReq = ICP_QAT_FW_COMP_CNV;
-            if (pService->generic_service_info.isGen4)
+            if (CPA_TRUE == errorInjectionSupported)
             {
                 cnvErrorInjection =
                     pService->generic_service_info.ns_isCnvErrorInjection;
@@ -1512,13 +1180,19 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
     }
 
     /* LW 18 */
-    rpCmdFlags = ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(sop,
-                                                       eop,
-                                                       bFinal,
-                                                       cnvDecompReq,
-                                                       cnvRecovery,
-                                                       cnvErrorInjection,
-                                                       crcMode);
+    rpCmdFlags = ICP_QAT_FW_COMP_REQ_PARAM_FLAGS_BUILD(
+        sop,
+        eop,
+        bFinal,
+        cnvDecompReq,
+        cnvRecovery,
+        cnvErrorInjection,
+        crcMode,
+        ICP_QAT_FW_COMP_NO_XXHASH_ACC,
+        errorInjectionCode,
+        ICP_QAT_FW_COMP_NO_APPEND_CRC,
+        ICP_QAT_FW_COMP_NO_DROP_DATA,
+        ICP_QAT_FW_COMP_NO_PARTIAL_DECOMPRESS);
 
     /* Clear the xxHash accumulator flag, as a rolling checksum isn't supported
      * in the NS API. */
@@ -1557,6 +1231,16 @@ STATIC CpaStatus dcNsCompDecompData(sal_compression_service_t *pService,
     dc_compression_cookie_t *pCookie = NULL;
     lac_sync_op_data_t *pSyncCallbackData = NULL;
     CpaBoolean syncMode = CPA_FALSE;
+    icp_comms_trans_handle trans_handle = NULL;
+
+    if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+    {
+        trans_handle = pService->trans_handle_compression_tx;
+    }
+    else
+    {
+        trans_handle = pService->trans_handle_decompression_tx;
+    }
 
     if (!callbackFn)
     {
@@ -1568,11 +1252,27 @@ STATIC CpaStatus dcNsCompDecompData(sal_compression_service_t *pService,
      */
     do
     {
-        pCookie = (dc_compression_cookie_t *)Lac_MemPoolEntryAlloc(
-            pService->compression_mem_pool);
+        if (pService->generic_service_info.type == SAL_SERVICE_TYPE_COMPRESSION)
+        {
+            pCookie = (dc_compression_cookie_t *)Lac_MemPoolEntryAlloc(
+                pService->compression_mem_pool);
+        }
+        else
+        {
+            pCookie = (dc_compression_cookie_t *)Lac_MemPoolEntryAlloc(
+                pService->decompression_mem_pool);
+        }
         if (pCookie == NULL)
         {
-            LAC_LOG_ERROR("Cannot get mem pool entry for compression");
+            if (pService->generic_service_info.type ==
+                SAL_SERVICE_TYPE_COMPRESSION)
+            {
+                LAC_LOG_ERROR("Cannot get mem pool entry for compression");
+            }
+            else
+            {
+                LAC_LOG_ERROR("Cannot get mem pool entry for decompression");
+            }
             status = CPA_STATUS_RESOURCE;
             return status;
         }
@@ -1631,7 +1331,7 @@ STATIC CpaStatus dcNsCompDecompData(sal_compression_service_t *pService,
     if (status == CPA_STATUS_SUCCESS)
     {
         /* Send to QAT */
-        status = SalQatMsg_transPutMsg(pService->trans_handle_compression_tx,
+        status = SalQatMsg_transPutMsg(trans_handle,
                                        (void *)&(pCookie->request),
                                        LAC_QAT_DC_REQ_SZ_LW,
                                        LAC_LOG_MSG_DC,
@@ -1753,7 +1453,9 @@ CpaStatus cpaDcNsDecompressData(CpaInstanceHandle dcInstance,
 
 #ifdef ICP_PARAM_CHECK
     /* Ensure this is a compression instance */
-    SAL_CHECK_INSTANCE_TYPE(dcInstance, SAL_SERVICE_TYPE_COMPRESSION);
+    SAL_CHECK_INSTANCE_TYPE(
+        dcInstance,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 
     SAL_CHECK_ADDR_TRANS_SETUP(dcInstance);
 #endif
@@ -1782,7 +1484,8 @@ CpaStatus cpaDcNsDecompressData(CpaInstanceHandle dcInstance,
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    if (dcCheckOpData(pService, pOpData) != CPA_STATUS_SUCCESS)
+    if (dcCheckOpData(pService, pOpData, pSetupData->sessDirection) !=
+        CPA_STATUS_SUCCESS)
     {
         return CPA_STATUS_INVALID_PARAM;
     }
@@ -1848,7 +1551,7 @@ CpaStatus cpaDcNsCompressData(CpaInstanceHandle dcInstance,
     sal_compression_service_t *pService = NULL;
     CpaInstanceHandle insHandle = NULL;
     Cpa64U srcBuffSize = 0;
-    dc_cnv_mode_t cnvMode = DC_NO_CNV;
+    dc_cnv_mode_t cnvMode = DC_CNV;
 
     LAC_CHECK_NULL_PARAM(pOpData);
 
@@ -1927,15 +1630,16 @@ CpaStatus cpaDcNsCompressData(CpaInstanceHandle dcInstance,
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    if (CPA_DC_LZ4 == pSetupData->compType &&
-        CPA_TRUE == pOpData->integrityCrcCheck)
+    if ((CPA_DC_LZ4 == pSetupData->compType) &&
+        (CPA_TRUE == pOpData->integrityCrcCheck))
     {
         LAC_INVALID_PARAM_LOG("LZ4 with integrityCrcCheck is not supported"
                               " in the compression direction");
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    if (dcCheckOpData(pService, pOpData) != CPA_STATUS_SUCCESS)
+    if (dcCheckOpData(pService, pOpData, pSetupData->sessDirection) !=
+        CPA_STATUS_SUCCESS)
     {
         return CPA_STATUS_INVALID_PARAM;
     }
@@ -2000,21 +1704,23 @@ CpaStatus cpaDcNsCompressData(CpaInstanceHandle dcInstance,
     }
 #endif
 
-    if (!(pService->generic_service_info.dcExtendedFeatures &
-          DC_CNV_EXTENDED_CAPABILITY) &&
-        (pOpData->compressAndVerify == CPA_TRUE))
+    if (!(pService->dc_capabilities.cnv.supported) &&
+        (CPA_TRUE == pOpData->compressAndVerify))
     {
         LAC_INVALID_PARAM_LOG("CompressAndVerify feature not supported");
         return CPA_STATUS_UNSUPPORTED;
     }
 
-    if (pOpData->compressAndVerifyAndRecover == CPA_TRUE)
+    if (!(pService->dc_capabilities.cnv.recovery) &&
+        (CPA_TRUE == pOpData->compressAndVerifyAndRecover))
+    {
+        LAC_INVALID_PARAM_LOG("CompressAndVerify feature not supported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (CPA_TRUE == pOpData->compressAndVerifyAndRecover)
     {
         cnvMode = DC_CNVNR;
-    }
-    else if (pOpData->compressAndVerify == CPA_TRUE)
-    {
-        cnvMode = DC_CNV;
     }
 
     return dcNsCompDecompData(pService,
@@ -2037,6 +1743,8 @@ CpaStatus dcNsSetCnvErrorInj(CpaInstanceHandle dcInstance,
 
     CpaInstanceHandle insHandle = NULL;
     sal_compression_service_t *pService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    CpaBoolean errorInjectionSupported = CPA_FALSE;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
@@ -2048,12 +1756,14 @@ CpaStatus dcNsSetCnvErrorInj(CpaInstanceHandle dcInstance,
     }
 
     pService = (sal_compression_service_t *)insHandle;
+    pDcCapabilities = &pService->dc_capabilities;
+    errorInjectionSupported = pDcCapabilities->cnv.errorInjection;
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pService);
 #endif
 
-    if (!pService->generic_service_info.isGen4)
+    if (CPA_FALSE == errorInjectionSupported)
     {
         LAC_ENSURE(CPA_FALSE, "Unsupported compression feature.\n");
         return CPA_STATUS_UNSUPPORTED;

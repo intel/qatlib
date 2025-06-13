@@ -123,7 +123,8 @@ extern "C" {
  *      cpaCyEcdhPointMultiply()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcdhPointMultiplyOpData {
+typedef struct _CpaCyEcdhPointMultiplyOpData
+{
     CpaFlatBuffer k;
     /**< scalar multiplier (k > 0 and k < n) */
     CpaFlatBuffer xg;
@@ -157,7 +158,6 @@ typedef struct _CpaCyEcdhPointMultiplyOpData {
     /**< set to CPA_TRUE to do a verification before the multiplication */
 } CpaCyEcdhPointMultiplyOpData;
 
-
 /**
  *****************************************************************************
  * @ingroup cpaCyEcdh
@@ -168,7 +168,8 @@ typedef struct _CpaCyEcdhPointMultiplyOpData {
  *      initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyEcdhStats64 {
+typedef struct _CpaCyEcdhStats64
+{
     Cpa64U numEcdhPointMultiplyRequests;
     /**< Total number of ECDH Point Multiplication operation requests. */
     Cpa64U numEcdhPointMultiplyRequestErrors;
@@ -186,7 +187,6 @@ typedef struct _CpaCyEcdhStats64 {
      * output.
      * Note that this does not indicate an error. */
 } CpaCyEcdhStats64;
-
 
 /**
  *****************************************************************************
@@ -235,12 +235,11 @@ typedef struct _CpaCyEcdhStats64 {
  *
  *****************************************************************************/
 typedef void (*CpaCyEcdhPointMultiplyCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean multiplyStatus,
-        CpaFlatBuffer *pXk,
-        CpaFlatBuffer *pYk);
-
+                                             CpaStatus status,
+                                             void *pOpData,
+                                             CpaBoolean multiplyStatus,
+                                             CpaFlatBuffer *pXk,
+                                             CpaFlatBuffer *pYk);
 
 /**
  *****************************************************************************
@@ -311,14 +310,13 @@ typedef void (*CpaCyEcdhPointMultiplyCbFunc)(void *pCallbackTag,
  *      CpaCyEcdhPointMultiplyCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyEcdhPointMultiply(const CpaInstanceHandle instanceHandle,
-        const CpaCyEcdhPointMultiplyCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyEcdhPointMultiplyOpData *pOpData,
-        CpaBoolean *pMultiplyStatus,
-        CpaFlatBuffer *pXk,
-        CpaFlatBuffer *pYk);
+CpaStatus cpaCyEcdhPointMultiply(const CpaInstanceHandle instanceHandle,
+                                 const CpaCyEcdhPointMultiplyCbFunc pCb,
+                                 void *pCallbackTag,
+                                 const CpaCyEcdhPointMultiplyOpData *pOpData,
+                                 CpaBoolean *pMultiplyStatus,
+                                 CpaFlatBuffer *pXk,
+                                 CpaFlatBuffer *pYk);
 
 /**
  *****************************************************************************
@@ -372,9 +370,8 @@ cpaCyEcdhPointMultiply(const CpaInstanceHandle instanceHandle,
  * @see
  *      CpaCyEcdhStats64
  *****************************************************************************/
-CpaStatus
-cpaCyEcdhQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyEcdhStats64 *pEcdhStats);
+CpaStatus cpaCyEcdhQueryStats64(const CpaInstanceHandle instanceHandle,
+                                CpaCyEcdhStats64 *pEcdhStats);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

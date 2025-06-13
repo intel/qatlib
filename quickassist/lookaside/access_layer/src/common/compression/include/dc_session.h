@@ -78,26 +78,6 @@
 #include "sal_qat_cmn_msg.h"
 #include "sal_types_compression.h"
 
-/* Maximum number of intermediate buffers SGLs for devices
- * with a maximum of 6 compression slices */
-#define DC_QAT_MAX_NUM_INTER_BUFFERS_6COMP_SLICES (12)
-
-/* Maximum number of intermediate buffers SGLs for devices
- * with a maximum of 10 max compression slices */
-#define DC_QAT_MAX_NUM_INTER_BUFFERS_10COMP_SLICES (20)
-
-/* Maximum number of intermediate buffers SGLs for devices
- * with a maximum of 8 compression slices and 24 AEs */
-#define DC_QAT_MAX_NUM_INTER_BUFFERS_8COMP_SLICES (48)
-
-/* Maximum number of intermediate buffers SGLs for devices
- * with a maximum of 4 max compression slices and 12 AEs */
-#define DC_QAT_MAX_NUM_INTER_BUFFERS_4COMP_SLICES (24)
-
-/* Maximum number of intermediate buffers SGLs for devices
- * with a maximum of 12 max compression slices and 32 AEs */
-#define DC_QAT_MAX_NUM_INTER_BUFFERS_12COMP_SLICES (64)
-
 /* Maximum size of the state registers decompression 128 bytes */
 #define DC_QAT_DCPR_STATE_REGISTERS_MAX_SIZE (128)
 
@@ -105,21 +85,6 @@
  * for legacy devices and not for CPM2.0 as it
  * does not support stateful compression */
 #define DC_QAT_CPR_STATE_REGISTERS_MAX_SIZE (64)
-
-/* Size of the history window.
- * Base 2 logarithm of maximum window size minus 8 */
-#define DC_4K_WINDOW_SIZE (4)
-#define DC_8K_WINDOW_SIZE (5)
-#define DC_16K_WINDOW_SIZE (6)
-#define DC_32K_WINDOW_SIZE (7)
-
-/* Context size */
-#define DC_DEFLATE_MAX_CONTEXT_SIZE (49152)
-#define DC_INFLATE_CONTEXT_SIZE (36864)
-#define DC_LZ4_DECOMP_CONTEXT_SIZE (32768)
-#define DC_DEFLATE_EH_MAX_CONTEXT_SIZE (65536)
-#define DC_DEFLATE_EH_MIN_CONTEXT_SIZE (49152)
-#define DC_INFLATE_EH_CONTEXT_SIZE (34032)
 
 /* Retrieve the session descriptor pointer from the session context structure
  * that the user allocates. The pointer to the internally realigned address
@@ -224,9 +189,10 @@ typedef struct dc_integrity_crc_fw_s
             Cpa64U oCrc64Cpr;
             /* CRC64 checksum returned for data output by compression
              * accelerator */
-            Cpa64U iCrc64Xlt;
-            /* CRC64 checksum returned for input data to translator accelerator
-             */
+            Cpa32U reflectIn;
+            /* Flag to indicate if the input should be reflected */
+            Cpa32U reflectOut;
+            /* Flag to indicate if the output should be reflected */
             Cpa64U oCrc64Xlt;
             /* CRC64 checksum returned for data output by translator accelerator
              */
@@ -257,6 +223,17 @@ typedef struct dc_sw_checksums_s
         };
     };
 } dc_sw_checksums_t;
+
+/* Configuration data for CRC operation */
+typedef struct dc_crc_config_s
+{
+    dc_integrity_crc_fw_t crcParam;
+    /**< Crc parameters for firmware */
+    Cpa64U *pCrcLookupTable;
+    /**< Lookup table to speed up CRC calculation at runtime */
+    CpaBoolean useProgCrcSetup;
+    /**< Flag to indicate if programmable CRC parameters used */
+} dc_crc_config_t;
 
 /* Session descriptor structure for compression */
 typedef struct dc_session_desc_s
@@ -338,6 +315,10 @@ typedef struct dc_session_desc_s
     CpaBoolean lz4BlockIndependence;
     /**< If set LZ4 blocks will be independent, if reset each block
      * depends on the previous ones and must be decompressed sequentially */
+    dc_crc_config_t crcConfig;
+    /**< Configuration data for CRC operation */
+    CpaDcLZ4OutputFormat lz4OutputFormat;
+    /**< LZ4 block header mode */
 } dc_session_desc_t;
 
 /**
@@ -526,5 +507,107 @@ CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
  *****************************************************************************/
 void dcTransContentDescPopulate(icp_qat_fw_comp_req_t *pMsg,
                                 icp_qat_fw_slice_t nextSlice);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Populate the compression hardware block for QAT Gen4
+ *
+ * @description
+ *      This function will populate the compression hardware block and update
+ *      for QAT Gen4 the size in bytes of the block
+ *
+ * @param[in]   pService                Pointer to the service
+ * @param[in]   pSessionDesc            Pointer to the session descriptor
+ * @param[in]   pSetupData              Pointer to setup data
+ * @param[in]   pCompConfig             Pointer to slice config word
+ * @param[in]   compDecomp              Direction of the operation
+ * @param[in]   bNsOp                   Boolean to indicate no session operation
+ *
+ *****************************************************************************/
+void dcCompHwBlockPopulateGen4(void *pService,
+                               void *pSessionDesc,
+                               CpaDcNsSetupData *pSetupData,
+                               icp_qat_hw_compression_config_t *pCompConfig,
+                               void *compDecomp,
+                               CpaBoolean bNsOp);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Populate the compression hardware block for QAT Gen2
+ *
+ * @description
+ *      This function will populate the compression hardware block and update
+ *      for QAT Gen2 the size in bytes of the block
+ *
+ * @param[in]   pService                Pointer to the service
+ * @param[in]   pSessionDesc            Pointer to the session descriptor
+ * @param[in]   pSetupData              Pointer to setup data
+ * @param[in]   pCompConfig             Pointer to slice config word
+ * @param[in]   compDecomp              Direction of the operation
+ * @param[in]   bNsOp                   Boolean to indicate no session operation
+ *
+ *****************************************************************************/
+void dcCompHwBlockPopulate(void *pService,
+                           void *pSessionDesc,
+                           CpaDcNsSetupData *pSetupData,
+                           icp_qat_hw_compression_config_t *pCompConfig,
+                           void *compDecomp,
+                           CpaBoolean bNsOp);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Populate the compression hardware block for QAT Gen2
+ *
+ * @description
+ *      This function will populate the compression hardware block and update
+ *      for QAT Gen2 the size in bytes of the block
+ *
+ * @param[in]   pService                Pointer to the service
+ * @param[in]   pSessionDesc            Pointer to the session descriptor
+ * @param[in]   pSetupData              Pointer to setup data
+ * @param[in]   pCompConfig             Pointer to slice config word
+ * @param[in]   compDecomp              Direction of the operation
+ * @param[in]   bNsOp                   Boolean to indicate no session operation
+ *
+ *****************************************************************************/
+void dcNsCompHwBlockPopulate(void *pService,
+                             void *pSessionDesc,
+                             CpaDcNsSetupData *pSetupData,
+                             icp_qat_hw_compression_config_t *pCompConfig,
+                             void *compDecomp,
+                             CpaBoolean bNsOp);
+
+CpaStatus dcDeflateBoundGen2(void *pServiceType,
+                             CpaDcHuffType huffType,
+                             Cpa32U inputSize,
+                             Cpa32U *outputSize);
+
+CpaStatus dcDeflateBoundGen4(void *pServiceType,
+                             CpaDcHuffType huffType,
+                             Cpa32U inputSize,
+                             Cpa32U *outputSize);
+
+CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize);
+CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize);
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Check that pCrcControlData is valid
+ *
+ * @description
+ *      Check that all the parameters defined in the pCrcControlData are valid
+ *
+ * @param[in]       pCrcControlData   Pointer to a user instantiated structure
+ *                                    containing session CRC control data.
+ *
+ * @retval CPA_STATUS_SUCCESS         Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM   Invalid parameter passed in
+ *
+ *****************************************************************************/
+CpaStatus dcCheckSessionCrcControlData(
+    const CpaCrcControlData *pCrcControlData);
 
 #endif /* DC_SESSION_H */

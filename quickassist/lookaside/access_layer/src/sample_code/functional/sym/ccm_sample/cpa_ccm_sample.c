@@ -178,7 +178,9 @@ static CpaStatus algChainPerformOpCCM(CpaInstanceHandle cyInstHandle,
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
+
+    COMPLETION_INIT(&complete); // Initialize the completion variable
 
     /* get meta information size */
     PRINT_DBG("cpaCyBufferListGetMetaSize\n");
@@ -277,10 +279,6 @@ static CpaStatus algChainPerformOpCCM(CpaInstanceHandle cyInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /** initialization for callback; the "complete" variable is used by the
-         * callback function to indicate it has been called*/
-        COMPLETION_INIT(&complete);
-
         PRINT_DBG("cpaCySymPerformOp\n");
 
         /** Perform symmetric operation */
@@ -361,6 +359,7 @@ CpaStatus algChainSample(void)
     CpaInstanceHandle cyInstHandle = NULL;
     CpaCySymSessionSetupData sessionSetupData = {0};
     CpaCySymStats64 symStats = {0};
+    CpaCySymCapabilitiesInfo symCapInfo = { { 0 } };
 
     /*
      * In this simplified version of instance discovery, we discover
@@ -370,6 +369,21 @@ CpaStatus algChainSample(void)
     if (cyInstHandle == NULL)
     {
         return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCySymQueryCapabilities(cyInstHandle, &symCapInfo);
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to query capabilities, status = %d\n", status);
+        return status;
+    }
+    /* Check capabilities before running the test */
+    if ((!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers, CPA_CY_SYM_CIPHER_AES_CCM)) ||
+        (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes, CPA_CY_SYM_HASH_AES_CCM)))
+    {
+        PRINT("AES-CCM algorithm chaining not supported on Instance\n");
+        return CPA_STATUS_UNSUPPORTED;
     }
 
     /* Start Cryptographic component */

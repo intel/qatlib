@@ -193,8 +193,13 @@ CpaStatus SalStatistics_InitStatisticsCollection(icp_accel_dev_t *device)
 
     /* Check if the compression service is enabled */
     if (SalCtrl_IsServiceEnabled(enabled_services,
-                                 SAL_SERVICE_TYPE_COMPRESSION))
+                                 SAL_SERVICE_TYPE_COMPRESSION) ||
+        SalCtrl_IsServiceEnabled(enabled_services,
+                                 SAL_SERVICE_TYPE_DECOMPRESSION))
+    {
+
         pStatsCollection->bDcStatsEnabled = CPA_TRUE;
+    }
 
     /* Check if the asym service is enabled */
     if (SalCtrl_IsServiceEnabled(enabled_services,

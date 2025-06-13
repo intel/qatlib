@@ -208,35 +208,37 @@ void LacSync_GenBufListVerifyCb(void *pCallbackTag,
 * Define static function definitions
 *******************************************************************************
 */
-#ifdef ICP_PARAM_CHECK
 /**
  * @ingroup LacSym
- * Function which perform parameter checks on session setup data
+ * Function which performs capability checks on session setup data
  *
- * @param[in] CpaInstanceHandle     Instance Handle
- * @param[in] pSessionSetupData     Pointer to session setup data
+ * @param[in] CpaInstanceHandle      Instance handle
+ * @param[in] pSessionSetupData      Pointer to session setup data
  *
  * @retval CPA_STATUS_SUCCESS        The operation succeeded
- * @retval CPA_STATUS_INVALID_PARAM  An invalid parameter value was found
- * @retval CPA_STATUS_UNSUPPORTED  An unsupported algorithm was found
+ * @retval CPA_STATUS_INVALID_PARAM  An invalid parameter value was selected
+ * @retval CPA_STATUS_UNSUPPORTED    An unsupported algorithm was selected
  */
 STATIC CpaStatus
-LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
-                         const CpaCySymSessionSetupData *pSessionSetupData)
+LacSymSession_CapabilityCheck(const CpaInstanceHandle instanceHandle,
+                              const CpaCySymSessionSetupData *pSessionSetupData)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaCySymCapabilitiesInfo symCapInfo;
+    CpaBoolean extAlgchainSupported = CPA_FALSE;
+    CpaCyCapabilitiesInfo cyCapInfo = { 0 };
+
     /* initialize convenient pointers to cipher and hash contexts */
     const CpaCySymCipherSetupData *const pCipherSetupData =
         (const CpaCySymCipherSetupData *)&pSessionSetupData->cipherSetupData;
     const CpaCySymHashSetupData *const pHashSetupData =
         &pSessionSetupData->hashSetupData;
 
-    Cpa32U mask = ((sal_service_t *)instanceHandle)->capabilitiesMask;
-    CpaCySymCapabilitiesInfo capInfo;
-    CpaCyCapabilitiesInfo cyCapInfo;
-    status = SalCtrl_CySymQueryCapabilities(instanceHandle, &capInfo);
+    status = SalCtrl_CySymQueryCapabilities(instanceHandle, &symCapInfo);
     LAC_CHECK_STATUS(status);
+
     SalCtrl_CyQueryCapabilities(instanceHandle, &cyCapInfo);
+    extAlgchainSupported = cyCapInfo.extAlgchainSupported;
 
     /* Ensure cipher algorithm is correct and supported */
     if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
@@ -251,12 +253,76 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
             LAC_INVALID_PARAM_LOG("cipherAlgorithm");
             return CPA_STATUS_INVALID_PARAM;
         }
-        if (!CPA_BITMAP_BIT_TEST(capInfo.ciphers,
+        if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
                                  pCipherSetupData->cipherAlgorithm))
         {
             LAC_UNSUPPORTED_PARAM_LOG("UnSupported cipherAlgorithm");
             return CPA_STATUS_UNSUPPORTED;
         }
+    }
+    /* Ensure hash algorithm is correct and supported */
+    if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
+        (CPA_CY_SYM_OP_HASH == pSessionSetupData->symOperation))
+    {
+        /* Protect against value of hash outside the bitmap
+         * and check if hash algorithm is correct
+         */
+        if (pHashSetupData->hashAlgorithm >= CPA_CY_SYM_HASH_CAP_BITMAP_SIZE)
+        {
+            LAC_INVALID_PARAM_LOG("hashAlgorithm");
+            return CPA_STATUS_INVALID_PARAM;
+        }
+        if (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes,
+                                 pHashSetupData->hashAlgorithm))
+        {
+            LAC_UNSUPPORTED_PARAM_LOG("UnSupported hashAlgorithm");
+            return CPA_STATUS_UNSUPPORTED;
+        }
+    }
+
+    /* Ensure CCM, GCM, Kasumi, Snow3G and ZUC cipher and hash algorithms are
+     * selected together for Algorithm Chaining */
+    if (CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation)
+    {
+        if (IS_EXT_ALG_CHAIN_UNSUPPORTED(pCipherSetupData->cipherAlgorithm,
+                                         pHashSetupData->hashAlgorithm,
+                                         extAlgchainSupported))
+        {
+            LAC_UNSUPPORTED_PARAM_LOG("ExtAlgChain feature not supported");
+            return CPA_STATUS_UNSUPPORTED;
+        }
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
+#ifdef ICP_PARAM_CHECK
+/**
+ * @ingroup LacSym
+ * Function which performs parameter checks on session setup data
+ *
+ * @param[in] CpaInstanceHandle      Instance handle
+ * @param[in] pSessionSetupData      Pointer to session setup data
+ *
+ * @retval CPA_STATUS_SUCCESS        The operation succeeded
+ * @retval CPA_STATUS_INVALID_PARAM  An invalid parameter value was selected
+ * @retval CPA_STATUS_UNSUPPORTED    An unsupported algorithm with invalid
+ * keysize was found
+ */
+STATIC CpaStatus
+LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
+                         const CpaCySymSessionSetupData *pSessionSetupData)
+{
+    /* initialize convenient pointers to cipher and hash contexts */
+    const CpaCySymCipherSetupData *const pCipherSetupData =
+        (const CpaCySymCipherSetupData *)&pSessionSetupData->cipherSetupData;
+    const CpaCySymHashSetupData *const pHashSetupData =
+        &pSessionSetupData->hashSetupData;
+    Cpa32U mask = ((sal_service_t *)instanceHandle)->capabilitiesMask;
+
+    /* Ensure cipher algorithm is correct and supported */
+    if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
+        (CPA_CY_SYM_OP_CIPHER == pSessionSetupData->symOperation))
+    {
         if (pCipherSetupData->cipherAlgorithm == CPA_CY_SYM_CIPHER_ZUC_EEA3)
         {
             if (!(mask & ICP_ACCEL_CAPABILITIES_ZUC_256) &&
@@ -272,19 +338,6 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
     if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
         (CPA_CY_SYM_OP_HASH == pSessionSetupData->symOperation))
     {
-        /* Protect against value of hash outside the bitmap
-         * and check if hash algorithm is correct
-         */
-        if (pHashSetupData->hashAlgorithm >= CPA_CY_SYM_HASH_CAP_BITMAP_SIZE)
-        {
-            LAC_INVALID_PARAM_LOG("hashAlgorithm");
-            return CPA_STATUS_INVALID_PARAM;
-        }
-        if (!CPA_BITMAP_BIT_TEST(capInfo.hashes, pHashSetupData->hashAlgorithm))
-        {
-            LAC_UNSUPPORTED_PARAM_LOG("UnSupported hashAlgorithm");
-            return CPA_STATUS_UNSUPPORTED;
-        }
         if (pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3)
         {
             if (!(mask & ICP_ACCEL_CAPABILITIES_ZUC_256) &&
@@ -362,14 +415,6 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
             return CPA_STATUS_INVALID_PARAM;
         }
 
-        if (IS_EXT_ALG_CHAIN_UNSUPPORTED(pCipherSetupData->cipherAlgorithm,
-                                         pHashSetupData->hashAlgorithm,
-                                         cyCapInfo.extAlgchainSupported))
-        {
-            LAC_UNSUPPORTED_PARAM_LOG("ExtAlgChain feature not supported");
-            return CPA_STATUS_UNSUPPORTED;
-        }
-
         /* Ensure that algorithm chaining operation is performed for supported
          * wireless algorithms.
          *
@@ -419,7 +464,9 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
             }
         }
     }
-    /* not Algorithm Chaining so prevent CCM/GCM being selected */
+    /* Algorithm chaining is not selected by the application, therefore
+     * prevent CCM/GCM from being used.
+     */
     else if (CPA_CY_SYM_OP_CIPHER == pSessionSetupData->symOperation)
     {
         /* ensure cipher algorithm is not CCM, CHACHA or GCM */
@@ -586,7 +633,7 @@ LacSymPerform_BufferParamCheck(const CpaBufferList *const pSrcBuffer,
         }
     }
 
-    /* check for partial packet support for the session operation */
+    /* Check for partial packet support for the session operation */
     if (CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType)
     {
         if (!(IS_PARTIAL_ON_SYM_OP_SUPPORTED(pSessionDesc->symOperation,
@@ -719,10 +766,17 @@ CpaStatus LacSym_InitSession(const CpaInstanceHandle instanceHandle,
     const CpaCySymCipherSetupData *pCipherSetupData = NULL;
     const CpaCySymHashSetupData *pHashSetupData = NULL;
 
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionSetupData);
+#endif
+
+    /* Capability check done by calling function */
+    status = LacSymSession_CapabilityCheck(instanceHandle, pSessionSetupData);
+    LAC_CHECK_STATUS(status);
+
     /* Instance param checking done by calling function */
 
 #ifdef ICP_PARAM_CHECK
-    LAC_CHECK_NULL_PARAM(pSessionSetupData);
     LAC_CHECK_NULL_PARAM(pSessionCtx);
     status = LacSymSession_ParamCheck(instanceHandle, pSessionSetupData);
     LAC_CHECK_STATUS(status);
@@ -833,6 +887,11 @@ CpaStatus LacSym_InitSession(const CpaInstanceHandle instanceHandle,
 
         status = LacAlgChain_SessionInit(
             instanceHandle, pSessionSetupData, pSessionDesc);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            LAC_SPINLOCK_DESTROY(&pSessionDesc->requestQueueLock);
+            osalAtomicSet(0, &pSessionDesc->accessLock);
+        }
     }
     return status;
 }
@@ -909,7 +968,7 @@ CpaStatus cpaCySymRemoveSession(const CpaInstanceHandle instanceHandle_in,
     /* If there are pending requests */
     if (0 != numPendingRequests)
     {
-        LAC_LOG1("There are %lld requests pending", numPendingRequests);
+        LAC_LOG1("There are %llu requests pending", numPendingRequests);
         status = CPA_STATUS_RETRY;
         if (CPA_TRUE == pSessionDesc->isDPSession)
         {
@@ -925,8 +984,13 @@ CpaStatus cpaCySymRemoveSession(const CpaInstanceHandle instanceHandle_in,
                 /*
                  * icp_adf_updateQueueTail
                  */
-                SalQatMsg_updateQueueTail(trans_handle);
-                return status;
+                status = SalQatMsg_updateQueueTail(trans_handle);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    return status;
+                }
+
+                return CPA_STATUS_RETRY;
             }
         }
     }

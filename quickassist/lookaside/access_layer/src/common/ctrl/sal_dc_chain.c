@@ -99,7 +99,6 @@
 #include "sal_string_parse.h"
 #include "lac_sym.h"
 
-
 /*
  * @ingroup Dc_Chaining
  *     Frees resources (memory and transhandles) if allocated

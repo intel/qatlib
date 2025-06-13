@@ -246,7 +246,7 @@ CpaStatus LacSymHash_HmacPrecompInit(CpaInstanceHandle instanceHandle)
                                   LacSymHash_PrecompCbFunc);
 
     status = LAC_OS_MALLOC(&(pService->ppHmacContentDesc),
-                           (CPA_CY_HASH_ALG_END + 1) * sizeof(Cpa8U *));
+                           (LAC_HASH_ALG_END + 1) * sizeof(Cpa8U *));
     LAC_CHECK_STATUS(status);
 
     for (i = CPA_CY_SYM_HASH_MD5; i <= CPA_CY_SYM_HASH_SHA512; i++)

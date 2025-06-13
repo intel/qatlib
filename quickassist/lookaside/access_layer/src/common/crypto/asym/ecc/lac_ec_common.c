@@ -319,7 +319,6 @@ void LacEc_StatsShow(CpaInstanceHandle instanceHandle)
             ecdsaStats.numEcdsaSignRSCompleted,
             ecdsaStats.numEcdsaSignRSCompletedErrors,
             ecdsaStats.numEcdsaSignRSCompletedOutputInvalid);
-
     /* verify requests */
     osalLog(OSAL_LOG_LVL_USER,
             OSAL_LOG_DEV_STDOUT,

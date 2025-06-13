@@ -201,6 +201,15 @@ CpaStatus qatInitLatency(perf_data_t *performanceStats,
                  * */
                 performanceStats->countIncrement =
                     (numberOfLists * numberOfLoops) / MAX_LATENCY_COUNT;
+
+		/* countIncreement is set to numberOfLists. since number of
+		 * times the latency is calculated is exceeding
+		 * MAX_LATENCY_COUNT.
+		 * */
+		if(performanceStats->countIncrement < numberOfLists)
+                {
+                    performanceStats->countIncrement = numberOfLists;
+                }
                 performanceStats->nextCount = performanceStats->countIncrement;
                 performanceStats->latencyCount = 0;
                 performanceStats->response_times =

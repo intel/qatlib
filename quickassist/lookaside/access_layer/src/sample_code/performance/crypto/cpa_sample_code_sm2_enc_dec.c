@@ -566,7 +566,7 @@ static CpaStatus sm2DecPostProc(sm2_perf_test_t *perf_test, void *ptr)
 /**
  ******************************************************************************
  * Callback function
- * Sm2 Encrytion Callback function
+ * Sm2 Encryption Callback function
  *    Post processing with KDF && SM3 Hash
  *    Performance statistic
  *
@@ -596,7 +596,7 @@ static void sm2EncCallback(void *pCallbackTag,
 /**
  ******************************************************************************
  * Callback function
- * Sm2 Decrytion Callback function
+ * Sm2 Decryption Callback function
  *     Post processing with KDF && SM3 Hash
  *     Performance statistic
  *

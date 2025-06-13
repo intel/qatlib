@@ -77,7 +77,6 @@
 extern "C" {
 #endif
 
-#ifdef ICP_DC_ERROR_SIMULATION
 /*
  * icp_sal_dc_simulate_error
  *
@@ -105,7 +104,6 @@ extern "C" {
  * @retval CPA_STATUS_FAIL           Operation failed
  */
 CpaStatus icp_sal_dc_simulate_error(Cpa8U numErrors, Cpa8S dcError);
-#endif
 
 /*
  * icp_sal_get_dc_error

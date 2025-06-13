@@ -73,6 +73,7 @@
 #define SAL_TYPES_COMPRESSION_H_
 
 #include "cpa_dc.h"
+#include "cpa_dc_capabilities.h"
 #include "cpa_dc_dp.h"
 #include "lac_sal_types.h"
 #include "icp_qat_hw.h"
@@ -82,32 +83,9 @@
 #include "icp_adf_transport.h"
 #include "lac_sym_qat_hash_defs_lookup.h"
 #include "lac_sym_qat_constants_table.h"
+#include "dc_capabilities.h"
 
 #define DC_NUM_RX_RINGS (1)
-#define DC_NUM_COMPRESSION_LEVELS (CPA_DC_L12)
-
-/* Type to access extended features bit fields */
-typedef struct dc_extended_features_s
-{
-    unsigned is_cnv : 1; /* Bit<0> */
-    unsigned padding : 7;
-    unsigned is_cnvnr : 1; /* Bit<8> */
-    unsigned padding1 : 7;
-    unsigned is_chain_compress_then_hash : 1;                  /* Bit<16> */
-    unsigned is_chain_compress_then_encrypt : 1;               /* Bit<17> */
-    unsigned is_chain_compress_then_hash_encrypt : 1;          /* Bit<18> */
-    unsigned is_chain_compress_then_encrypt_hash : 1;          /* Bit<19> */
-    unsigned is_chain_compress_then_aead : 1;                  /* Bit<20> */
-    unsigned is_chain_hash_then_compress : 1;                  /* Bit<21> */
-    unsigned is_chain_hash_verify_then_decompress : 1;         /* Bit<22> */
-    unsigned is_chain_decrypt_then_decompress : 1;             /* Bit<23> */
-    unsigned is_chain_hash_verify_decrypt_then_decompress : 1; /* Bit<24> */
-    unsigned is_chain_decrypt_hash_verify_then_decompress : 1; /* Bit<25> */
-    unsigned is_chain_aead_then_decompress : 1;                /* Bit<26> */
-    unsigned is_chain_decompress_then_hash_verify : 1;         /* Bit<27> */
-    unsigned is_chain_compress_then_aead_then_hash : 1;        /* Bit<28> */
-    unsigned reserved : 3;
-} dc_extd_ftrs_t;
 
 /**
  *****************************************************************************
@@ -147,58 +125,6 @@ typedef struct sal_dc_chain_service_s
 /**
  *****************************************************************************
  * @ingroup SalCtrl
- *      Compression device specific data
- *
- * @description
- *      Contains device specific information for a compression service.
- *
- *****************************************************************************/
-typedef struct sal_compression_device_data
-{
-    /* Device specific minimum output buffer size for static compression */
-    Cpa32U minOutputBuffSize;
-
-    /* Device specific minimum output buffer size for dynamic compression */
-    Cpa32U minOutputBuffSizeDynamic;
-
-    /* Enable/disable secureRam/acceleratorRam for intermediate buffers*/
-    Cpa8U useDevRam;
-
-    /* When set, implies device can decompress interim odd byte length
-     * stateful decompression requests.
-     */
-    CpaBoolean oddByteDecompInterim;
-
-    /* When set, implies device can decompress odd byte length
-     * stateful decompression requests when bFinal is absent
-     */
-    CpaBoolean oddByteDecompNobFinal;
-
-    /* Flag to indicate if translator slice overflow is supported */
-    CpaBoolean translatorOverflow;
-
-    /* Flag to enable/disable delayed match mode */
-    CpaBoolean enableDmm;
-
-    Cpa32U inflateContextSize;
-
-    /* Maximum compression depths are supported */
-    Cpa8U highestHwCompressionDepth;
-
-    /* Mask that reports supported window sizes for comp/decomp */
-    Cpa8U windowSizeMask;
-
-    /* List representing compression levels that are the first to have
-       a unique search depth. */
-    CpaBoolean uniqueCompressionLevels[DC_NUM_COMPRESSION_LEVELS + 1];
-    Cpa8U numCompressionLevels;
-
-    Cpa32U lz4DecompContextSize;
-} sal_compression_device_data_t;
-
-/**
- *****************************************************************************
- * @ingroup SalCtrl
  *      Compression specific Service Container
  *
  * @description
@@ -212,6 +138,9 @@ typedef struct sal_compression_service_s
 
     /* Memory pool ID used for compression */
     lac_memory_pool_id_t compression_mem_pool;
+
+    /* Memory pool ID used for decompression */
+    lac_memory_pool_id_t decompression_mem_pool;
 
     /* Pointer to an array of atomic stats for compression */
     OsalAtomic *pCompStatsArr;
@@ -228,6 +157,8 @@ typedef struct sal_compression_service_s
 
     icp_comms_trans_handle trans_handle_compression_tx;
     icp_comms_trans_handle trans_handle_compression_rx;
+    icp_comms_trans_handle trans_handle_decompression_tx;
+    icp_comms_trans_handle trans_handle_decompression_rx;
 
     /* Maximum number of in flight requests */
     Cpa32U maxNumCompConcurrentReq;
@@ -238,18 +169,20 @@ typedef struct sal_compression_service_s
     /* Config info */
     Cpa16U acceleratorNum;
     Cpa16U bankNum;
+    Cpa16U bankNumDecomp;
     Cpa16U pkgID;
     Cpa16U isPolled;
     Cpa32U coreAffinity;
     Cpa32U nodeAffinity;
-
-    sal_compression_device_data_t comp_device_data;
 
     /* Statistics handler */
     debug_file_info_t *debug_file;
 
     /* Chaining service */
     sal_dc_chain_service_t *pDcChainService;
+
+    /* Compression service capabilities */
+    dc_capabilities_t dc_capabilities;
 } sal_compression_service_t;
 
 /*************************************************************************

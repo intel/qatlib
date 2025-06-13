@@ -152,7 +152,11 @@ static CpaStatus hashPerformOp(CpaInstanceHandle cyInstHandle,
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
      * used then these variables should be dynamically allocated */
-    struct COMPLETION_STRUCT complete = { 0 };
+    struct COMPLETION_STRUCT complete;
+    /*
+     * Initialize the completion variable which is used by the callback
+     * function */
+    COMPLETION_INIT((&complete));
 
     /* get meta information size */
     PRINT_DBG("cpaCyBufferListGetMetaSize\n");
@@ -207,9 +211,6 @@ static CpaStatus hashPerformOp(CpaInstanceHandle cyInstHandle,
 
     if (CPA_STATUS_SUCCESS == status)
     {
-        /** initialization for callback; the "complete" variable is used by the
-         * callback function to indicate it has been called*/
-        COMPLETION_INIT((&complete));
 
         PRINT_DBG("cpaCySymPerformOp\n");
 

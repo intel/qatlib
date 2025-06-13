@@ -148,10 +148,9 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
             LAC_CHECK_NULL_PARAM(pOpData->pIv);
             if (pOpData->ivLenInBytes != ivLenInBytes)
             {
-                if (!(/* GCM with 12 byte IV is OK */
-                      (LAC_CIPHER_IS_GCM(algorithm) &&
+                /* GCM with 12 byte IV is supported */
+                if (!((LAC_CIPHER_IS_GCM(algorithm) &&
                        pOpData->ivLenInBytes == LAC_CIPHER_IV_SIZE_GCM_12) ||
-                      /* IV len for CCM has been checked before */
                       LAC_CIPHER_IS_CCM(algorithm)))
                 {
                     LAC_INVALID_PARAM_LOG("invalid cipher IV size");
@@ -202,7 +201,7 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
                          */
                         pCbCookie->updateSessionIvOnSend = CPA_TRUE;
                     }
-                    /* For subsequent partials in a sequence, we'll re-use the
+                    /* For subsequent partials in a sequence, we'll reuse the
                      * IV that was written back by the QAT, using internal
                      * request queueing if necessary to ensure that the next
                      * partial request isn't issued to the QAT until the
@@ -298,7 +297,8 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
 
 CpaStatus LacCipher_SessionSetupDataCheck(
     const CpaCySymCipherSetupData *pCipherSetupData,
-    Cpa32U capabilitiesMask)
+    Cpa32U capabilitiesMask,
+    sal_service_t *pService)
 {
     /* No key required for NULL algorithm */
     if (!LAC_CIPHER_IS_NULL(pCipherSetupData->cipherAlgorithm))
@@ -343,12 +343,12 @@ CpaStatus LacCipher_SessionSetupDataCheck(
             case CPA_CY_SYM_CIPHER_AES_CBC:
             case CPA_CY_SYM_CIPHER_AES_CTR:
             case CPA_CY_SYM_CIPHER_AES_GCM:
-                if ((pCipherSetupData->cipherKeyLenInBytes !=
-                     ICP_QAT_HW_AES_128_KEY_SZ) &&
-                    (pCipherSetupData->cipherKeyLenInBytes !=
-                     ICP_QAT_HW_AES_192_KEY_SZ) &&
-                    (pCipherSetupData->cipherKeyLenInBytes !=
-                     ICP_QAT_HW_AES_256_KEY_SZ))
+                if (((pCipherSetupData->cipherKeyLenInBytes !=
+                      ICP_QAT_HW_AES_128_KEY_SZ) &&
+                     (pCipherSetupData->cipherKeyLenInBytes !=
+                      ICP_QAT_HW_AES_192_KEY_SZ) &&
+                     (pCipherSetupData->cipherKeyLenInBytes !=
+                      ICP_QAT_HW_AES_256_KEY_SZ)))
                 {
                     LAC_INVALID_PARAM_LOG("Invalid AES cipher key length");
                     return CPA_STATUS_INVALID_PARAM;
@@ -526,7 +526,6 @@ Cpa32U LacCipher_GetCipherSliceType(sal_service_t *pService,
 {
     Cpa32U sliceType = ICP_QAT_FW_LA_USE_LEGACY_SLICE_TYPE;
     Cpa32U capabilitiesMask = pService->capabilitiesMask;
-
 
     if (LAC_CIPHER_IS_XTS_MODE(cipherAlgorithm) ||
         LAC_CIPHER_IS_CHACHA(cipherAlgorithm) ||

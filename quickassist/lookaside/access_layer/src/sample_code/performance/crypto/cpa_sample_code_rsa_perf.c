@@ -111,6 +111,7 @@
 #endif
 #include "qat_perf_cycles.h"
 #include "cpa_sample_code_framework.h"
+#include "cpa_dev.h"
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
 #ifdef SC_KPT2_ENABLED
@@ -125,7 +126,6 @@
 */
 #define NUM_KEY_PAIRS (2)
 #define NUM_RSA_KEYGEN_RETRIES (1000)
-
 #ifdef POLL_INLINE
 Cpa32U asymPollingInterval_g = 0;
 EXPORT_SYMBOL(asymPollingInterval_g);
@@ -157,7 +157,6 @@ void kpt2RsaCallback(void *pCallbackTag,
                      CpaFlatBuffer *pOut);
 #endif
 #endif
-
 
 /******************************************************************************
  * @ingroup sampleRSACode
@@ -294,7 +293,6 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
     CpaInstanceInfo2 *instanceInfo2 = NULL;
 #endif
 
-
     if (SYNC == setup->syncMode)
     {
         rsaKeyGenCb = NULL;
@@ -307,12 +305,14 @@ CpaStatus generateRSAKey(CpaInstanceHandle instanceHandle,
                          0,
                          FREE_GENERATE_RSA_KEY_MEM());
     /*allocate and set the public exponent (e)*/
+
     ALLOC_FLAT_BUFF_DATA(instanceHandle,
                          &(pPublicKey->publicExponentE),
                          sizeof(rsaPublicExponent_g),
                          rsaPublicExponent_g,
                          sizeof(rsaPublicExponent_g),
                          FREE_GENERATE_RSA_KEY_MEM());
+
     /*setup private key data*/
     /*if key type is CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_1 then kSize is the size of
      * the modulus, otherwise its half the modulus size */
@@ -586,7 +586,6 @@ CpaStatus genKeyArray(asym_test_params_t *setup,
     Cpa32U bufferCount = 0;
     Cpa32U node = 0;
 
-
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -750,7 +749,6 @@ CpaStatus rsaEncryptDataSetup(CpaFlatBuffer *pEncryptData[],
     Cpa32U bufferSize = setup->modulusSizeInBytes;
     Cpa32U node = 0;
 
-
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -851,7 +849,6 @@ CpaStatus rsaDecryptDataSetup(CpaFlatBuffer *pDecryptData[],
     Cpa32U bufferCount = 0;
     Cpa32U bufferSize = setup->modulusSizeInBytes;
     Cpa32U node = 0;
-
 
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
     if (CPA_STATUS_SUCCESS != status)
@@ -1221,6 +1218,13 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
  * @ingroup sampleRSACode
  *
  * @description
+ * This functions performs RSA Encrypt using openssl library
+ *
+ * ****************************************************************************/
+/******************************************************************************
+ * @ingroup sampleRSACode
+ *
+ * @description
  * this function measures the performance of RSA Encrypt operations
  * It is assumed all the encrypt data and keys have been been set using
  * functions defined in this file
@@ -1250,7 +1254,6 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
     perf_cycles_t *request_submit_start = NULL;
     perf_cycles_t *request_respnse_time = NULL;
     const Cpa32U request_mem_sz = sizeof(perf_cycles_t) * MAX_LATENCY_COUNT;
-
 
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
@@ -1476,7 +1479,10 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 
 #endif
 
-    qaeMemFree((void **)&instanceInfo);
+    if (NULL != instanceInfo)
+    {
+        qaeMemFree((void **)&instanceInfo);
+    }
 
     /*this barrier will wait until all threads get to this point*/
     sampleCodeBarrier();
@@ -1507,34 +1513,35 @@ CpaStatus sampleRsaDecrypt(asym_test_params_t *setup,
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
 #ifdef SC_KPT2_ENABLED
-                if (CPA_TRUE == setup->enableKPT)
-                {
-                    status =
-                        cpaCyKptRsaDecrypt(setup->cyInstanceHandle,
-                                           cbFunc,
-                                           setup->performanceStats,
-                                           ppKPTDecryptOpData[insideLoopCount],
-                                           ppOutputData[insideLoopCount],
-                                           pKptUnwrapCtx[insideLoopCount]);
-                    if (CPA_STATUS_FAIL == status)
+                    if (CPA_TRUE == setup->enableKPT)
                     {
-                        PRINT_ERR("KPT RSA Decrypt failed!\n");
+                        status = cpaCyKptRsaDecrypt(
+                            setup->cyInstanceHandle,
+                            cbFunc,
+                            setup->performanceStats,
+                            ppKPTDecryptOpData[insideLoopCount],
+                            ppOutputData[insideLoopCount],
+                            pKptUnwrapCtx[insideLoopCount]);
+                        if (CPA_STATUS_FAIL == status)
+                        {
+                            PRINT_ERR("KPT RSA Decrypt failed!\n");
+                        }
                     }
-                }
-                else
-                {
+                    else
+                    {
 #endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 #endif
-                    status = cpaCyRsaDecrypt(setup->cyInstanceHandle,
-                                             cbFunc,
-                                             setup->performanceStats,
-                                             ppDecryptOpData[insideLoopCount],
-                                             ppOutputData[insideLoopCount]);
+                        status =
+                            cpaCyRsaDecrypt(setup->cyInstanceHandle,
+                                            cbFunc,
+                                            setup->performanceStats,
+                                            ppDecryptOpData[insideLoopCount],
+                                            ppOutputData[insideLoopCount]);
 #ifdef USER_SPACE
 #if CY_API_VERSION_AT_LEAST(3, 0)
 #ifdef SC_KPT2_ENABLED
-                }
+                    }
 #endif
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 #endif
@@ -1964,6 +1971,7 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     CpaInstanceHandle *cyInstances = NULL;
     asym_test_params_t *params = (asym_test_params_t *)testSetup->setupPtr;
     CpaInstanceInfo2 *instanceInfo = NULL;
+
 #ifdef SC_DEV_INFO_ENABLED
     CpaDeviceInfo deviceInfo = {0};
 #endif
@@ -2070,7 +2078,6 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     rsaTestSetup.enableKPT = params->enableKPT;
 #endif
 #endif
-
 
     /*launch function that does all the work*/
     if (params->performEncrypt)

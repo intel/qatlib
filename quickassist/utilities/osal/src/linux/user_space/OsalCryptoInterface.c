@@ -38,19 +38,12 @@
  */
 
 #include "Osal.h"
-#ifdef USE_OPENSSL
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
-#else
-#include "openssl/md5.h"
-#include "openssl/sha.h"
-#include "openssl/aes.h"
-#endif
 /* Required for MIN macro */
 #include <sys/param.h>
 
-#ifdef USE_OPENSSL
 #define INIT(TYPE) TYPE##_Init
 #define TRANSFORM(TYPE) TYPE##_Transform
 #define UPDATE(TYPE) TYPE##_Update
@@ -59,16 +52,6 @@
 #define OSAL_AES_SET_ENCRYPT AES_set_encrypt_key
 #endif
 #define OSAL_AES_ENCRYPT AES_encrypt
-#else
-#define INIT(TYPE) ossl_##TYPE##_Init
-#define TRANSFORM(TYPE) ossl_##TYPE##_Transform
-#define UPDATE(TYPE) ossl_##TYPE##_Update
-#define FINAL(TYPE) ossl_##TYPE##_Final
-#ifndef OSAL_AES_SET_ENCRYPT
-#define OSAL_AES_SET_ENCRYPT ossl_AES_set_encrypt_key
-#endif
-#define OSAL_AES_ENCRYPT ossl_AES_encrypt
-#endif
 
 #define BYTE_TO_BITS_SHIFT 3
 

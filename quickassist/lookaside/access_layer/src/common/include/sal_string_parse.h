@@ -80,6 +80,7 @@
 #define SAL_CFG_MAX_VAL_LEN_IN_BYTES 64
 
 #define SAL_CFG_DC "Dc"
+#define SAL_CFG_DECOMP "Decomp"
 #define SAL_CFG_CY "Cy"
 #define SAL_CFG_RING_BANK_NUM "BankNumber"
 #define SAL_CFG_ACCEL_SEC "Accelerator"
@@ -99,13 +100,12 @@
 #define SAL_CFG_NAME "Name"
 #define SAL_CFG_COMP "COMP"
 #define SAL_CFG_MEMPOOL "MemPool"
+#define SAL_CFG_DECOMP_MEMPOOL "DecompMemPool"
 
 #define SAL_CFG_ASYM_RESIZE_POOL "AsymResizePool"
 #define SAL_CFG_ASYM_REQ_POOL "AsymReqPool"
 #define SAL_CFG_ASYM_PRIME_POOL "AsymPrimePool"
 #define SAL_CFG_ASYM_EC_MEM_POOL "AsymEcMemPool"
-#define SAL_CFG_ASYM_KPT_MEM_POOL "AsymKptMemPool"
-#define SAL_CFG_ASYM_KPT_MEM_ARRAY_POOL "AsymKptMemArrayPool"
 #define SAL_CFG_ASYM_KPT_UNWRAP_CTX_MEM_POOL "AsymKptUnWrapCtxMemPool"
 #define SAL_CFG_SYM_POOL "SymPool"
 #define SAL_CFG_CHAIN_COOKIE_POOL "ChainCookiePool"

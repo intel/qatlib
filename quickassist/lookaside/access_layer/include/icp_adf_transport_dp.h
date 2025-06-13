@@ -101,7 +101,7 @@ extern void icp_adf_getQueueNext(icp_comms_trans_handle trans_handle,
  * icp_adf_updateQueueTail
  * Data plane support function - Writes the tail shadow copy to the device.
  */
-extern void icp_adf_updateQueueTail(icp_comms_trans_handle trans_handle);
+extern CpaStatus icp_adf_updateQueueTail(icp_comms_trans_handle trans_handle);
 
 /*
  * icp_adf_isRingEmpty

@@ -3582,6 +3582,7 @@ typedef union icp_qat_fw_mmp_input_param_u {
      * RFC8032  */
     icp_qat_fw_generator_multiplication_ed448_input_t
         generator_multiplication_ed448;
+
 } icp_qat_fw_mmp_input_param_t;
 
 /**
@@ -6703,6 +6704,7 @@ typedef union icp_qat_fw_mmp_output_param_u {
      * RFC8032  */
     icp_qat_fw_generator_multiplication_ed448_output_t
         generator_multiplication_ed448;
+
 } icp_qat_fw_mmp_output_param_t;
 
 #endif /* __ICP_QAT_FW_MMP__ */

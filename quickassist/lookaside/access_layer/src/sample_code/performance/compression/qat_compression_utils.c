@@ -60,19 +60,19 @@
  *
  ***************************************************************************/
 
+#include "cpa_sample_code_dc_utils.h"
 #include "cpa_dc.h"
 #include "../common/qat_perf_buffer_utils.h"
 #include "qat_perf_utils.h"
 #include "qat_compression_main.h"
+#include "cpa_sample_code_framework.h"
 #include "qat_perf_sleeptime.h"
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
 #include "qat_compression_zlib.h"
 
-
 CpaStatus qatFreeCompressionFlatBuffer(compression_test_params_t *setup,
                                        CpaBufferList *bufferListArray);
-
 
 CpaStatus qatGetCompressBoundDestinationBufferSize(
     compression_test_params_t *setup,
@@ -191,7 +191,7 @@ CpaStatus qatFreeCompressionLists(compression_test_params_t *setup,
 
 #ifdef SC_CHAINING_ENABLED
 /*free the array of chaining source and destination CpaBufferLists
- * free the array of chainging results*/
+ * free the array of chaining results*/
 CpaStatus qatFreeDcChainLists(void **chainResultArray, void **chainOpDataArray)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -777,7 +777,7 @@ CpaStatus qatCompressionSessionInit(
                                       dcCbFn);
             if (CPA_STATUS_SUCCESS != status)
             {
-                PRINT_ERR("cpaDcInitSession returned status for compression "
+                PRINT_ERR("cpaDcInitSession returned status for decompression "
                           "handle %d\n",
                           status);
             }
@@ -977,7 +977,6 @@ CpaStatus qatCmpBuffers(compression_test_params_t *setup,
 
     return status;
 }
-
 
 static CpaStatus qatSwZlibCompress(compression_test_params_t *setup,
                                    CpaBufferList *srcBuffListArray,
@@ -1491,8 +1490,6 @@ static CpaStatus qatSwZlibDecompress(compression_test_params_t *setup,
     return status;
 }
 
-
-
 CpaStatus qatSwDecompress(compression_test_params_t *setup,
                           CpaBufferList *destBuffListArray,
                           CpaBufferList *cmpBuffListArray,
@@ -1667,7 +1664,7 @@ void qatDcChainResponseStatusCheck(compression_test_params_t *setup,
         {
             PRINT_ERR("threadReturnStatus is set to CPA_STATUS_FAIL\n");
             /*find the request that cause the fail*/
-            for (i = 0; i <= listNum; i++)
+            for (i = 0; i < listNum; i++)
             {
                 if (CPA_DC_OK != arrayOfResults[i].dcStatus)
                 {
@@ -2143,7 +2140,6 @@ void qatDcGetPostTestRecoveryCount(compression_test_params_t *dcSetup,
         }
     }
 }
-
 
 CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
                                        CpaDcRqResults *arrayOfResults,

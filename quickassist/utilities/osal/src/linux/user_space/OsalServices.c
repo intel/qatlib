@@ -49,7 +49,6 @@
 #include <errno.h>
 #include "Osal.h"
 
-
 #define OSAL_IOFILE struct _IO_FILE
 
 #define OSAL_TIMEVAL_TOO_LARGE 0
@@ -88,6 +87,8 @@ osalLog(OsalLogLevel level, OsalLogDevice device, char *format, ...)
     OSAL_IOFILE *output_stream_s;
     int mask = 0;
     va_list args;
+    INT32 headerByteCount = 0;
+    INT32 byteCount = 0;
     /*
      * Return -1 for custom display devices
      */
@@ -126,19 +127,35 @@ osalLog(OsalLogLevel level, OsalLogDevice device, char *format, ...)
             va_end(args);
             return 0;
         }
-        INT32 headerByteCount =
-            (level == OSAL_LOG_LVL_USER)
-                ? 0
-                : fprintf(output_stream_s, "%s", traceHeaders[level - 1]);
+
+        if (level != OSAL_LOG_LVL_USER)
+        {
+            byteCount = fprintf(output_stream_s, "%s", traceHeaders[level - 1]);
+            if (byteCount < 0)
+            {
+                return (OSAL_LOG_ERROR);
+            }
+            headerByteCount += byteCount;
+        }
 
         if (OSAL_OS_GET_STRING_LENGTH(osalModuleName, sizeof(osalModuleName)) !=
             0)
         {
-            headerByteCount += fprintf(output_stream_s, "%s :", osalModuleName);
+            byteCount = fprintf(output_stream_s, "%s :", osalModuleName);
+            if (byteCount < 0)
+            {
+                return (OSAL_LOG_ERROR);
+            }
+            headerByteCount += byteCount;
         }
 
         va_start(args, format);
-        headerByteCount += vfprintf(output_stream_s, format, args);
+        byteCount = vfprintf(output_stream_s, format, args);
+        if (byteCount < 0)
+        {
+            return (OSAL_LOG_ERROR);
+        }
+        headerByteCount += byteCount;
         va_end(args);
         return headerByteCount;
     }

@@ -102,7 +102,7 @@
 #include "dc_session.h"
 #include "dc_ns_datapath.h"
 
-static OsalMutex sync_lock;
+STATIC OsalMutex sync_lock;
 #define START_REF_COUNT_MAX 64
 CpaStatus icp_adf_resetUserProxy(void);
 
@@ -113,8 +113,8 @@ CpaStatus icp_adf_resetUserProxy(void);
  * This is added to support co-existence scenario (two libraries using
  * QAT in same application).
  */
-static int start_ref_count = 0;
-static pid_t start_ref_pid = -1;
+STATIC int start_ref_count = 0;
+STATIC pid_t start_ref_pid = -1;
 
 static CpaStatus do_userReset()
 {
@@ -266,15 +266,22 @@ CpaStatus icp_sal_userStop()
     CpaStatus status = CPA_STATUS_SUCCESS;
     pid_t pid = getpid();
 
-    if (start_ref_pid != pid)
+    if (!sync_lock)
     {
-        LAC_LOG_DEBUG("Process id mismatch\n");
+        LAC_LOG_DEBUG("Mutex lock not initialized\n");
         return CPA_STATUS_FAIL;
     }
     if (osalMutexLock(&sync_lock, OSAL_WAIT_FOREVER))
     {
         LAC_LOG_ERROR("Mutex lock failed\n");
         osalMutexDestroy(&sync_lock);
+        return CPA_STATUS_FAIL;
+    }
+    if (start_ref_pid != pid)
+    {
+        LAC_LOG_DEBUG("Process id mismatch\n");
+        if (osalMutexUnlock(&sync_lock))
+            LAC_LOG_ERROR("Mutex unlock failed\n");
         return CPA_STATUS_FAIL;
     }
     if (1 == start_ref_count)
@@ -322,12 +329,14 @@ CpaStatus icp_sal_check_all_devices(void)
     return icp_adf_userCheckAllDevices();
 }
 
-#ifdef ICP_HB_FAIL_SIM
 CpaStatus icp_sal_heartbeat_simulate_failure(Cpa32U packageId)
 {
+#ifdef ICP_HB_FAIL_SIM
     return icp_adf_heartbeatSimulateFailure(packageId);
-}
+#else
+    return CPA_STATUS_UNSUPPORTED;
 #endif
+}
 
 CpaStatus icp_sal_get_num_pfs(Cpa16U *pNumPFs)
 {
@@ -339,30 +348,38 @@ CpaStatus icp_sal_get_pf_info(CpaPfInfo *pPf_info)
     return icp_adf_userGetPfInfo((icp_accel_pf_info_t *)pPf_info);
 }
 
-
 CpaStatus icp_sal_reset_device(Cpa32U accelId)
 {
     return icp_adf_resetDevice(accelId);
 }
 
-#ifdef ICP_DC_ERROR_SIMULATION
 CpaStatus icp_sal_cnv_simulate_error(CpaInstanceHandle dcInstance,
                                      CpaDcSessionHandle pSessionHandle)
 {
+#ifdef ICP_DC_ERROR_SIMULATION
     return dcSetCnvError(dcInstance, pSessionHandle);
+#else
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
 CpaStatus icp_sal_ns_cnv_simulate_error(CpaInstanceHandle dcInstance)
 {
+#ifdef ICP_DC_ERROR_SIMULATION
     return dcNsSetCnvErrorInj(dcInstance, CPA_TRUE);
+#else
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
 
 CpaStatus icp_sal_ns_cnv_reset_error(CpaInstanceHandle dcInstance)
 {
+#ifdef ICP_DC_ERROR_SIMULATION
     return dcNsSetCnvErrorInj(dcInstance, CPA_FALSE);
+#else
+    return CPA_STATUS_UNSUPPORTED;
+#endif
 }
-
-#endif /* ICP_DC_ERROR_SIMULATION */
 
 CpaBoolean icp_sal_userIsQatAvailable(void)
 {

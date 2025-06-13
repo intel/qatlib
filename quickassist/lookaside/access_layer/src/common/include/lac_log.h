@@ -204,6 +204,33 @@
 /**< @ingroup LacLog
  * Internal macro that accepts 8 parameters in the string to be logged */
 
+#define _LAC_LOG_PARAM9_(level,                                                \
+                         log,                                                  \
+                         param1,                                               \
+                         param2,                                               \
+                         param3,                                               \
+                         param4,                                               \
+                         param5,                                               \
+                         param6,                                               \
+                         param7,                                               \
+                         param8,                                               \
+                         param9)                                               \
+    (void)LAC_OSAL_LOG(level,                                                  \
+                       OSAL_LOG_DEV_STDERR,                                    \
+                       "%s() - : " log "\n",                                   \
+                       __func__,                                               \
+                       param1,                                                 \
+                       param2,                                                 \
+                       param3,                                                 \
+                       param4,                                                 \
+                       param5,                                                 \
+                       param6,                                                 \
+                       param7,                                                 \
+                       param8,                                                 \
+                       param9)
+/**< @ingroup LacLog
+ * Internal macro that accepts 9 parameters in the string to be logged */
+
 #define _LAC_LOG_STRING_PARAM1_(level, log, param1)                            \
     (void)LAC_OSAL_LOG_STRING(                                                 \
         level, OSAL_LOG_DEV_STDERR, "%s() - : " log "\n", __func__, param1)
@@ -322,6 +349,31 @@
  * Log a string with no prefix
  * (8 parameters in the string to be logged). */
 
+#define LAC_LOG9(log,                                                          \
+                 param1,                                                       \
+                 param2,                                                       \
+                 param3,                                                       \
+                 param4,                                                       \
+                 param5,                                                       \
+                 param6,                                                       \
+                 param7,                                                       \
+                 param8,                                                       \
+                 param9)                                                       \
+    _LAC_LOG_PARAM9_(OSAL_LOG_LVL_USER,                                        \
+                     log,                                                      \
+                     param1,                                                   \
+                     param2,                                                   \
+                     param3,                                                   \
+                     param4,                                                   \
+                     param5,                                                   \
+                     param6,                                                   \
+                     param7,                                                   \
+                     param8,                                                   \
+                     param9)
+/**< @ingroup LacLog
+ * Log a string with no prefix
+ * (9 parameters in the string to be logged). */
+
 /************************** Lac Error Log Macros **************************/
 
 #define LAC_LOG_ERROR(log) _LAC_LOG_PARAM0_(OSAL_LOG_LVL_ERROR, log)
@@ -393,6 +445,5 @@
 
 void LacLogMsg_SetConfig(icp_accel_dev_t *device);
 void set_osal_log_debug_level(void);
-
 
 #endif /* LAC_LOG_H */

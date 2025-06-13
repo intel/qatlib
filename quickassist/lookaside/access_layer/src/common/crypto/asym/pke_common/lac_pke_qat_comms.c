@@ -114,7 +114,8 @@
 STATIC
 void LacPke_HdrWrite(icp_qat_fw_pke_request_t *pMsg,
                      icp_qat_fw_comn_request_id_t serviceType,
-                     icp_qat_fw_comn_flags cmnFlags)
+                     icp_qat_fw_comn_flags_pke cmnFlags,
+                     icp_qat_fw_comn_flags cmnFlagsExt)
 {
     icp_qat_fw_req_pke_hdr_t *pHeader = &(pMsg->pke_hdr);
 
@@ -128,7 +129,7 @@ void LacPke_HdrWrite(icp_qat_fw_pke_request_t *pMsg,
 
     /* LW1 */
     pHeader->comn_req_flags = cmnFlags;
-    pHeader->resrvd4 = 0;
+    pHeader->comn_req_flags_ext = cmnFlagsExt;
 }
 
 /**
@@ -417,10 +418,16 @@ void LacPke_MsgCallback(void *pRespMsg)
 
     comnErr = pPkeRespMsg->pke_resp_hdr.resp_status.comn_err_code;
 
-    /* log the slice hang and endpoint push/pull error inside the response */
+    /* log the slice hang, ssm parity and endpoint push/pull error inside the
+     * response */
     if (ERR_CODE_SSM_ERROR == (Cpa8S)comnErr)
     {
         LAC_LOG_ERROR("The slice hang error is detected on the MMP slice. ");
+    }
+    else if (ERR_CODE_SSM_PARITY_ERROR == (Cpa8S)comnErr)
+    {
+        LAC_LOG_ERROR("Operation resulted in a parity error in one or more "
+                      "accelerators.");
     }
     else if (ERR_CODE_ENDPOINT_ERROR == (Cpa8S)comnErr)
     {
@@ -509,14 +516,18 @@ void LacPke_InitAsymRequest(Cpa8U *pData, CpaInstanceHandle instanceHandle)
 {
     lac_pke_qat_req_data_t *pReqData = (lac_pke_qat_req_data_t *)pData;
     /* No flag update done or necessary*/
-    icp_qat_fw_comn_flags cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
+    icp_qat_fw_comn_flags_pke cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
         QAT_COMN_PTR_TYPE_FLAT, QAT_COMN_CD_FLD_TYPE_64BIT_ADR);
     icp_qat_fw_req_pke_mid_t *pMid = NULL;
+    sal_crypto_service_t *pCryptoService =
+        (sal_crypto_service_t *)instanceHandle;
+    icp_qat_fw_comn_flags cmnRequestFlagsExt = 0;
 
     /* LWs 0-1 set as for common header */
     LacPke_HdrWrite((&(pReqData->u1.request)),
                     ICP_QAT_FW_COMN_REQ_CPM_FW_PKE,
-                    cmnRequestFlags);
+                    cmnRequestFlags,
+                    cmnRequestFlagsExt);
 
     /* LWs 2-5 are part of PKE header, but not common header so set up
      * separately */
@@ -533,9 +544,10 @@ void LacPke_InitAsymRequest(Cpa8U *pData, CpaInstanceHandle instanceHandle)
     pMid = &(pReqData->u1.request.pke_mid);
 
     LAC_MEM_SHARED_WRITE_FROM_PTR(pMid->opaque_data, pReqData);
-    pMid->src_data_addr = LAC_OS_VIRT_TO_PHYS_INTERNAL(&pReqData->u2.inArgList);
-    pMid->dest_data_addr =
-        LAC_OS_VIRT_TO_PHYS_INTERNAL(&pReqData->u3.outArgList);
+    pMid->src_data_addr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+        &pCryptoService->generic_service_info, &pReqData->u2.inArgList);
+    pMid->dest_data_addr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+        &pCryptoService->generic_service_info, &pReqData->u3.outArgList);
 
     /* part of LW12 */
     pReqData->u1.request.resrvd1 = 0;
@@ -605,7 +617,6 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
                                        LAC_OPTIMAL_ALIGNMENT_SHIFT),
                    "outArgList structure not correctly aligned");
 
-
         /* initialize handle for single request, or first in a chain */
         if (*pRequestHandle == LAC_PKE_INVALID_HANDLE)
         {
@@ -632,8 +643,9 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
             LAC_ASSERT_NOT_NULL(pTailReqData);
 
             /* chain the two requests */
-            LAC_MEM_SHARED_WRITE_VIRT_TO_PHYS_PTR_INTERNAL(
-                pTailReqData->u1.request.next_req_adr, pReqData);
+            pTailReqData->u1.request.next_req_adr =
+                LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                    &pCryptoService->generic_service_info, pReqData);
 
             /* chain the request data structures */
             pTailReqData->pNextReqData = pReqData;
@@ -718,9 +730,10 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
             {
                 /* pkeInputParams[i] is referencing internally allocated
                    memory */
-                LAC_MEM_SHARED_WRITE_VIRT_TO_PHYS_PTR_INTERNAL(
-                    pReqData->u2.inArgList.flat_array[i],
-                    pReqData->paramInfo.pkeInputParams[i]);
+                pReqData->u2.inArgList.flat_array[i] =
+                    LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                        &pCryptoService->generic_service_info,
+                        pReqData->paramInfo.pkeInputParams[i]);
             }
             else
             {
@@ -734,6 +747,10 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
         }
         numInputParams = i;
 
+        for (i = numInputParams; i < LAC_MAX_MMP_INPUT_PARAMS; i++)
+        {
+            pReqData->u2.inArgList.flat_array[i] = 0;
+        }
         /* store correctly sized out params in QAT struct
             (end if NULL encountered) */
         for (i = 0; (i < LAC_MAX_MMP_OUTPUT_PARAMS) &&
@@ -743,9 +760,10 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
             if ((NULL != pInternalOutMemList) &&
                 (CPA_TRUE == pInternalOutMemList[i]))
             {
-                LAC_MEM_SHARED_WRITE_VIRT_TO_PHYS_PTR_INTERNAL(
-                    pReqData->u3.outArgList.flat_array[i],
-                    pReqData->paramInfo.pkeOutputParams[i]);
+                pReqData->u3.outArgList.flat_array[i] =
+                    LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                        &pCryptoService->generic_service_info,
+                        pReqData->paramInfo.pkeOutputParams[i]);
             }
             else
             {
@@ -757,6 +775,10 @@ CpaStatus LacPke_CreateRequest(lac_pke_request_handle_t *pRequestHandle,
         }
         numOutputParams = i;
 
+        for (i = numOutputParams; i < LAC_MAX_MMP_OUTPUT_PARAMS; i++)
+        {
+            pReqData->u3.outArgList.flat_array[i] = 0;
+        }
         LAC_ASSERT(((numInputParams + numOutputParams) <= LAC_MAX_MMP_PARAMS),
                    "number of input/output parameters exceeds maximum allowed");
 
@@ -854,3 +876,4 @@ CpaStatus LacPke_SendSingleRequest(Cpa32U functionalityId,
 
     return status;
 }
+

@@ -138,7 +138,8 @@ extern "C" {
  *      The values of the base, the exponent and the modulus MUST all be less
  *      than 2^8192, and the modulus must not be equal to zero.
  *****************************************************************************/
-typedef struct _CpaCyLnModExpOpData {
+typedef struct _CpaCyLnModExpOpData
+{
     CpaFlatBuffer modulus;
     /**< Flat buffer containing a pointer to the modulus.
      * This number may be up to 8192 bits in length, and MUST be greater
@@ -174,7 +175,8 @@ typedef struct _CpaCyLnModExpOpData {
  *      Note that the values of A and B MUST NOT both be even numbers, and
  *      both MUST be less than 2^8192.
  *****************************************************************************/
-typedef struct _CpaCyLnModInvOpData {
+typedef struct _CpaCyLnModInvOpData
+{
     CpaFlatBuffer A;
     /**< Flat buffer containing a pointer to the value that will be
      * inverted.
@@ -202,7 +204,8 @@ typedef struct _CpaCyLnModInvOpData {
  *      is initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyLnStats {
+typedef struct _CpaCyLnStats
+{
     Cpa32U numLnModExpRequests;
     /**< Total number of successful large number modular exponentiation
      * requests.*/
@@ -239,7 +242,8 @@ typedef struct _CpaCyLnStats {
  *      is initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyLnStats64 {
+typedef struct _CpaCyLnStats64
+{
     Cpa64U numLnModExpRequests;
     /**< Total number of successful large number modular exponentiation
      * requests.*/
@@ -335,12 +339,11 @@ typedef struct _CpaCyLnStats64 {
  *      CpaCyLnModExpOpData, CpaCyGenFlatBufCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyLnModExp(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pLnModExpCb,
-        void *pCallbackTag,
-        const CpaCyLnModExpOpData *pLnModExpOpData,
-        CpaFlatBuffer *pResult);
+CpaStatus cpaCyLnModExp(const CpaInstanceHandle instanceHandle,
+                        const CpaCyGenFlatBufCbFunc pLnModExpCb,
+                        void *pCallbackTag,
+                        const CpaCyLnModExpOpData *pLnModExpOpData,
+                        CpaFlatBuffer *pResult);
 
 /**
  *****************************************************************************
@@ -395,8 +398,8 @@ cpaCyLnModExp(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RETRY            Resubmit the request.
  * @retval CPA_STATUS_INVALID_PARAM    Invalid parameter passed in.
  * @retval CPA_STATUS_RESOURCE         Error related to system resources.
- * @retval CPA_STATUS_RESTARTING       API implementation is restarting. Resubmit
- *                                     the request.
+ * @retval CPA_STATUS_RESTARTING       API implementation is restarting.
+ *                                     Resubmit the request.
  * @retval CPA_STATUS_UNSUPPORTED      Function is not supported.
  *
  * @pre
@@ -414,12 +417,11 @@ cpaCyLnModExp(const CpaInstanceHandle instanceHandle,
  *      CpaCyGenFlatBufCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyLnModInv(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pLnModInvCb,
-        void *pCallbackTag,
-        const CpaCyLnModInvOpData *pLnModInvOpData,
-        CpaFlatBuffer *pResult);
+CpaStatus cpaCyLnModInv(const CpaInstanceHandle instanceHandle,
+                        const CpaCyGenFlatBufCbFunc pLnModInvCb,
+                        void *pCallbackTag,
+                        const CpaCyLnModInvOpData *pLnModInvOpData,
+                        CpaFlatBuffer *pResult);
 
 /**
  *****************************************************************************
@@ -460,8 +462,8 @@ cpaCyLnModInv(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_FAIL              Function failed.
  * @retval CPA_STATUS_INVALID_PARAM     Invalid parameter passed in.
  * @retval CPA_STATUS_RESOURCE          Error related to system resources.
- * @retval CPA_STATUS_RESTARTING        API implementation is restarting. Resubmit
- *                                      the request.
+ * @retval CPA_STATUS_RESTARTING        API implementation is restarting.
+ *                                      Resubmit the request.
  * @retval CPA_STATUS_UNSUPPORTED       Function is not supported.
  *
  * @pre
@@ -479,7 +481,7 @@ cpaCyLnModInv(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCyLnStatsQuery(const CpaInstanceHandle instanceHandle,
-        struct _CpaCyLnStats *pLnStats);
+                  struct _CpaCyLnStats *pLnStats);
 
 /**
  *****************************************************************************
@@ -518,8 +520,8 @@ cpaCyLnStatsQuery(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_FAIL              Function failed.
  * @retval CPA_STATUS_INVALID_PARAM     Invalid parameter passed in.
  * @retval CPA_STATUS_RESOURCE          Error related to system resources.
- * @retval CPA_STATUS_RESTARTING        API implementation is restarting. Resubmit
- *                                      the request.
+ * @retval CPA_STATUS_RESTARTING        API implementation is restarting.
+ *                                      Resubmit the request.
  * @retval CPA_STATUS_UNSUPPORTED       Function is not supported.
  *
  * @pre
@@ -534,9 +536,8 @@ cpaCyLnStatsQuery(const CpaInstanceHandle instanceHandle,
  * @see
  *      CpaCyLnStats
  *****************************************************************************/
-CpaStatus
-cpaCyLnStatsQuery64(const CpaInstanceHandle instanceHandle,
-        CpaCyLnStats64 *pLnStats);
+CpaStatus cpaCyLnStatsQuery64(const CpaInstanceHandle instanceHandle,
+                              CpaCyLnStats64 *pLnStats);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

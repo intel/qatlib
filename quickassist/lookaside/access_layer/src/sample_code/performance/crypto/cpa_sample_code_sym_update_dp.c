@@ -109,7 +109,6 @@ static void symDpPerformUpdateCallback(CpaCySymDpOpData *pOpData,
     }
 }
 
-
 // Perform verify
 static CpaStatus performOpAndVerifyDp(CpaInstanceHandle cyInstHandle,
                                       CpaCySymSessionCtx sessionCtx,
@@ -134,6 +133,24 @@ static CpaStatus performOpAndVerifyDp(CpaInstanceHandle cyInstHandle,
     CpaBoolean performNow = CPA_FALSE;
     Cpa64U numOps = 0;
     Cpa64U nextPoll = symDpPollingInterval_g;
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+
+    instanceInfo2 = qaeMemAlloc(sizeof(CpaInstanceInfo2));
+    if (instanceInfo2 == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for instanceInfo2");
+        return CPA_STATUS_FAIL;
+    }
+    memset(instanceInfo2, 0, sizeof(CpaInstanceInfo2));
+
+    // Get instance info
+    status = cpaCyInstanceGetInfo2(cyInstHandle, instanceInfo2);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaCyInstanceGetInfo2 error, status: %d\n", status);
+        qaeMemFree((void **)&instanceInfo2);
+        return status;
+    }
 
 // Perform
 
@@ -157,7 +174,10 @@ static CpaStatus performOpAndVerifyDp(CpaInstanceHandle cyInstHandle,
             {
                 pSymData->retries++;
                 pSymData->pollCount++;
-                icp_sal_CyPollDpInstance(setup->cyInstanceHandle, 0);
+                if (CPA_TRUE == instanceInfo2->isPolled)
+                {
+                    icp_sal_CyPollDpInstance(setup->cyInstanceHandle, 0);
+                }
                 nextPoll = numOps + symDpPollingInterval_g;
                 AVOID_SOFTLOCKUP;
             }
@@ -171,7 +191,10 @@ static CpaStatus performOpAndVerifyDp(CpaInstanceHandle cyInstHandle,
         ++numOps;
         if (numOps == nextPoll)
         {
-            icp_sal_CyPollDpInstance(setup->cyInstanceHandle, 0);
+            if (CPA_TRUE == instanceInfo2->isPolled)
+            {
+                icp_sal_CyPollDpInstance(setup->cyInstanceHandle, 0);
+            }
             nextPoll = numOps + symDpPollingInterval_g;
         }
     }
@@ -203,7 +226,6 @@ static CpaStatus performOpAndVerifyDp(CpaInstanceHandle cyInstHandle,
     {
         status = CPA_STATUS_FAIL;
     }
-
 
     return status;
 }
@@ -892,7 +914,6 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
         return status;
     }
 
-
     // Alloc src
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -999,6 +1020,11 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
             if (setup->setupData.cipherSetupData.cipherAlgorithm ==
                 CPA_CY_SYM_CIPHER_AES_CCM)
             {
+                /* Although the IV data length for CCM must be 16 bytes,
+		 * the nonce length must be between 7 and 13 inclusive */
+                ivBufferLen = AES_CCM_DEFAULT_NONCE_LENGTH;
+                setup->ivLength = AES_CCM_DEFAULT_NONCE_LENGTH;
+
                 pIvBuffer =
                     qaeMemAllocNUMA(ivBufferLen, node, BYTE_ALIGNMENT_64);
                 if (NULL == pIvBuffer)
@@ -1010,10 +1036,6 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                 if (CPA_STATUS_SUCCESS == status)
                 {
                     memset(pIvBuffer, 0, ivBufferLen);
-                    /*Although the IV data length for CCM must be 16 bytes,
-                      The nonce length must be between 7 and 13 inclusive*/
-                    ivBufferLen = AES_CCM_DEFAULT_NONCE_LENGTH;
-                    setup->ivLength = AES_CCM_DEFAULT_NONCE_LENGTH;
                     /*generate a random IV*/
                     generateRandomData(&pIvBuffer[1], ivBufferLen);
                 }
@@ -1026,6 +1048,11 @@ static CpaStatus updatePerformDp(symmetric_test_params_t *setup)
                     PRINT_ERR("Alloc iv failed with status %u\n", status);
                 }
             }
+        }
+        else
+        {
+            PRINT_ERR("Invalid iv buffer length\n");
+            status = CPA_STATUS_FAIL;
         }
     }
 

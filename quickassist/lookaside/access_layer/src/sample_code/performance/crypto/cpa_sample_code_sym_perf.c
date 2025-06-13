@@ -98,7 +98,6 @@ extern Cpa32U symPollingInterval_g;
 #include "busy_loop.h"
 #include "qat_perf_cycles.h"
 
-
 #define ADF_MAX_DEVICES 32
 Cpa16U busAddressId[ADF_MAX_DEVICES] = {0};
 extern Cpa32U packageIdCount_g;
@@ -544,6 +543,14 @@ static CpaStatus symmetricPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
                     pOpdata[createCount]->ivLenInBytes = setup->ivLength;
                 }
                 break;
+            case CPA_CY_SYM_CIPHER_CHACHA:
+                pOpdata[createCount]->ivLenInBytes = IV_LEN_FOR_12_BYTE_CHACHA;
+                /* If 0 use default else use value passed. */
+                if (0 != setup->ivLength)
+                {
+                    pOpdata[createCount]->ivLenInBytes = setup->ivLength;
+                }
+                break;
             case CPA_CY_SYM_CIPHER_DES_CBC:
             case CPA_CY_SYM_CIPHER_3DES_CBC:
             case CPA_CY_SYM_CIPHER_3DES_CTR:
@@ -623,7 +630,6 @@ static CpaStatus symmetricPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
     }
     return CPA_STATUS_SUCCESS;
 }
-
 
 /*****************************************************************************
  * @ingroup sampleSymmetricPerf
@@ -844,7 +850,6 @@ static CpaStatus symPerform(symmetric_test_params_t *setup,
             }
 #endif
         } /*end of inner loop */
-
 
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1098,7 +1103,6 @@ static CpaStatus performOffloadCalculation(
     return status;
 }
 
-
 /**
  *****************************************************************************
  * @ingroup sampleSymmetricPerf
@@ -1243,7 +1247,6 @@ CpaStatus sampleSymmetricPerform(symmetric_test_params_t *setup)
         goto exit;
     }
 
-
     /*setup the symmetric operation data*/
     status = symmetricPerformOpDataSetup(pEncryptSessionCtx,
                                          setup->packetSizeInBytesArray,
@@ -1279,7 +1282,6 @@ CpaStatus sampleSymmetricPerform(symmetric_test_params_t *setup)
     }
 
     status = removeSymSession(setup->cyInstanceHandle, pEncryptSessionCtx);
-
 
 exit:
     symPerformMemFree(setup,
@@ -1336,6 +1338,9 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     Cpa16U numInstances = 0;
     CpaInstanceHandle *cyInstances = NULL;
     CpaInstanceInfo2 *instanceInfo = NULL;
+#if defined(SC_WITH_QAT22)
+    CpaCyCapabilitiesInfo pCapInfo = {0};
+#endif
 
     testSetup->passCriteria = getPassCriteria();
 
@@ -1344,7 +1349,6 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     /*cast the setup to a known structure so that we can populate our local
      * test setup*/
     symTestSetup.setupData = pSetup->setupData;
-
 
     /*this barrier is to halt this thread when run in user space context, the
      * startThreads function releases this barrier, in kernel space it does
@@ -1385,6 +1389,22 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
+
+#if defined(SC_WITH_QAT22)
+    while (testSetup->logicalQaInstance < numInstances)
+    {
+        cpaCyQueryCapabilities(cyInstances[testSetup->logicalQaInstance], &pCapInfo);
+        if (CPA_TRUE != pCapInfo.symSupported)
+            testSetup->logicalQaInstance++;
+        else
+            break;
+    }
+    if (testSetup->logicalQaInstance >= numInstances)
+    {
+        PRINT_ERR("Warning! SYMMETRIC operation is not supported on Instance\n");
+        testSetup->logicalQaInstance = 0;
+    }
+#endif
 
     instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
     if (instanceInfo == NULL)
@@ -1499,7 +1519,6 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
         goto exit;
     }
 
-
     /*launch function that does all the work*/
     status = sampleSymmetricPerform(&symTestSetup);
     if (CPA_STATUS_SUCCESS != status)
@@ -1532,6 +1551,9 @@ exit:
     }
     qaeMemFree((void **)&cyInstances);
     qaeMemFree((void **)&instanceInfo);
+#if defined(SC_WITH_QAT22) 
+    testSetup->logicalQaInstance = 0;
+#endif	
     sampleCodeThreadComplete(testSetup->threadID);
     return;
 }
@@ -1569,6 +1591,7 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
      * thread types(setups) running as counted by testTypeCount_g*/
     symmetric_test_params_t *symmetricSetup = NULL;
     Cpa8S name[] = {'S', 'Y', 'M', '\0'};
+    CpaCySymCapabilitiesInfo capInfo = {{0}};
 
     if (testTypeCount_g >= MAX_THREAD_VARIATION)
     {
@@ -1655,7 +1678,21 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
 
 #if CPA_CY_API_VERSION_NUM_MAJOR >= 2
 #endif
-
+    if (CPA_STATUS_SUCCESS ==
+        cpaCySymQueryCapabilities(cyInstances_g[0], &capInfo))
+    {
+        if (CPA_BITMAP_BIT_TEST(capInfo.ciphers, CPA_CY_SYM_CIPHER_CHACHA))
+        {
+            /* Always run AES-GCM/GMAC algchain  with single pass mode */
+            if ((CPA_CY_SYM_CIPHER_AES_GCM == cipherAlg) &&
+                (CPA_CY_SYM_HASH_AES_GCM == hashAlg ||
+                 CPA_CY_SYM_HASH_AES_GMAC == hashAlg) &&
+                CPA_CY_SYM_OP_ALGORITHM_CHAINING == opType)
+            {
+                symmetricSetup->ivLength = CPA_CIPHER_SPC_IV_SIZE;
+            }
+        }
+    }
 
     // check which kind of hash mode is selected
     if (CPA_CY_SYM_HASH_MODE_NESTED == hashMode)

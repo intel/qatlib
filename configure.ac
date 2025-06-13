@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [24.09.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [25.08.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,8 +11,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [7:0:3])
-AC_SUBST([LIBUSDM_VERSION], [1:1:1])
+AC_SUBST([LIBQAT_VERSION], [8:0:4])
+AC_SUBST([LIBUSDM_VERSION], [1:2:1])
 
 # Checks for programs.
 AC_PROG_AWK
@@ -25,8 +25,15 @@ AC_PATH_TOOL(PKGCONFIG, pkg-config)
 LT_PREREQ([2.4])
 LT_INIT
 
+# Check for pthreads
+m4_ifdef([AX_PTHREAD], [], [
+  m4_fatal([AX_PTHREAD not found. Please install autoconf-archive or place ax_pthread.m4 in m4/])
+])
+AX_PTHREAD
+AC_SUBST([PTHREAD_CFLAGS])
+AC_SUBST([PTHREAD_LIBS])
+
 # Checks for libraries.
-AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([crypto], [AES_decrypt])
 
 # Checks for header files.
@@ -77,6 +84,32 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
     [AC_MSG_RESULT([no])])
 CFLAGS="$saved_cflags"
 AC_SUBST(MCX16_CFLAGS)
+
+# Reset both values before checking
+AC_SUBST([USE_GCC], [0])
+AC_SUBST([USE_ICC], [0])
+
+# Detect the compiler from CC
+AC_MSG_CHECKING([which compiler is being used])
+case "$CC" in
+    *gcc*)
+        AC_MSG_RESULT([GCC detected])
+        AC_SUBST([USE_GCC], [1])
+        AC_SUBST([USE_ICC], [0])
+        ;;
+    *icx*|*icc*)
+        AC_MSG_RESULT([ICC detected])
+        AC_SUBST([USE_ICC], [1])
+        AC_SUBST([USE_GCC], [0])
+        ;;
+    *)
+        AC_MSG_RESULT([Unknown compiler])
+        ;;
+esac
+
+# Store the results for automake
+AM_CONDITIONAL([USE_GCC], [test "$USE_GCC" = "1"])
+AM_CONDITIONAL([USE_ICC], [test "$USE_ICC" = "1"])
 
 # Check if compiler supports -Wno-unused-command-line-argument
 saved_cflags="$CFLAGS"
@@ -264,6 +297,36 @@ AC_ARG_ENABLE(legacy-algorithms,
 	[enable_legacy_algorithms="yes"], [enable_legacy_algorithms="no"])
 
 AM_CONDITIONAL(QAT_LEGACY_ALGORITHMS_AC, test "$enable_legacy_algorithms" = "yes" )
+
+# ICP_WITHOUT_QP_SUBMISSION_LOCK
+AC_ARG_ENABLE(icp-without-qp-submission-lock,
+    AS_HELP_STRING([--enable-icp-without-qp-submission-lock], [This allows for the
+        removal of Queue Pair (QP) submission locks and is designed to optimize
+        performance in environments where QPs assigned to one thread are not shared
+        by another thread. In these scenarios, the frequent invocation of
+        mutex_lock/unlock during hardware request submissions is unnecessary and can
+        affect performance. By enabling this flag, the locks around QP submissions
+        are eliminated, thus reducing the cost of offload. As QPs are assigned to
+        instances, only enable this if instances are not shared across threads,
+        else undefined behaviour could occur.]),
+    [icp_without_qp_submission_lock=true], [icp_without_qp_submission_lock=false]
+)
+AM_CONDITIONAL([ICP_WITHOUT_QP_SUBMISSION_LOCK_AC], [test x$icp_without_qp_submission_lock = xtrue])
+
+# TREAT_CRC_FROM_COMP_ENGINE_AS_ERROR
+AC_ARG_ENABLE(treat-crc-from-comp-engine-as-error,
+    AS_HELP_STRING([--enable-treat-crc-from-comp-engine-as-error], [When the device
+	calculates a CRC over the uncompressed data, it usually uses the decompression
+	engine to do the CRC calculation. In compression operation cases where the stored
+	block is returned e.g. due to input data being incompressible, the returned CRC is
+	calculated using the compression engine, which should give exactly the same CRC as
+	the decompression engine would. Enabling this option causes any case where the CRC
+	is calculated by the compression engine to be reported as a CPA_DC_E2E_NO_DECOMPRESSION
+	error, rather than as a successful operation. Please see below link for firmware needed
+	to support this feature. https://intel.github.io/quickassist/RN/In-Tree/in_tree_firmware_RN.html#qat-2-0-in-tree-kernel-requirements]),
+    [treat_crc_from_comp_engine_as_error=true], [treat_crc_from_comp_engine_as_error=false]
+)
+AM_CONDITIONAL([TREAT_CRC_FROM_COMP_ENGINE_AS_ERROR_AC], [test x$treat_crc_from_comp_engine_as_error = xtrue])
 
 # Config files.
 AC_CONFIG_FILES([Makefile qatlib.spec qatlib.pc libqat.pc libusdm.pc])

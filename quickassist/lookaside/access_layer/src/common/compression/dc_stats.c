@@ -152,7 +152,10 @@ CpaStatus cpaDcGetStats(CpaInstanceHandle dcInstance, CpaDcStats *pStatistics)
     SAL_RUNNING_CHECK(insHandle);
 
 #ifdef ICP_PARAM_CHECK
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 #endif
 
     /* Retrieves the statistics for compression */

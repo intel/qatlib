@@ -232,9 +232,20 @@ CpaPhysicalAddr SalMem_virt2PhysExternal(void *pVirtAddr, void *pServiceGen)
     {
         /* Use internal OSAL virt to phys */
         /* Ok for kernel space probably should not use for user */
-        return LAC_OS_VIRT_TO_PHYS_INTERNAL(pVirtAddr);
+        return LAC_OS_VIRT_TO_PHYS_INTERNAL(pServiceGen, pVirtAddr);
     }
 }
+
+#ifdef USER_SPACE
+/**
+ * @ingroup LacMem
+ */
+CpaPhysicalAddr SalMem_virt2PhysInternal(void *pVirtAddr, void *pServiceGen)
+{
+
+    return (CpaPhysicalAddr)qaeVirtToPhysNUMA(pVirtAddr);
+}
+#endif
 
 size_t icp_sal_iommu_get_remap_size(size_t size)
 {

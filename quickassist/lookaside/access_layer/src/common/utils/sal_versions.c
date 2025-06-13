@@ -122,43 +122,49 @@ SalVersions_FillVersionInfo(icp_accel_dev_t *device,
                             icp_sal_dev_version_info_t *pVerInfo)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    char param_value[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
+    char hwVersion[ICP_SAL_VERSIONS_HW_VERSION_SIZE] = { '\0' };
+    char fwVersion[ICP_SAL_VERSIONS_FW_VERSION_SIZE] = { '\0' };
+    char mmpVersion[ICP_SAL_VERSIONS_MMP_VERSION_SIZE] = { '\0' };
     Cpa32S strSize = 0;
 
     osalMemSet(pVerInfo, 0, sizeof(icp_sal_dev_version_info_t));
     pVerInfo->devId = device->accelId;
 
     status = icp_adf_cfgGetParamValue(
-        device, LAC_CFG_SECTION_GENERAL, ADF_HW_REV_ID_KEY, param_value);
+        device, LAC_CFG_SECTION_GENERAL, ADF_HW_REV_ID_KEY, hwVersion);
     LAC_CHECK_STATUS(status);
 
-    strSize = snprintf((char *)pVerInfo->hardwareVersion,
-                       ICP_SAL_VERSIONS_HW_VERSION_SIZE,
-                       "%s",
-                       param_value);
+    strSize = strnlen(hwVersion, sizeof(hwVersion));
     LAC_CHECK_PARAM_RANGE(strSize, 1, ICP_SAL_VERSIONS_HW_VERSION_SIZE);
+    snprintf((char *)pVerInfo->hardwareVersion,
+             ICP_SAL_VERSIONS_HW_VERSION_SIZE,
+             "%.*s",
+             ICP_SAL_VERSIONS_HW_VERSION_SIZE - 1,
+             hwVersion);
 
-    osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
     status = icp_adf_cfgGetParamValue(
-        device, LAC_CFG_SECTION_GENERAL, ADF_UOF_VER_KEY, param_value);
+        device, LAC_CFG_SECTION_GENERAL, ADF_UOF_VER_KEY, fwVersion);
     LAC_CHECK_STATUS(status);
 
-    strSize = snprintf((char *)pVerInfo->firmwareVersion,
-                       ICP_SAL_VERSIONS_FW_VERSION_SIZE,
-                       "%s",
-                       param_value);
+    strSize = strnlen(fwVersion, sizeof(fwVersion));
     LAC_CHECK_PARAM_RANGE(strSize, 1, ICP_SAL_VERSIONS_FW_VERSION_SIZE);
+    snprintf((char *)pVerInfo->firmwareVersion,
+             ICP_SAL_VERSIONS_FW_VERSION_SIZE,
+             "%.*s",
+             ICP_SAL_VERSIONS_FW_VERSION_SIZE - 1,
+             fwVersion);
 
-    osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
     status = icp_adf_cfgGetParamValue(
-        device, LAC_CFG_SECTION_GENERAL, ADF_MMP_VER_KEY, param_value);
+        device, LAC_CFG_SECTION_GENERAL, ADF_MMP_VER_KEY, mmpVersion);
     LAC_CHECK_STATUS(status);
 
-    strSize = snprintf((char *)pVerInfo->mmpVersion,
-                       ICP_SAL_VERSIONS_MMP_VERSION_SIZE,
-                       "%s",
-                       param_value);
+    strSize = strnlen(mmpVersion, sizeof(mmpVersion));
     LAC_CHECK_PARAM_RANGE(strSize, 1, ICP_SAL_VERSIONS_MMP_VERSION_SIZE);
+    snprintf((char *)pVerInfo->mmpVersion,
+             ICP_SAL_VERSIONS_MMP_VERSION_SIZE,
+             "%.*s",
+             ICP_SAL_VERSIONS_MMP_VERSION_SIZE - 1,
+             mmpVersion);
 
     snprintf((char *)pVerInfo->softwareVersion,
              ICP_SAL_VERSIONS_SW_VERSION_SIZE,

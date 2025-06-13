@@ -69,7 +69,7 @@
  *
  * To complete a full process of the SM2 encryption, decryption, key exchange,
  * etc, the KDF & SM3 HASH computation are required, this file is just used by
- * the SM2 sample code to demostrate how to build up the full SM2 algorithm
+ * the SM2 sample code to demonstrate how to build up the full SM2 algorithm
  * flows.
  *
  *
@@ -128,13 +128,13 @@
  ******************************************************************************
  * Assume a message has length l.  First add the bit "1" to the end of
  * this message, then add k bits of "0", such that k is the smallest
- * non-negtive integer satisfyingGBPo
+ * non-negative integer satisfyingGBPo
  *
  *  l+1+k = 448 mod 512
  *
  * Then add a 64 bits string, which is the binary expression of length l.
- * After padding, the length of the new mesage m' is a multiple of 512.
- * Here defines a 64 bytes array, accroding to the numbers need to be filled
+ * After padding, the length of the new message m' is a multiple of 512.
+ * Here defines a 64 bytes array, according to the numbers need to be filled
  * Pad the bytes to the end of the data.
  ******************************************************************************/
 static const Cpa8U sm3PaddingData[BLOCK_BYTE_LEN] = {
@@ -304,12 +304,12 @@ void sm3(Cpa8U *input, Cpa64U ilen, Cpa8U *output)
     Cpa8U sm3_buffer[64] = {0};
     /* Assume a message has length l.  First add the bit "1" to the end of
      * this message, then add k bits of "0", such that k is the smallest
-     * non-negtive integer satisfyingGBPo
+     * non-negative integer satisfyingGBPo
      *
      *  l+1+k = 448 mod 512
      *
      * Then add a 64 bits string, which is the binary expression of length l.
-     * After padding, the length of the new mesage m' is a multiple of 512.
+     * After padding, the length of the new message m' is a multiple of 512.
      *
      * "filled" calculate the number of bytes need to be padding at the end
      * The last block should be 64 bytes(512 bits)
@@ -355,9 +355,9 @@ void sm3(Cpa8U *input, Cpa64U ilen, Cpa8U *output)
  * param input  : inbuf, Flatbuf of input message
  *         note : When alloc a piece of memory for the input message buffer
  *                (eg. inbuf->pData)
- *                more 4 bytes should be alloced, for an effient padding scheme,
- *                while the ilen should be added 4 bytes on the original input
- *                message length (inbuf->dataLenInBytes).
+ *                more 4 bytes should be alloced, for an efficient padding
+ *                scheme, while the ilen should be added 4 bytes on the original
+ *                input message length (inbuf->dataLenInBytes).
  *
  * param output : output buffer
  ******************************************************************************/
@@ -378,11 +378,11 @@ CpaStatus kdf(CpaFlatBuffer *inbuf, CpaFlatBuffer *outbuf)
     Cpa8U hashBuffer[SM3_HASH_SIZE_IN_BYTE];
     for (i = 0; i < numOfBlocks; i++)
     {
-        /* Convert the couter to 4 bytes*/
+        /* Convert the counter to 4 bytes*/
         ULONG_TO_BYTES(ct, ctBytes, 0);
         /* Padding 4 bytes counter for each data block */
         memcpy(inbuf->pData + inbuf->dataLenInBytes - 4, ctBytes, 4);
-        /* Cacluate the hash value of each data block */
+        /* Calculate the hash value of each data block */
         sm3(inbuf->pData, inbuf->dataLenInBytes, hashBuffer);
         /* Cat the hash value in order */
         memcpy(outbuf->pData + processed, hashBuffer, SM3_HASH_SIZE_IN_BYTE);

@@ -111,7 +111,8 @@ extern "C" {
  *      first order, e.g. primeP.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyDhPhase1KeyGenOpData {
+typedef struct _CpaCyDhPhase1KeyGenOpData
+{
     CpaFlatBuffer primeP;
     /**< Flat buffer containing a pointer to the random odd prime number (p).
      * The bit-length of this number may be one of 768, 1024, 1536, 2048,
@@ -153,7 +154,8 @@ typedef struct _CpaCyDhPhase1KeyGenOpData {
  *      first order, e.g. primeP.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct _CpaCyDhPhase2SecretKeyGenOpData {
+typedef struct _CpaCyDhPhase2SecretKeyGenOpData
+{
     CpaFlatBuffer primeP;
     /**< Flat buffer containing a pointer to the random odd prime number (p).
      * The bit-length of this number may be one of 768, 1024, 1536, 2048,
@@ -182,7 +184,8 @@ typedef struct _CpaCyDhPhase2SecretKeyGenOpData {
  *      Statistics are set to zero when the component is initialized, and are
  *      collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyDhStats {
+typedef struct _CpaCyDhStats
+{
     Cpa32U numDhPhase1KeyGenRequests;
     /**< Total number of successful Diffie-Hellman phase 1 key
      * generation requests. */
@@ -219,7 +222,8 @@ typedef struct _CpaCyDhStats {
  *      Statistics are set to zero when the component is initialized, and are
  *      collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyDhStats64 {
+typedef struct _CpaCyDhStats64
+{
     Cpa64U numDhPhase1KeyGenRequests;
     /**< Total number of successful Diffie-Hellman phase 1 key
      * generation requests. */
@@ -326,12 +330,12 @@ typedef struct _CpaCyDhStats64 {
  *      CpaCyDhPhase1KeyGenOpData
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDhKeyGenPhase1(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pDhPhase1Cb,
-        void *pCallbackTag,
-        const CpaCyDhPhase1KeyGenOpData *pPhase1KeyGenData,
-        CpaFlatBuffer *pLocalOctetStringPV);
+CpaStatus cpaCyDhKeyGenPhase1(
+    const CpaInstanceHandle instanceHandle,
+    const CpaCyGenFlatBufCbFunc pDhPhase1Cb,
+    void *pCallbackTag,
+    const CpaCyDhPhase1KeyGenOpData *pPhase1KeyGenData,
+    CpaFlatBuffer *pLocalOctetStringPV);
 
 /**
  *****************************************************************************
@@ -410,12 +414,12 @@ cpaCyDhKeyGenPhase1(const CpaInstanceHandle instanceHandle,
  *      CpaCyDhPhase2SecretKeyGenOpData
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDhKeyGenPhase2Secret(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pDhPhase2Cb,
-        void *pCallbackTag,
-        const CpaCyDhPhase2SecretKeyGenOpData *pPhase2SecretKeyGenData,
-        CpaFlatBuffer *pOctetStringSecretKey);
+CpaStatus cpaCyDhKeyGenPhase2Secret(
+    const CpaInstanceHandle instanceHandle,
+    const CpaCyGenFlatBufCbFunc pDhPhase2Cb,
+    void *pCallbackTag,
+    const CpaCyDhPhase2SecretKeyGenOpData *pPhase2SecretKeyGenData,
+    CpaFlatBuffer *pOctetStringSecretKey);
 
 /**
  *****************************************************************************
@@ -474,7 +478,7 @@ cpaCyDhKeyGenPhase2Secret(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCyDhQueryStats(const CpaInstanceHandle instanceHandle,
-        struct _CpaCyDhStats *pDhStats);
+                  struct _CpaCyDhStats *pDhStats);
 
 /**
  *****************************************************************************
@@ -527,9 +531,8 @@ cpaCyDhQueryStats(const CpaInstanceHandle instanceHandle,
  * @see
  *      CpaCyDhStats64
  *****************************************************************************/
-CpaStatus
-cpaCyDhQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyDhStats64 *pDhStats);
+CpaStatus cpaCyDhQueryStats64(const CpaInstanceHandle instanceHandle,
+                              CpaCyDhStats64 *pDhStats);
 
 /*****************************************************************************/
 

@@ -702,7 +702,6 @@ CpaStatus dsaGenZ(CpaInstanceHandle instanceHandle,
      *       N = outLen so Z = digest of msg
      */
 
-
     CpaCyCapabilitiesInfo cap = {0};
 
     status = getCySpecificInstanceCapabilities(instanceHandle, &cap);
@@ -1905,7 +1904,6 @@ static void dsaPerformanceGen(single_thread_test_data_t *testSetup,
         packageIdCount_g = instanceInfo->physInstId.packageId;
     }
     dsaSetup.performanceStats->packageId = instanceInfo->physInstId.packageId;
-
 
     /*launch function that does all the work */
     if (DSA_STEP_VERIFY == step)

@@ -47,7 +47,7 @@
  * (FW interface changes to break the assumption or the compiler moves things
  * around) this file will fail to compile.
  *
- * Note for strutures with only 1 member no check is required.
+ * Note for structures with only 1 member no check is required.
  *
  ***************************************************************************/
 

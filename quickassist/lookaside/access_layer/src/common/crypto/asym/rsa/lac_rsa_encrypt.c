@@ -200,6 +200,7 @@ CpaStatus cpaCyRsaEncrypt(const CpaInstanceHandle instanceHandle_in,
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, rsa);
 
     /* Check if the API has been called in sync mode */
     if (NULL == pRsaEncryptCb)

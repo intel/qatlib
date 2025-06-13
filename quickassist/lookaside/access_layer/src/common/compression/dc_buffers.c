@@ -93,12 +93,15 @@
 #define DC_DEST_BUFF_EXTRA_LZ4S_GEN4 (1024)
 #define DC_DEST_BUFF_MIN_EXTRA_BYTES(x) ((x < 8) ? (8 - x) : 0)
 #define DC_BUF_MAX_SIZE (0xFFFFFFFF)
+/* To determine an overflow on a 32 unsigned value */
+#define UINT_OVERFLOW (0xFFFFFFFF00000000UL)
+#define DC_NUM_EXTRA_BUFFERS (1)
+#define DC_NUM_DICT_BUFFERS (1)
 
 CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
                                      Cpa32U numBuffers,
                                      Cpa32U *pSizeInBytes)
 {
-#ifdef ICP_PARAM_CHECK
     CpaInstanceHandle insHandle = NULL;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle)
@@ -110,11 +113,14 @@ CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
         insHandle = instanceHandle;
     }
 
+#ifdef ICP_PARAM_CHECK
     LAC_CHECK_INSTANCE_HANDLE(insHandle);
     LAC_CHECK_NULL_PARAM(pSizeInBytes);
 
-    /* Ensure this is a compression instance */
-    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    /* Ensure this is a compression or a decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
 
     if (0 == numBuffers)
     {
@@ -124,7 +130,8 @@ CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
 #endif
 
     *pSizeInBytes = (sizeof(icp_buffer_list_desc_t) +
-                     (sizeof(icp_flat_buffer_desc_t) * (numBuffers + 1)) +
+                     (sizeof(icp_flat_buffer_desc_t) *
+                      (numBuffers + DC_NUM_EXTRA_BUFFERS)) +
                      ICP_DESCRIPTOR_ALIGNMENT_BYTES);
 
 #ifdef ICP_TRACE
@@ -138,9 +145,52 @@ CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC INLINE CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
-                                           Cpa32U inputSize,
-                                           Cpa32U *outputSize)
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Function to return the size of the memory which must be allocated for
+ *      the pPrivateMetaData member of the CpaBufferList used with dictionary
+ *      compression.
+ *
+ * @description
+ *      This function is used to obtain the size (in bytes) required to
+ *      allocate a buffer descriptor for the pPrivateMetaData member in the
+ *      CpaBufferList structure of the source buffer list used in the API's
+ *      cpaDcCompressDataWithDict() and cpaDcDecompressDataWithDict().
+ *      In contrast the size in bytes to allocate the descriptor of the
+ *      destination buffer list must not use this API, and needs to be
+ *      determined using the API cpaDcBufferListGetMetaSize().
+ *
+ * @param[in]  instanceHandle      Handle to an instance of this API.
+ * @param[in]  numDictBuffers      The number of CpaFlatBuffers contained in
+ *                                 the dictionary buffer CpaBufferList.
+ *                                 This number must not be exceeded during use.
+ * @param[in]  numSourceBuffers    The number of CpaFlatBuffers contained in
+ *                                 the source buffer CpaBufferList.
+ *                                 This number must not be exceeded during use.
+ * @param[out] pSizeInBytes        Pointer to the size in bytes of memory to be
+ *                                 allocated as metadata to be assigned within
+ *                                 the source buffer CpaBufferList.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ *****************************************************************************/
+CpaStatus cpaDcGetMetaSizeForSrcBuffWithDict(
+    const CpaInstanceHandle instanceHandle,
+    Cpa32U numDictBuffers,
+    Cpa32U numSourceBuffers,
+    Cpa32U *pSizeInBytes)
+{
+    return CPA_STATUS_UNSUPPORTED;
+}
+
+CpaStatus dcDeflateBoundGen2(void *pService,
+                             CpaDcHuffType huffType,
+                             Cpa32U inputSize,
+                             Cpa32U *outputSize)
 {
     Cpa64U inBufferSize = inputSize;
     Cpa64U outBufferSize = 0;
@@ -165,14 +215,16 @@ STATIC INLINE CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC INLINE CpaStatus
-dcDeflateBoundGen4(const sal_compression_service_t *pService,
-                   CpaDcHuffType huffType,
-                   Cpa32U inputSize,
-                   Cpa32U *outputSize)
+CpaStatus dcDeflateBoundGen4(void *pServiceType,
+                             CpaDcHuffType huffType,
+                             Cpa32U inputSize,
+                             Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
+    sal_compression_service_t *pService = NULL;
+
+    pService = (sal_compression_service_t *)pServiceType;
 
     switch (huffType)
     {
@@ -187,7 +239,7 @@ dcDeflateBoundGen4(const sal_compression_service_t *pService,
             outputSizeLong += CPA_DC_CEIL_DIV(9 * inputSizeLong, 8);
             if (pService->generic_service_info.isGen4_2)
             {
-                /* Formula for GEN4 dynamic deflate:
+                /* Formula for GEN4_2 dynamic deflate:
                  * Ceil ((9*sourceLen)/8) +
                  * ((((8/7) * sourceLen)/ 4KB) * (150+5)) + 512
                  */
@@ -207,7 +259,7 @@ dcDeflateBoundGen4(const sal_compression_service_t *pService,
     }
 
     /* Avoid output size overflow */
-    if (outputSizeLong & 0xffffffff00000000UL)
+    if (outputSizeLong & UINT_OVERFLOW)
         return CPA_STATUS_INVALID_PARAM;
 
     *outputSize = (Cpa32U)outputSizeLong;
@@ -221,7 +273,10 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
 {
     sal_compression_service_t *pService;
     CpaInstanceHandle insHandle = NULL;
-    CpaStatus status = CPA_STATUS_SUCCESS;
+    dc_capabilities_t *pDcCapabilities = NULL;
+#ifdef ICP_PARAM_CHECK
+    CpaBoolean dynHuffmanSupported = CPA_FALSE;
+#endif
 
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
@@ -237,6 +292,17 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
     LAC_CHECK_NULL_PARAM(outputSize);
     /* Ensure this is a compression instance */
     SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+#endif
+
+    pService = (sal_compression_service_t *)insHandle;
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
+#ifdef ICP_PARAM_CHECK
+    dynHuffmanSupported =
+        DC_CAPS_DEFLATE_TYPE_SUPPORT_GET(pDcCapabilities->deflate.typeSupport,
+                                         DC_CAPS_DEFLATE_TYPE_DYNAMIC,
+                                         DC_CAPS_DEFLATE_TYPE_SUPPORTED);
     if (!inputSize)
     {
         LAC_INVALID_PARAM_LOG("The input size needs to be greater than zero");
@@ -248,22 +314,19 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
         LAC_INVALID_PARAM_LOG("Invalid huffType value");
         return CPA_STATUS_INVALID_PARAM;
     }
+    if ((CPA_FALSE == dynHuffmanSupported) &&
+        (CPA_DC_HT_FULL_DYNAMIC == huffType))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid huffType value");
+        return CPA_STATUS_INVALID_PARAM;
+    }
 #endif
 
-    pService = (sal_compression_service_t *)insHandle;
-    if (pService->generic_service_info.isGen4)
-    {
-        status = dcDeflateBoundGen4(pService, huffType, inputSize, outputSize);
-    }
-    else
-    {
-        status = dcDeflateBoundGen2(huffType, inputSize, outputSize);
-    }
-
-    return status;
+    return (pDcCapabilities->dcDeflateBound)(
+        (void *)pService, huffType, inputSize, outputSize);
 }
 
-STATIC INLINE CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
+CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
@@ -274,26 +337,25 @@ STATIC INLINE CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
     outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 1520) * 13;
 
     /* Avoid output size overflow */
-    if (outputSizeLong & 0xffffffff00000000UL)
+    if (outputSizeLong & UINT_OVERFLOW)
         return CPA_STATUS_INVALID_PARAM;
 
     *outputSize = (Cpa32U)outputSizeLong;
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC INLINE CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
+CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
 
     /* Formula for GEN4 LZ4S:
-     * sourceLen + Ceil(sourceLen/18) * 1 + 1024 */
+     * sourceLen + Ceil(sourceLen/2000) * 11 + 1024 */
     outputSizeLong = inputSizeLong + DC_DEST_BUFF_EXTRA_LZ4S_GEN4;
-    /* No need to multiply by 1 so ignored in implementation of formula */
-    outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 18);
+    outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 2000) * 11;
 
     /* Avoid output size overflow */
-    if (outputSizeLong & 0xffffffff00000000UL)
+    if (outputSizeLong & UINT_OVERFLOW)
         return CPA_STATUS_INVALID_PARAM;
 
     *outputSize = (Cpa32U)outputSizeLong;
@@ -306,6 +368,8 @@ CpaStatus cpaDcLZ4CompressBound(const CpaInstanceHandle dcInstance,
 {
     sal_compression_service_t *pService = NULL;
     CpaInstanceHandle insHandle = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    CpaBoolean lz4Supported = CPA_FALSE;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
@@ -328,9 +392,19 @@ CpaStatus cpaDcLZ4CompressBound(const CpaInstanceHandle dcInstance,
 #endif
 
     pService = (sal_compression_service_t *)insHandle;
-    if (pService->generic_service_info.isGen4)
+
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+    lz4Supported = pDcCapabilities->lz4.supported;
+
+    if (CPA_FALSE == lz4Supported)
     {
-        return dcLZ4BoundGen4(inputSize, outputSize);
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (pDcCapabilities->dcLZ4Bound)
+    {
+        return (pDcCapabilities->dcLZ4Bound)(inputSize, outputSize);
     }
     else
     {
@@ -344,6 +418,8 @@ CpaStatus cpaDcLZ4SCompressBound(const CpaInstanceHandle dcInstance,
 {
     sal_compression_service_t *pService = NULL;
     CpaInstanceHandle insHandle = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    CpaBoolean lz4sSupported = CPA_FALSE;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
@@ -366,12 +442,22 @@ CpaStatus cpaDcLZ4SCompressBound(const CpaInstanceHandle dcInstance,
 #endif
 
     pService = (sal_compression_service_t *)insHandle;
-    if (pService->generic_service_info.isGen4)
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+    lz4sSupported = pDcCapabilities->lz4s.supported;
+
+    if (CPA_FALSE == lz4sSupported)
     {
-        return dcLZ4SBoundGen4(inputSize, outputSize);
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (pDcCapabilities->dcLZ4SBound)
+    {
+        return (pDcCapabilities->dcLZ4SBound)(inputSize, outputSize);
     }
     else
     {
         return CPA_STATUS_UNSUPPORTED;
     }
 }
+

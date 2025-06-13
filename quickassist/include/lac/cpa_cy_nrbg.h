@@ -93,7 +93,6 @@ extern "C" {
 
 #include "cpa_cy_common.h"
 
-
 /**
  *****************************************************************************
  * @ingroup cpaCyNrbg
@@ -109,7 +108,8 @@ extern "C" {
  *      and before it has been returned in the callback, undefined behavior will
  *      result.
  *****************************************************************************/
-typedef struct _CpaCyNrbgOpData {
+typedef struct _CpaCyNrbgOpData
+{
     Cpa32U lengthInBytes;
     /**< Requested number of bytes to be generated.  On calls to @ref
      * cpaCyNrbgGetEntropy, this value must be greater than zero (>0).
@@ -140,26 +140,27 @@ typedef struct _CpaCyNrbgOpData {
  * @threadSafe
  *      Yes
  *
- * @param[in]  instanceHandle        Instance handle.
- * @param[in]  pCb                     Pointer to callback function to be invoked
- *                                   when the operation is complete. If this is
- *                                   set to a NULL value the function will operate
- *                                   synchronously.
- * @param[in]  pCallbackTag          Opaque User Data for this specific call. Will
- *                                   be returned unchanged in the callback.
- * @param[in]  pOpData                Structure containing all the data needed to
- *                                   perform the operation.
- *                                  The client code allocates the memory for this
- *                                   structure. This component takes ownership of
- *                                   the memory until it is returned in the
- *                                   callback.
- * @param[out] pEntropy                Pointer to memory allocated by the client
- *                                   to which the entropy will be written. For
- *                                   optimal performance, the data pointed to SHOULD
- *                                   be 8-byte aligned. There is no endianness
- *                                   associated with the entropy.
- *                                   On invocation the callback function will
- *                                   contain this parameter in its pOut parameter.
+ * @param[in]  instanceHandle       Instance handle.
+ * @param[in]  pCb                  Pointer to callback function to be
+ *                                  invoked when the operation is complete.
+ *                                  If this is set to a NULL value the
+ *                                  function will operate synchronously.
+ * @param[in]  pCallbackTag         Opaque User Data for this specific call.
+ *                                  Will be returned unchanged in the callback.
+ * @param[in]  pOpData              Structure containing all the data needed
+ *                                  to perform the operation. The client code
+ *                                  allocates the memory for this structure.
+ *                                  This component takes ownership of the
+ *                                  memory until it is returned in the
+ *                                  callback.
+ * @param[out] pEntropy             Pointer to memory allocated by the client
+ *                                  to which the entropy will be written. For
+ *                                  optimal performance, the data pointed to
+ *                                  SHOULD be 8-byte aligned. There is no
+ *                                  endianness associated with the entropy.
+ *                                  On invocation the callback function will
+ *                                  contain this parameter in its pOut
+ *parameter.
  *
  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
  * @retval CPA_STATUS_FAIL          Function failed.
@@ -182,12 +183,11 @@ typedef struct _CpaCyNrbgOpData {
  *      callback status code. For optimal performance, data pointers SHOULD be
  *      8-byte aligned.
  *****************************************************************************/
-CpaStatus
-cpaCyNrbgGetEntropy(const CpaInstanceHandle instanceHandle,
-        const CpaCyGenFlatBufCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyNrbgOpData *pOpData,
-        CpaFlatBuffer *pEntropy);
+CpaStatus cpaCyNrbgGetEntropy(const CpaInstanceHandle instanceHandle,
+                              const CpaCyGenFlatBufCbFunc pCb,
+                              void *pCallbackTag,
+                              const CpaCyNrbgOpData *pOpData,
+                              CpaFlatBuffer *pEntropy);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

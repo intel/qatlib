@@ -105,18 +105,11 @@
                                    macro
 **************************************************************************/
 
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 /* User space page table for fast virtual to physical address translation */
 page_table_t g_page_table = { { { 0 } } };
 
 slab_list_t g_slab_tmp_list = { 0 };
 pthread_mutex_t mutex_tmp_list = PTHREAD_MUTEX_INITIALIZER;
-
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 
 pthread_key_t qae_key;
 pthread_once_t qae_key_once = PTHREAD_ONCE_INIT;

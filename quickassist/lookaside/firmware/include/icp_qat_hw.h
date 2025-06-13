@@ -148,13 +148,21 @@ typedef enum
     ICP_QAT_HW_AUTH_ALGO_SHA3_512 = 19,        /*!< SHA3-512 hashing */
     ICP_QAT_HW_AUTH_RESERVED_4 = 20,           /*!< Reserved */
     ICP_QAT_HW_AUTH_RESERVED_5 = 21,           /*!< Reserved */
-    ICP_QAT_HW_AUTH_ALGO_POLY = 22,            /*!< POLY hashing */
+    ICP_QAT_HW_AUTH_ALGO_AES_128_CMAC = 22,    /*!< AES-128 CMAC */
     ICP_QAT_HW_AUTH_ALGO_AES_192_CMAC = 23,    /*!< AES-192 CMAC */
     ICP_QAT_HW_AUTH_ALGO_AES_256_CMAC = 24,    /*!< AES-256 CMAC */
     ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_32 = 25,  /*!< ZUC-256 MAC-32 hashing */
     ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_64 = 26,  /*!< ZUC-256 MAC-64 hashing */
     ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_128 = 27, /*!< ZUC-256 MAC-128 hashing */
-    ICP_QAT_HW_AUTH_ALGO_DELIMITER = 28        /**< Delimiter type */
+    ICP_QAT_HW_AUTH_ALGO_NIAX = 28,            /*!< NIAx (SNOW5G, AES-256,
+                                                    ZUC-256) */
+    ICP_QAT_HW_AUTH_ALGO_POLY = 29,            /*!< POLY hashing */
+    /* POLY hash standalone algorithm is not supported.
+     * This enum is used only in driver and not used for hardware
+     * configuration.Always keep ICP_QAT_HW_AUTH_ALGO_POLY before
+     * ICP_QAT_HW_AUTH_ALGO_DELIMITER.
+     */
+    ICP_QAT_HW_AUTH_ALGO_DELIMITER = 30 /**< Delimiter type */
 } icp_qat_hw_auth_algo_t;
 
 /**
@@ -202,9 +210,6 @@ typedef struct icp_qat_hw_auth_config_s
 
 /* Private defines */
 
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
 /* Note: Bit positions have been defined for little endian ordering */
 /*
 *  AUTH CONFIG WORD BITMAP
@@ -217,9 +222,6 @@ typedef struct icp_qat_hw_auth_config_s
 *  |       |(prefix)|        |(postfix)|        |        |       |       |        |        |      |       |       |       |
 *  + ===== + ------ + ------ + ------- + ------ + ------ + ----- + ----- + ------ + ------ + ---- + ----- + ----- + ------+
 */
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
 
 /**< Flag mask & bit position */
 
@@ -604,6 +606,12 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_AES_CMAC_STATE1_SZ 16
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for AES-128/192/256 CMAC */
+#define ICP_QAT_HW_NIAX_STATE1_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * State1 block size for NIAx (SNOW5G, AES-256, ZUC-256)
+ * Note: State1 is not actually used in Gen6, defined this
+ * to align with legacy AES-256 and ZUC-256.
+ */
 
 /* State2 */
 #define ICP_QAT_HW_NULL_STATE2_SZ 32
@@ -683,12 +691,21 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_ZUC_256_STATE2_SZ 56
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for ZUC-256 with 32/64/128 bit MAC */
+#define ICP_QAT_HW_AES_128_CMAC_STATE2_SZ 16
+/**< @ingroup icp_qat_hw_defs
+ * State2 block size for AES-128 CMAC */
 #define ICP_QAT_HW_AES_192_CMAC_STATE2_SZ 24
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for AES-192 CMAC */
 #define ICP_QAT_HW_AES_256_CMAC_STATE2_SZ 32
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for AES-256 CMAC */
+#define ICP_QAT_HW_NIAX_STATE2_SZ 48
+/**< @ingroup icp_cpm_hw_defs
+ * State2 block size for NIAx (SNOW5G, AES-256, ZUC-256) */
+#define ICP_QAT_HW_ZUC_256_UPDATE_STATE2_SZ 48
+/**< @ingroup icp_cpm_hw_defs
+ * State2 block size for updated ZUC-256 MAC-32/64/128 (Gen6) */
 
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -819,7 +836,8 @@ typedef enum
     ICP_QAT_HW_CIPHER_ALGO_SM4 = 10,               /*!< SM4 ciphering */
     ICP_QAT_HW_CIPHER_ALGO_CHACHA20_POLY1305 = 11, /*!< CHACHA POLY SPC AEAD */
     ICP_QAT_HW_CIPHER_ALGO_ZUC_256 = 12,           /*!< ZUC-256 */
-    ICP_QAT_HW_CIPHER_DELIMITER = 13               /**< Delimiter type */
+    ICP_QAT_HW_CIPHER_ALGO_SNOW_5G = 13,           /*!< Snow_5G */
+    ICP_QAT_HW_CIPHER_DELIMITER = 14               /**< Delimiter type */
 } icp_qat_hw_cipher_algo_t;
 
 /**
@@ -844,7 +862,8 @@ typedef enum
     ICP_QAT_HW_CIPHER_GCM_MODE = 4,      /*!< AES-GCM single pass AEAD mode */
     ICP_QAT_HW_CIPHER_CCM_MODE = 5,      /*!< AES-CCM single pass AEAD mode */
     ICP_QAT_HW_CIPHER_XTS_MODE = 6,      /*!< XTS mode */
-    ICP_QAT_HW_CIPHER_MODE_DELIMITER = 7 /**< Delimiter type */
+    ICP_QAT_HW_CIPHER_NCA_MODE = 7,      /*!< NCA mode */
+    ICP_QAT_HW_CIPHER_MODE_DELIMITER = 8 /**< Delimiter type */
 } icp_qat_hw_cipher_mode_t;
 
 /**
@@ -1179,6 +1198,18 @@ typedef enum {
 #define ICP_QAT_HW_ZUC_256_IV_SZ 24
 /**< @ingroup icp_cpm_hw_defs
  * Define the iv size for ZUC-256 */
+/* SNOW5G */
+#define ICP_QAT_HW_SNOW_5G_KEY_SZ 32
+/**< @ingroup icp_cpm_hw_defs
+ * Define the key size for SNOW_5G
+ */
+#define ICP_QAT_HW_SNOW_5G_IV_SZ 16
+/**< @ingroup icp_cpm_hw_defs
+ * Define the iv size for SNOW_5G */
+#define ICP_QAT_HW_ZUC_256_UPDATE_IV_SZ 16
+/**< @ingroup icp_cpm_hw_defs
+ * Define the iv size for updated ZUC-256 (Gen6) */
+
 /*
  * SHRAM constants definitions
  */

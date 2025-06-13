@@ -96,6 +96,10 @@
 #include "qae_mem_utils_common.h"
 
 #ifdef ICP_THREAD_SPECIFIC_USDM
+
+#define PINNED 1
+#define NOT_PINNED 0
+
 typedef struct
 {
     dev_mem_info_t *pUserCacheHead;

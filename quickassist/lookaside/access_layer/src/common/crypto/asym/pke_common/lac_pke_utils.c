@@ -369,7 +369,7 @@ Cpa32U LacPke_GetMaxLnOfNBuffers(int n, ...)
     va_start(args, n);
     Cpa32U max = 0;
     CpaFlatBuffer* buf;
-    Cpa32U i = 0;
+    int i = 0;
 
     for (i = 0; i < n; i++)
     {

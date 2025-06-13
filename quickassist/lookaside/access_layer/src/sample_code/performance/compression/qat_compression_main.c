@@ -76,7 +76,6 @@ extern void dcPerformCallback(void *pCallbackTag, CpaStatus status);
 
 extern CpaStatus createStartandWaitForCompletion(Cpa32U instType);
 
-
 #define COUNT_RESPONSES dcPerformCallback(setup, status)
 
 #define RESET_PERF_STATS(perfStats, numLists, numLoops)                        \
@@ -158,7 +157,6 @@ CpaStatus setupDcLZ4Test(CpaDcCompType algorithm,
 EXPORT_SYMBOL(setupDcLZ4Test);
 #endif
 
-
 /*register a test with the sample code framework*/
 CpaStatus setupDcTest(CpaDcCompType algorithm,
                       CpaDcSessionDir direction,
@@ -185,7 +183,11 @@ CpaStatus setupDcTest(CpaDcCompType algorithm,
 #endif
 #if DC_API_VERSION_LESS_THAN(1, 6)
     /*windows size is depreciated in new versions of the QA-API*/
-    dcSetup->setupData.deflateWindowSize = windowsSize;
+    dcSetup->setupData.deflateWindowSize = windowSize;
+#endif
+#if DC_API_VERSION_AT_LEAST(3, 1)
+    /*deflateWindowSize is deprecated in new versions of the QA-API*/
+    dcSetup->setupData.windowSize = windowSize;
 #endif
 
     status = setupDcCommonTest(dcSetup,
@@ -370,6 +372,11 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     tmpSetup = (compression_test_params_t *)(testSetup->setupPtr);
     testSetup->passCriteria = tmpSetup->passCriteria;
     dcSetup.passCriteria = tmpSetup->passCriteria;
+#if DC_API_VERSION_AT_LEAST(3, 2) &&                                           \
+    (defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)) &&             \
+    !defined(SC_BSD_UPSTREAM)
+    dcSetup.dcSessionCrcControlData = tmpSetup->dcSessionCrcControlData;
+#endif
     /* update the setup structure with setup parameters */
     memcpy(&dcSetup.requestOps, &tmpSetup->requestOps, sizeof(CpaDcOpData));
     dcSetup.useStatefulLite = tmpSetup->useStatefulLite;
@@ -498,8 +505,6 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
     }
 
-
-
 #if DC_API_VERSION_AT_LEAST(3, 1)
     if ((CPA_DC_STATELESS == tmpSetup->setupData.sessState) &&
         (CPA_DC_LZ4 == tmpSetup->setupData.compType) &&
@@ -544,7 +549,9 @@ void dcPerformance(single_thread_test_data_t *testSetup)
                       "%d\n",
                       testSetup->logicalQaInstance);
                 testSetup->performanceStats->threadReturnStatus =
-                    CPA_STATUS_SUCCESS;
+                    CPA_STATUS_UNSUPPORTED;
+                status = CPA_STATUS_UNSUPPORTED;
+                QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
                 qaeMemFree((void **)&instances);
                 qaeMemFree((void **)&dcSetup.numberOfBuffers);
                 qaeMemFree((void **)&dcSetup.packetSizeInBytesArray);
@@ -562,10 +569,8 @@ void dcPerformance(single_thread_test_data_t *testSetup)
         sampleCodeThreadExit();
     }
 
-
     dcSetup.induceOverflow = CPA_FALSE;
     dcSetup.threadID = testSetup->threadID;
-
 
     if (CPA_STATUS_SUCCESS == status)
     {

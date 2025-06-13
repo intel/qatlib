@@ -155,6 +155,7 @@ STATIC void LacSymQat_HashSetupBlockOptimisedFormatInit(
  * @param[in]  pHashDefs            Pointer to Hash definitions
  * @param[in]  pOuterHashDefs       Pointer to Outer Hash definitions.
  *                                  Required for nested hash mode only
+ * @param[in]  instanceHandle       Instance Handle
  *
  * @return void
  */
@@ -165,7 +166,8 @@ STATIC void LacSymQat_HashSetupBlockInit(
     icp_qat_hw_auth_mode_t qatHashMode,
     lac_sym_qat_hash_precompute_info_t *pPrecompute,
     lac_sym_qat_hash_defs_t *pHashDefs,
-    lac_sym_qat_hash_defs_t *pOuterHashDefs);
+    lac_sym_qat_hash_defs_t *pOuterHashDefs,
+    CpaInstanceHandle instanceHandle);
 
 /** @ingroup LacSymQatHash */
 void LacSymQat_HashGetCfgData(CpaInstanceHandle pInstance,
@@ -237,12 +239,6 @@ void LacSymQat_HashContentDescInit(
     LAC_ENSURE_NOT_NULL(pHwBlockBase);
     LAC_ENSURE_NOT_NULL(pHashBlkSizeInBytes);
 
-    /* setup the offset in QuadWords into the hw blk */
-    cd_ctrl->hash_cfg_offset = (Cpa8U)hwBlockOffsetInQuadWords;
-
-    ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
-    ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_AUTH);
-
     LacSymQat_HashDefsLookupGet(instanceHandle,
                                 pHashSetupData->hashAlgorithm,
                                 &pHashDefs,
@@ -250,6 +246,11 @@ void LacSymQat_HashContentDescInit(
                                 digestResultLenInBytes);
 
     LAC_ENSURE_NOT_NULL(pHashDefs);
+
+    /* setup the offset in QuadWords into the HW block */
+    cd_ctrl->hash_cfg_offset = (Cpa8U)hwBlockOffsetInQuadWords;
+    ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
+    ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_AUTH);
 
     /* Hmac in mode 2 TLS */
     if (IS_HASH_MODE_2(qatHashMode))
@@ -396,7 +397,8 @@ void LacSymQat_HashContentDescInit(
                                      qatHashMode,
                                      pPrecompute,
                                      pHashDefs,
-                                     pOuterHashDefs);
+                                     pOuterHashDefs,
+                                     instanceHandle);
         LAC_LOG_DEBUG("Hash HwSetupBlock in DRAM");
     }
 }
@@ -424,6 +426,7 @@ void LacSymQat_HashSetupReqParamsMetaData(
     Cpa32U authKeyLenInBytes =
         pHashSetupData->authModeSetupData.authKeyLenInBytes;
     Cpa32U digestResultLenInBytes = pHashSetupData->digestResultLenInBytes;
+
     LAC_ENSURE_NOT_NULL(pMsg);
     LAC_ENSURE_NOT_NULL(pHashSetupData);
 
@@ -438,7 +441,6 @@ void LacSymQat_HashSetupReqParamsMetaData(
                                 digestResultLenInBytes);
 
     LAC_ENSURE_NOT_NULL(pHashDefs);
-
     /* Hmac in mode 2 TLS */
     if (IS_HASH_MODE_2(qatHashMode))
     {
@@ -572,12 +574,12 @@ STATIC void LacSymQat_HashSetupBlockInit(
     icp_qat_hw_auth_mode_t qatHashMode,
     lac_sym_qat_hash_precompute_info_t *pPrecompute,
     lac_sym_qat_hash_defs_t *pHashDefs,
-    lac_sym_qat_hash_defs_t *pOuterHashDefs)
+    lac_sym_qat_hash_defs_t *pOuterHashDefs,
+    CpaInstanceHandle instanceHandle)
 {
     Cpa32U innerConfig = 0;
     lac_hash_blk_ptrs_t hashBlkPtrs = {0};
     Cpa32U aedHashCmpLength = 0;
-
     LacSymQat_HashHwBlockPtrsInit(
         pHashControlBlock, pHwBlockBase, &hashBlkPtrs);
 
@@ -964,7 +966,19 @@ inline CpaStatus LacSymQat_HashRequestParamsPopulate(
     pHashReqParams = (icp_qat_fw_la_auth_req_params_t
                           *)((Cpa8U *)&(pReq->serv_specif_rqpars) +
                              ICP_QAT_FW_HASH_REQUEST_PARAMETERS_OFFSET);
-
+    /* For a full packet or last partial, we need to set the digest result
+     * pointer */
+    if (NULL != pAuthResult)
+    {
+        authResultPhys =
+            LAC_OS_VIRT_TO_PHYS_EXTERNAL((*pService), (void *)pAuthResult);
+        if (authResultPhys == 0)
+        {
+            LAC_LOG_ERROR("Unable to get the physical address of the"
+                          " auth result\n");
+            return CPA_STATUS_FAIL;
+        }
+    }
     pHashReqParams->auth_off = authOffsetInBytes;
     pHashReqParams->auth_len = authLenInBytes;
 
@@ -982,26 +996,9 @@ inline CpaStatus LacSymQat_HashRequestParamsPopulate(
         }
     }
 
-    /* For a Full packet or last partial need to set the digest result pointer
-     * and the auth result field */
-    if (NULL != pAuthResult)
-    {
-        authResultPhys =
-            LAC_OS_VIRT_TO_PHYS_EXTERNAL((*pService), (void *)pAuthResult);
-
-        if (authResultPhys == 0)
-        {
-            LAC_LOG_ERROR("Unable to get the physical address of the"
-                          " auth result\n");
-            return CPA_STATUS_FAIL;
-        }
-
-        pHashReqParams->auth_res_addr = authResultPhys;
-    }
-    else
-    {
-        pHashReqParams->auth_res_addr = 0;
-    }
+    /* For a full packet or last partial, we need to set the auth result
+     * field */
+    pHashReqParams->auth_res_addr = authResultPhys;
 
     if (CPA_TRUE == digestVerify)
     {
@@ -1030,7 +1027,7 @@ inline CpaStatus LacSymQat_HashRequestParamsPopulate(
             if ((ICP_QAT_FW_LA_PARTIAL_START == packetType) ||
                 (ICP_QAT_FW_LA_PARTIAL_NONE == packetType))
             {
-                // prefix_addr changed to auth_partial_st_prefix
+                /* Prefix_addr changed to auth_partial_st_prefix */
                 pHashReqParams->u1.auth_partial_st_prefix =
                     ((pHashStateBuf->pDataPhys) +
                      LAC_QUADWORDS_TO_BYTES(

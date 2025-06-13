@@ -612,7 +612,7 @@ typedef struct lac_session_desc_d2_s
     Cpa8U cipherAesXtsKey1Reverse[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< AES XTS Reverse key
      * For CPM2.0 AES XTS key conversion need to be done in SW.
-     * Reverse key always will be caculated at session setup time and
+     * Reverse key always will be calculated at session setup time and
      * cached to be used when needed */
     Cpa8U cipherAesXtsKey2[LAC_CIPHER_AES_XTS_KEY_MAX_LENGTH];
     /**< For AES XTS session need to store Key2 value in order to generate tweak

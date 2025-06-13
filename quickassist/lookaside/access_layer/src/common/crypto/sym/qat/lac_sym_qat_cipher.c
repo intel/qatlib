@@ -503,11 +503,10 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
     {
         ICP_QAT_HW_CIPHER_ALGO_AES128,
         ICP_QAT_HW_CIPHER_XTS_MODE,
-        /* AES decrypt key needs to be reversed.  Instead of reversing the key
-         * at session registration, it is instead reversed on-the-fly by
-         * setting the KEY_CONVERT bit here
+        /* Reverse the cipher key in library for decrypt direction and clearing
+         * the key_convert bit in the configuration word for AES-XTS algorithm
          */
-        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
+        { ICP_QAT_HW_CIPHER_NO_CONVERT, ICP_QAT_HW_CIPHER_NO_CONVERT },
         { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
         IS_KEY_DEP_YES,
         key_size_xts,
@@ -557,11 +556,11 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         IS_KEY_DEP_NO,
         NULL,
     },
-    /* RESERVED#1 in order to align with unsupported Algo in API repo */
+    /* RESERVED#1 in order to align with unsupported algorithms in API repo */
     { 0 },
-    /* RESERVED#2 in order to align with unsupported Algo in API repo */
+    /* RESERVED#2 in order to align with unsupported algorithms in API repo */
     { 0 },
-    /* RESERVED#3 in order to align with unsupported Algo in API repo */
+    /* RESERVED#3 in order to align with unsupported algorithms in API repo */
     { 0 },
 };
 
@@ -624,7 +623,7 @@ void LacSymQat_CipherCtrlBlockWrite(icp_qat_la_bulk_req_ftr_t *pMsg,
            key size plus iv size */
         case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             /* For ZUC-128 EEA3 and ZUC-256, the content descriptor
-           key size is key size plus iv size */
+             key size is key size plus iv size */
             if (ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ == targetKeyLenInBytes)
             {
                 cd_ctrl->cipher_key_sz =
@@ -655,8 +654,11 @@ void LacSymQat_CipherCtrlBlockWrite(icp_qat_la_bulk_req_ftr_t *pMsg,
             LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_ZUC_256_IV_SZ);
     }
 
-    ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
-    ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_CIPHER);
+    if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE != sliceType)
+    {
+        ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
+        ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_CIPHER);
+    }
 }
 
 void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
@@ -687,11 +689,9 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
             ? ICP_QAT_HW_CIPHER_ENCRYPT
             : ICP_QAT_HW_CIPHER_DECRYPT;
 
-    /* clang-format off */
     /* Boundary check against the last value in the algorithm enum */
     LAC_ENSURE_RETURN_VOID(pSession->cipherAlgorithm <= CPA_CY_SYM_CIPHER_SM4_CTR, "Invalid cipherAlgorithm value\n");
     LAC_ENSURE_RETURN_VOID(cipherDirection <= ICP_QAT_HW_CIPHER_DECRYPT, "Invalid cipherDirection value\n");
-    /* clang-format on */
 
     *pAlgorithm = icp_qat_alg_info[cipherIdx].algorithm;
     *pMode = icp_qat_alg_info[cipherIdx].mode;
@@ -702,9 +702,7 @@ void LacSymQat_CipherGetCfgData(lac_session_desc_t *pSession,
     {
         *pAlgorithm = icp_qat_alg_info[cipherIdx]
                           .pAlgByKeySize[pSession->cipherKeyLenInBytes];
-        /* clang-format off */
         LAC_ENSURE(ICP_QAT_HW_CIPHER_ALGO_NULL != *pAlgorithm, "Invalid AES key size\n");
-        /* clang-format on */
     }
 
     /* CCP and AES_GCM single pass, despite being limited to CTR/AEAD mode,
@@ -738,7 +736,7 @@ void LacSymQat_CipherHwBlockPopulateCfgData(lac_session_desc_t *pSession,
     icp_qat_hw_ucs_cipher_config_t *pUCSCipherConfig =
         (icp_qat_hw_ucs_cipher_config_t *)pCipherHwBlock;
     Cpa32U aed_hash_cmp_length = 0;
-    Cpa32U val, reserved;
+    Cpa32U val, reserved = 0;
 
     LAC_ENSURE_NOT_NULL(pCipherConfig);
     LAC_ENSURE_NOT_NULL(pSizeInBytes);
@@ -783,13 +781,13 @@ void LacSymQat_CipherHwBlockPopulateCfgData(lac_session_desc_t *pSession,
             {
                 osalMemCopy(pCipherKey,
                             pSession->cipherAesXtsKey1Reverse,
-                            pSession->cipherKeyLenInBytes / 2);
+                            pSession->cipherKeyLenInBytes >> 1);
             }
             else
             {
                 osalMemCopy(pCipherKey,
                             pSession->cipherAesXtsKey1Forward,
-                            pSession->cipherKeyLenInBytes / 2);
+                            pSession->cipherKeyLenInBytes >> 1);
             }
         }
     }
@@ -842,7 +840,8 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
             LAC_OS_BZERO(pCipherKey + actualKeyLenInBytes,
                          targetKeyLenInBytes - actualKeyLenInBytes);
         }
-        *pSizeInBytes += targetKeyLenInBytes;
+        if (pCipherSetupData->cipherAlgorithm != CPA_CY_SYM_CIPHER_AES_XTS)
+            *pSizeInBytes += targetKeyLenInBytes;
 
         switch (pCipherSetupData->cipherAlgorithm)
         {
@@ -935,7 +934,7 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
                  * to reverse key.*/
                 if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == sliceType)
                 {
-                    Cpa32U key_len = pCipherSetupData->cipherKeyLenInBytes / 2;
+                    Cpa32U key_len = pCipherSetupData->cipherKeyLenInBytes >> 1;
                     osalMemCopy(pSessionDesc->cipherAesXtsKey1Forward,
                                 pCipherSetupData->pCipherKey,
                                 key_len);
@@ -963,6 +962,7 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
                                     key_len);
                     }
                 }
+                    *pSizeInBytes += targetKeyLenInBytes;
             }
             break;
             default:
@@ -1130,7 +1130,7 @@ inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
                 0,
                 totalBufSize - usedBufSize);
         }
-        /* In case of XTS mode using UCS slice always encrypt the embedded IV.
+        /* In case of XTS mode using UCS slice, always encrypt the embedded IV.
          * IV provided by user needs to be encrypted to calculate initial tweak,
          * use pCipherReqParams->u.cipher_IV_array as destination buffer for
          * tweak value */
@@ -1138,7 +1138,7 @@ inline CpaStatus LacSymQat_CipherRequestParamsPopulate(
             LAC_CIPHER_IS_XTS_MODE(pSessionDesc->cipherAlgorithm))
         {
             osalAESEncrypt(pSessionDesc->cipherAesXtsKey2,
-                           pSessionDesc->cipherKeyLenInBytes / 2,
+                           pSessionDesc->cipherKeyLenInBytes >> 1,
                            pIvBufferVirt,
                            (Cpa8U *)pCipherReqParams->u.cipher_IV_array);
         }

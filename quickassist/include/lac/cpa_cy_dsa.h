@@ -143,7 +143,8 @@ extern "C" {
  *      cpaCyDsaGenPParam()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaPParamGenOpData {
+typedef struct _CpaCyDsaPParamGenOpData
+{
     CpaFlatBuffer X;
     /**< 2^(L-1) <= X < 2^L (from FIPS 186-3) */
     CpaFlatBuffer Q;
@@ -177,7 +178,8 @@ typedef struct _CpaCyDsaPParamGenOpData {
  *      cpaCyDsaGenGParam()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaGParamGenOpData {
+typedef struct _CpaCyDsaGParamGenOpData
+{
     CpaFlatBuffer P;
     /**< DSA group parameter p */
     CpaFlatBuffer Q;
@@ -213,7 +215,8 @@ typedef struct _CpaCyDsaGParamGenOpData {
  *      cpaCyDsaGenYParam()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaYParamGenOpData {
+typedef struct _CpaCyDsaYParamGenOpData
+{
     CpaFlatBuffer P;
     /**< DSA group parameter p */
     CpaFlatBuffer G;
@@ -249,7 +252,8 @@ typedef struct _CpaCyDsaYParamGenOpData {
  *      cpaCyDsaSignR()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaRSignOpData {
+typedef struct _CpaCyDsaRSignOpData
+{
     CpaFlatBuffer P;
     /**< DSA group parameter p */
     CpaFlatBuffer Q;
@@ -287,7 +291,8 @@ typedef struct _CpaCyDsaRSignOpData {
  *      cpaCyDsaSignS()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaSSignOpData {
+typedef struct _CpaCyDsaSSignOpData
+{
     CpaFlatBuffer Q;
     /**< DSA group parameter q */
     CpaFlatBuffer X;
@@ -331,7 +336,8 @@ typedef struct _CpaCyDsaSSignOpData {
  *      cpaCyDsaSignRS()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaRSSignOpData {
+typedef struct _CpaCyDsaRSSignOpData
+{
     CpaFlatBuffer P;
     /**< DSA group parameter p */
     CpaFlatBuffer Q;
@@ -377,7 +383,8 @@ typedef struct _CpaCyDsaRSSignOpData {
  *      cpaCyDsaVerify()
  *
  *****************************************************************************/
-typedef struct _CpaCyDsaVerifyOpData {
+typedef struct _CpaCyDsaVerifyOpData
+{
     CpaFlatBuffer P;
     /**< DSA group parameter p */
     CpaFlatBuffer Q;
@@ -410,7 +417,8 @@ typedef struct _CpaCyDsaVerifyOpData {
  *      operations. Statistics are set to zero when the component is
  *      initialized, and are collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyDsaStats {
+typedef struct _CpaCyDsaStats
+{
     Cpa32U numDsaPParamGenRequests;
     /**< Total number of successful DSA P parameter generation requests. */
     Cpa32U numDsaPParamGenRequestErrors;
@@ -504,7 +512,8 @@ typedef struct _CpaCyDsaStats {
  *      Statistics are set to zero when the component is
  *      initialized, and are collected per instance.
  ****************************************************************************/
-typedef struct _CpaCyDsaStats64 {
+typedef struct _CpaCyDsaStats64
+{
     Cpa64U numDsaPParamGenRequests;
     /**< Total number of successful DSA P parameter generation requests. */
     Cpa64U numDsaPParamGenRequestErrors;
@@ -635,10 +644,10 @@ typedef struct _CpaCyDsaStats64 {
  *
  *****************************************************************************/
 typedef void (*CpaCyDsaGenCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean protocolStatus,
-        CpaFlatBuffer *pOut);
+                                  CpaStatus status,
+                                  void *pOpData,
+                                  CpaBoolean protocolStatus,
+                                  CpaFlatBuffer *pOut);
 
 /**
  *****************************************************************************
@@ -686,11 +695,11 @@ typedef void (*CpaCyDsaGenCbFunc)(void *pCallbackTag,
  *
  *****************************************************************************/
 typedef void (*CpaCyDsaRSSignCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean protocolStatus,
-        CpaFlatBuffer *pR,
-        CpaFlatBuffer *pS);
+                                     CpaStatus status,
+                                     void *pOpData,
+                                     CpaBoolean protocolStatus,
+                                     CpaFlatBuffer *pR,
+                                     CpaFlatBuffer *pS);
 
 /**
  *****************************************************************************
@@ -733,9 +742,9 @@ typedef void (*CpaCyDsaRSSignCbFunc)(void *pCallbackTag,
  *
  *****************************************************************************/
 typedef void (*CpaCyDsaVerifyCbFunc)(void *pCallbackTag,
-        CpaStatus status,
-        void *pOpData,
-        CpaBoolean verifyStatus);
+                                     CpaStatus status,
+                                     void *pOpData,
+                                     CpaBoolean verifyStatus);
 
 /**
  *****************************************************************************
@@ -823,13 +832,12 @@ typedef void (*CpaCyDsaVerifyCbFunc)(void *pCallbackTag,
  *      CpaCyDsaGenCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaGenCbFunc pCb,
-        void * pCallbackTag,
-        const CpaCyDsaPParamGenOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pP);
+CpaStatus cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle,
+                            const CpaCyDsaGenCbFunc pCb,
+                            void *pCallbackTag,
+                            const CpaCyDsaPParamGenOpData *pOpData,
+                            CpaBoolean *pProtocolStatus,
+                            CpaFlatBuffer *pP);
 
 /**
  *****************************************************************************
@@ -912,13 +920,12 @@ cpaCyDsaGenPParam(const CpaInstanceHandle instanceHandle,
  *      CpaCyDsaGenCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaGenCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaGParamGenOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pG);
+CpaStatus cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle,
+                            const CpaCyDsaGenCbFunc pCb,
+                            void *pCallbackTag,
+                            const CpaCyDsaGParamGenOpData *pOpData,
+                            CpaBoolean *pProtocolStatus,
+                            CpaFlatBuffer *pG);
 
 /**
  *****************************************************************************
@@ -987,13 +994,12 @@ cpaCyDsaGenGParam(const CpaInstanceHandle instanceHandle,
  *      CpaCyDsaGenCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaGenCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaYParamGenOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pY);
+CpaStatus cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle,
+                            const CpaCyDsaGenCbFunc pCb,
+                            void *pCallbackTag,
+                            const CpaCyDsaYParamGenOpData *pOpData,
+                            CpaBoolean *pProtocolStatus,
+                            CpaFlatBuffer *pY);
 
 /**
  *****************************************************************************
@@ -1076,13 +1082,12 @@ cpaCyDsaGenYParam(const CpaInstanceHandle instanceHandle,
  *      cpaCyDsaSignRS()
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaSignR(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaGenCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaRSignOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pR);
+CpaStatus cpaCyDsaSignR(const CpaInstanceHandle instanceHandle,
+                        const CpaCyDsaGenCbFunc pCb,
+                        void *pCallbackTag,
+                        const CpaCyDsaRSignOpData *pOpData,
+                        CpaBoolean *pProtocolStatus,
+                        CpaFlatBuffer *pR);
 
 /**
  *****************************************************************************
@@ -1167,13 +1172,12 @@ cpaCyDsaSignR(const CpaInstanceHandle instanceHandle,
  *      cpaCyDsaSignRS()
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaSignS(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaGenCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaSSignOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pS);
+CpaStatus cpaCyDsaSignS(const CpaInstanceHandle instanceHandle,
+                        const CpaCyDsaGenCbFunc pCb,
+                        void *pCallbackTag,
+                        const CpaCyDsaSSignOpData *pOpData,
+                        CpaBoolean *pProtocolStatus,
+                        CpaFlatBuffer *pS);
 
 /**
  *****************************************************************************
@@ -1257,14 +1261,13 @@ cpaCyDsaSignS(const CpaInstanceHandle instanceHandle,
  *      cpaCyDsaSignS()
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaRSSignCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaRSSignOpData *pOpData,
-        CpaBoolean *pProtocolStatus,
-        CpaFlatBuffer *pR,
-        CpaFlatBuffer *pS);
+CpaStatus cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle,
+                         const CpaCyDsaRSSignCbFunc pCb,
+                         void *pCallbackTag,
+                         const CpaCyDsaRSSignOpData *pOpData,
+                         CpaBoolean *pProtocolStatus,
+                         CpaFlatBuffer *pR,
+                         CpaFlatBuffer *pS);
 
 /**
  *****************************************************************************
@@ -1337,12 +1340,11 @@ cpaCyDsaSignRS(const CpaInstanceHandle instanceHandle,
  *      CpaCyDsaVerifyCbFunc
  *
  *****************************************************************************/
-CpaStatus
-cpaCyDsaVerify(const CpaInstanceHandle instanceHandle,
-        const CpaCyDsaVerifyCbFunc pCb,
-        void *pCallbackTag,
-        const CpaCyDsaVerifyOpData *pOpData,
-        CpaBoolean *pVerifyStatus);
+CpaStatus cpaCyDsaVerify(const CpaInstanceHandle instanceHandle,
+                         const CpaCyDsaVerifyCbFunc pCb,
+                         void *pCallbackTag,
+                         const CpaCyDsaVerifyOpData *pOpData,
+                         CpaBoolean *pVerifyStatus);
 
 /**
  *****************************************************************************
@@ -1402,7 +1404,7 @@ cpaCyDsaVerify(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCyDsaQueryStats(const CpaInstanceHandle instanceHandle,
-        struct _CpaCyDsaStats *pDsaStats);
+                   struct _CpaCyDsaStats *pDsaStats);
 
 /**
  *****************************************************************************
@@ -1456,9 +1458,8 @@ cpaCyDsaQueryStats(const CpaInstanceHandle instanceHandle,
  * @see
  *      CpaCyDsaStats
  *****************************************************************************/
-CpaStatus
-cpaCyDsaQueryStats64(const CpaInstanceHandle instanceHandle,
-        CpaCyDsaStats64 *pDsaStats);
+CpaStatus cpaCyDsaQueryStats64(const CpaInstanceHandle instanceHandle,
+                               CpaCyDsaStats64 *pDsaStats);
 
 /*****************************************************************************/
 

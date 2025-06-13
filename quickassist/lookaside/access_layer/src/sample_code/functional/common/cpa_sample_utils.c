@@ -344,7 +344,6 @@ void hexLog(Cpa8U *pData, Cpa32U numBytes, const char *caption)
     PRINT("\n");
 }
 
-
 CpaPhysicalAddr virtAddrToDevAddr(void *pVirtAddr,
                                   CpaInstanceHandle instanceHandle,
                                   CpaAccelerationServiceType type)

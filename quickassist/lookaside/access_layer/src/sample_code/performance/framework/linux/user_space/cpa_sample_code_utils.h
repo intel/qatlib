@@ -130,7 +130,7 @@ typedef sem_t *sample_code_semaphore_t;
 #define DEFAULT_SIGN_OF_LIFE (0)
 #define USE_V1_CONFIG_FILE (1)
 #define USE_V2_CONFIG_FILE (2)
-#define MAX_NUMOPT (15)
+#define MAX_NUMOPT (16)
 
 typedef struct option_s
 {

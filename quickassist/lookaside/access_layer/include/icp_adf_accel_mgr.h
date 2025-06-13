@@ -178,6 +178,20 @@ CpaStatus icp_adf_getAllAccelDevByCapabilities(Cpa32U capabilitiesMask,
                                                Cpa16U *pNumInstances);
 
 /*
+ * icp_adf_getAllAccelDevByServices
+ *
+ * Description:
+ * Returns table of accel devices that are started and implement
+ * the capabilities specified in configuration services.
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS   on success
+ */
+CpaStatus icp_adf_getAllAccelDevByServices(Cpa16U servType,
+                                           icp_accel_dev_t **pAccel_devs,
+                                           Cpa16U *pNumInstances);
+
+/*
  * icp_adf_getAllAccelDevByEachCapability
  *
  * Description:

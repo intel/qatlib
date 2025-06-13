@@ -206,6 +206,17 @@ typedef uint8_t icp_qat_fw_comn_flags;
 
 /**
  *****************************************************************************
+ * @ingroup icp_qat_fw_comn_pke
+ *      Common request flags type for PKE
+ *
+ * @description
+ *      Definition of the common request flags.
+ *
+ *****************************************************************************/
+typedef uint16_t icp_qat_fw_comn_flags_pke;
+
+/**
+ *****************************************************************************
  * @ingroup icp_qat_fw_comn
  *      Common request - Service specific flags type
  *
@@ -601,6 +612,12 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ICP_QAT_FW_COMN_ST_BLK_FLAG_BITPOS 4
 #define ICP_QAT_FW_COMN_ST_BLK_FLAG_MASK 0x1
 
+/**< @ingroup icp_qat_fw_comn
+ * Macros defining the bit position and mask of E2E_DCPR flag
+ * within the hdr_flags field of LW0 (service response only) */
+#define ICP_QAT_FW_COMN_E2E_DCPR_FLAG_BITPOS 3
+#define ICP_QAT_FW_COMN_E2E_DCPR_FLAG_MASK 0x1
+
 /**
  ******************************************************************************
  * @ingroup icp_qat_fw_comn
@@ -721,6 +738,22 @@ typedef struct icp_qat_fw_comn_resp_s
     QAT_FIELD_GET(hdr_flags,                                                   \
                   ICP_QAT_FW_COMN_CNV_FLAG_BITPOS,                             \
                   ICP_QAT_FW_COMN_CNV_FLAG_MASK)
+
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comn
+ *
+ * @description
+ *      Extract the E2E_DCPR flag from the header flags in the response only.
+ *
+ * @param hdr_t  Response 'hdr_t' structure to extract the E2E_DCPR bit
+ *               from the  'hdr_flags' field.
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMN_HDR_E2E_DCPR_FLAG_GET(hdr_flags)                       \
+    QAT_FIELD_GET(hdr_flags,                                                   \
+                  ICP_QAT_FW_COMN_E2E_DCPR_FLAG_BITPOS,                        \
+                  ICP_QAT_FW_COMN_E2E_DCPR_FLAG_MASK)
 
 /**
  ******************************************************************************
@@ -1101,6 +1134,14 @@ typedef struct icp_qat_fw_comn_resp_s
 /**< @ingroup icp_qat_fw_comn
  * One bit mask used to determine the unsupported service request status mask */
 
+#define QAT_COMN_RESP_INVALID_PARAMETER_BITPOS 1
+/**< @ingroup icp_qat_fw_comn
+ * Starting bit position indicating invalid parameter of the request */
+
+#define QAT_COMN_RESP_INVALID_PARAMETER_MASK 0x1
+/**< @ingroup icp_qat_fw_comn
+ * One bit mask used to determine the setting of invalid parameter flag */
+
 #define QAT_COMN_RESP_XLT_APPLIED_BITPOS 0
 /**< @ingroup icp_qat_fw_comn
  * Bit position indicating that firmware applied a weight adjustment to
@@ -1258,6 +1299,22 @@ typedef struct icp_qat_fw_comn_resp_s
                   QAT_COMN_RESP_UNSUPPORTED_REQUEST_BITPOS,                    \
                   QAT_COMN_RESP_UNSUPPORTED_REQUEST_MASK)
 
+/**
+ ******************************************************************************
+ * @ingroup icp_qat_fw_comn
+ *
+ * @description
+ *      Macro for extraction of the Invalid Parameter flag from the status
+ *
+ * @param status
+ *      Status to extract the status bit from
+ *
+ *****************************************************************************/
+#define ICP_QAT_FW_COMN_RESP_INVALID_PARAMETER_GET(status)                     \
+    QAT_FIELD_GET(status,                                                      \
+                  QAT_COMN_RESP_INVALID_PARAMETER_BITPOS,                      \
+                  QAT_COMN_RESP_INVALID_PARAMETER_MASK)
+
 /* ========================================================================= */
 /*                                        Status Flag definitions */
 /* ========================================================================= */
@@ -1340,6 +1397,25 @@ typedef struct icp_qat_fw_comn_resp_s
 #define ERR_CODE_EMPTY_DYM_BLOCK -19
 /**< Error Code constant value for submission of empty dynamic stored block to
  * slice  */
+
+#define ERR_CODE_DICT_OVERFLOW -22
+/**< Error returned when compressed dictionary is inflated to more than 32KB */
+
+#define ERR_CODE_DICT_DECOMP_ERR -23
+/**< Error returned when compressed dictionary cannot be inflated due to soft
+ * error */
+
+#define ERR_CODE_SSM_PARITY_ERROR -27
+/**< Error Code constant value for error detected by SSM errors in the absence
+ * of a WDT expiry */
+
+#define ERR_CODE_DICT_DECOMP_BUFF_CONSTR_ERROR -28
+/**< Error returned when decomp dict buffer with non-16B aligned address or
+ * non-16B multiplied size */
+
+#define ERR_CODE_LZ4_MULTIBLOCK_WITHOUT_HEADER -29
+/**< Error returned in LZ4 CRC over block mode if multi-LZ4(#block>1) blocks are
+ * generated */
 
 #define ERR_CODE_MISC_ERROR -50
 /**< Error Code constant for error detected but the source

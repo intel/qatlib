@@ -182,18 +182,12 @@ static const Cpa8U resumption384[] = {0,   48,  16,  't', 'l', 's', '1',
                                       '3', ' ', 'r', 'e', 's', 'u', 'm',
                                       'p', 't', 'i', 'o', 'n', 0};
 /* Sublabel for HKDF TLS FINISHED key Generation, as defined in RFC8446. */
-#ifdef __CLANG_FORMAT__
-/* clang-format off */
-#endif
-static const Cpa8U finished256[] = { 0, 32, 14, 't', 'l', 's', '1',
-                                    '3', ' ', 'f', 'i', 'n', 'i', 's',
-                                    'h', 'e', 'd', 0};
-static const Cpa8U finished384[] = { 0, 48, 14, 't', 'l', 's', '1',
-                                    '3', ' ', 'f', 'i', 'n', 'i', 's',
-                                    'h', 'e', 'd', 0};
-#ifdef __CLANG_FORMAT__
-/* clang-format on */
-#endif
+static const Cpa8U finished256[] = { 0,   32,  14,  't', 'l', 's',
+                                     '1', '3', ' ', 'f', 'i', 'n',
+                                     'i', 's', 'h', 'e', 'd', 0 };
+static const Cpa8U finished384[] = { 0,   48,  14,  't', 'l', 's',
+                                     '1', '3', ' ', 'f', 'i', 'n',
+                                     'i', 's', 'h', 'e', 'd', 0 };
 
 /**
  ******************************************************************************
@@ -475,7 +469,6 @@ CpaStatus cpaCyKeyGenQueryStats(CpaInstanceHandle instanceHandle_in,
 #endif
 
     SAL_RUNNING_CHECK(instanceHandle);
-
     LAC_KEY_STATS32_GET(*pSymKeyStats, instanceHandle);
 
     return CPA_STATUS_SUCCESS;
@@ -511,7 +504,6 @@ CpaStatus cpaCyKeyGenQueryStats64(CpaInstanceHandle instanceHandle_in,
 #endif
 
     SAL_RUNNING_CHECK(instanceHandle);
-
     LAC_KEY_STATS64_GET(*pSymKeyStats, instanceHandle);
 
     return CPA_STATUS_SUCCESS;
@@ -667,6 +659,7 @@ STATIC void LacSymKey_MgfHandleResponse(icp_qat_fw_la_cmd_id_t lacCmdId,
  * @retval CPA_STATUS_RETRY          Function should be retried.
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
  * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature.
  *
  *****************************************************************************/
 STATIC CpaStatus LacSymKey_MgfSync(const CpaInstanceHandle instanceHandle,
@@ -679,7 +672,6 @@ STATIC CpaStatus LacSymKey_MgfSync(const CpaInstanceHandle instanceHandle,
     CpaStatus status = CPA_STATUS_SUCCESS;
 
     lac_sync_op_data_t *pSyncCallbackData = NULL;
-
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
 
     if (CPA_STATUS_SUCCESS == status)
@@ -780,6 +772,7 @@ STATIC CpaStatus LacSymKey_MgfSync(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RETRY          Function should be retried.
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
  * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature.
  *
  *****************************************************************************/
 STATIC CpaStatus
@@ -807,6 +800,7 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
     sal_crypto_service_t *pService = NULL;
     Cpa64U inputPhysAddr = 0;
     Cpa64U outputPhysAddr = 0;
+    Cpa64U seq_num = ICP_ADF_INVALID_SEND_SEQ;
 /* Structure initializer is supported by C99, but it is
  * not supported by some former Intel compiler.
  */
@@ -865,6 +859,7 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
 #endif
 
     pService = (sal_crypto_service_t *)instanceHandle;
+
     /* Get hash alg info */
     LacSymQat_HashAlgLookupGet(instanceHandle,
                                hashAlgorithm,
@@ -889,6 +884,7 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
         else
         {
             pSymCookie = (lac_sym_cookie_t *)pCookie;
+            pSymCookie->cookieType = LAC_SYM_KEY_COOKIE_TYPE;
         }
     } while ((void *)CPA_STATUS_RETRY == pCookie);
 
@@ -930,7 +926,7 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
 
         contentDescInfo.pData = pCookie->contentDesc;
         contentDescInfo.hardwareSetupBlockPhys =
-            LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyContentDescPhyAddr);
+            LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyContentDescDevAddr);
         contentDescInfo.hwBlkSzQuadWords =
             LAC_BYTES_TO_QUADWORDS(hashBlkSizeInBytes);
 
@@ -1004,12 +1000,13 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
         status = icp_adf_transPutMsg(pService->trans_handle_sym_tx,
                                      (void *)&(keyGenReq),
                                      LAC_QAT_SYM_REQ_SZ_LW,
-                                     NULL);
+                                     &seq_num);
     }
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Update stats */
         LAC_KEY_STAT_INC(numMgfKeyGenRequests, instanceHandle);
+        LAC_MEM_POOL_BLK_SET_OPAQUE(pCookie, seq_num);
     }
     else
     {
@@ -1387,19 +1384,20 @@ STATIC CpaStatus computeHashKey(CpaFlatBuffer *secret,
 *                                   requires HKDF key operations.
 *
 *****************************************************************************/
-STATIC void LacSymKey_KeyGenSslTls3GenCommon(
-    CpaInstanceHandle instanceHandle,
-    void *pKeyGenSslTlsOpData,
-    icp_qat_la_bulk_req_ftr_t *pKeyGenReqFtr,
-    lac_sym_cookie_t *pSymCookie,
-    CpaCySymHashSetupData *pHashSetupData,
-    icp_qat_fw_la_bulk_req_t *pKeyGenReq,
-    icp_qat_fw_la_key_gen_common_t *pKeyGenReqMid,
-    icp_qat_fw_la_cmd_id_t lacCmdId,
-    Cpa8U hashAlgCipher)
+STATIC CpaStatus
+LacSymKey_KeyGenSslTls3GenCommon(CpaInstanceHandle instanceHandle,
+                                 void *pKeyGenSslTlsOpData,
+                                 icp_qat_la_bulk_req_ftr_t *pKeyGenReqFtr,
+                                 lac_sym_cookie_t *pSymCookie,
+                                 CpaCySymHashSetupData *pHashSetupData,
+                                 icp_qat_fw_la_bulk_req_t *pKeyGenReq,
+                                 icp_qat_fw_la_key_gen_common_t *pKeyGenReqMid,
+                                 icp_qat_fw_la_cmd_id_t lacCmdId,
+                                 Cpa8U hashAlgCipher)
 {
     Cpa32U labelInfo = 0;
     Cpa64U subLabelPhysAddr = 0;
+    CpaStatus status = CPA_STATUS_FAIL;
     CpaCyKeyGenHKDFOpData *pKeyGenTlsOpData =
         (CpaCyKeyGenHKDFOpData *)pKeyGenSslTlsOpData;
     icp_qat_fw_auth_cd_ctrl_hdr_t *pHashControlBlock =
@@ -1411,7 +1409,7 @@ STATIC void LacSymKey_KeyGenSslTls3GenCommon(
     hashStateBufferInfo.pData =
         ((lac_sym_key_cookie_t *)pSymCookie)->hashStateBuffer;
     hashStateBufferInfo.pDataPhys =
-        LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyHashStateBufferPhyAddr);
+        LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyHashStateBufferDevAddr);
 
     LacSymQat_HashSetupReqParamsMetaData(pKeyGenReqFtr,
                                          instanceHandle,
@@ -1433,7 +1431,7 @@ STATIC void LacSymKey_KeyGenSslTls3GenCommon(
     /* Firmware only looks at hash state buffer pointer and the
      * hash state buffer size so all other fields are set to 0
      */
-    LacSymQat_HashRequestParamsPopulate(
+    status = LacSymQat_HashRequestParamsPopulate(
         pKeyGenReq,
         0, /* Auth offset */
         0, /* Auth length */
@@ -1445,53 +1443,61 @@ STATIC void LacSymKey_KeyGenSslTls3GenCommon(
         NULL,
         CPA_CY_SYM_HASH_NONE,      /* Hash algorithm */
         pKeyGenTlsOpData->secret); /* IKM or PRK */
-
-    if (ICP_QAT_FW_LA_CMD_HKDF_EXTRACT <= lacCmdId &&
-        ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND >= lacCmdId)
-    { /* TLS v1.3 */
-        labelInfo = pKeyGenTlsOpData->infoLen;
-        subLabelPhysAddr = 0; /* No subLabels used */
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("LacSymQat_HashRequestParamsPopulate failed\n");
     }
-    else if (ICP_QAT_FW_LA_CMD_HKDF_EXPAND_LABEL == lacCmdId ||
-             ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND_LABEL == lacCmdId)
-    { /* TLS v1.3 LABEL */
-        /* For EXTRACT, EXPAND, FW expects info to be passed as label */
-        labelInfo = pKeyGenTlsOpData->numLabels; /* Number of Labels */
-        /* Get physical address of subLabels */
-        switch (hashAlgCipher)
-        {
-            case CPA_CY_HKDF_TLS_AES_128_GCM_SHA256:
-            case CPA_CY_HKDF_TLS_AES_128_CCM_SHA256:
-            case CPA_CY_HKDF_TLS_AES_128_CCM_8_SHA256:
-                subLabelPhysAddr =
-                    pService->pTlsHKDFSubLabel->sublabelPhysAddr256;
-                break;
-            case CPA_CY_HKDF_TLS_CHACHA20_POLY1305_SHA256:
-                subLabelPhysAddr =
-                    pService->pTlsHKDFSubLabel->sublabelPhysAddrChaChaPoly;
-                break;
-            case CPA_CY_HKDF_TLS_AES_256_GCM_SHA384:
-                subLabelPhysAddr =
-                    pService->pTlsHKDFSubLabel->sublabelPhysAddr384;
-                break;
-            default:
-                break;
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        if (ICP_QAT_FW_LA_CMD_HKDF_EXTRACT <= lacCmdId &&
+            ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND >= lacCmdId)
+        { /* TLS v1.3 */
+            labelInfo = pKeyGenTlsOpData->infoLen;
+            subLabelPhysAddr = 0; /* No subLabels used */
         }
-    }
-    LacSymQat_KeyTlsRequestPopulate(
-        pKeyGenReqMid,
-        cipherSuiteHKDFHashSizes[hashAlgCipher][LAC_KEY_HKDF_DIGEST],
-        labelInfo,
-        pKeyGenTlsOpData->secretLen,
-        (Cpa8U)pKeyGenTlsOpData->seedLen,
-        lacCmdId);
+        else if (ICP_QAT_FW_LA_CMD_HKDF_EXPAND_LABEL == lacCmdId ||
+                 ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND_LABEL == lacCmdId)
+        { /* TLS v1.3 LABEL */
+            /* For EXTRACT, EXPAND, FW expects info to be passed as label */
+            labelInfo = pKeyGenTlsOpData->numLabels; /* Number of Labels */
+            /* Get physical address of subLabels */
+            switch (hashAlgCipher)
+            {
+                case CPA_CY_HKDF_TLS_AES_128_GCM_SHA256:
+                case CPA_CY_HKDF_TLS_AES_128_CCM_SHA256:
+                case CPA_CY_HKDF_TLS_AES_128_CCM_8_SHA256:
+                    subLabelPhysAddr =
+                        pService->pTlsHKDFSubLabel->sublabelPhysAddr256;
+                    break;
+                case CPA_CY_HKDF_TLS_CHACHA20_POLY1305_SHA256:
+                    subLabelPhysAddr =
+                        pService->pTlsHKDFSubLabel->sublabelPhysAddrChaChaPoly;
+                    break;
+                case CPA_CY_HKDF_TLS_AES_256_GCM_SHA384:
+                    subLabelPhysAddr =
+                        pService->pTlsHKDFSubLabel->sublabelPhysAddr384;
+                    break;
+                default:
+                    break;
+            }
+        }
+        LacSymQat_KeyTlsRequestPopulate(
+            pKeyGenReqMid,
+            cipherSuiteHKDFHashSizes[hashAlgCipher][LAC_KEY_HKDF_DIGEST],
+            labelInfo,
+            pKeyGenTlsOpData->secretLen,
+            (Cpa8U)pKeyGenTlsOpData->seedLen,
+            lacCmdId);
 
-    LacSymQat_KeyTlsHKDFKeyMaterialInputPopulate(
-        &(pService->generic_service_info),
-        &(((lac_sym_key_cookie_t *)pSymCookie)->u.tlsHKDFKeyInput),
-        pKeyGenTlsOpData,
-        subLabelPhysAddr,
-        lacCmdId);
+        LacSymQat_KeyTlsHKDFKeyMaterialInputPopulate(
+            &(pService->generic_service_info),
+            &(((lac_sym_key_cookie_t *)pSymCookie)->u.tlsHKDFKeyInput),
+            pKeyGenTlsOpData,
+            subLabelPhysAddr,
+            lacCmdId);
+    }
+    return status;
 }
 
 STATIC CpaStatus
@@ -1541,6 +1547,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
         QAT_COMN_PTR_TYPE_FLAT, QAT_COMN_CD_FLD_TYPE_64BIT_ADR);
 
     sal_crypto_service_t *pService = (sal_crypto_service_t *)instanceHandle;
+    Cpa64U seq_num = ICP_ADF_INVALID_SEND_SEQ;
 
     /* If synchronous Operation */
     if (NULL == pKeyGenCb)
@@ -1571,6 +1578,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
         else
         {
             pSymCookie = (lac_sym_cookie_t *)pCookie;
+            pSymCookie->cookieType = LAC_SYM_KEY_COOKIE_TYPE;
         }
     } while ((void *)CPA_STATUS_RETRY == pCookie);
 
@@ -1870,7 +1878,8 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
                 /* calculate label length.
                  * eg. 3 iterations is ABBCCC so length is 6 */
                 labelLen = ((iterations * iterations) + iterations) >> 1;
-                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(pLabel);
+                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                    &pService->generic_service_info, pLabel);
             }
 
             LacSymQat_KeySslRequestPopulate(
@@ -1889,7 +1898,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
                 pKeyGenSslOpData->secret.pData);
 
             inputPhysAddr =
-                LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keySslKeyInputPhyAddr);
+                LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keySslKeyInputDevAddr);
         }
         else if (ICP_QAT_FW_LA_CMD_TLS_V1_1_KEY_DERIVE == lacCmdId ||
                  ICP_QAT_FW_LA_CMD_TLS_V1_2_KEY_DERIVE == lacCmdId)
@@ -1907,7 +1916,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
             Cpa64U labelPhysAddr = 0;
             hashStateBufferInfo.pData = pCookie->hashStateBuffer;
             hashStateBufferInfo.pDataPhys = LAC_MEM_CAST_PTR_TO_UINT64(
-                pSymCookie->keyHashStateBufferPhyAddr);
+                pSymCookie->keyHashStateBufferDevAddr);
             hashStateBufferInfo.stateStorageSzQuadWords = 0;
 
             LacSymQat_HashSetupReqParamsMetaData(&(keyGenReqFtr),
@@ -1951,7 +1960,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
 
             /* Firmware only looks at hash state buffer pointer and the
              * hash state buffer size so all other fields are set to 0 */
-            LacSymQat_HashRequestParamsPopulate(
+            status = LacSymQat_HashRequestParamsPopulate(
                 &(keyGenReq),
                 0, /* auth offset */
                 0, /* auth len*/
@@ -1963,14 +1972,52 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
                 NULL,
                 CPA_CY_SYM_HASH_NONE, /* hash algorithm */
                 NULL);
-
-            /* Set up the labels and their length */
-            if (CPA_CY_KEY_TLS_OP_USER_DEFINED == pKeyGenTlsOpData->tlsOp)
+            if (CPA_STATUS_SUCCESS != status)
             {
-                pLabel = pKeyGenTlsOpData->userLabel.pData;
-                labelLen = pKeyGenTlsOpData->userLabel.dataLenInBytes;
-                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-                    pService->generic_service_info, pLabel);
+                LAC_LOG_ERROR("LacSymQat_HashRequestParamsPopulate failed\n");
+            }
+
+            if (CPA_STATUS_SUCCESS == status)
+            {
+                /* Set up the labels and their lengths */
+                if (CPA_CY_KEY_TLS_OP_USER_DEFINED == pKeyGenTlsOpData->tlsOp)
+                {
+                    pLabel = pKeyGenTlsOpData->userLabel.pData;
+                    labelLen = pKeyGenTlsOpData->userLabel.dataLenInBytes;
+                    labelPhysAddr = LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                        pService->generic_service_info, pLabel);
+                }
+                else if (CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE ==
+                         pKeyGenTlsOpData->tlsOp)
+                {
+                    pLabel = pService->pTlsLabel->masterSecret;
+                    labelLen = sizeof(LAC_SYM_KEY_TLS_MASTER_SECRET_LABEL) - 1;
+                    labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                        &pService->generic_service_info, pLabel);
+                }
+                else if (CPA_CY_KEY_TLS_OP_KEY_MATERIAL_DERIVE ==
+                         pKeyGenTlsOpData->tlsOp)
+                {
+                    pLabel = pService->pTlsLabel->keyMaterial;
+                    labelLen = sizeof(LAC_SYM_KEY_TLS_KEY_MATERIAL_LABEL) - 1;
+                    labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                        &pService->generic_service_info, pLabel);
+                }
+                else if (CPA_CY_KEY_TLS_OP_CLIENT_FINISHED_DERIVE ==
+                         pKeyGenTlsOpData->tlsOp)
+                {
+                    pLabel = pService->pTlsLabel->clientFinished;
+                    labelLen = sizeof(LAC_SYM_KEY_TLS_CLIENT_FIN_LABEL) - 1;
+                    labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                        &pService->generic_service_info, pLabel);
+                }
+                else
+                {
+                    pLabel = pService->pTlsLabel->serverFinished;
+                    labelLen = sizeof(LAC_SYM_KEY_TLS_SERVER_FIN_LABEL) - 1;
+                    labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                        &pService->generic_service_info, pLabel);
+                }
 
                 if (labelPhysAddr == 0)
                 {
@@ -1978,75 +2025,55 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
                                   " label\n");
                     status = CPA_STATUS_FAIL;
                 }
-            }
-            else if (CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE ==
-                     pKeyGenTlsOpData->tlsOp)
-            {
-                pLabel = pService->pTlsLabel->masterSecret;
-                labelLen = sizeof(LAC_SYM_KEY_TLS_MASTER_SECRET_LABEL) - 1;
-                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(pLabel);
-            }
-            else if (CPA_CY_KEY_TLS_OP_KEY_MATERIAL_DERIVE ==
-                     pKeyGenTlsOpData->tlsOp)
-            {
-                pLabel = pService->pTlsLabel->keyMaterial;
-                labelLen = sizeof(LAC_SYM_KEY_TLS_KEY_MATERIAL_LABEL) - 1;
-                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(pLabel);
-            }
-            else if (CPA_CY_KEY_TLS_OP_CLIENT_FINISHED_DERIVE ==
-                     pKeyGenTlsOpData->tlsOp)
-            {
-                pLabel = pService->pTlsLabel->clientFinished;
-                labelLen = sizeof(LAC_SYM_KEY_TLS_CLIENT_FIN_LABEL) - 1;
-                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(pLabel);
-            }
-            else
-            {
-                pLabel = pService->pTlsLabel->serverFinished;
-                labelLen = sizeof(LAC_SYM_KEY_TLS_SERVER_FIN_LABEL) - 1;
-                labelPhysAddr = LAC_OS_VIRT_TO_PHYS_INTERNAL(pLabel);
-            }
-            LacSymQat_KeyTlsRequestPopulate(
-                &keyGenReqMid,
-                pKeyGenTlsOpData->generatedKeyLenInBytes,
-                labelLen,
-                pKeyGenTlsOpData->secret.dataLenInBytes,
-                (Cpa8U)pKeyGenTlsOpData->seed.dataLenInBytes,
-                lacCmdId);
 
-            LacSymQat_KeyTlsKeyMaterialInputPopulate(
-                &(pService->generic_service_info),
-                &(pCookie->u.tlsKeyInput),
-                pKeyGenTlsOpData->seed.pData,
-                labelPhysAddr);
-            inputPhysAddr =
-                LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyTlsKeyInputPhyAddr);
+                LacSymQat_KeyTlsRequestPopulate(
+                    &keyGenReqMid,
+                    pKeyGenTlsOpData->generatedKeyLenInBytes,
+                    labelLen,
+                    pKeyGenTlsOpData->secret.dataLenInBytes,
+                    (Cpa8U)pKeyGenTlsOpData->seed.dataLenInBytes,
+                    lacCmdId);
+
+                LacSymQat_KeyTlsKeyMaterialInputPopulate(
+                    &(pService->generic_service_info),
+                    &(pCookie->u.tlsKeyInput),
+                    pKeyGenTlsOpData->seed.pData,
+                    labelPhysAddr);
+                inputPhysAddr = LAC_MEM_CAST_PTR_TO_UINT64(
+                    pSymCookie->keyTlsKeyInputDevAddr);
+            }
         }
         else if (ICP_QAT_FW_LA_CMD_HKDF_EXTRACT <= lacCmdId &&
                  ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND_LABEL >= lacCmdId)
         { /* TLS v1.3 / TLS v1.3 LABEL */
-            LacSymKey_KeyGenSslTls3GenCommon(instanceHandle,
-                                             pKeyGenSslTlsOpData,
-                                             &keyGenReqFtr,
-                                             pSymCookie,
-                                             &hashSetupData,
-                                             &keyGenReq,
-                                             &keyGenReqMid,
-                                             lacCmdId,
-                                             hashAlgCipher);
-            inputPhysAddr =
-                LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyTlsKeyInputPhyAddr);
+            status = LacSymKey_KeyGenSslTls3GenCommon(instanceHandle,
+                                                      pKeyGenSslTlsOpData,
+                                                      &keyGenReqFtr,
+                                                      pSymCookie,
+                                                      &hashSetupData,
+                                                      &keyGenReq,
+                                                      &keyGenReqMid,
+                                                      lacCmdId,
+                                                      hashAlgCipher);
+            if (CPA_STATUS_SUCCESS == status)
+            {
+                inputPhysAddr = LAC_MEM_CAST_PTR_TO_UINT64(
+                    pSymCookie->keyTlsKeyInputDevAddr);
+            }
         }
 
-        outputPhysAddr =
-            LAC_MEM_CAST_PTR_TO_UINT64(LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-                pService->generic_service_info, pKeyGenOutputData->pData));
-
-        if (outputPhysAddr == 0)
+        if (CPA_STATUS_SUCCESS == status)
         {
-            LAC_LOG_ERROR("Unable to get the physical address of the"
-                          " output buffer\n");
-            status = CPA_STATUS_FAIL;
+            outputPhysAddr =
+                LAC_MEM_CAST_PTR_TO_UINT64(LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                    pService->generic_service_info, pKeyGenOutputData->pData));
+
+            if (outputPhysAddr == 0)
+            {
+                LAC_LOG_ERROR("Unable to get the physical address of the"
+                              " output buffer\n");
+                status = CPA_STATUS_FAIL;
+            }
         }
     }
     if (CPA_STATUS_SUCCESS == status)
@@ -2094,7 +2121,7 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
 
         contentDescInfo.pData = pCookie->contentDesc;
         contentDescInfo.hardwareSetupBlockPhys =
-            LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyContentDescPhyAddr);
+            LAC_MEM_CAST_PTR_TO_UINT64(pSymCookie->keyContentDescDevAddr);
         contentDescInfo.hwBlkSzQuadWords =
             LAC_BYTES_TO_QUADWORDS(hashBlkSizeInBytes);
 
@@ -2121,12 +2148,13 @@ LacSymKey_KeyGenSslTls_GenCommon(CpaInstanceHandle instanceHandle,
         status = icp_adf_transPutMsg(pService->trans_handle_sym_tx,
                                      (void *)&(keyGenReq),
                                      LAC_QAT_SYM_REQ_SZ_LW,
-                                     NULL);
+                                     &seq_num);
     }
     if (CPA_STATUS_SUCCESS == status)
     {
         /* Update stats */
         LacKey_StatsInc(lacCmdId, LAC_KEY_REQUESTS, pCookie->instanceHandle);
+        LAC_MEM_POOL_BLK_SET_OPAQUE(pCookie, seq_num);
     }
     else
     {
@@ -2582,7 +2610,6 @@ LacSymKey_KeyGenSslTls(const CpaInstanceHandle instanceHandle_in,
     CpaStatus status = CPA_STATUS_FAIL;
 #endif
     CpaInstanceHandle instanceHandle = LacKey_GetHandle(instanceHandle_in);
-    CpaCyCapabilitiesInfo cyCapInfo;
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
@@ -2592,12 +2619,10 @@ LacSymKey_KeyGenSslTls(const CpaInstanceHandle instanceHandle_in,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_SYM));
 #endif
     SAL_RUNNING_CHECK(instanceHandle);
-    SalCtrl_CyQueryCapabilities(instanceHandle, &cyCapInfo);
-
-    if (IS_HKDF_UNSUPPORTED(cmdId, cyCapInfo.hkdfSupported))
+    if ((ICP_QAT_FW_LA_CMD_HKDF_EXTRACT <= cmdId) &&
+        (ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND_LABEL >= cmdId))
     {
-            LAC_LOG_ERROR("The device does not support HKDF");
-            return CPA_STATUS_UNSUPPORTED;
+        SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, hkdf);
     }
 
 #ifdef ICP_PARAM_CHECK
@@ -3103,12 +3128,15 @@ CpaStatus LacSymKey_Init(CpaInstanceHandle instanceHandle_in)
         /* Set physical address of sublabels */
         pService->pTlsHKDFSubLabel->sublabelPhysAddr256 =
             LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                &pService->generic_service_info,
                 &pService->pTlsHKDFSubLabel->keySublabel256);
         pService->pTlsHKDFSubLabel->sublabelPhysAddr384 =
             LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                &pService->generic_service_info,
                 &pService->pTlsHKDFSubLabel->keySublabel384);
         pService->pTlsHKDFSubLabel->sublabelPhysAddrChaChaPoly =
             LAC_OS_VIRT_TO_PHYS_INTERNAL(
+                &pService->generic_service_info,
                 &pService->pTlsHKDFSubLabel->keySublabelChaChaPoly);
 
         /* Register response handlers */

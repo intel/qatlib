@@ -85,6 +85,43 @@
 #define DC_COMP_SESSION_SIZE                                                   \
     (sizeof(dc_session_desc_t) + sizeof(LAC_ARCH_UINT) + LAC_64BYTE_ALIGNMENT)
 
+#define FIRST_DC_CHAIN_ITEM 0
+#define NOT_APPLICABLE 0
+
+/* List of the different OpData types supported as defined in the DC Chain API
+ * header file.
+ */
+typedef enum dc_chain_opdata_type_e
+{
+    DC_CHAIN_OPDATA_TYPE0 = 0,
+/**< Refer to the API definition for CpaDcChainOpData format */
+} dc_chain_opdata_type_t;
+
+typedef struct dc_chain_opdata_ext_s
+{
+    void *pOpData;
+    /**< Pointer to the OpData structure being used */
+    dc_chain_opdata_type_t opDataType;
+    /**< Indicates the type of OpData being used */
+} dc_chain_opdata_ext_t;
+
+/* List of the different results structure types supported as defined in the DC
+ * Chain API header file.
+ */
+typedef enum dc_chain_results_type_e
+{
+    DC_CHAIN_RESULTS_TYPE0 = 0,
+/**< Refer to the API definition for CpaDcChainRqResults format */
+} dc_chain_results_type_t;
+
+typedef struct dc_chain_results_ext_s
+{
+    void *pResults;
+    /**< Pointer to the results structure being used */
+    dc_chain_results_type_t resultsType;
+    /**< Indicates the type of results being used */
+} dc_chain_results_ext_t;
+
 typedef struct dc_chain_cmd_tbl_s
 {
     Cpa16U link0_key;
@@ -107,8 +144,8 @@ typedef struct dc_chain_cookie_s
     /**< Pointer to the session handle */
     icp_qat_fw_comp_chain_req_t request;
     /**< Compression chaining request */
-    CpaDcChainRqResults *pResults;
-    /**< Pointer to result buffer holding consumed and produced data */
+    dc_chain_results_ext_t extResults;
+    /**< Extensible results buffer holding consumed and produced data */
     void *pDcRspAddr;
     /**< chaining compression response buffer */
     void *pCyRspAddr;
@@ -178,36 +215,6 @@ void dcChainServiceShutdown(sal_compression_service_t *pCompService,
 /**
  *****************************************************************************
  * @ingroup Dc_Chaining
- *      Initialization for chaining sessions
- *
- * @description
- *      Initialization for chaining sessions
- *
- * @param[in]         dcInstance    Instance handle derived from discovery
- *                                  functions.
- * @param[in,out]   pSessionHandle  Pointer to a session handle.
- * @param[in,out]   pSessionData    Pointer to an array of
- *                                  CpaDcChainSessionSetupData structures.
- *                                  There should be numSessions entries in the
- *                                  array.
- * @param[in]         numSessions   Number of sessions for the chaining
- * @param[in]         callbackFn    For synchronous operation this callback
- *                                  shall be a null pointer.
- *
- * @retval CPA_STATUS_SUCCESS        Function executed successfully
- * @retval CPA_STATUS_FAIL           Function failed to find device
- * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- *
- *****************************************************************************/
-CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
-                              CpaDcSessionHandle pSessionHandle,
-                              CpaDcChainSessionSetupData *pSessionData,
-                              Cpa8U numSessions,
-                              CpaDcCallbackFn callbackFn);
-
-/**
- *****************************************************************************
- * @ingroup Dc_Chaining
  *      Chaining perform operation
  *
  * @description
@@ -218,24 +225,32 @@ CpaStatus dcChainInitSessions(CpaInstanceHandle dcInstance,
  * @param[in]       pSessionHandle     Pointer to a session handle.
  * @param[in]       pSrcBuff           Source buffer
  * @param[in]       pDestBuff          Destination buffer
+ * @param[in]       pInterBuff         Pointer to intermediate buffer to be
+ *                                     used as internal staging area for
+ *                                     chaining operations.
+ * @param[in]       operation          Chaining operation type
  * @param[in]       numOperations      Number of operations for the chaining
- * @param[in]       pChainOpData       Chaining operation data
- * @param[in,out]   pResults           Chaining response result
+ * @param[in]       pChainOpDataExt    Extensible chaining operation data
+ * @param[in,out]   pResultsExt        Extensible chaining response result
  * @param[in]       callbackTag        For synchronous operation this callback
  *                                     shall be a null pointer.
  *
  * @retval CPA_STATUS_SUCCESS        Function executed successfully
  * @retval CPA_STATUS_FAIL           Function failed to find device
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ * @retval CPA_STATUS_RESOURCE       Failed to allocate required resources
+ * @retval CPA_STATUS_RETRY          Request re-submission needed
  *
  *****************************************************************************/
 CpaStatus dcChainPerformOp(CpaInstanceHandle dcInstance,
                            CpaDcSessionHandle pSessionHandle,
                            CpaBufferList *pSrcBuff,
                            CpaBufferList *pDestBuff,
+                           CpaBufferList *pInterBuff,
+                           CpaDcChainOperations operation,
                            Cpa8U numOperations,
-                           CpaDcChainOpData *pChainOpData,
-                           CpaDcChainRqResults *pResults,
+                           dc_chain_opdata_ext_t *pChainOpDataExt,
+                           dc_chain_results_ext_t *pResultsExt,
                            void *callbackTag);
 
 /**

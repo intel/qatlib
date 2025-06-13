@@ -449,6 +449,8 @@ CpaStatus cpaCyDhKeyGenPhase1(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if Diffie-Hellman is supported */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dh);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pDhPhase1Cb)
@@ -687,6 +689,8 @@ CpaStatus cpaCyDhKeyGenPhase2Secret(
         instanceHandle,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_ASYM));
 #endif
+    /* Check if Diffie-Hellman is supported */
+    SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, dh);
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pDhPhase2Cb)

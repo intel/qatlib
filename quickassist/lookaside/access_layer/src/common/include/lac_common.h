@@ -68,7 +68,6 @@
  *
  *****************************************************************************/
 
-
 /**
  *****************************************************************************
  * @defgroup  LacCommon   LAC Common
@@ -95,6 +94,7 @@
 #include "cpa_cy_common.h"
 #include "icp_adf_init.h"
 #include "Osal.h"
+#include "cpa_cy_im.h"
 
 #ifndef ICP_KERNEL64_USER32
 #ifdef __x86_64__
@@ -572,6 +572,34 @@ typedef enum
         }                                                                      \
     } while (0)
 #endif
+
+/**
+ *******************************************************************************
+ * @ingroup LacCommon
+ *      Checks capability for a crypto service instance.
+ *
+ * @description
+ *      This macro checks one specific service like RSA's capability for a
+ *      symmetric /asymmetric service instance.
+ *
+ * @param[in] instanceHandle       Instance handler of the target service
+ *                                 instance.
+ * @param[in] capa                 Capability to be checked.
+ *
+ * @return CPA_STATUS_UNSUPPORTED  Capability is not supported on this instance
+ * @return void                    Check passed
+ ******************************************************************************/
+#define SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, capa)             \
+    do                                                                         \
+    {                                                                          \
+        CpaCyCapabilitiesInfo *pCyCapInfo;                                     \
+        pCyCapInfo = &((sal_crypto_service_t *)instanceHandle)->capInfo;       \
+        if (!pCyCapInfo->capa##Supported)                                      \
+        {                                                                      \
+            LAC_LOG_ERROR1("Capability %s is not supported", #capa);           \
+            return CPA_STATUS_UNSUPPORTED;                                     \
+        }                                                                      \
+    } while (0)
 
 /**
  *******************************************************************************

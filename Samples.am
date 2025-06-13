@@ -62,7 +62,7 @@ COMMON_SAMPLE_INCLUDES = -I$(srcdir)/quickassist/lookaside/access_layer/src/samp
 			 -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
 			 -I$(srcdir)/quickassist/lookaside/access_layer/src/common/compression/include
 
-COMMON_SAMPLE_LDFLAGS = -lpthread -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la
+COMMON_SAMPLE_LDFLAGS = $(PTHREAD_LIBS) -lcrypto -lz -lc lib@LIBUSDMNAME@.la lib@LIBQATNAME@.la
 
 noinst_PROGRAMS = cpa_sample_code
 cpa_sample_code_SOURCES = \
@@ -369,11 +369,21 @@ zuc_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_co
 	$(COMMON_FLAGS)
 zuc_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 
+noinst_PROGRAMS += update_sample
+update_sample_SOURCES = \
+	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
+	quickassist/lookaside/access_layer/src/sample_code/functional/sym/update_sample/cpa_sym_dp_update_sample.c \
+	quickassist/lookaside/access_layer/src/sample_code/functional/sym/update_sample/cpa_sym_dp_update_sample_user.c
+update_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+	$(COMMON_SAMPLE_INCLUDES) \
+	$(COMMON_SAMPLE_CFLAGS) \
+	$(COMMON_FLAGS)
+update_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 samples: $(lib_LTLIBRARIES) cpa_sample_code dc_dp_sample dc_stateless_sample \
 	dc_stateless_multi_op_sample algchaining_sample ccm_sample \
 	cipher_sample gcm_sample hash_file_sample hash_sample ipsec_sample \
 	ssl_sample sym_dp_sample dh_sample prime_sample hkdf_sample \
-	ec_montedwds_sample eddsa_sample chaining_sample zuc_sample
+	ec_montedwds_sample eddsa_sample chaining_sample zuc_sample update_sample
 
 samples-install: samples
 	@install -D -m 755 $(srcdir)/.libs/cpa_sample_code $(DESTDIR)$(bindir)/cpa_sample_code
@@ -396,6 +406,7 @@ samples-install: samples
 	@install -D -m 755 $(srcdir)/.libs/hkdf_sample $(DESTDIR)$(bindir)/hkdf_sample
 	@install -D -m 755 $(srcdir)/.libs/ec_montedwds_sample $(DESTDIR)$(bindir)/ec_montedwds_sample
 	@install -D -m 755 $(srcdir)/.libs/zuc_sample $(DESTDIR)$(bindir)/zuc_sample
+	@install -D -m 755 $(srcdir)/.libs/update_sample $(DESTDIR)$(bindir)/update_sample
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary $(DESTDIR)$(datadir)/qat/calgary
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary32 $(DESTDIR)$(datadir)/qat/calgary32
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/canterbury $(DESTDIR)$(datadir)/qat/canterbury
@@ -426,6 +437,7 @@ samples-uninstall:
 	@rm -rf $(DESTDIR)$(bindir)/hkdf_sample
 	@rm -rf $(DESTDIR)$(bindir)/ec_montedwds_sample
 	@rm -rf $(DESTDIR)$(bindir)/zuc_sample
+	@rm -rf $(DESTDIR)$(bindir)/update_sample
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary32
 	@rm -rf $(DESTDIR)$(datadir)/qat/canterbury
