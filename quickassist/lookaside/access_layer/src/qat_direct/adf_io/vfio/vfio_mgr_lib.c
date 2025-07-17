@@ -432,7 +432,7 @@ STATIC int qat_mgr_get_device_capabilities(
 {
     int ret;
     vfio_dev_info_t vfio_dev;
-    *compatible = CPA_FALSE;
+    *compatible = CPA_TRUE;
     ret = open_vfio_dev(device_data->device_file,
                         device_data->device_id,
                         device_data->group_fd,
@@ -452,10 +452,10 @@ STATIC int qat_mgr_get_device_capabilities(
         if (adf_vf2pf_available())
         {
             qat_log(LOG_LEVEL_ERROR, "Comms incompatible between VF and PF\n");
+            *compatible = CPA_FALSE;
         }
         return ret;
     }
-    *compatible = CPA_TRUE;
 
     ret = adf_vf2pf_get_ring_to_svc(&vfio_dev.pfvf);
     if (ret)
