@@ -222,8 +222,8 @@ STATIC int mem_virt2phy(const void *virtaddr, uint64_t *physaddr_ptr)
     else if (retval != sizeof(page))
     {
        CMD_ERROR("%s(): read %d bytes from %s "
-                "but expected %d:\n",
-                __func__, PAGEMAP_FILE, retval, sizeof(page));
+                "but expected %zu:\n",
+                __func__, retval, PAGEMAP_FILE, sizeof(page));
        return -EINVAL;
     }
 
