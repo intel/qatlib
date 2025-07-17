@@ -133,7 +133,7 @@ void *handle_client(void *arg)
     tid = pthread_self();
 
     qat_log(LOG_LEVEL_DEBUG,
-            "connect_fd %d, tid %ul, client_timeout %d ms\n",
+            "connect_fd %d, tid %lu, client_timeout %d ms\n",
             conn_fd,
             tid,
             CLIENT_TIMEOUT_DEFAULT_MS);
@@ -148,7 +148,7 @@ void *handle_client(void *arg)
         while ((bytes_r = read(conn_fd, (void *)&msgreq, sizeof(msgreq))) > 0)
         {
             qat_log(LOG_LEVEL_DEBUG,
-                    "tid %d, Received %u bytes: Message type %d, length %d\n",
+                    "tid %lu, Received %u bytes: Message type %d, length %d\n",
                     tid,
                     bytes_r,
                     msgreq.hdr.type,
@@ -187,14 +187,14 @@ void *handle_client(void *arg)
         }
         else if (bytes_r == 0)
         {
-            qat_log(LOG_LEVEL_INFO, "EOF tid %d\n", tid);
+            qat_log(LOG_LEVEL_INFO, "EOF tid %lu\n", tid);
         }
     }
     else if (ret == 0)
     {
         qat_log(LOG_LEVEL_ERROR,
                 "qatmgr timed out waiting on data from the client, connect_fd "
-                "%d, tid %ul\n",
+                "%d, tid %lu\n",
                 conn_fd,
                 tid);
     }
