@@ -203,7 +203,6 @@ where: \<Component\> is one of the following:
 | Issue ID | Description |
 |-------------|------------|
 | QATE-106085 | [GEN - A QATlib process fails to start a 4xxx device on kernel v6.1 LTS](#qate-106085) |
-| QATE-106084 | [GEN - A QATlib v25.08 process fails to start a 4xxx device on kernel v5.15 LTS](#qate-106084) |
 | QAT20-40469 | [DC - Incorrect Reporting of Programmable CRC Capability.](#qat20-40469) |
 | QATE-106040 | [CY – using AES-CCM authenticated encryption without Additional Auth Data can cause undefined behaviour.](#qate-106040) |
 | QATE-102747 | [GEN - Intel QAT Concurrent Initialization Failure in Standalone Mode.](#qate-102747) |
@@ -220,16 +219,6 @@ where: \<Component\> is one of the following:
 | Resolution    | Use any later LTS kernel or use a different version of qatlib |
 | Affected OS   | Linux - only applies to v6.1 LTS |
 | Driver/Module | QATlib – Only applies to v24.09 and v25.08. On v24.09 compression services fail to run, while on v25.08 both Crypto and Compression services fail to run. Only applies to 4xxx devices as support for other devices was only introduced in later kernels. |
-
-## QATE-106084
-| Title      | GEN - A QATlib v25.08 process fails to start a 4xxx device on kernel v5.15 LTS |
-|----------|:-------------|
-| Reference #   | QATE-106084 |
-| Description   | The process fails to start with an error "Detected not compatible PF driver" |
-| Implication   | The process fails to run. |
-| Resolution    | Use any later LTS kernel or use a different version of qatlib |
-| Affected OS   | Linux - only applies to v5.15 LTS |
-| Driver/Module | QATlib – Only applies to v25.08. Only applies to 4xxx devices as support for other devices was only introduced in later kernels. |
 
 ## QAT20-40469
 | Title      | DC - Incorrect Reporting of Programmable CRC Capability |
