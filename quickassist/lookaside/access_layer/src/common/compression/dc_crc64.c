@@ -361,7 +361,7 @@ STATIC CpaStatus dcBufferCalculateCrc64(const CpaCrcControlData *pCrcConfig,
  * @retval CPA_STATUS_SUCCESS       Function executed successfully
  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in
  */
-CpaStatus dcCalculateProgCrc64(const CpaCrcControlData *pCrcConfig,
+CpaStatus dcCalculateProgCrc64(CpaCrcControlData *pCrcConfig,
                                Cpa64U *pCrcLookupTable,
                                const CpaBufferList *pBufferList,
                                Cpa32U consumedBytes,
@@ -396,6 +396,7 @@ CpaStatus dcCalculateProgCrc64(const CpaCrcControlData *pCrcConfig,
         {
             return status;
         }
+        pCrcConfig->initialValue = *pSwCrc;
         pBuffer++;
     }
 
