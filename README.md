@@ -1,6 +1,6 @@
 ![Linux build with gcc](https://github.com/intel/qatlib/actions/workflows/linux_build_gcc.yml/badge.svg)
 ![CodeQL scan](https://github.com/intel/qatlib/actions/workflows/codeql.yml/badge.svg)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/intel/qatlib/badge)](https://api.securityscorecards.dev/projects/github.com/intel/qatlib)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/intel/qatlib/badge)](https://scorecard.dev/viewer/?uri=github.com/intel/qatlib)
 
 # Intel&reg; QuickAssist Technology Library (QATlib)
 
