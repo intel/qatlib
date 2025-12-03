@@ -222,6 +222,11 @@ void iova_release(uint64_t iova, uint32_t size)
 #endif
 }
 
+void qae_iova_release(uint64_t iova, uint32_t size)
+{
+    iova_release(iova, size);
+}
+
 static int vfio_noiommu_enabled(void)
 {
     int fd, cnt;
@@ -281,6 +286,13 @@ inline int dma_map_slab(const void *virt,
     return ret;
 }
 
+int qae_dma_map_slab(const void *virt,
+                     const uint64_t iova,
+                     const size_t size)
+{
+    return dma_map_slab(virt, iova, size);
+}
+
 inline int dma_unmap_slab(const uint64_t iova, const size_t size)
 {
     int ret = 0;
@@ -302,6 +314,11 @@ inline int dma_unmap_slab(const uint64_t iova, const size_t size)
             errno);
 
     return ret;
+}
+
+int qae_dma_unmap_slab(const uint64_t iova, const size_t size)
+{
+    return dma_unmap_slab(iova, size);
 }
 
 static inline void ioctl_free_slab(const int fd, dev_mem_info_t *memInfo)
@@ -432,6 +449,11 @@ uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
 #endif
 
     return 0;
+}
+
+uint64_t qae_allocate_iova(const uint32_t size, uint32_t alignment)
+{
+    return allocate_iova(size, alignment);
 }
 
 static inline void *mmap_alloc(const size_t size)
