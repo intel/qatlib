@@ -20,6 +20,7 @@
 **/.deps
 **/.dirstamp
 /quickassist/utilities/service/qat.service
+/quickassist/utilities/service/99-qat-vfio.rules
 /stamp-h1
 /.libs
 *.la

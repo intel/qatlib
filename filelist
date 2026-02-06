@@ -13,6 +13,7 @@ libusdm.pc.in
 qat_init.sh.8
 qatlib.pc.in
 qatlib.spec.in
+qatlib.sysusers.conf
 qatmgr.8
 quickassist/include/cpa.h
 quickassist/include/cpa_dev.h
@@ -56,6 +57,7 @@ quickassist/lookaside/access_layer/include/icp_sal_iommu.h
 quickassist/lookaside/access_layer/include/icp_sal_poll.h
 quickassist/lookaside/access_layer/include/icp_sal_user.h
 quickassist/lookaside/access_layer/include/icp_sal_versions.h
+quickassist/lookaside/access_layer/include/qat_library_version.h
 quickassist/lookaside/access_layer/src/common/compression/crc32_gzip_refl_by8.S
 quickassist/lookaside/access_layer/src/common/compression/crc64_ecma_norm_by8.S
 quickassist/lookaside/access_layer/src/common/compression/dc_buffers.c
@@ -181,6 +183,7 @@ quickassist/lookaside/access_layer/src/common/ctrl/sal_ctrl_services.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_dc_chain.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_instances.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_list.c
+quickassist/lookaside/access_layer/src/common/ctrl/sal_resp_type.c
 quickassist/lookaside/access_layer/src/common/ctrl/sal_rl_stubs.c
 quickassist/lookaside/access_layer/src/common/device/sal_dev_info.c
 quickassist/lookaside/access_layer/src/common/include/lac_buffer_desc.h
@@ -302,7 +305,6 @@ quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_file_samp
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c
-quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample_linux_kernel_module.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample_user.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample.c
 quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample_user.c
@@ -432,6 +434,7 @@ quickassist/utilities/osal/src/linux/user_space/OsalUsrKrnProxy.c
 quickassist/utilities/osal/src/linux/user_space/include/OsalDevDrv.h
 quickassist/utilities/osal/src/linux/user_space/include/OsalOsTypes.h
 quickassist/utilities/qat_mgr/qat_mgr.c
+quickassist/utilities/service/99-qat-vfio.rules.in
 quickassist/utilities/service/qat
 quickassist/utilities/service/qat.service.in
 quickassist/utilities/service/qat_init.sh.in

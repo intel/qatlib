@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -2365,9 +2313,6 @@ Cpa32U setHashDigestLen(CpaCySymHashAlgorithm hashAlgorithm)
             return ZUC_EIA3_DIGEST_LENGTH_IN_BYTES;
         case CPA_CY_SYM_HASH_SHA3_256:
             return SHA3_DIGEST_256_LENGTH_IN_BYTES;
-#elif CPA_CY_API_VERSION_NUM_MINOR >= 8
-        case CPA_CY_SYM_HASH_AES_CBC_MAC:
-            return AES_CBC_MAC_DIGEST_LENGTH_IN_BYTES;
 #endif
         default:
             PRINT_ERR("Unknown hash algorithm\n");
@@ -2493,6 +2438,7 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
     Cpa32U node = 0;
     CpaCySymCbFunc symCb = NULL;
     perf_data_t *pPerfData = NULL;
+    Cpa32U retries = 0;
 
 #ifdef POLL_INLINE
     CpaInstanceInfo2 *instanceInfo2 = NULL;
@@ -2638,12 +2584,17 @@ CpaStatus calcDigest(CpaInstanceHandle instanceHandle,
         sampleCodeSemaphoreInit(&pPerfData->comp, 0);
     }
 #endif
-    status = cpaCySymPerformOp(instanceHandle,
-                               pPerfData,   /* perform synchronous operation*/
-                               pOpData,     /* operational data struct */
-                               pBufferList, /* source buffer list */
-                               pBufferList, /* in-place operation*/
-                               NULL);
+    /*Make sure operation retries if HW is busy*/
+    do
+    {
+        status = cpaCySymPerformOp(instanceHandle,
+                                   pPerfData,   /* perform synchronous operation*/
+                                   pOpData,     /* operational data struct */
+                                   pBufferList, /* source buffer list */
+                                   pBufferList, /* in-place operation*/
+                                   NULL);
+        retries++;
+    } while ((CPA_STATUS_RETRY == status || CPA_STATUS_RESOURCE == status) && RETRY_LIMIT > retries);
 
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -2985,6 +2936,33 @@ CpaStatus waitForResponses(perf_data_t *perfData,
 
     return status;
 }
+
+static CpaStatus trySetupLegacyEventPoll(CpaInstanceHandle instanceHandle,
+                                         performance_func_t *pollFn)
+{
+#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    int fd = -1;
+
+    status = icp_sal_CyGetFileDescriptor(instanceHandle, &fd);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        *pollFn = sampleCodeCyEventPoll;
+        icp_sal_CyPutFileDescriptor(instanceHandle, fd);
+        return CPA_STATUS_SUCCESS;
+    }
+    else if (CPA_STATUS_FAIL == status)
+    {
+        return CPA_STATUS_FAIL;
+    }
+    /* else feature is unsupported */
+    return CPA_STATUS_UNSUPPORTED;
+#else
+    /* Event-based polling not applicable in this configuration */
+    return CPA_STATUS_UNSUPPORTED;
+#endif
+}
+
 CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
 {
     CpaInstanceInfo2 *instanceInfo2 = NULL;
@@ -3000,9 +2978,6 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
         PRINT_ERR("sampleCodeGetNumberOfCpus() failed\n");
         return CPA_STATUS_FAIL;
     }
-#endif
-#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
-    int fd = -1;
 #endif
     if (CPA_FALSE == cy_polling_started_g)
     {
@@ -3033,15 +3008,8 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
             if (CPA_TRUE == instanceInfo2[i].isPolled)
             {
                 numPolledInstances_g++;
-#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
-                status = icp_sal_CyGetFileDescriptor(cyInstances_g[i], &fd);
-                if (CPA_STATUS_SUCCESS == status)
-                {
-                    pollFnArr[i] = sampleCodeCyEventPoll;
-                    icp_sal_CyPutFileDescriptor(cyInstances_g[i], fd);
-                    continue;
-                }
-                else if (CPA_STATUS_FAIL == status)
+                status = trySetupLegacyEventPoll(cyInstances_g[i], &pollFnArr[i]);
+                if (CPA_STATUS_FAIL == status)
                 {
                     PRINT_ERR("Error getting file descriptor for Event based "
                               "instance #%d\n",
@@ -3050,14 +3018,10 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
                     qaeMemFree((void **)&pollFnArr);
                     return CPA_STATUS_FAIL;
                 }
-/* else feature is unsupported and sampleCodePoll() is to be
- * used.
- */
-#endif
-#if !defined(USER_SPACE)
-                setCyPollWaitFn(1, 0);
-#endif
-                pollFnArr[i] = sampleCodePoll;
+                if (NULL == pollFnArr[i])
+                {
+                    pollFnArr[i] = sampleCodePoll;
+                }
             }
         }
         if (0 == numPolledInstances_g)
@@ -3139,6 +3103,184 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
     return CPA_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(cyCreatePollingThreadsIfPollingIsEnabled);
+
+#if CY_API_VERSION_AT_LEAST(3, 0)
+CpaStatus asymCreatePollingThreadsIfPollingIsEnabled(void)
+{
+    CpaInstanceInfo2 *instanceInfo2 = NULL;
+    Cpa16U i = 0, j = 0, numCreatedPollingThreads = 0;
+    Cpa32U coreAffinity = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    performance_func_t *pollFnArr = NULL;
+#ifdef SC_CORE_NUM_POLICY
+    Cpa32U numCores = 0;
+    numCores = sampleCodeGetNumberOfCpus();
+    if (numCores <= 0)
+    {
+        PRINT_ERR("sampleCodeGetNumberOfCpus() failed\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif
+
+    /*get the number of Asym instances*/
+    status =
+        cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &numAsymInstances_g);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaGetNumInstances failed with status: %d\n", status);
+        return CPA_STATUS_FAIL;
+    }
+
+    asymInstances_g =
+        qaeMemAlloc(sizeof(CpaInstanceHandle) * numAsymInstances_g);
+    if (asymInstances_g == NULL)
+    {
+        PRINT_ERR("Failed to allocate memory for asym instances\n");
+        qaeMemFree((void **)&asymInstances_g);
+        return CPA_STATUS_FAIL;
+    }
+
+    /*get the instances handles and place in allocated memory*/
+    status = cpaGetInstances(
+        CPA_ACC_SVC_TYPE_CRYPTO_ASYM, numAsymInstances_g, asymInstances_g);
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaGetInstances failed with status: %d\n", status);
+        return status;
+    }
+
+    if (CPA_FALSE == asym_polling_started_g)
+    {
+        instanceInfo2 =
+            qaeMemAlloc(numAsymInstances_g * sizeof(CpaInstanceInfo2));
+        if (NULL == instanceInfo2)
+        {
+            PRINT_ERR("Failed to allocate memory for pInstanceInfo2\n");
+            return CPA_STATUS_FAIL;
+        }
+        pollFnArr =
+            qaeMemAlloc(numAsymInstances_g * sizeof(performance_func_t));
+        if (NULL == pollFnArr)
+        {
+            PRINT_ERR("Failed to allocate memory for polling functions\n");
+            qaeMemFree((void **)&instanceInfo2);
+            return CPA_STATUS_FAIL;
+        }
+        for (i = 0; i < numAsymInstances_g; i++)
+        {
+            status =
+                cpaCyInstanceGetInfo2(asymInstances_g[i], &instanceInfo2[i]);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                qaeMemFree((void **)&instanceInfo2);
+                qaeMemFree((void **)&pollFnArr);
+                return CPA_STATUS_FAIL;
+            }
+            pollFnArr[i] = NULL;
+            if (CPA_TRUE == instanceInfo2[i].isPolled)
+            {
+                numAsymPolledInstances_g++;
+                status = trySetupLegacyEventPoll(asymInstances_g[i], &pollFnArr[i]);
+                if (CPA_STATUS_FAIL == status)
+                {
+                    PRINT_ERR("Error getting file descriptor for Event based "
+                              "instance #%d\n",
+                              i);
+                    qaeMemFree((void **)&instanceInfo2);
+                    qaeMemFree((void **)&pollFnArr);
+                    return CPA_STATUS_FAIL;
+                }
+                if (NULL == pollFnArr[i])
+                {
+                    pollFnArr[i] = sampleCodePoll;
+                }
+            }
+        }
+        if (0 == numAsymPolledInstances_g)
+        {
+            qaeMemFree((void **)&instanceInfo2);
+            qaeMemFree((void **)&pollFnArr);
+            return CPA_STATUS_SUCCESS;
+        }
+
+        asymPollingThread_g = qaeMemAlloc(numAsymPolledInstances_g *
+                                          sizeof(sample_code_thread_t));
+        if (NULL == asymPollingThread_g)
+        {
+            PRINT_ERR("Failed to allocate memory for asym polling threads\n");
+            qaeMemFree((void **)&instanceInfo2);
+            qaeMemFree((void **)&pollFnArr);
+            return CPA_STATUS_FAIL;
+        }
+        for (i = 0; i < numAsymInstances_g; i++)
+        {
+            if (NULL != pollFnArr[i])
+            {
+                status = sampleCodeThreadCreate(
+                    &asymPollingThread_g[numCreatedPollingThreads],
+                    NULL,
+                    pollFnArr[i],
+                    asymInstances_g[i]);
+                if (status != CPA_STATUS_SUCCESS)
+                {
+                    PRINT_ERR("Error starting polling thread %d\n", status);
+                    /*attempt to stop any started service, we don't check status
+                     * as some instances may not have been started and this
+                     * might return fail
+                     * */
+                    qaeMemFree((void **)&instanceInfo2);
+                    qaeMemFree((void **)&pollFnArr);
+                    return CPA_STATUS_FAIL;
+                }
+                /*loop of the instanceInfo coreAffinity bitmask to find the core
+                 *	affinity*/
+                for (j = 0; j < CPA_MAX_CORES; j++)
+                {
+                    if (CPA_BITMAP_BIT_TEST(instanceInfo2[i].coreAffinity, j))
+                    {
+#if defined(USER_SPACE)
+                        coreAffinity = j;
+#else
+                        coreAffinity = j + 1;
+#endif
+                        break;
+                    }
+                }
+#ifdef SC_CORE_NUM_POLICY
+                if (numAsymInstances_g % numCores == 0)
+                {
+                    /* To avoid recalculated and original core
+                     * assignment equality */
+                    coreAffinity =
+                        (coreAffinity + numAsymInstances_g + 1) % numCores;
+                }
+                else
+                {
+                    coreAffinity =
+                        (coreAffinity + numAsymInstances_g) % numCores;
+                }
+#endif
+                sampleCodeThreadBind(
+                    &asymPollingThread_g[numCreatedPollingThreads],
+                    coreAffinity);
+
+                sampleCodeThreadStart(
+                    &asymPollingThread_g[numCreatedPollingThreads]);
+
+                numCreatedPollingThreads++;
+            }
+        }
+        qaeMemFree((void **)&instanceInfo2);
+        qaeMemFree((void **)&pollFnArr);
+
+        asym_polling_started_g = CPA_TRUE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(asymCreatePollingThreadsIfPollingIsEnabled);
+#endif
+
 
 CpaBoolean cyCheckAllInstancesArePolled(void)
 {
@@ -3463,10 +3605,6 @@ void printHashAlg(CpaCySymHashSetupData hashSetupData)
                 PRINT("ZUC-");
             }
             PRINT("EIA3");
-            break;
-#elif CPA_CY_API_VERSION_NUM_MINOR >= 8
-        case CPA_CY_SYM_HASH_AES_CBC_MAC:
-            PRINT("AES-CBC-MAC");
             break;
 #endif
         case CPA_CY_SYM_HASH_POLY:

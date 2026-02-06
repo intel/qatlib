@@ -1,41 +1,18 @@
 /***************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
+#include <linux/vfio.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -119,6 +96,8 @@ int adf_vfio_populate_bundle(icp_accel_dev_t *accel_dev,
 
     addr = (uintptr_t)vfio_dev->pcs.bar[0].ptr + (8192 * bundle->number);
     bundle->ptr = (void *)addr;
+
+    bundle->efd = vfio_dev->event_fd;
 
     return 0;
 }
@@ -288,7 +267,7 @@ int adf_vfio_create_accel(icp_accel_dev_t *accel_dev,
     ret = qaeRegisterDevice(vfio_container_fd);
     if (ret)
     {
-        close(vfio_dev->vfio_group_fd);
+        close_vfio_dev(vfio_dev);
         goto accel_fail;
     }
 
@@ -378,11 +357,16 @@ void adf_vfio_destroy_accel(icp_accel_dev_t *accel_dev)
 
     vfio_dev = accel_dev->ioPriv;
 
-    adf_vf2pf_notify_shutdown(&vfio_dev->pfvf);
-
-    qaeUnregisterDevice(vfio_dev->vfio_container_fd);
-    close_vfio_dev(vfio_dev);
-
+    /* Check if VFIO device file descriptor is valid before cleanup.
+     * The vfio_dev_fd would be -1 if device was already closed in a previous cleanup.
+     * This prevents double cleanup of the same device.
+     */
+    if (vfio_dev->vfio_dev_fd != -1)
+    {
+        adf_vf2pf_notify_shutdown(&vfio_dev->pfvf);
+        qaeUnregisterDevice(vfio_dev->vfio_container_fd);
+        close_vfio_dev(vfio_dev);
+    }
     ICP_FREE(vfio_dev);
 
 free_accel:

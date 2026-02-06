@@ -1,17 +1,19 @@
-/*
- * Do not modify, this file was taken from internal kernel sources.
- * To update, copy new version from kernel sources and:
- * 1. Add this comment
- * 2. Remove BUILD_BUG_ON from bottom of file
- * 3. Reformat using correct tool
- * linux/user/src/vfio/adf_pfvf_msg.h
- */
-/* SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0-only) */
-/* Copyright(c) 2015 - 2020 Intel Corporation */
+/******************************************************************************
+ *
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
+ * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
+ *
+ *****************************************************************************/
 #ifndef ADF_PFVF_MSG_H
 #define ADF_PFVF_MSG_H
 
 /*
+ * This file must be kept in alignment with the corresponding kernel driver
+ * header at drivers/crypto/intel/qat/qat_common/adf_pfvf_msg.h
+ *
  * PF<->VF Gen2 Messaging format
  *
  * The PF has an array of 32-bit PF2VF registers, one for each VF. The

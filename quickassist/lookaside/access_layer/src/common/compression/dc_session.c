@@ -1,62 +1,10 @@
 /****************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -98,7 +46,6 @@
 #include "sal_qat_cmn_msg.h"
 #include "dc_crc64.h"
 
-#ifdef ICP_PARAM_CHECK
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
@@ -125,6 +72,7 @@ dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
         (sal_compression_service_t *)dcInstance;
     dc_capabilities_t *pDcCapabilities = &pCompService->dc_capabilities;
     CpaBoolean deflateSupported = CPA_FALSE;
+    CpaBoolean zstdSupported = pDcCapabilities->zstd.supported;
     CpaBoolean lz4Supported = CPA_FALSE;
     CpaBoolean lz4sSupported = CPA_FALSE;
     CpaBoolean staticSupported = CPA_FALSE;
@@ -153,7 +101,7 @@ dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
             break;
         default:
             LAC_INVALID_PARAM_LOG("Invalid service type for compression");
-            return CPA_STATUS_INVALID_PARAM;
+            return CPA_STATUS_FAIL;
     }
 
     deflateSupported = pDcCapabilities->deflate.supported;
@@ -258,6 +206,14 @@ dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
                     "on current instance");
                 return CPA_STATUS_UNSUPPORTED;
             }
+            if (CPA_DC_DIR_DECOMPRESS != pSessionData->sessDirection &&
+                (!((1 << (pSessionData->lz4BlockMaxSize)) &
+                   pDcCapabilities->lz4.maxBlockSize)))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "UnSupported LZ4 Block Max Size value");
+                return CPA_STATUS_UNSUPPORTED;
+            }
             break;
         case CPA_DC_LZ4S:
             if (CPA_FALSE == lz4sSupported)
@@ -289,6 +245,36 @@ dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
                 return CPA_STATUS_UNSUPPORTED;
             }
             break;
+        case CPA_DC_ZSTD:
+            if (CPA_FALSE == zstdSupported)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Zstd algorithm not supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->zstd.dirMask & DC_CAPS_COMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Zstd compression direction not "
+                                      "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_DECOMPRESS == pSessionData->sessDirection &&
+                !(pDcCapabilities->zstd.dirMask & DC_CAPS_DECOMPRESSION))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Zstd decompression direction not "
+                                      "supported on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            if (CPA_DC_DIR_COMBINED == pSessionData->sessDirection &&
+                (!(pDcCapabilities->zstd.dirMask & DC_CAPS_COMPRESSION) ||
+                 !(pDcCapabilities->zstd.dirMask & DC_CAPS_DECOMPRESSION)))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG("Zstd not supported for combined "
+                                      "sessions on current instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+            break;
         default:
             LAC_INVALID_PARAM_LOG("Invalid compType value");
             return CPA_STATUS_INVALID_PARAM;
@@ -315,6 +301,7 @@ dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
     return CPA_STATUS_SUCCESS;
 }
 
+#ifdef ICP_PARAM_CHECK
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
@@ -330,26 +317,20 @@ dcCheckUnsupportedParams(const CpaDcSessionSetupData *pSessionData,
  * @retval CPA_STATUS_SUCCESS        Function executed successfully
  * @retval CPA_STATUS_FAIL           Function failed to find device
  * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
- * @retval CPA_STATUS_UNSUPPORTED    Unsupported algorithm/feature
  *
+ * @note:
+ * This function is only testing for invalid uses of the API. This code
+ * may be compiled out for performance in production software. It is
+ * intended for application developers to prevent invalid parameters from
+ * being used. It should not be used to check for UNSUPPORTED capabilities.
+ * The dcCheckUnsupportedParams() function should be used for this purpose
+ * instead.
  *****************************************************************************/
 CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
                              CpaInstanceHandle dcInstance)
 {
-    CpaStatus status = CPA_STATUS_FAIL;
-    CpaDcInstanceCapabilities instanceCapabilities = {0};
     sal_compression_service_t *pService =
         (sal_compression_service_t *)dcInstance;
-    dc_capabilities_t *pDcCapabilities = &pService->dc_capabilities;
-
-    cpaDcQueryCapabilities(dcInstance, &instanceCapabilities);
-
-    status = dcCheckUnsupportedParams(pSessionData, dcInstance);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_INVALID_PARAM_LOG("Trying to set unsupported features");
-        return status;
-    }
 
     if ((pSessionData->compLevel < CPA_DC_L1) ||
         (pSessionData->compLevel > CPA_DC_L12))
@@ -403,7 +384,7 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
     }
 
     if ((pSessionData->checksum < CPA_DC_NONE) ||
-        (pSessionData->checksum > CPA_DC_XXHASH32))
+        (pSessionData->checksum > CPA_DC_XXHASH64))
     {
         LAC_INVALID_PARAM_LOG("Invalid checksum value");
         return CPA_STATUS_INVALID_PARAM;
@@ -458,13 +439,6 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
             LAC_INVALID_PARAM_LOG("Invalid LZ4 accumulateXXHash setting.");
             return CPA_STATUS_INVALID_PARAM;
         }
-        if (CPA_DC_DIR_DECOMPRESS != pSessionData->sessDirection &&
-            (!((1 << (pSessionData->lz4BlockMaxSize)) &
-               pDcCapabilities->lz4.maxBlockSize)))
-        {
-            LAC_UNSUPPORTED_PARAM_LOG("UnSupported LZ4 Block Max Size value");
-            return CPA_STATUS_UNSUPPORTED;
-        }
     }
 
     if (CPA_DC_LZ4S == pSessionData->compType)
@@ -475,6 +449,13 @@ CpaStatus dcCheckSessionData(const CpaDcSessionSetupData *pSessionData,
             LAC_INVALID_PARAM_LOG("Invalid LZ4S Min match value.");
             return CPA_STATUS_INVALID_PARAM;
         }
+    }
+
+    if ((CPA_DC_ZSTD == pSessionData->compType) &&
+        (CPA_DC_XXHASH64 != pSessionData->checksum))
+    {
+        LAC_INVALID_PARAM_LOG("Invalid checksum type for zstd compression");
+        return CPA_STATUS_INVALID_PARAM;
     }
 
     return CPA_STATUS_SUCCESS;
@@ -759,7 +740,7 @@ void dcCompHwBlockPopulateGen4(void *pServiceType,
             case CPA_DC_L5:
                 hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_20_SEARCH_DEPTH_LEVEL_1;
                 hw_comp_lower_csr.hash_col =
-                    ICP_QAT_HW_COMP_20_SKIP_HASH_COLLISION_DONT_ALLOW;
+                    ICP_QAT_HW_COMP_20_HASH_COLLISION_SKIP;
                 break;
             case CPA_DC_L6:
             case CPA_DC_L7:
@@ -787,8 +768,7 @@ void dcCompHwBlockPopulateGen4(void *pServiceType,
 
         /* Same for all algorithms */
         hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_20_ABD_ABD_DISABLED;
-        hw_comp_lower_csr.hash_update =
-            ICP_QAT_HW_COMP_20_SKIP_HASH_UPDATE_DONT_ALLOW;
+        hw_comp_lower_csr.hash_update = ICP_QAT_HW_COMP_20_HASH_UPDATE_SKIP;
         hw_comp_lower_csr.edmm =
             (CPA_TRUE == pDcCapabilities->deviceData.enableDmm)
                 ? ICP_QAT_HW_COMP_20_EXTENDED_DELAY_MATCH_MODE_EDMM_ENABLED
@@ -831,8 +811,8 @@ void dcCompHwBlockPopulateGen4(void *pServiceType,
         }
         else if (CPA_DC_LZ4 == compType)
         {
-            hw_decomp_lower_csr.algo = (icp_qat_hw_decomp_20_hw_comp_format_t)
-                ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4;
+            hw_decomp_lower_csr.algo =
+                ICP_QAT_HW_DECOMP_20_HW_DECOMP_FORMAT_LZ4;
             hw_decomp_lower_csr.lbms =
                 (icp_qat_hw_decomp_20_lbms_t)lz4BlockMaxSize;
             if (CPA_TRUE == lz4BlockChecksum)
@@ -848,8 +828,8 @@ void dcCompHwBlockPopulateGen4(void *pServiceType,
         }
         else if (CPA_DC_LZ4S == compType)
         {
-            hw_decomp_lower_csr.algo = (icp_qat_hw_decomp_20_hw_comp_format_t)
-                ICP_QAT_HW_COMP_20_HW_COMP_FORMAT_LZ4S;
+            hw_decomp_lower_csr.algo =
+                ICP_QAT_HW_DECOMP_20_HW_DECOMP_FORMAT_LZ4S;
             hw_decomp_lower_csr.mmctrl =
                 (icp_qat_hw_decomp_20_min_match_control_t)minMatch;
         }
@@ -1214,8 +1194,7 @@ CpaStatus dcInitSessionCrcControl(CpaInstanceHandle dcInstance,
     LAC_CHECK_NULL_PARAM(pSessionHandle);
     LAC_CHECK_NULL_PARAM(pCrcControlData);
 
-    /* Check that the parameters defined in the pCrcControlData are valid for
-     * the device */
+    /* Check that the parameters defined in the pCrcControlData are valid */
     if (CPA_STATUS_SUCCESS != dcCheckSessionCrcControlData(pCrcControlData))
     {
         return CPA_STATUS_INVALID_PARAM;
@@ -1291,7 +1270,7 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
     Cpa16U numInterBuffs = 0;
 
     cmnRequestFlags = ICP_QAT_FW_COMN_FLAGS_BUILD(
-        DC_DEFAULT_QAT_PTR_TYPE, QAT_COMN_CD_FLD_TYPE_16BYTE_DATA);
+        QAT_COMN_CD_FLD_TYPE_16BYTE_DATA, DC_DEFAULT_QAT_PTR_TYPE);
 
     pService = (sal_compression_service_t *)dcInstance;
 
@@ -1314,6 +1293,13 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
         return status;
     }
 #endif
+
+    status = dcCheckUnsupportedParams(pSessionData, dcInstance);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("Trying to set unsupported features");
+        return status;
+    }
 
     if ((CPA_DC_STATEFUL == pSessionData->sessState) &&
         (CPA_DC_DIR_DECOMPRESS != pSessionData->sessDirection))
@@ -2347,6 +2333,9 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
 #ifdef ICP_PARAM_CHECK
     /* Check parameters */
     LAC_CHECK_NULL_PARAM(insHandle);
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
     LAC_CHECK_NULL_PARAM(pSessionData);
     status = dcCheckSessionData(pSessionData, insHandle);
     if (CPA_STATUS_SUCCESS != status)
@@ -2354,6 +2343,13 @@ CpaStatus dcGetSessionSize(CpaInstanceHandle dcInstance,
         return status;
     }
 #endif
+
+    status = dcCheckUnsupportedParams(pSessionData, insHandle);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("Trying to set unsupported features");
+        return status;
+    }
 
     /* Get session size for session data */
     *pSessionSize = sizeof(dc_session_desc_t) + LAC_64BYTE_ALIGNMENT +
@@ -2443,6 +2439,129 @@ CpaStatus dcSetCnvError(CpaInstanceHandle dcInstance,
     return CPA_STATUS_SUCCESS;
 }
 #endif /* ICP_DC_ERROR_SIMULATION */
+
+CpaStatus cpaDcSetAsbThreshold(const CpaInstanceHandle dcInstance,
+                               CpaDcSessionHandle pSessionHandle,
+                               CpaDcAsbThreshold asbThreshold)
+{
+    CpaInstanceHandle insHandle = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+    sal_compression_service_t *pCompService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+
+#ifdef ICP_TRACE
+    LAC_LOG2("Called with params (0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)dcInstance,
+             (LAC_ARCH_UINT)pSessionHandle);
+#endif
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
+    {
+        insHandle = dcGetFirstHandle();
+    }
+    else
+    {
+        insHandle = dcInstance;
+    }
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(insHandle);
+    LAC_CHECK_NULL_PARAM(pSessionHandle);
+    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    LAC_CHECK_PARAM_RANGE(
+        asbThreshold, CPA_DC_ASB_THRESHOLD_256, CPA_DC_ASB_THRESHOLD_65536 + 1);
+#endif
+
+    /* Check if SAL is running otherwise return an error */
+    SAL_RUNNING_CHECK(insHandle);
+
+    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+#endif
+
+    pCompService = (sal_compression_service_t *)insHandle;
+    pDcCapabilities = &pCompService->dc_capabilities;
+
+    if (!((pDcCapabilities->asb.supported) &&
+          (pDcCapabilities->asb.asbTshSupported)))
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("ASB threshold mode not supported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (CPA_DC_DIR_DECOMPRESS == pSessionDesc->sessDirection)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid session direction");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    pSessionDesc->asb_mode = DC_ASB_THRESHOLD_MODE;
+    pSessionDesc->asb_value = asbThreshold;
+
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus cpaDcSetAsbRatio(const CpaInstanceHandle dcInstance,
+                           CpaDcSessionHandle pSessionHandle,
+                           CpaDcAsbRatio asbRatio)
+{
+    CpaInstanceHandle insHandle = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+    sal_compression_service_t *pCompService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+
+#ifdef ICP_TRACE
+    LAC_LOG2("Called with params (0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)dcInstance,
+             (LAC_ARCH_UINT)pSessionHandle);
+#endif
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
+    {
+        insHandle = dcGetFirstHandle();
+    }
+    else
+    {
+        insHandle = dcInstance;
+    }
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(insHandle);
+    LAC_CHECK_NULL_PARAM(pSessionHandle);
+    SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
+    LAC_CHECK_PARAM_LT_MAX(asbRatio, CPA_DC_ASB_RATIO_16_SIXTEENTH + 1);
+#endif
+
+    /* Check if SAL is running otherwise return an error */
+    SAL_RUNNING_CHECK(insHandle);
+
+    pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+#endif
+
+    pCompService = (sal_compression_service_t *)insHandle;
+    pDcCapabilities = &pCompService->dc_capabilities;
+
+    if (!((pDcCapabilities->asb.supported) &&
+          (pDcCapabilities->asb.asbRatioSupported)))
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("ASB ratio mode not supported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    if (CPA_DC_DIR_DECOMPRESS == pSessionDesc->sessDirection)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid session direction");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    pSessionDesc->asb_mode = DC_ASB_RATIO_MODE;
+    pSessionDesc->asb_value = asbRatio;
+
+    return CPA_STATUS_SUCCESS;
+}
 
 CpaStatus cpaDcSetCrcControlData(CpaInstanceHandle dcInstance,
                                  CpaDcSessionHandle pSessionHandle,

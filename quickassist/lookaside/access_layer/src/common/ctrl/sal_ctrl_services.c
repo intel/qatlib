@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -518,6 +466,27 @@ STATIC CpaStatus SalCtrl_GetInstanceCount(icp_accel_dev_t *device,
     return status;
 }
 
+/* This function releases the memory or resource associated with the given
+ * services.
+ */
+static void SalCtrl_ServiceFreeResource(sal_list_t *services)
+{
+    sal_list_t *curr_element = services;
+    sal_service_t *service = NULL;
+
+    while (NULL != curr_element)
+    {
+        service = (sal_service_t *)SalList_getObject(curr_element);
+        if (service->virt2PhysClient)
+        {
+            osalMemFree(service->virt2PhysClient);
+            service->virt2PhysClient = NULL;
+        }
+
+        curr_element = SalList_next(curr_element);
+    }
+}
+
 /**************************************************************************
  * @ingroup SalCtrl
  * @description
@@ -551,9 +520,7 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_service_t *inst = (sal_service_t *)SalList_getObject(*services);
-#ifndef KERNEL_SPACE
     Sal_CleanMiscErrStats(inst);
-#endif
     /* Call Shutdown function for each service instance */
     SAL_FOR_EACH(*services, sal_service_t, device, shutdown, status);
 
@@ -564,6 +531,7 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
     }
 
     /* Free Sal services controller memory */
+    SalCtrl_ServiceFreeResource(*services);
     SalList_free(services);
     return status;
 }
@@ -608,10 +576,8 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
     sal_service_t *pInst = NULL;
     Cpa32U i = 0;
     debug_dir_info_t *debug_dir = NULL;
-#ifndef KERNEL_SPACE
     sal_statistics_collection_t *pStats =
         (sal_statistics_collection_t *)device->pQatStats;
-#endif
 
     status = LAC_OS_MALLOC(&debug_dir, sizeof(debug_dir_info_t));
     if (CPA_STATUS_SUCCESS != status)
@@ -642,6 +608,7 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         status = SalList_add(services, &tail_list, pInst);
         if (CPA_STATUS_SUCCESS != status)
         {
+            osalMemFree(pInst->virt2PhysClient);
             osalMemFree(pInst);
             break;
         }
@@ -652,19 +619,19 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         LAC_LOG_ERROR("Failed to allocate all instances");
         LAC_OS_FREE(debug_dir);
         debug_dir = NULL;
+        SalCtrl_ServiceFreeResource(*services);
         SalList_free(services);
         return status;
     }
-#ifndef KERNEL_SPACE
     status = Sal_InitMiscErrStats(pStats);
     if (CPA_STATUS_SUCCESS != status)
     {
         LAC_LOG_ERROR("Failed to Initialize Misc Error Stats");
         LAC_OS_FREE(debug_dir);
+        SalCtrl_ServiceFreeResource(*services);
         SalList_free(services);
         return status;
     }
-#endif
     /* Call init function for each service instance */
     SAL_FOR_EACH(*services, sal_service_t, device, init, status);
     if (CPA_STATUS_SUCCESS != status)
@@ -679,9 +646,8 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         LAC_OS_FREE(debug_dir);
         debug_dir = NULL;
 
-#ifndef KERNEL_SPACE
         Sal_CleanMiscErrStats(pInst);
-#endif
+        SalCtrl_ServiceFreeResource(*services);
         SalList_free(services);
         return status;
     }
@@ -1027,9 +993,9 @@ STATIC int SalCtrl_VersionDebug(void *private_data,
     len += snprintf(data + len,
                     size - len,
                     " Driver Version:               %d.%d.%d \n",
-                    SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER,
-                    SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER,
-                    SAL_INFO2_DRIVER_SW_VERSION_PATCH_NUMBER);
+                    QAT_LIBRARY_VERSION_MAJOR,
+                    QAT_LIBRARY_VERSION_MINOR,
+                    QAT_LIBRARY_VERSION_PATCH);
 
     osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
     status = icp_adf_cfgGetParamValue(device,
@@ -1787,6 +1753,11 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
     }
 
     service_container = device->pSalHandle;
+    if (service_container == NULL)
+    {
+        LAC_LOG_ERROR("Private data is NULL");
+        return CPA_STATUS_FATAL;
+    }
     service_container->asym_dir = NULL;
     service_container->sym_dir = NULL;
     service_container->cy_dir = NULL;

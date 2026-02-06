@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -357,7 +305,8 @@ static void LacAlgChain_CipherCDBuild_ForOptimisedCD(
                                             pCipherKeyField,
                                             &sizeInBytes);
 
-    LacSymQat_CipherCtrlBlockWrite(&(pSessionDesc->shramReqCacheFtr),
+    LacSymQat_CipherCtrlBlockWrite(pSessionDesc,
+                                   &(pSessionDesc->shramReqCacheFtr),
                                    pSessionDesc->cipherAlgorithm,
                                    pSessionDesc->cipherKeyLenInBytes,
                                    pSessionDesc->cipherSliceType,
@@ -388,7 +337,8 @@ static void LacAlgChain_CipherCDBuild_ForSHRAM(
                                             pCipherKeyField,
                                             &sizeInBytes);
 
-    LacSymQat_CipherCtrlBlockWrite(&(pSessionDesc->shramReqCacheFtr),
+    LacSymQat_CipherCtrlBlockWrite(pSessionDesc,
+                                   &(pSessionDesc->shramReqCacheFtr),
                                    pSessionDesc->cipherAlgorithm,
                                    pSessionDesc->cipherKeyLenInBytes,
                                    pSessionDesc->cipherSliceType,
@@ -452,10 +402,13 @@ static void LacAlgChain_CipherCDBuild(
         LacAlg_GetOffs(pCfgData, pSessionDesc->symOperation);
 
     /* The key can be embedded only if key length <= 16 bytes
-     * and algorithm configuration is found in the SHRAM constant table. */
+     * and algorithm configuration is found in the SHRAM constant table.
+     * Also skip using SHRAM offset for UCS and wireless slices.
+     */
     if (cipherOffsetInConstantsTable > 0 &&
         sizeInBytes <= sizeof(icp_qat_fw_comn_req_hdr_cd_pars_t) &&
-        ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE != pSessionDesc->cipherSliceType)
+        ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE != pSessionDesc->cipherSliceType &&
+        ICP_QAT_FW_LA_USE_WIRELESS_SLICE_TYPE != pSessionDesc->cipherSliceType)
     {
         /* Algorithm configuration is found in the SHRAM constant table. */
         cipherOffsetInReqQW = cipherOffsetInConstantsTable;
@@ -478,7 +431,8 @@ static void LacAlgChain_CipherCDBuild(
         sizeInBytes = 0;
     }
 
-    LacSymQat_CipherCtrlBlockWrite(&(pSessionDesc->reqCacheFtr),
+    LacSymQat_CipherCtrlBlockWrite(pSessionDesc,
+                                   &(pSessionDesc->reqCacheFtr),
                                    pSessionDesc->cipherAlgorithm,
                                    pSessionDesc->cipherKeyLenInBytes,
                                    pSessionDesc->cipherSliceType,
@@ -486,7 +440,8 @@ static void LacAlgChain_CipherCDBuild(
                                    cipherOffsetInReqQW);
     if (SPC_NO != pSessionDesc->singlePassState)
     {
-        LacSymQat_CipherCtrlBlockWrite(&(pSessionDesc->reqSpcCacheFtr),
+        LacSymQat_CipherCtrlBlockWrite(pSessionDesc,
+                                       &(pSessionDesc->reqSpcCacheFtr),
                                        pSessionDesc->cipherAlgorithm,
                                        pSessionDesc->cipherKeyLenInBytes,
                                        pSessionDesc->cipherSliceType,
@@ -701,6 +656,7 @@ LacAlgChain_SessionAuthKeyUpdate(lac_session_desc_t *pSessionDesc,
     Cpa8U *pInnerState2 = NULL;
     CpaCySymSessionSetupData sessionSetup;
     Cpa16U cipherConfigSize;
+    Cpa8U *pAuthKey = NULL;
 
     LAC_OS_BZERO(&sessionSetup, sizeof(sessionSetup));
     cipherConfigSize = LacAlgChain_GetCipherConfigSize(pSessionDesc);
@@ -747,58 +703,58 @@ LacAlgChain_SessionAuthKeyUpdate(lac_session_desc_t *pSessionDesc,
             pOutHashSetup + cipherConfigSize;
     }
 
-    if (CPA_CY_SYM_HASH_SHA3_256 == pSessionDesc->hashAlgorithm ||
-        CPA_CY_SYM_HASH_SM3 == pSessionDesc->hashAlgorithm)
+    switch (pSessionDesc->hashAlgorithm)
     {
-        if (CPA_FALSE == pSessionDesc->isAuthEncryptOp)
-        {
-            lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo =
-                &(pSessionDesc->hashStateBufferInfo);
+        case CPA_CY_SYM_HASH_SHA3_256:
+        case CPA_CY_SYM_HASH_SM3:
+            if (CPA_FALSE == pSessionDesc->isAuthEncryptOp)
+            {
+                lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo =
+                    &(pSessionDesc->hashStateBufferInfo);
 
-            sal_crypto_service_t *pService =
-                (sal_crypto_service_t *)pSessionDesc->pInstance;
+                sal_crypto_service_t *pService =
+                    (sal_crypto_service_t *)pSessionDesc->pInstance;
 
-            status = LacHash_StatePrefixAadBufferInit(
-                &(pService->generic_service_info),
-                &(sessionSetup.hashSetupData),
-                &(pSessionDesc->reqCacheFtr),
-                pSessionDesc->qatHashMode,
-                pSessionDesc->hashStatePrefixBuffer,
-                pHashStateBufferInfo);
-            /* SHRAM Constants Table not used for Auth-Enc */
-        }
-    }
-    else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm)
-    {
-        Cpa8U *pAuthKey =
-            (Cpa8U *)pOutHashSetup + sizeof(icp_qat_hw_cipher_config_t);
-        memcpy(pAuthKey, authKey, pSessionDesc->authKeyLenInBytes);
-    }
-    else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm ||
-             CPA_CY_SYM_HASH_AES_CBC_MAC == pSessionDesc->hashAlgorithm)
-    {
-        memcpy(pInnerState2, authKey, pSessionDesc->authKeyLenInBytes);
-    }
-    else if (CPA_CY_SYM_HASH_AES_CMAC == pSessionDesc->hashAlgorithm ||
-             CPA_CY_SYM_HASH_KASUMI_F9 == pSessionDesc->hashAlgorithm ||
-             IS_HASH_MODE_1(pSessionDesc->qatHashMode))
-    {
-        if (CPA_CY_SYM_HASH_AES_CMAC == pSessionDesc->hashAlgorithm)
-        {
-            osalMemSet(pInnerState2, 0, cd_ctrl->inner_state2_sz);
-        }
+                status = LacHash_StatePrefixAadBufferInit(
+                    &(pService->generic_service_info),
+                    &(sessionSetup.hashSetupData),
+                    &(pSessionDesc->reqCacheFtr),
+                    pSessionDesc->qatHashMode,
+                    pSessionDesc->hashStatePrefixBuffer,
+                    pHashStateBufferInfo);
+                /* SHRAM Constants Table not used for Auth-Enc */
+            }
+            break;
+        case CPA_CY_SYM_HASH_SNOW3G_UIA2:
+            pAuthKey =
+                (Cpa8U *)pOutHashSetup + sizeof(icp_qat_hw_cipher_config_t);
+            memcpy(pAuthKey, authKey, pSessionDesc->authKeyLenInBytes);
+            break;
+        case CPA_CY_SYM_HASH_ZUC_EIA3:
+        case CPA_CY_SYM_HASH_AES_CBC_MAC:
+            memcpy(pInnerState2, authKey, pSessionDesc->authKeyLenInBytes);
+            break;
+        case CPA_CY_SYM_HASH_AES_CMAC:
+            if (IS_HASH_MODE_1(pSessionDesc->qatHashMode))
+            {
+                osalMemSet(pInnerState2, 0, cd_ctrl->inner_state2_sz);
+            }
+        default: /* Fall through */
+            if (IS_HASH_MODE_1(pSessionDesc->qatHashMode))
+            {
+                /* Block messages until precompute is completed */
+                pSessionDesc->nonBlockingOpsInProgress = CPA_FALSE;
 
-        /* Block messages until precompute is completed */
-        pSessionDesc->nonBlockingOpsInProgress = CPA_FALSE;
-
-        status = LacHash_PrecomputeDataCreate(
-            pSessionDesc->pInstance,
-            (CpaCySymSessionSetupData *)&(sessionSetup),
-            LacSymAlgChain_HashPrecomputeDoneCb,
-            pSessionDesc,
-            pSessionDesc->hashStatePrefixBuffer,
-            pInnerState1,
-            pInnerState2);
+                status = LacHash_PrecomputeDataCreate(
+                    pSessionDesc->pInstance,
+                    (CpaCySymSessionSetupData *)&(sessionSetup),
+                    LacSymAlgChain_HashPrecomputeDoneCb,
+                    pSessionDesc,
+                    pSessionDesc->hashStatePrefixBuffer,
+                    pInnerState1,
+                    pInnerState2);
+            }
+            break;
     }
 
     return status;
@@ -824,55 +780,54 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
     switch (pSessionDesc->symOperation)
     {
         case CPA_CY_SYM_OP_CIPHER:
+
             pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_CIPHER;
-
-            if (CPA_CY_SYM_CIPHER_SNOW3G_UEA2 == pSessionDesc->cipherAlgorithm)
+            switch (pSessionDesc->cipherAlgorithm)
             {
-                *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
-                ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
-                                             QAT_LA_USE_WCP_SLICE);
+                case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
+                    *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
+                    ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WCP_SLICE);
+                    break;
+                case CPA_CY_SYM_CIPHER_ZUC_EEA3:
+                    *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
+                case CPA_CY_SYM_CIPHER_AES_F8:
+                    ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WCP_SLICE);
+                    break;
+                case CPA_CY_SYM_CIPHER_AES_CCM:
+                    *proto = ICP_QAT_FW_LA_CCM_PROTO;
+                    break;
+                default:
+                    break;
             }
-            else if (CPA_CY_SYM_CIPHER_ZUC_EEA3 ==
-                     pSessionDesc->cipherAlgorithm)
-            {
-                *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
-                ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
-                                             QAT_LA_USE_WCP_SLICE);
-            }
-            else if (CPA_CY_SYM_CIPHER_AES_F8 == pSessionDesc->cipherAlgorithm)
-            {
-                ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
-                                             QAT_LA_USE_WCP_SLICE);
-            }
-
-            if (LAC_CIPHER_IS_CCM(pSessionDesc->cipherAlgorithm))
-            {
-                *proto = ICP_QAT_FW_LA_CCM_PROTO;
-            }
-
             break;
 
         case CPA_CY_SYM_OP_HASH:
             pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_AUTH;
-            if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm)
+            switch (pSessionDesc->hashAlgorithm)
             {
-                *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
-                ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
-                                             QAT_LA_USE_WAT_SLICE);
-            }
-            else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)
-            {
-                *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
-                ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
-                                             QAT_LA_USE_WAT_SLICE);
-            }
-            else if ((CPA_CY_SYM_HASH_AES_CMAC ==
-                      pSessionDesc->hashAlgorithm) &&
-                     (ICP_QAT_HW_AES_128_KEY_SZ !=
-                      pSessionDesc->authKeyLenInBytes))
-            {
-                ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
-                                             QAT_LA_USE_WAT_SLICE);
+                case CPA_CY_SYM_HASH_SNOW3G_UIA2:
+                    *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
+                    ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WAT_SLICE);
+                    break;
+                case CPA_CY_SYM_HASH_ZUC_EIA3:
+                    *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
+                    ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                                 QAT_LA_USE_WAT_SLICE);
+                    /* Need to set LW 28 hash flags as well. */
+                    ICP_QAT_FW_HASH_FLAG_ZUC_EIA3_SET(cd_ctrl->hash_flags,
+                                                      QAT_FW_LA_ZUC_EIA3);
+                    break;
+                case CPA_CY_SYM_HASH_AES_CMAC:
+                    if (ICP_QAT_HW_AES_128_KEY_SZ !=
+                        pSessionDesc->authKeyLenInBytes)
+                        ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
+                                                     QAT_LA_USE_WAT_SLICE);
+                    break;
+                default:
+                    break;
             }
             break;
 
@@ -937,8 +892,7 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
             {
                 pSessionDesc->isAuthEncryptOp = CPA_FALSE;
 
-                if (CPA_CY_SYM_CIPHER_SNOW3G_UEA2 ==
-                    pSessionDesc->cipherAlgorithm)
+                if (CPA_CY_SYM_CIPHER_SNOW3G_UEA2 == pSessionDesc->cipherAlgorithm)
                 {
                     *proto = ICP_QAT_FW_LA_SNOW_3G_PROTO;
                     ICP_QAT_FW_USE_EXTENDED_PROTOCOL_FLAGS_SET(
@@ -966,8 +920,7 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
                     ICP_QAT_FW_USE_WAT_SLICE_SET(*laExtCmdFlags,
                                                  QAT_LA_USE_WAT_SLICE);
                 }
-                else if (CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                         pSessionDesc->hashAlgorithm)
+                else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)
                 {
                     ICP_QAT_FW_USE_EXTENDED_PROTOCOL_FLAGS_SET(
                         *laExtCmdFlags, QAT_LA_USE_EXTENDED_PROTOCOL_FLAGS);
@@ -1063,7 +1016,7 @@ static void updateLaCmdFlags(lac_session_desc_t *pSessionDesc,
     /* Legacy FW <=> IA interface */
     else if (!extServFlagEnabled &&
              ((CPA_CY_SYM_CIPHER_ZUC_EEA3 == pSessionDesc->cipherAlgorithm) ||
-              (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)))
+             (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)))
     {
         /* New bit position (12) for ZUC. The FW provides a specific macro
          * to use to set the ZUC proto flag. With the new FW I/F this needs
@@ -1170,6 +1123,7 @@ LacAlgChain_SessionDirectionUpdate(lac_session_desc_t *pSessionDesc,
                 }
 
                 LacSymQat_CipherCtrlBlockWrite(
+                    pSessionDesc,
                     &(pSessionDesc->shramReqCacheFtr),
                     pSessionDesc->cipherAlgorithm,
                     pSessionDesc->cipherKeyLenInBytes,
@@ -1258,6 +1212,7 @@ LacAlgChain_SessionDirectionUpdate(lac_session_desc_t *pSessionDesc,
                                                   &sizeInBytes);
 
                     LacSymQat_CipherCtrlBlockWrite(
+                        pSessionDesc,
                         &(pSessionDesc->reqCacheFtr),
                         pSessionDesc->cipherAlgorithm,
                         pSessionDesc->cipherKeyLenInBytes,
@@ -1273,6 +1228,7 @@ LacAlgChain_SessionDirectionUpdate(lac_session_desc_t *pSessionDesc,
                     memcpy(pHwBlockBaseInDRAM, cipherBlk, cipherBlkSizeInBytes);
 
                     LacSymQat_CipherCtrlBlockWrite(
+                        pSessionDesc,
                         &(pSessionDesc->reqCacheFtr),
                         pSessionDesc->cipherAlgorithm,
                         pSessionDesc->cipherKeyLenInBytes,
@@ -1484,7 +1440,7 @@ LacSymAlgChain_GetSpcState(CpaCySymCipherAlgorithm cipher,
         }
     }
 
-    if (LAC_CIPHER_IS_SPC_CCM(cipher, hash, capabilitiesMask))
+    if (LAC_CIPHER_IS_SPC_CCM(cipher, capabilitiesMask))
     {
         state = SPC_PROBABLE;
     }
@@ -1519,6 +1475,8 @@ CpaStatus LacAlgChain_SessionInit(
     CpaCySymAlgChainOrder chainOrder = 0;
     lac_sym_qat_hash_precompute_info_t precomputeData = {0};
     lac_sym_qat_hash_precompute_info_t precomputeDataOptimisedCd = {0};
+    lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo = NULL;
+    CpaBoolean hashStateBuffer = CPA_TRUE;
 
     LAC_ENSURE_NOT_NULL(instanceHandle);
     LAC_ENSURE_NOT_NULL(pSessionSetupData);
@@ -1631,43 +1589,34 @@ CpaStatus LacAlgChain_SessionInit(
     if (pSessionDesc->isCipher)
     {
         /* Populate cipher specific session data */
-#ifdef ICP_PARAM_CHECK
-        status = LacCipher_SessionSetupDataCheck(
-            pCipherData, capabilitiesMask, (sal_service_t *)pService);
-#endif
 
-        if (CPA_STATUS_SUCCESS == status)
+        pSessionDesc->cipherAlgorithm = pCipherData->cipherAlgorithm;
+        pSessionDesc->cipherKeyLenInBytes = pCipherData->cipherKeyLenInBytes;
+        pSessionDesc->cipherDirection = pCipherData->cipherDirection;
+
+        /* ARC4 base key isn't added to the content descriptor, because
+         * we don't need to pass it directly to the QAT engine. Instead
+         * an initial cipher state & key matrix are derived from the
+         * base key and provided to the QAT through the state pointer
+         * in the request params. We'll store this initial state in
+         * the session descriptor. */
+
+        if (LAC_CIPHER_IS_ARC4(pSessionDesc->cipherAlgorithm))
         {
-            pSessionDesc->cipherAlgorithm = pCipherData->cipherAlgorithm;
-            pSessionDesc->cipherKeyLenInBytes =
-                pCipherData->cipherKeyLenInBytes;
-            pSessionDesc->cipherDirection = pCipherData->cipherDirection;
+            LacSymQat_CipherArc4StateInit(pCipherData->pCipherKey,
+                                          pSessionDesc->cipherKeyLenInBytes,
+                                          pSessionDesc->cipherARC4InitialState);
 
-            /* ARC4 base key isn't added to the content descriptor, because
-             * we don't need to pass it directly to the QAT engine. Instead
-             * an initial cipher state & key matrix is derived from the
-             * base key and provided to the QAT through the state pointer
-             * in the request params. We'll store this initial state in
-             * the session descriptor. */
-
-            if (LAC_CIPHER_IS_ARC4(pSessionDesc->cipherAlgorithm))
-            {
-                LacSymQat_CipherArc4StateInit(
-                    pCipherData->pCipherKey,
-                    pSessionDesc->cipherKeyLenInBytes,
+            pSessionDesc->cipherARC4InitialStatePhysAddr =
+                LAC_OS_VIRT_TO_PHYS_EXTERNAL(
+                    pService->generic_service_info,
                     pSessionDesc->cipherARC4InitialState);
 
-                pSessionDesc->cipherARC4InitialStatePhysAddr =
-                    LAC_OS_VIRT_TO_PHYS_EXTERNAL(
-                        pService->generic_service_info,
-                        pSessionDesc->cipherARC4InitialState);
-
-                if (0 == pSessionDesc->cipherARC4InitialStatePhysAddr)
-                {
-                    LAC_LOG_ERROR("Unable to get the physical address of "
-                                  "the initial state for ARC4\n");
-                    status = CPA_STATUS_FAIL;
-                }
+            if (0 == pSessionDesc->cipherARC4InitialStatePhysAddr)
+            {
+                LAC_LOG_ERROR("Unable to get the physical address of "
+                              "the initial state for ARC4\n");
+                status = CPA_STATUS_FAIL;
             }
         }
     }
@@ -1675,8 +1624,7 @@ CpaStatus LacAlgChain_SessionInit(
     if ((CPA_STATUS_SUCCESS == status) && pSessionDesc->isAuth)
     {
         /* Populate auth-specific session data */
-        const CpaCySymHashSetupData *pHashData =
-            &pSessionSetupData->hashSetupData;
+        pHashData = &pSessionSetupData->hashSetupData;
 
 #ifdef ICP_PARAM_CHECK
         status = LacHash_HashContextCheck(instanceHandle, pHashData);
@@ -1694,14 +1642,21 @@ CpaStatus LacAlgChain_SessionInit(
                     pHashData->authModeSetupData.authKeyLenInBytes;
             }
 
-            if (CPA_TRUE == pSessionDesc->isAuthEncryptOp ||
-                (pHashData->hashAlgorithm == CPA_CY_SYM_HASH_SNOW3G_UIA2 ||
-                 pHashData->hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3))
+            switch (pHashData->hashAlgorithm)
             {
-                pSessionDesc->aadLenInBytes =
-                    pHashData->authModeSetupData.aadLenInBytes;
+                case CPA_CY_SYM_HASH_SNOW3G_UIA2:
+                case CPA_CY_SYM_HASH_ZUC_EIA3:
+                    pSessionDesc->aadLenInBytes =
+                        pHashData->authModeSetupData.aadLenInBytes;
+                    break;
+                default:
+                    if (CPA_TRUE == pSessionDesc->isAuthEncryptOp)
+                    {
+                            pSessionDesc->aadLenInBytes =
+                                pHashData->authModeSetupData.aadLenInBytes;
+                    }
+                    break;
             }
-
             /* Set the QAT hash mode */
             if ((pHashData->hashMode == CPA_CY_SYM_HASH_MODE_NESTED) ||
                 (pHashData->hashMode == CPA_CY_SYM_HASH_MODE_PLAIN) ||
@@ -1761,9 +1716,13 @@ CpaStatus LacAlgChain_SessionInit(
 
         /* Disable SymConstantsTable based CD optimization when UCS slice is
          * used for Gen4 device.
+         * Also disable SymConstantsTable for wireless slice.
          */
-        if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == pSessionDesc->cipherSliceType &&
-            pService->generic_service_info.isGen4)
+        if ((ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE ==
+                 pSessionDesc->cipherSliceType &&
+             pService->generic_service_info.isGen4) ||
+            (ICP_QAT_FW_LA_USE_WIRELESS_SLICE_TYPE ==
+             pSessionDesc->cipherSliceType))
         {
             pSessionDesc->useSymConstantsTable = CPA_FALSE;
         }
@@ -1956,10 +1915,7 @@ CpaStatus LacAlgChain_SessionInit(
 
     if ((CPA_STATUS_SUCCESS == status) && pSessionDesc->isAuth)
     {
-        lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo =
-            &(pSessionDesc->hashStateBufferInfo);
-        CpaBoolean hashStateBuffer = CPA_TRUE;
-
+        pHashStateBufferInfo = &(pSessionDesc->hashStateBufferInfo);
         /* set up fields in both the cd_ctrl and reqParams which describe
          * the ReqParams block */
         LacSymQat_HashSetupReqParamsMetaData(&(pSessionDesc->reqCacheFtr),
@@ -2010,8 +1966,7 @@ CpaStatus LacAlgChain_SessionInit(
 
         if (CPA_STATUS_SUCCESS == status)
         {
-            if (IS_HASH_MODE_1(pSessionDesc->qatHashMode) ||
-                CPA_CY_SYM_HASH_ZUC_EIA3 == pHashData->hashAlgorithm)
+            if (IS_HASH_MODE_1(pSessionDesc->qatHashMode))
             {
 #ifdef ICP_PARAM_CHECK
                 LAC_CHECK_64_BYTE_ALIGNMENT(
@@ -2143,10 +2098,19 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
     CpaCySymCipherAlgorithm cipher;
     CpaCySymHashAlgorithm hash;
     Cpa8U paddingLen = 0;
-    Cpa8U blockLen = 0;
     CpaBoolean digestIsAppended = CPA_FALSE;
     Cpa32U aadLenInBytes = 0;
     CpaBoolean isSpGcm, isSpCcp, isSpCcm;
+    Cpa8U *pIvBuffer = NULL;
+    Cpa64U ivBufferPhysAddr = 0;
+    Cpa64U aadBufferPhysAddr = 0;
+    Cpa64U digestBufferPhysAddr = 0;
+    Cpa32U authOffsetInBytes = 0;
+    Cpa32U authLenInBytes = 0;
+    lac_sym_qat_hash_state_buffer_info_t hashStateBufferInfo = { 0 };
+    lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo = NULL;
+    icp_qat_fw_la_auth_req_params_t *pHashReqParams = NULL;
+
 #ifdef ICP_PARAM_CHECK
     Cpa64U srcPktSize = 0;
     Cpa64U dstPktSize = 0;
@@ -2186,20 +2150,28 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
 #endif
     }
 
+#ifdef ICP_PARAM_CHECK
+    if (LAC_CIPHER_IS_CHACHA(cipher) &&
+             (LAC_CIPHER_SPC_IV_SIZE != pOpData->ivLenInBytes))
+    {
+        LAC_INVALID_PARAM_LOG("IV for CHACHA");
+        /* Unlock session on error */
+        LacAlgChain_UnlockSessionReader(pSessionDesc);
+        return CPA_STATUS_INVALID_PARAM;
+    }
+#endif
     aadLenInBytes = pSessionDesc->aadLenInBytes;
 
     isSpGcm = LAC_CIPHER_IS_SPC_GCM(cipher, hash, capabilitiesMask);
     isSpCcp = LAC_CIPHER_IS_SPC_CCP(cipher, hash, capabilitiesMask);
-    isSpCcm = LAC_CIPHER_IS_SPC_CCM(cipher, hash, capabilitiesMask);
+    isSpCcm = LAC_CIPHER_IS_SPC_CCM(cipher, capabilitiesMask);
 
     /* Convert Alg Chain Request to Cipher Request for CCP,
      * AES_GCM and AES_CCM single pass.
      * HW supports only 12 bytes IVs for single pass CCP and AES_GCM,
      * there is no such restriction for single pass CCM */
     if ((SPC_NO != pSessionDesc->singlePassState) &&
-        ((LAC_CIPHER_SPC_IV_SIZE == pOpData->ivLenInBytes &&
-          (isSpGcm || isSpCcp)) ||
-         isSpCcm))
+        LAC_IS_SPC_ALGO(isSpGcm, isSpCcp, isSpCcm, pOpData->ivLenInBytes))
     {
         pSessionDesc->laCmdId = ICP_QAT_FW_LA_CMD_CIPHER;
         laCmdId = pSessionDesc->laCmdId;
@@ -2304,16 +2276,6 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             pSessionDesc->laExtCmdFlags);
     }
 
-#ifdef ICP_PARAM_CHECK
-    else if (LAC_CIPHER_IS_CHACHA(cipher) &&
-             (LAC_CIPHER_SPC_IV_SIZE != pOpData->ivLenInBytes))
-    {
-        LAC_INVALID_PARAM_LOG("IV for CHACHA");
-        /* Unlock session on error */
-        LacAlgChain_UnlockSessionReader(pSessionDesc);
-        return CPA_STATUS_INVALID_PARAM;
-    }
-#endif
 
     if ((CPA_TRUE == pSessionDesc->isAuthEncryptOp) || isSpCcm)
     {
@@ -2473,7 +2435,7 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             }
         }
     }
-    if (CPA_STATUS_SUCCESS == status && pCookie != NULL)
+    if (CPA_STATUS_SUCCESS == status)
     {
         /* populate the cookie */
         pCookie->pCallbackTag = pCallbackTag;
@@ -2585,6 +2547,17 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                 ICP_QAT_FW_LA_CMP_AUTH_SET(pMsg->comn_hdr.serv_specif_flags,
                                            ICP_QAT_FW_LA_NO_CMP_AUTH_RES);
             }
+            if ((ICP_QAT_FW_LA_PARTIAL_MID == qatPacketType) ||
+                 (ICP_QAT_FW_LA_PARTIAL_END == qatPacketType))
+            {
+                /* For SPC stateful cipher state size for mid and
+                 * end partial packet is 48 bytes
+                 */
+                pSpcCdCtrlHdr =
+                    (icp_qat_fw_cipher_cd_ctrl_hdr_t *)&(pMsg->cd_ctrl);
+                pSpcCdCtrlHdr->cipher_state_sz =
+                    LAC_BYTES_TO_QUADWORDS(LAC_SYM_QAT_CIPHER_SPC_STATE_SIZE);
+            }
         }
 
         ICP_QAT_FW_LA_SLICE_TYPE_SET(pMsg->comn_hdr.serv_specif_flags,
@@ -2600,9 +2573,6 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
          */
         if (laCmdId != ICP_QAT_FW_LA_CMD_AUTH)
         {
-
-            Cpa8U *pIvBuffer = NULL;
-
 #ifdef ICP_PARAM_CHECK
             status = LacCipher_PerformParamCheck(cipher, pOpData, srcPktSize);
 #endif
@@ -2616,23 +2586,9 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                                              qatPacketType,
                                              &pIvBuffer);
             }
-            if ((SPC_YES == pSessionDesc->singlePassState) &&
-                ((ICP_QAT_FW_LA_PARTIAL_MID == qatPacketType) ||
-                 (ICP_QAT_FW_LA_PARTIAL_END == qatPacketType)))
-            {
-                /* For SPC stateful cipher state size for mid and
-                 * end partial packet is 48 bytes
-                 */
-                pSpcCdCtrlHdr =
-                    (icp_qat_fw_cipher_cd_ctrl_hdr_t *)&(pMsg->cd_ctrl);
-                pSpcCdCtrlHdr->cipher_state_sz =
-                    LAC_BYTES_TO_QUADWORDS(LAC_SYM_QAT_CIPHER_SPC_STATE_SIZE);
-            }
             /*populate the cipher request parameters */
             if (CPA_STATUS_SUCCESS == status)
             {
-                Cpa64U ivBufferPhysAddr = 0;
-
                 if (pIvBuffer != NULL)
                 {
                     /* User OpData memory being used for IV buffer */
@@ -2662,30 +2618,31 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             if ((SPC_YES == pSessionDesc->singlePassState) &&
                 CPA_STATUS_SUCCESS == status)
             {
-                Cpa64U aadBufferPhysAddr = 0;
-
-                /* For CHACHA, AES-GCM and AES-CCM there is an AAD buffer if
-                 * aadLenInBytes is nonzero In case of AES-GMAC, AAD buffer
-                 * passed in the src buffer.
-                 * Additionally even if aadLenInBytes is 0 for AES-CCM,
-                 * still AAD buffer need to be used, as it contains B0 block
-                 * and encoded AAD len.
+                /* Pad the AAD buffer to a blocklen multiple and get the
+                 * physical address of the buffer.
+                 * For CHACHA and AES-GCM there is an AAD buffer if
+                 * aadLenInBytes is nonzero. For CCM there is always an AAD
+                 * buffer, even if aadLenInBytes is zero, as the first 16
+                 * bytes are needed for B0. In case of AES-GMAC, no AAD buffer
+                 * is needed as the AAD is passed in the src buffer.
                  */
-                if ((0 != aadLenInBytes && CPA_CY_SYM_HASH_AES_GMAC != hash) ||
+                if ((0 < aadLenInBytes && CPA_CY_SYM_HASH_AES_GMAC != hash) ||
                     isSpCcm)
                 {
 #ifdef ICP_PARAM_CHECK
                     LAC_CHECK_NULL_PARAM(pOpData->pAdditionalAuthData);
 #endif
-                    /* In case of AES_CCM, B0 block size and 2 bytes of AAD len
-                     * encoding need to be added to total AAD data len */
-                    if (isSpCcm)
+                    /* In case of AES_CCM, start padding after B0 block size
+                     * plus 2 bytes of AAD len encoding plus AAD data len.
+                     * Padding is only needed for aadLen > 0.
+                     */
+                    if (isSpCcm && 0 < aadLenInBytes)
                         aadLenInBytes += LAC_CIPHER_CCM_AAD_OFFSET;
 
-                    blockLen = LacSymQat_CipherBlockSizeBytesGet(cipher);
-                    if (blockLen && (aadLenInBytes % blockLen) != 0)
+                    if (aadLenInBytes % LAC_SYM_CIPHER_AAD_PADLEN != 0)
                     {
-                        paddingLen = blockLen - (aadLenInBytes % blockLen);
+                        paddingLen = LAC_SYM_CIPHER_AAD_PADLEN -
+                                    (aadLenInBytes % LAC_SYM_CIPHER_AAD_PADLEN);
                         osalMemSet(&pOpData->pAdditionalAuthData[aadLenInBytes],
                                    0,
                                    paddingLen);
@@ -2710,21 +2667,16 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                     pCipher20ReqParams =
                         (void *)((Cpa8U *)&(pMsg->serv_specif_rqpars) +
                                  ICP_QAT_FW_CIPHER_REQUEST_PARAMETERS_OFFSET);
-                    if (pService->generic_service_info.isGen4)
-                        {
-                            pCipher20ReqParams->spc_aad_addr =
-                                aadBufferPhysAddr;
-                            pCipher20ReqParams->spc_aad_sz =
-                                pSessionDesc->aadLenInBytes;
-                            pCipher20ReqParams->spc_aad_offset = 0;
-                            if (isSpCcm)
-                                pCipher20ReqParams->spc_aad_sz +=
-                                    LAC_CIPHER_CCM_AAD_OFFSET;
-                        }
+                        pCipher20ReqParams->spc_aad_addr = aadBufferPhysAddr;
+                        pCipher20ReqParams->spc_aad_sz =
+                                        pSessionDesc->aadLenInBytes;
+                        pCipher20ReqParams->spc_aad_offset = 0;
+                        if (isSpCcm)
+                            pCipher20ReqParams->spc_aad_sz +=
+                                        LAC_CIPHER_CCM_AAD_OFFSET;
 
                     if (CPA_TRUE != pSessionDesc->digestIsAppended)
                     {
-                        Cpa64U digestBufferPhysAddr = 0;
                         /* User OpData memory being used for digest buffer */
                         /* get the physical address */
                         digestBufferPhysAddr = LAC_OS_VIRT_TO_PHYS_EXTERNAL(
@@ -2732,10 +2684,10 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                             pOpData->pDigestResult);
                         if (0 != digestBufferPhysAddr)
                         {
+                                pCipher20ReqParams->spc_auth_res_addr =
+                                        digestBufferPhysAddr;
                                 if (pService->generic_service_info.isGen4)
                                 {
-                                    pCipher20ReqParams->spc_auth_res_addr =
-                                        digestBufferPhysAddr;
                                     pCipher20ReqParams->spc_auth_res_sz =
                                         (Cpa8U)pSessionDesc->hashResultSize;
                                 }
@@ -2779,8 +2731,8 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
         if ((status == CPA_STATUS_SUCCESS) &&
             (laCmdId != ICP_QAT_FW_LA_CMD_CIPHER))
         {
-            Cpa32U authOffsetInBytes = pOpData->hashStartSrcOffsetInBytes;
-            Cpa32U authLenInBytes = pOpData->messageLenToHashInBytes;
+            authOffsetInBytes = pOpData->hashStartSrcOffsetInBytes;
+            authLenInBytes = pOpData->messageLenToHashInBytes;
 
 #ifdef ICP_PARAM_CHECK
             status = LacHash_PerformParamCheck(instanceHandle,
@@ -2792,13 +2744,11 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
             if (CPA_STATUS_SUCCESS == status)
             {
                 /* Info structure for CCM/GCM */
-                lac_sym_qat_hash_state_buffer_info_t hashStateBufferInfo = {0};
-                lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo =
-                    &(pSessionDesc->hashStateBufferInfo);
+                pHashStateBufferInfo = &(pSessionDesc->hashStateBufferInfo);
 
                 if (CPA_TRUE == pSessionDesc->isAuthEncryptOp)
                 {
-                    icp_qat_fw_la_auth_req_params_t *pHashReqParams =
+                    pHashReqParams =
                         (icp_qat_fw_la_auth_req_params_t
                              *)((Cpa8U *)&(pMsg->serv_specif_rqpars) +
                                 ICP_QAT_FW_HASH_REQUEST_PARAMETERS_OFFSET);

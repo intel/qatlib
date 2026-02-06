@@ -1,36 +1,10 @@
 /***************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 #include <errno.h>
@@ -349,8 +323,8 @@ STATIC CpaStatus subsystem_notify(Cpa32U accelId, Cpa32U event)
             if (CPA_STATUS_SUCCESS == stat_restart)
             {
                 adf_start_system(accel_tbl[accelId]);
+                accel_dev_error_stat[accelId] = 0;
             }
-            accel_dev_error_stat[accelId] = 0;
             break;
         case ADF_EVENT_ERROR:
             /* accel_dev_error_stat is set after calling adf_subsystemError
@@ -420,11 +394,16 @@ STATIC int32_t adf_proxy_get_device(int dev_id)
     int32_t err;
     uint8_t is_section_present = 0;
 
-    if ((dev_id >= ADF_MAX_DEVICES) || (NULL != accel_tbl[dev_id]))
-        return 0; /* Invalid dev_id or Already created. */
+    /* Invalid dev_id */
+    if (dev_id >= ADF_MAX_DEVICES)
+        return EINVAL;
+
+    /* Device already created */
+    if (NULL != accel_tbl[dev_id])
+        return EEXIST;
 
     if (!adf_io_accel_dev_exist(dev_id))
-        return 0;
+        return ENODEV;
 
     err = icp_adf_cfgCheckUserSection(dev_id, &is_section_present);
     if (err)
@@ -459,12 +438,12 @@ adf_proxy_get_device_init_failed:
 STATIC int32_t adf_proxy_restart_device(int dev_id)
 {
     int32_t err;
-
-    if ((dev_id >= ADF_MAX_DEVICES))
-        return 0; /* Invalid dev_id or Already created. */
+    /* Invalid dev_id */
+    if (dev_id >= ADF_MAX_DEVICES)
+        return EINVAL;
 
     if (!adf_io_accel_dev_exist(dev_id))
-        return 0;
+        return ENODEV;
 
     if (adf_io_reinit_accel(&accel_tbl[dev_id], dev_id))
     {
@@ -510,9 +489,20 @@ STATIC int adf_proxy_get_dev_events(int dev_id)
     return 0;
 }
 
+STATIC void adf_proxy_cleanup_initialized_devices(uint32_t max_dev_id)
+{
+    uint32_t ctr;
+
+    for (ctr = 0; ctr < max_dev_id; ctr++)
+    {
+        if (accel_tbl[ctr] != NULL)
+            adf_cleanup_device(ctr);
+    }
+}
+
 CpaStatus adf_proxy_get_devices(void)
 {
-    int32_t ctr = 0;
+    uint32_t ctr = 0;
     Cpa32U num_dev = 0;
 
     if (icp_adf_getNumDevices(&num_dev))
@@ -521,7 +511,9 @@ CpaStatus adf_proxy_get_devices(void)
     {
         if (adf_proxy_get_device(ctr))
         {
-            ADF_ERROR("adf_proxy_get_device error ctr\n");
+            ADF_ERROR("adf_proxy_get_device failed for device %u\n", ctr);
+            if (ctr > 0)
+                adf_proxy_cleanup_initialized_devices(ctr);
             return CPA_STATUS_FAIL;
         }
     }

@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 /**
@@ -277,6 +225,152 @@ int qaeRegisterDevice(int fd);
  *
  ****************************************************************************/
 int qaeUnregisterDevice(int fd);
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *      qaeMemMapContiguousIova
+ *
+ * @brief
+ *      Allocates a contiguous IOVA (I/O Virtual Address) region and maps the
+ *      provided user-allocated virtual memory to this IOVA for DMA operations
+ *      with QAT hardware. This function allows users to use their own memory
+ *      buffers (e.g., pre-allocated buffers) for zero-copy DMA transfers.
+ *
+ *      The memory region is mapped with both read and write permissions for
+ *      DMA operations. The IOVA is aligned to IOVA_SLAB_SIZE (2MB) internally.
+ *
+ *      After successful mapping, qaeVirtToPhysNUMA() can be used to translate
+ *      addresses within the mapped region to their corresponding IOVA.
+ *
+ *      This function is thread-safe and not supported when
+ *      ICP_THREAD_SPECIFIC_USDM is defined.
+ *
+ * @param[in]  virt       Pointer to the user-allocated virtual memory to map.
+ *                        Must be a valid, non-NULL, accessible virtual address.
+ *                        Must be passed to qaeMemUnmapContiguousIova() when done.
+ *                        Alignment requirements:
+ *                        - When hugepages are enabled: must be 2MB-aligned
+ *                        - When hugepages are disabled: must be 4KB-aligned
+ * @param[in]  size       Size in bytes of the memory region to map. Must be
+ *                        greater than 0, a multiple of page size (4KB), and
+ *                        not exceed 2GB (2147483648 bytes).
+ *                        When hugepages are enabled, size must be 2MB-aligned.
+ *
+ * @retval >0  The allocated IOVA address on success. This value should be
+ *             used as the physical address for QAT DMA operations.
+ * @retval 0   Failure - could not allocate IOVA or map the memory. This can
+ *             occur if:
+ *             - This function is not supported (e.g. in the out-of-tree driver,
+ *               or when ICP_THREAD_SPECIFIC_USDM is defined)
+ *             - virt is NULL
+ *             - virt is not properly aligned (4KB when hugepages disabled,
+ *               2MB when hugepages enabled)
+ *             - Size is 0, not a multiple of page size (4KB), or exceeds 2GB
+ *             - Size is not 2MB-aligned when hugepages are enabled
+ *             - No contiguous IOVA space is available (fragmentation)
+ *             - VFIO container is not registered (qaeRegisterDevice not called)
+ *             - VFIO IOMMU mapping failed
+ *             - VFIO is configured in no-IOMMU mode (not supported for this API)
+ *
+ * @pre
+ *      qaeRegisterDevice() must have been called prior to using this API
+ *      for the DMA mapping to be effective. The virtual address provided must
+ *      be valid and accessible. The virtual memory region must remain valid
+ *      and not be freed while the IOVA mapping is active.
+ *
+ * @post
+ *      On success, the virtual memory is mapped to a per-process IOMMU domain
+ *      starting with the returned IOVA and can be used for DMA operations with
+ *      QAT hardware. The mapping is also registered in the USDM page table for
+ *      qaeVirtToPhysNUMA() lookups.
+ *
+ * @note
+ *      This function is only available in VFIO mode and will fail in
+ *      no-IOMMU mode. Memory allocated through qaeMemAllocNUMA() should
+ *      NOT be mapped using this API as it is already managed by USDM
+ *      internally.
+ *
+ *      Alignment requirements are critical for correct operation:
+ *      - The page table granularity depends on whether hugepages are enabled
+ *      - With hugepages: uses 2MB page table entries, requires 2MB-aligned
+ *        virtual addresses and sizes
+ *      - Without hugepages: uses 4KB page table entries, requires 4KB-aligned
+ *        virtual addresses
+ *      - Misaligned addresses will cause the function to fail with retval 0
+ *
+ *      This function may fail due to IOVA address space fragmentation even
+ *      if there is sufficient total free IOVA space. This can happen after
+ *      many allocations and deallocations of varying sizes.
+ *      This function may also fail is there are too many concurrent mappings.
+ *      For example, VFIO might fail if the maximum number of allowed mappings
+ *      is exceeded (this is 65535 with iommu type 1).
+ *
+ ****************************************************************************/
+uint64_t qaeMemMapContiguousIova(void *virt, size_t size);
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *      qaeMemUnmapContiguousIova
+ *
+ * @brief
+ *      Unmaps a previously mapped IOVA region and releases the IOVA address
+ *      space. This function should be called when the user-mapped memory is
+ *      no longer needed for DMA operations.
+ *
+ *      This function reverses the operation performed by
+ *      qaeMemMapContiguousIova(). It removes the IOMMU mapping via VFIO,
+ *      clears the page table entries, and releases the IOVA address space
+ *      in the global bitmap for reuse.
+ *
+ *      The IOVA is automatically looked up from the page table using the
+ *      provided virtual address, so callers do not need to track the IOVA
+ *      returned by qaeMemMapContiguousIova().
+ *
+ *      This function is thread-safe and not supported when
+ *      ICP_THREAD_SPECIFIC_USDM is defined.
+ *
+ * @param[in]  virt  Pointer to the virtual memory that was mapped. This must
+ *                   be the same pointer passed to qaeMemMapContiguousIova().
+ *                   Must not be NULL. Must meet the same alignment requirements
+ *                   as qaeMemMapContiguousIova() (4KB or 2MB based on hugepage
+ *                   configuration).
+ * @param[in]  size  Size in bytes of the memory region. Must be greater than 0,
+ *                   a multiple of page size (4KB), and match the size used
+ *                   when qaeMemMapContiguousIova() was called. When hugepages
+ *                   are enabled, size must be 2MB-aligned.
+ *
+ * @retval  0  Success - the IOVA was unmapped and released.
+ * @retval  1  Failure - could not unmap the IOVA. This can occur if:
+ *             - This function is not supported (e.g. in the out-of-tree driver,
+ *               or when ICP_THREAD_SPECIFIC_USDM is defined)
+ *             - virt is NULL
+ *             - virt is not properly aligned (4KB when hugepages disabled,
+ *               2MB when hugepages enabled)
+ *             - Size is 0 or not a multiple of page size (4KB)
+ *             - Size is not 2MB-aligned when hugepages are enabled
+ *             - The virtual address was not previously mapped
+ *             - VFIO IOMMU unmapping failed
+ *             - VFIO is configured in no-IOMMU mode
+ *
+ * @pre
+ *      The memory must have been previously mapped via
+ *      qaeMemMapContiguousIova() and no DMA operations should be in progress.
+ *      The size parameter must match the size used during mapping.
+ *
+ * @post
+ *      The IOVA is unmapped and the address space is released for reuse.
+ *      The user's virtual memory is not affected and remains valid.
+ *      qaeVirtToPhysNUMA() will no longer return valid results for this region.
+ *
+ * @note
+ *      This function is only available in VFIO mode and will fail in
+ *      no-IOMMU mode. Do NOT use this function to unmap memory that was
+ *      allocated through qaeMemAllocNUMA() - use qaeMemFreeNUMA() instead.
+ *
+ ****************************************************************************/
+int qaeMemUnmapContiguousIova(void *virt, size_t size);
 
 #ifndef __KERNEL__
 /*! Define a constant for user space to select any available NUMA node */

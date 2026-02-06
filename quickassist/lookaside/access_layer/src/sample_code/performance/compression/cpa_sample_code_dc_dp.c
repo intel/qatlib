@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -836,6 +784,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
         {
             PRINT_ERR("Error max submissions for latency  must be <= %d\n",
                       LATENCY_SUBMISSION_LIMIT);
+            qaeMemFree((void **)&info2);
             return CPA_STATUS_FAIL;
         }
 
@@ -847,6 +796,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                       "times\n");
             qaeMemFree((void **)&request_respnse_time);
             qaeMemFree((void **)&request_submit_start);
+            qaeMemFree((void **)&info2);
             return CPA_STATUS_FAIL;
         }
         memset(request_submit_start, 0, request_mem_sz);
@@ -1102,6 +1052,7 @@ static CpaStatus performDcDpEnqueueOp(compression_test_params_t *setup,
                 PRINT_ERR("Data Compression Failed %d\n\n", status);
                 perfData->threadReturnStatus = CPA_STATUS_FAIL;
 		status = CPA_STATUS_FAIL;
+               qaeMemFree((void **)&info2);
 		return status;
             }
         } /* End of number of Files Loop*/
@@ -1342,7 +1293,8 @@ static CpaStatus performOffloadCalculation(compression_test_params_t *setup,
         /* Else retries are zero, but throughput has been affected. */
         else
         {
-            upperBound = pPerfData->busyLoopValue - 1;
+            upperBound = (pPerfData->busyLoopValue > 0) ?
+                         (pPerfData->busyLoopValue - 1) : 0;
         }
     } while (CPA_STATUS_SUCCESS == status && pPerfData->retries != 0);
 
@@ -1386,16 +1338,16 @@ static CpaStatus buildSGLsSetupFromFlats(
 
     /* Operational data table for each file */
     compOpDataArray =
-        (CpaDcDpOpData ***)qaeMemAlloc(numFiles * sizeof(CpaDcDpOpData *));
-    memset(compOpDataArray, 0x00, numFiles * sizeof(CpaDcDpOpData *));
+        (CpaDcDpOpData ***)qaeMemAlloc(numFiles * sizeof(CpaDcDpOpData **));
+    memset(compOpDataArray, 0x00, numFiles * sizeof(CpaDcDpOpData **));
 
     /* Store SGLs for i.a. cleanup purpose */
     compSGLArray = (CpaPhysBufferList ***)qaeMemAlloc(
-        numFiles * sizeof(CpaPhysBufferList *));
-    memset(compSGLArray, 0x00, numFiles * sizeof(CpaDcDpOpData *));
+        numFiles * sizeof(CpaPhysBufferList **));
+    memset(compSGLArray, 0x00, numFiles * sizeof(CpaDcDpOpData **));
     decompSGLArray = (CpaPhysBufferList ***)qaeMemAlloc(
-        numFiles * sizeof(CpaPhysBufferList *));
-    memset(decompSGLArray, 0x00, numFiles * sizeof(CpaDcDpOpData *));
+        numFiles * sizeof(CpaPhysBufferList **));
+    memset(decompSGLArray, 0x00, numFiles * sizeof(CpaDcDpOpData **));
 
     /* Set required SGLs number - such like numberOfBuffers */
     setup->numberOfSGLs = (Cpa32U *)qaeMemAlloc(numFiles * sizeof(Cpa32U));
@@ -1550,8 +1502,8 @@ static CpaStatus buildSGLsSetupFromFlats(
 
     /* Create decompression OpData table for each file */
     decompOpDataTbl =
-        (CpaDcDpOpData ***)qaeMemAlloc(numFiles * sizeof(CpaDcDpOpData *));
-    memset(decompOpDataTbl, 0x00, numFiles * sizeof(CpaDcDpOpData *));
+        (CpaDcDpOpData ***)qaeMemAlloc(numFiles * sizeof(CpaDcDpOpData **));
+    memset(decompOpDataTbl, 0x00, numFiles * sizeof(CpaDcDpOpData **));
 
     /* Create test comparison OpData table for each file */
     for (fileCtr = 0; fileCtr < numFiles; fileCtr++)
@@ -1704,7 +1656,7 @@ static CpaStatus dcDpPerformSGL(compression_test_params_t *setup)
     }
 
     srcFlatBuffArray = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaPhysFlatBuffer *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaPhysFlatBuffer **)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == srcFlatBuffArray)
     {
@@ -1713,7 +1665,7 @@ static CpaStatus dcDpPerformSGL(compression_test_params_t *setup)
     }
 
     dstFlatBuffArray = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaPhysFlatBuffer *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaPhysFlatBuffer **)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == dstFlatBuffArray)
     {
@@ -1723,7 +1675,7 @@ static CpaStatus dcDpPerformSGL(compression_test_params_t *setup)
     }
 
     cmpFlatBuffArray = qaeMemAllocNUMA(
-        (numFiles * sizeof(CpaPhysFlatBuffer *)), nodeId, BYTE_ALIGNMENT_64);
+        (numFiles * sizeof(CpaPhysFlatBuffer **)), nodeId, BYTE_ALIGNMENT_64);
     /* Check for NULL */
     if (NULL == cmpFlatBuffArray)
     {
@@ -1861,7 +1813,6 @@ static CpaStatus dcDpPerformSGL(compression_test_params_t *setup)
                    bufferSize);
             fileDataPtr += bufferSize;
         }
-        fileDataPtr = NULL;
     }
 
     setup->setupData.sessDirection = CPA_DC_DIR_COMBINED;
@@ -2352,7 +2303,6 @@ static CpaStatus dcDpPerform(compression_test_params_t *setup)
 
             fileDataPtr += bufferSize;
         }
-        fileDataPtr = NULL;
     }
     if (CPA_FALSE == setup->setNsRequest)
     {
@@ -2693,7 +2643,7 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
     Cpa16U numInstances = 0;
     CpaInstanceHandle *instances = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
-    CpaDcInstanceCapabilities capabilities = {0};
+    CpaDcInstanceCapabilities *capabilities = NULL;
 
     CpaInstanceInfo2 *instanceInfo = NULL;
 #if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
@@ -2741,6 +2691,14 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         PRINT("Error calculating required buffers\n");
         goto exit;
     }
+
+    capabilities = qaeMemAlloc(sizeof(CpaDcInstanceCapabilities));
+    if (capabilities == NULL)
+    {
+       PRINT_ERR("Failed to allocate Memory for capabilities");
+       goto exit;
+    }
+    memset(capabilities, 0, sizeof(CpaDcInstanceCapabilities));
 
     instanceInfo = qaeMemAlloc(sizeof(CpaInstanceInfo2));
     if (instanceInfo == NULL)
@@ -2790,13 +2748,13 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
         instances[(testSetup->logicalQaInstance) % numInstances];
 
     /*check if dynamic compression is supported*/
-    status = cpaDcQueryCapabilities(dcSetup.dcInstanceHandle, &capabilities);
+    status = cpaDcQueryCapabilities(dcSetup.dcInstanceHandle, capabilities);
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("%s::%d cpaDcQueryCapabilities failed", __func__, __LINE__);
         goto exit;
     }
-    if (CPA_FALSE == capabilities.dynamicHuffman &&
+    if (CPA_FALSE == capabilities->dynamicHuffman &&
         tmpSetup->setupData.huffType == CPA_DC_HT_FULL_DYNAMIC)
     {
         PRINT("Dynamic is not supported on logical instance %d\n",
@@ -2821,7 +2779,7 @@ void dcDpPerformance(single_thread_test_data_t *testSetup)
 #endif
     if (CPA_STATUS_SUCCESS !=
         qatDcGetPreTestRecoveryCount(
-            &dcSetup, &capabilities, testSetup->performanceStats))
+            &dcSetup, capabilities, testSetup->performanceStats))
     {
         testSetup->performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
@@ -2912,6 +2870,10 @@ exit:
     if (instanceInfo != NULL)
     {
         qaeMemFree((void **)&instanceInfo);
+    }
+    if (capabilities != NULL)
+    {
+        qaeMemFree((void **)&capabilities);
     }
 
     sampleCodeThreadComplete(testSetup->threadID);

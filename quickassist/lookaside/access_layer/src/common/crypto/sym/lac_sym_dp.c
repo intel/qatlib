@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -101,6 +49,18 @@
 #include "sal_service_state.h"
 #include "lac_sym_auth_enc.h"
 
+#define LAC_DYN_HASH_EXCL_MASK                                                 \
+    ((1U << CPA_CY_SYM_HASH_AES_CCM) | (1U << CPA_CY_SYM_HASH_AES_GCM) |       \
+     (1U << CPA_CY_SYM_HASH_SNOW3G_UIA2) | (1U << CPA_CY_SYM_HASH_AES_GMAC) |  \
+     (1U << CPA_CY_SYM_HASH_ZUC_EIA3))
+
+#define LAC_IS_NOT_DYN_HASH_STATE(algo)                                        \
+    (!(LAC_DYN_HASH_EXCL_MASK & (1U << (algo))))
+
+#define LAC_AAD_HASH_INCL_MASK                                                 \
+    ((1U << CPA_CY_SYM_HASH_SNOW3G_UIA2) | (1U << CPA_CY_SYM_HASH_ZUC_EIA3))
+
+#define LAC_IS_HASH_AAD(algo) LAC_AAD_HASH_INCL_MASK &(1U << (algo))
 typedef void (*write_ringMsgFunc_t)(CpaCySymDpOpData *pRequest,
                                     icp_qat_fw_la_bulk_req_t *pCurrentQatMsg);
 
@@ -158,10 +118,9 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
         return CPA_STATUS_INVALID_PARAM;
     }
 
-    /*check whether Payload size is zero for CHACHA-POLY */
+    /* Check whether Payload size is zero for CHACHA-POLY */
     if ((CPA_CY_SYM_CIPHER_CHACHA == pSessionDesc->cipherAlgorithm) &&
-        (CPA_CY_SYM_HASH_POLY == pSessionDesc->hashAlgorithm) &&
-        (CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionDesc->symOperation))
+        (CPA_CY_SYM_HASH_POLY == pSessionDesc->hashAlgorithm))
     {
         if (!pRequest->messageLenToCipherInBytes)
         {
@@ -281,8 +240,7 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
                     return CPA_STATUS_INVALID_PARAM;
                 }
                 if ((ICP_QAT_HW_ZUC_256_IV_SZ != pRequest->ivLenInBytes) &&
-                    (ICP_QAT_HW_ZUC_256_KEY_SZ ==
-                     pSessionDesc->cipherKeyLenInBytes))
+                    (ICP_QAT_HW_ZUC_256_KEY_SZ == pSessionDesc->cipherKeyLenInBytes))
                 {
                     LAC_INVALID_PARAM_LOG("invalid cipher IV size");
                     return CPA_STATUS_INVALID_PARAM;
@@ -350,13 +308,14 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
                                ->generic_service_info.capabilitiesMask;
         if (LAC_CIPHER_IS_SPC(cipher, hash, capabilitiesMask))
         {
-            /* For CHACHA and AES_GCM single pass there is an AAD buffer
-             * if aadLenInBytes is nonzero. AES_GMAC AAD is stored in
-             * source buffer, therefore there is no separate AAD buffer.
-             * For AES_CCM single pass that always will be AAD buffer,
-             * even if aadLenInBytes will be zero */
-            if (LAC_CIPHER_IS_SPC_CCM(cipher, hash, capabilitiesMask) ||
-                ((0 != pSessionDesc->aadLenInBytes) &&
+            /* For CHACHA and AES-GCM there is an AAD buffer if
+             * aadLenInBytes is nonzero. For CCM there is always an AAD
+             * buffer, even if aadLenInBytes is zero, as the first 16
+             * bytes are needed for B0. In case of AES-GMAC, no AAD buffer
+             * is needed as the AAD is passed in the src buffer.
+             */
+            if (LAC_CIPHER_IS_SPC_CCM(cipher, capabilitiesMask) ||
+                ((0 < pSessionDesc->aadLenInBytes) &&
                  (CPA_CY_SYM_HASH_AES_GMAC != pSessionDesc->hashAlgorithm)))
             {
                 LAC_CHECK_NULL_PARAM(pRequest->pAdditionalAuthData);
@@ -389,8 +348,7 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
                 return CPA_STATUS_INVALID_PARAM;
             }
         }
-        else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pSessionDesc->hashAlgorithm ||
-                 CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)
+        else if (LAC_IS_HASH_AAD(pSessionDesc->hashAlgorithm))
         {
             if (0 == pRequest->additionalAuthData)
             {
@@ -590,11 +548,7 @@ void LacDp_WriteRingMsgOpt(CpaCySymDpOpData *pRequest,
                  *)((Cpa8U *)&(pCurrentQatMsg->serv_specif_rqpars) +
                     ICP_QAT_FW_HASH_REQUEST_PARAMETERS_OFFSET);
 
-        if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 != pSessionDesc->hashAlgorithm &&
-             CPA_CY_SYM_HASH_AES_CCM != pSessionDesc->hashAlgorithm &&
-             CPA_CY_SYM_HASH_AES_GCM != pSessionDesc->hashAlgorithm &&
-             CPA_CY_SYM_HASH_AES_GMAC != pSessionDesc->hashAlgorithm &&
-             CPA_CY_SYM_HASH_ZUC_EIA3 != pSessionDesc->hashAlgorithm) &&
+        if (LAC_IS_NOT_DYN_HASH_STATE(pSessionDesc->hashAlgorithm) &&
             (pHashStateBufferInfo->prefixAadSzQuadWords > 0))
         {
             /* prefixAadSzQuadWords > 0 when there is prefix data
@@ -673,11 +627,10 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
 
     CpaBoolean isSpGcm = LAC_CIPHER_IS_SPC_GCM(cipher, hash, capabilitiesMask);
     CpaBoolean isSpCcp = LAC_CIPHER_IS_SPC_CCP(cipher, hash, capabilitiesMask);
-    CpaBoolean isSpCcm = LAC_CIPHER_IS_SPC_CCM(cipher, hash, capabilitiesMask);
+    CpaBoolean isSpCcm = LAC_CIPHER_IS_SPC_CCM(cipher, capabilitiesMask);
 
     Cpa8U paddingLen = 0;
-    Cpa8U blockLen = 0;
-    Cpa32U aadDataLen = 0;
+    Cpa32U aadLenInBytes = 0;
 
     pMsgDummy = (Cpa8U *)pCurrentQatMsg;
     /* Write Request */
@@ -691,9 +644,7 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
      * HW supports only 12 bytes IVs for single pass CCP and AES_GCM,
      * there is no such restriction for single pass CCM */
     if ((SPC_NO != pSessionDesc->singlePassState) &&
-        ((LAC_CIPHER_SPC_IV_SIZE == pRequest->ivLenInBytes &&
-          (isSpGcm || isSpCcp)) ||
-         isSpCcm))
+        LAC_IS_SPC_ALGO(isSpGcm, isSpCcp, isSpCcm, pRequest->ivLenInBytes))
     {
         pSessionDesc->singlePassState = SPC_YES;
         pSessionDesc->isCipher = CPA_TRUE;
@@ -907,47 +858,45 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
                 (void *)((Cpa8U *)&(pCurrentQatMsg->serv_specif_rqpars) +
                          ICP_QAT_FW_CIPHER_REQUEST_PARAMETERS_OFFSET);
 
+                pCipher20ReqParams->spc_aad_addr =
+                        (Cpa64U)pRequest->additionalAuthData;
+                pCipher20ReqParams->spc_aad_sz =
+                        pSessionDesc->aadLenInBytes;
+                pCipher20ReqParams->spc_aad_offset = 0;
+                if (isSpCcm)
+                    pCipher20ReqParams->spc_aad_sz +=
+                         LAC_CIPHER_CCM_AAD_OFFSET;
+                pCipher20ReqParams->spc_auth_res_addr =
+                        (Cpa64U)pRequest->digestResult;
                 if (isGen4)
                 {
-                    pCipher20ReqParams->spc_aad_addr =
-                        (Cpa64U)pRequest->additionalAuthData;
-                    pCipher20ReqParams->spc_aad_sz =
-                        pSessionDesc->aadLenInBytes;
-                    pCipher20ReqParams->spc_aad_offset = 0;
-                    if (isSpCcm)
-                        pCipher20ReqParams->spc_aad_sz +=
-                            LAC_CIPHER_CCM_AAD_OFFSET;
-
-                    pCipher20ReqParams->spc_auth_res_addr =
-                        (Cpa64U)pRequest->digestResult;
                     pCipher20ReqParams->spc_auth_res_sz =
                         (Cpa8U)pSessionDesc->hashResultSize;
                 }
-
-            /* For CHACHA, AES_GCM and AES_CCM single pass AAD buffer needs
-             * alignment if aadLenInBytes is nonzero.
-             * In case of AES-GMAC, AAD buffer passed in the src buffer.
-             * Additionally even if aadLenInBytes is 0 for AES-CCM,
-             * still AAD buffer need to be used, as it contains B0 block
-             * and encoded AAD len.
+            /* Pad the AAD buffer to a blocklen multiple.
+             * For ChaChaPoly and AES-GCM there is an AAD buffer if
+             * aadLenInBytes is nonzero. For CCM there is always an AAD
+             * buffer, even if aadLenInBytes is zero, as the first 16
+             * bytes are needed for B0, but padding is only needed if
+             * aadLen > 0. In case of AES-GMAC, there's no AAD buffer
+             * as the AAD is passed in the src buffer, so no padding needed.
              */
-            if ((0 != pSessionDesc->aadLenInBytes &&
-                 CPA_CY_SYM_HASH_AES_GMAC != pSessionDesc->hashAlgorithm) ||
-                isSpCcm)
+            if ((0 < pSessionDesc->aadLenInBytes &&
+                 CPA_CY_SYM_HASH_AES_GMAC != pSessionDesc->hashAlgorithm))
             {
-                blockLen = LacSymQat_CipherBlockSizeBytesGet(
-                    pSessionDesc->cipherAlgorithm);
-                aadDataLen = pSessionDesc->aadLenInBytes;
+                aadLenInBytes = pSessionDesc->aadLenInBytes;
 
-                /* In case of AES_CCM, B0 block size and 2 bytes of AAD len
-                 * encoding need to be added to total AAD data len */
+                /* In case of AES_CCM, start padding after B0 block size
+                 * plus 2 bytes of AAD len encoding plus AAD data len.
+                 */
                 if (isSpCcm)
-                    aadDataLen += LAC_CIPHER_CCM_AAD_OFFSET;
+                    aadLenInBytes += LAC_CIPHER_CCM_AAD_OFFSET;
 
-                if (blockLen && (aadDataLen % blockLen) != 0)
+                if (aadLenInBytes % LAC_SYM_CIPHER_AAD_PADLEN != 0)
                 {
-                    paddingLen = blockLen - (aadDataLen % blockLen);
-                    osalMemSet(&pRequest->pAdditionalAuthData[aadDataLen],
+                    paddingLen = LAC_SYM_CIPHER_AAD_PADLEN -
+			         (aadLenInBytes % LAC_SYM_CIPHER_AAD_PADLEN);
+                    osalMemSet(&pRequest->pAdditionalAuthData[aadLenInBytes],
                                0,
                                paddingLen);
                 }

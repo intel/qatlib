@@ -1,37 +1,11 @@
 #!/bin/sh
 #################################################################
 #
-#   BSD LICENSE
+#   SPDX-License-Identifier: BSD-3-Clause
+#   Copyright(c) 2007-2026 Intel Corporation
 # 
-#   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
-#   All rights reserved.
-# 
-#   Redistribution and use in source and binary forms, with or without
-#   modification, are permitted provided that the following conditions
-#   are met:
-# 
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in
-#       the documentation and/or other materials provided with the
-#       distribution.
-#     * Neither the name of Intel Corporation nor the names of its
-#       contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-# 
-#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-#   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-#   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-#   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-#   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-#   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-#   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-#   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-#   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
+#   These contents may have been developed with support from one or more
+#   Intel-operated generative artificial intelligence solutions.
 #
 #################################################################
 #
@@ -79,6 +53,7 @@ SERVICES_LIST="sym asym sym;asym dc sym;dc asym;dc dcc"
 SERVICES_ENABLED="NONE"
 SERVICES_ENABLED_FOUND="FALSE"
 SYSTEMD_FILE="@systemdsystemunitdir@/qat.service"
+QAT_HUGEPAGES_DIR="/dev/hugepages/qat"
 
 # space separated array for supporting new devices pci ids
 SUPPORTED_DEVICE_PCI_IDS="$QAT_4XXX_DEVICE_PCI_ID"
@@ -388,7 +363,73 @@ enable_sriov() {
     fi
 }
 
+setup_hugepages_directory() {
+    # Check if hugepages present
+    if [ -d "/dev/hugepages" ]; then
+        if [ ! -d $QAT_HUGEPAGES_DIR ]; then
+            mkdir "$QAT_HUGEPAGES_DIR"
+            # Set group ownership and permissions
+            chown :$QAT_USER_GROUP "$QAT_HUGEPAGES_DIR"
+            chmod +070 "$QAT_HUGEPAGES_DIR"
+        fi
+    fi
+}
+
+remove_hugepages_directory() {
+    # Remove the qat hugepages directory if it exists
+    if [ -d "$QAT_HUGEPAGES_DIR" ]; then
+        rm -rf "$QAT_HUGEPAGES_DIR"
+    fi
+}
+
+# Function to update VFIO permissions for QAT VF devices
+update_vfio_permissions() {
+    # Find all QAT VF devices using /sys/bus/pci/devices
+    for PCI_DEV in /sys/bus/pci/devices/*; do
+        [ -e "$PCI_DEV/vendor" ] || continue
+        VENDOR=`cat "$PCI_DEV/vendor" 2>/dev/null`
+        DEVICE=`cat "$PCI_DEV/device" 2>/dev/null`
+
+        # Check if this is a QAT VF device
+        MATCHED=0
+        for VF_ID in $VF_DEVICE_IDS; do
+            if [ "$DEVICE" = "$VF_ID" ] && [ "$VENDOR" = "$INTEL_VENDORID" ]; then
+                MATCHED=1
+                break
+            fi
+        done
+
+        if [ $MATCHED -eq 1 ]; then
+            # Found a QAT VF, get its IOMMU group
+            if [ -e "$PCI_DEV/iommu_group" ]; then
+                IOMMU_GROUP=`basename $(readlink "$PCI_DEV/iommu_group")`
+                VFIO_NODE="/dev/vfio/$IOMMU_GROUP"
+
+                if [ -e "$VFIO_NODE" ]; then
+                    echo "Setting permissions for $VFIO_NODE" \
+                         "(QAT VF `basename $PCI_DEV`)"
+                    chown :$QAT_USER_GROUP "$VFIO_NODE" 2>/dev/null && \
+                        chmod +060 "$VFIO_NODE" 2>/dev/null
+                fi
+            fi
+        fi
+    done
+}
+
+# Handle reload-permissions mode
+if [ "$1" = "reload-permissions" ]; then
+    update_vfio_permissions
+    exit 0
+fi
+
+# Handle command line arguments
+if [ "$1" = "remove-hugepages-dir" ]; then
+    remove_hugepages_directory
+    exit 0
+fi
+
 check_config
+setup_hugepages_directory
 check_driver
 sysfs_config
 enable_sriov

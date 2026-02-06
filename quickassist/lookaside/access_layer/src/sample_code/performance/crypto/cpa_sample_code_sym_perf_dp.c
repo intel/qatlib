@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -593,7 +541,7 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
 )
 {
     Cpa32U sessionCtxSizeInBytes = 0;
-#if CPA_CY_API_VERSION_NUM_MINOR >= 8
+#if CPA_CY_API_VERSION_AT_LEAST(1, 8)
     Cpa32U sessionCtxDynamicSizeInBytes = 0;
 #endif
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -675,7 +623,7 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
         return status;
     }
 
-#if CPA_CY_API_VERSION_NUM_MINOR >= 8
+#if CPA_CY_API_VERSION_AT_LEAST(1, 8)
     /*get dynamic context size*/
 
     status = cpaCySymDpSessionCtxGetDynamicSize(setup->cyInstanceHandle,
@@ -716,7 +664,7 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
     }
     *pSession = pLocalSession;
 
-#if CPA_CY_API_VERSION_NUM_MINOR >= 8
+#if CPA_CY_API_VERSION_AT_LEAST(1, 8)
 #endif
 
     /* Register asynchronous callback with instance handle*/
@@ -747,7 +695,7 @@ static CpaStatus symmetricDpPerformOpDataSetup(
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U createCount = 0;
-    Cpa32U node = 0;
+    Cpa32U node = 0, ivAllocSz = 0;
 
     /*get the node we are running on for local memory allocation*/
     status = sampleCodeCyGetNode(setup->cyInstanceHandle, &node);
@@ -936,22 +884,42 @@ static CpaStatus symmetricDpPerformOpDataSetup(
         }
 
         /*allocate NUMA aware aligned memory for IV*/
+        switch (setup->setupData.cipherSetupData.cipherAlgorithm)
+        {
+            /* As per QAT API documentation, GCM and CCM IV allocation size
+             * should be 16 bytes even if IV length is less than 16 bytes.
+             */
+            case CPA_CY_SYM_CIPHER_AES_CCM:
+            case CPA_CY_SYM_CIPHER_AES_GCM:
+            case CPA_CY_SYM_CIPHER_CHACHA:
+                ivAllocSz = IV_AES_BLOCK_SIZE;
+                break;
+            default:
+                ivAllocSz = pOpdata[createCount]->ivLenInBytes;
+        }
         pOpdata[createCount]->pIv = qaeMemAllocNUMA(
-            pOpdata[createCount]->ivLenInBytes, node, BYTE_ALIGNMENT_64);
+            ivAllocSz, node, BYTE_ALIGNMENT_64);
         if (NULL == pOpdata[createCount]->pIv)
         {
             PRINT_ERR("IV is null\n");
             dpOpDataMemFree(pOpdata, createCount);
             return CPA_STATUS_FAIL;
         }
-        memset(
-            pOpdata[createCount]->pIv, 0, pOpdata[createCount]->ivLenInBytes);
+        memset(pOpdata[createCount]->pIv, 0, ivAllocSz);
+
         if (setup->setupData.cipherSetupData.cipherAlgorithm ==
             CPA_CY_SYM_CIPHER_AES_CCM)
         {
             /*Although the IV data length for CCM must be 16 bytes,
               The nonce length must be between 7 and 13 inclusive*/
-            pOpdata[createCount]->ivLenInBytes = AES_CCM_DEFAULT_NONCE_LENGTH;
+            if (pPacketSize[createCount] < BUFFER_SIZE_65536)
+            {
+                pOpdata[createCount]->ivLenInBytes = AES_CCM_DEFAULT_NONCE_LENGTH;
+            }
+            else
+            {
+                pOpdata[createCount]->ivLenInBytes = AES_CCM_LARGE_REQUEST_NONCE_LENGTH;
+            }
         }
 
         /*if we are testing HASH or Alg Chaining, set the location to place
@@ -1169,6 +1137,7 @@ static CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
         {
             PRINT_ERR("Error max submissions for latency  must be <= %d\n",
                       LATENCY_SUBMISSION_LIMIT);
+            qaeMemFree((void **)&instanceInfo);
             return CPA_STATUS_FAIL;
         }
         request_submit_start = qaeMemAlloc(request_mem_sz);
@@ -1179,6 +1148,7 @@ static CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
                       "times\n");
             qaeMemFree((void **)&request_respnse_time);
             qaeMemFree((void **)&request_submit_start);
+            qaeMemFree((void **)&instanceInfo);
             return CPA_STATUS_FAIL;
         }
         memset(request_submit_start, 0, request_mem_sz);
@@ -1870,7 +1840,8 @@ static CpaStatus performOffloadCalculation(
         /* Else retries are zero, but throughput has been affected. */
         else
         {
-            upperBound = pPerfData->busyLoopValue - 1;
+            upperBound = (pPerfData->busyLoopValue > 0) ?
+                         (pPerfData->busyLoopValue - 1) : 0;
         }
     }
     return status;

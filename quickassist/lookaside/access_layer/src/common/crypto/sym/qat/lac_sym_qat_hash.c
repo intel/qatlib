@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -287,8 +235,7 @@ void LacSymQat_HashContentDescInit(
 
     /* set the state2 size - only for mode 1 Auth algos and AES CBC MAC */
     if (IS_HASH_MODE_1(qatHashMode) ||
-        pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_AES_CBC_MAC ||
-        pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3)
+        pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_AES_CBC_MAC)
     {
         cd_ctrl->inner_state2_sz = LAC_ALIGN_POW2_ROUNDUP(
             pHashDefs->qatInfo->state2Length, LAC_QUAD_WORD_IN_BYTES);
@@ -372,7 +319,6 @@ void LacSymQat_HashContentDescInit(
             pHashSetupData->authModeSetupData.authKeyLenInBytes +
             ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
     }
-
     *pHashBlkSizeInBytes = hashSetupBlkSize;
 
     if (useOptimisedContentDesc)
@@ -577,9 +523,10 @@ STATIC void LacSymQat_HashSetupBlockInit(
     lac_sym_qat_hash_defs_t *pOuterHashDefs,
     CpaInstanceHandle instanceHandle)
 {
-    Cpa32U innerConfig = 0;
+    icp_qat_hw_cipher_config_t *pCipherConfig = NULL;
     lac_hash_blk_ptrs_t hashBlkPtrs = {0};
     Cpa32U aedHashCmpLength = 0;
+    Cpa32U innerConfig = 0;
     LacSymQat_HashHwBlockPtrsInit(
         pHashControlBlock, pHwBlockBase, &hashBlkPtrs);
 
@@ -594,8 +541,7 @@ STATIC void LacSymQat_HashSetupBlockInit(
 
     /* For mode 1 pre-computes for auth algorithms */
     if (IS_HASH_MODE_1(qatHashMode) ||
-        CPA_CY_SYM_HASH_AES_CBC_MAC == pHashSetupData->hashAlgorithm ||
-        CPA_CY_SYM_HASH_ZUC_EIA3 == pHashSetupData->hashAlgorithm)
+        CPA_CY_SYM_HASH_AES_CBC_MAC == pHashSetupData->hashAlgorithm)
     {
         /* for HMAC in mode 1 authCounter is the block size
          * else the authCounter is 0. The firmware expects the counter to be
@@ -729,8 +675,7 @@ STATIC void LacSymQat_HashSetupBlockInit(
 
     if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pHashSetupData->hashAlgorithm)
     {
-        icp_qat_hw_cipher_config_t *pCipherConfig =
-            (icp_qat_hw_cipher_config_t *)hashBlkPtrs.pOutHashSetup;
+        pCipherConfig = (icp_qat_hw_cipher_config_t *)hashBlkPtrs.pOutHashSetup;
 
         pCipherConfig->val =
             ICP_QAT_HW_CIPHER_CONFIG_BUILD(ICP_QAT_HW_CIPHER_ECB_MODE,
@@ -752,8 +697,7 @@ STATIC void LacSymQat_HashSetupBlockInit(
     }
     else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pHashSetupData->hashAlgorithm)
     {
-        icp_qat_hw_cipher_config_t *pCipherConfig =
-            (icp_qat_hw_cipher_config_t *)hashBlkPtrs.pOutHashSetup;
+        pCipherConfig = (icp_qat_hw_cipher_config_t *)hashBlkPtrs.pOutHashSetup;
 
         pCipherConfig->val = ICP_QAT_HW_CIPHER_CONFIG_BUILD(
             ICP_QAT_HW_CIPHER_ECB_MODE,

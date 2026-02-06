@@ -1,7 +1,7 @@
 ################################################################
 #   BSD LICENSE
 # 
-#   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
+#   Copyright(c) 2007-2026 Intel Corporation. All rights reserved.
 #   All rights reserved.
 # 
 #   Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,8 @@
 #   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
+#   These contents may have been developed with support from one or more
+#   Intel-operated generative artificial intelligence solutions.
 ################################################################
 
 ACLOCAL_AMFLAGS = -Im4
@@ -216,6 +218,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_list.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_rl_stubs.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_crypto.c \
+	quickassist/lookaside/access_layer/src/common/ctrl/sal_resp_type.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_dc_chain.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_instances.c \
 	quickassist/lookaside/access_layer/src/common/qat_comms/sal_qat_cmn_msg.c \
@@ -311,6 +314,11 @@ endif
 systemd_scriptsdir = $(sbindir)
 dist_systemd_scripts_SCRIPTS = quickassist/utilities/service/qat_init.sh
 
+# Udev rules and helper script for QAT VF vfio permission setting
+# Directory supplied via --with-udevrulesdir (configure) -> @UDEVRULESDIR@
+udevrulesdir = @UDEVRULESDIR@
+udevrules_DATA = quickassist/utilities/service/99-qat-vfio.rules
+
 install-data-hook:
 if SERVICE_AC
 	@if [ "$(shell id -u)" == 0 ]; then \
@@ -318,6 +326,8 @@ if SERVICE_AC
 		systemctl daemon-reload; \
 		systemctl start qat; \
 		systemctl enable qat; \
+		udevadm control --reload; \
+		udevadm trigger; \
 	fi
 endif
 
@@ -328,6 +338,8 @@ if SERVICE_AC
 		pidof qatmgr > /dev/null && kill `pidof qatmgr`; \
 		rm -rf /run/qat; \
 		systemctl disable qat; \
+		rm -f $(udevrulesdir)/99-qat-vfio.rules; \
+		udevadm control --reload; \
 	fi
 endif
 
@@ -337,6 +349,7 @@ EXTRA_DIST = INSTALL README.md SECURITY.md LICENSE \
 	filelist \
 	versionfile \
 	autogen.sh \
+	qatlib.sysusers.conf \
 	quickassist/lookaside/firmware/include \
 	quickassist/include \
 	quickassist/lookaside/access_layer/src/common \
@@ -346,6 +359,7 @@ EXTRA_DIST = INSTALL README.md SECURITY.md LICENSE \
 	quickassist/utilities/libusdm_drv/include \
 	quickassist/utilities/libusdm_drv/user_space \
 	quickassist/utilities/service/qat \
+	quickassist/utilities/service/99-qat-vfio.rules.in \
 	quickassist/lookaside/access_layer/src/sample_code
 
 DISTCHECK_CONFIGURE_FLAGS = \

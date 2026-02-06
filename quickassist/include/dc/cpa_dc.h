@@ -1,62 +1,10 @@
 /****************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -211,7 +159,7 @@ typedef void *CpaDcSessionHandle;
  *      cpaDcDecompressData functions.
  *
  *****************************************************************************/
-typedef enum _CpaDcFlush
+typedef enum
 {
     CPA_DC_FLUSH_NONE = 0,
     /**< No flush request. */
@@ -247,7 +195,7 @@ typedef enum _CpaDcFlush
  *      the file type.
  *
  *****************************************************************************/
-typedef enum _CpaDcHuffType
+typedef enum
 {
     CPA_DC_HT_STATIC = 0,
     /**< Static Huffman Trees */
@@ -268,14 +216,16 @@ typedef enum _CpaDcHuffType
  *      header and footer format.
  *
  *****************************************************************************/
-typedef enum _CpaDcCompType
+typedef enum
 {
     CPA_DC_DEFLATE = 3,
     /**< Deflate Compression */
     CPA_DC_LZ4,
     /**< LZ4 Compression */
-    CPA_DC_LZ4S
+    CPA_DC_LZ4S,
     /**< LZ4S Compression */
+    CPA_DC_ZSTD
+    /**< ZSTD Compression */
 } CpaDcCompType;
 
 /**
@@ -285,9 +235,15 @@ typedef enum _CpaDcCompType
  *
  * @description
  *      This enumerated list defines the valid window sizes that can be
- *      used with the supported algorithms
+ *      used with the supported algorithms.
+ *
+ * @note
+ *      The application must query the instance capabilities to determine
+ *      which window size must be used. Different generation of devices
+ *      may support different window sizes for the same algorithm.
+ *
  *****************************************************************************/
-typedef enum _CpaDcCompWindowSize
+typedef enum
 {
     CPA_DC_WINSIZE_4K = 0,
     /**< Window size of 4KB */
@@ -295,8 +251,10 @@ typedef enum _CpaDcCompWindowSize
     /**< Window size of 8KB */
     CPA_DC_WINSIZE_16K,
     /**< Window size of 16KB */
-    CPA_DC_WINSIZE_32K
+    CPA_DC_WINSIZE_32K,
     /**< Window size of 32KB */
+    CPA_DC_WINSIZE_64K
+    /**< Window size of 64KB */
 } CpaDcCompWindowSize;
 
 /**
@@ -307,7 +265,7 @@ typedef enum _CpaDcCompWindowSize
  *      This is the min match size that will be used for the search algorithm.
  *      It is only configurable for LZ4S.
  *****************************************************************************/
-typedef enum _CpaDcCompMinMatch
+typedef enum
 {
     CPA_DC_MIN_3_BYTE_MATCH = 0,
     /**< Min Match of 3 bytes */
@@ -322,7 +280,7 @@ typedef enum _CpaDcCompMinMatch
  * @description
  *      Maximum LZ4 output block size
  *****************************************************************************/
-typedef enum _CpaDcCompLZ4BlockMaxSize
+typedef enum
 {
     CPA_DC_LZ4_MAX_BLOCK_SIZE_64K = 0,
     /**< Maximum block size 64K */
@@ -341,7 +299,7 @@ typedef enum _CpaDcCompLZ4BlockMaxSize
  * @description
  *      This enumeration defines the bitmasks for the supported block size.
  *****************************************************************************/
-typedef enum _CpaDcBlockSizeBitmask
+typedef enum
 {
     CPA_DC_BLOCK_SIZE_64K_BITMASK = CPA_BITMASK(0),
     /**< Block size 64K */
@@ -363,7 +321,7 @@ typedef enum _CpaDcBlockSizeBitmask
  *      Used to decide on file header and footer specifics.
  *
  *****************************************************************************/
-typedef enum _CpaDcChecksum
+typedef enum
 {
     CPA_DC_NONE = 0,
     /**< No checksum required */
@@ -375,6 +333,8 @@ typedef enum _CpaDcChecksum
     /**< Application requires both CRC32 and Adler-32 checksums */
     CPA_DC_XXHASH32,
     /**< Application requires xxHash-32 checksum */
+    CPA_DC_XXHASH64
+    /**< Application requires xxHash-64 checksum */
 } CpaDcChecksum;
 
 /**
@@ -387,7 +347,7 @@ typedef enum _CpaDcChecksum
  *      A session can be compress, decompress or both.
  *
  *****************************************************************************/
-typedef enum _CpaDcSessionDir
+typedef enum
 {
     CPA_DC_DIR_COMPRESS = 0,
     /**< Session will be used for compression */
@@ -416,7 +376,7 @@ typedef CpaDcSessionDir CpaDcDir;
  *      returns, or when the asynchronous callback function has completed.
  *
  *****************************************************************************/
-typedef enum _CpaDcSessionState
+typedef enum
 {
     CPA_DC_STATEFUL = 0,
     /**< Session will be stateful, implying that state may need to be
@@ -438,7 +398,7 @@ typedef CpaDcSessionState CpaDcState;
  *
  *
  *****************************************************************************/
-typedef enum _CpaDcCompLvl
+typedef enum
 {
     CPA_DC_L1 = 1,
     /**< Compression level 1 */
@@ -478,7 +438,7 @@ typedef enum _CpaDcCompLvl
  *
  *
  *****************************************************************************/
-typedef enum _CpaDcReqStatus
+typedef enum
 {
     CPA_DC_OK = 0,
     /**< No error detected by compression slice */
@@ -487,7 +447,8 @@ typedef enum _CpaDcReqStatus
     CPA_DC_BAD_STORED_BLOCK_LEN = -2,
     /**< Stored block length did not match one's complement */
     CPA_DC_TOO_MANY_CODES = -3,
-    /**< Too many length or distance codes */
+    /**< Max block size exceeded. This error code is valid for LZ4 and ZSTD
+     * compression formats */
     CPA_DC_INCOMPLETE_CODE_LENS = -4,
     /**< Code length codes incomplete */
     CPA_DC_REPEATED_LENS = -5,
@@ -499,9 +460,11 @@ typedef enum _CpaDcReqStatus
     CPA_DC_BAD_DIST_CODES = -8,
     /**< Invalid distance code lengths */
     CPA_DC_INVALID_CODE = -9,
-    /**< Invalid literal/length or distance code in fixed or dynamic block */
+    /**< Invalid literal/length or distance code in a DEFLATE fixed or
+     * dynamic block. */
     CPA_DC_INVALID_DIST = -10,
-    /**< Distance is too far back in fixed or dynamic block */
+    /**< Distance is too far back in compressed block. This error code is
+     * valid for all supported compression formats */
     CPA_DC_OVERFLOW = -11,
     /**< Overflow detected.  This is an indication that output buffer has
      * overflowed. For stateful sessions, this is a warning (the input can be
@@ -513,8 +476,8 @@ typedef enum _CpaDcReqStatus
     /**< Fatal error detected */
     CPA_DC_MAX_RESUBITERR = -14,
     /**< On an error being detected, the firmware attempted to correct and
-     * resubmitted the
-     * request, however, the maximum resubmit value was exceeded */
+     * resubmit the request. However, the maximum resubmit value was exceeded
+     */
     CPA_DC_INCOMPLETE_FILE_ERR = -15,
     /**< The input file is incomplete.  Note this is an indication that the
      * request was submitted with a CPA_DC_FLUSH_FINAL, however, a BFINAL bit
@@ -537,6 +500,8 @@ typedef enum _CpaDcReqStatus
      * decompression region was produced */
     CPA_DC_LZ4_INVALID_COMP_LEN = -24,
     /**< LZ4 invalid request length */
+    CPA_DC_ACCEL_PARITY_ERR = -27,
+    /**< Operation resulted in a parity error in one or more accelerators */
     CPA_DC_INVALID_DICT_BUFF = -28,
     /**< Dictionary buffer list addresses are not 16-byte aligned
      * and/or size of flat buffers is not a multiple of 16-byte
@@ -544,14 +509,88 @@ typedef enum _CpaDcReqStatus
 
     CPA_DC_LZ4_MULTIBLOCK_WITHOUT_HEADER = -29,
     /**< LZ4 block drop when using LZ4 without header mode */
+    CPA_DC_INVALID_ZSTD_FRAME = -30,
+    /**< An unsupported Zstandard frame type (magic number) was detected during
+     * decompression. */
+    CPA_DC_ZSTD_REGEN_COMP_SIZE_MISMATCH = -31,
+    /**< Mismatch between the regenerated size and compressed size during
+     * ZSTD decompression */
+    CPA_DC_ZSTD_NO_PRIOR_TREE = -32,
+    /**< Treeless block with no prior tree error during ZSTD decompression */
+    CPA_DC_ZSTD_HUFFMAN_TREE_BUILD_ERROR = -33,
+    /**< Huffman literal tree build error during ZSTD decompression */
+    CPA_DC_ZSTD_MAX_CODELEN_EXCEEDED = -34,
+    /**< Max code length exceeded during Huffman Tree generation during ZSTD
+     * decompression */
+    CPA_DC_ZSTD_MAX_ACCURACY_LOG_EXCEEDED = -35,
+    /**< Max accuracy log exceeded during FSE decoding of Huffman weights
+     * during ZSTD decompression */
+    CPA_DC_ZSTD_HUFFMAN_WEIGHTS_CORRUPTED = -36,
+    /**< Huffman weights corruption encountered during ZSTD decompression */
+    CPA_DC_ZSTD_LIBUFFER_OVERFLOW = -37,
+    /**< An overflow of the hardware literal buffer occurred during ZSTD
+     * decompression. */
+    CPA_DC_ZSTD_JUMP_TABLE_CORRUPTED = -38,
+    /**< A corrupted jump table was detected during ZSTD decompression */
+    CPA_DC_ZSTD_RESERVED_BLOCK_SEEN = -39,
+    /**< A reserved bock type was detected during ZSTD decompression */
+    CPA_DC_ZSTD_LITERAL_DECOMPRESSION_DATA_ERROR = -40,
+    /**< A data error occurred in an internal HW buffer during ZSTD literal
+     * decompression */
+    CPA_DC_ZSTD_LIT_PADDING_BYTE_CORRUPTED_ERROR = -41,
+    /**< A corrupted padding byte error occurred during ZSTD decompression */
+    CPA_DC_ZSTD_FSE_TABLE_DECODE_ERROR = -42,
+    /**< An FSE table decode error occurred during ZSTD decompression */
+    CPA_DC_ZSTD_ACCURACY_LOG_EXCEEDS_MAX = -43,
+    /**< During ZSTD decompression, the accuracy log exceeded the max accuracy
+     * log */
+    CPA_DC_ZSTD_INCOMPLETE_SEQUENCE_DATA_BLOCK = -47,
+    /**< A data error occurred in an internal HW buffer during ZSTD sequence
+     * decompression */
+    CPA_DC_ZSTD_REPEAT_MODE_WITH_NO_PRIOR_FSE = -48,
+    /**< During ZSTD decompression, a repeat mode was detected without a prior
+     * FSE table. */
+    CPA_DC_MISC_ERROR = -50,
+    /**< MISC error detected */
+    CPA_DC_ZSTD_SEQ_FSE_TABLE_DECODE_ERROR = -51,
+    /**< An FSE table decode error occurred during ZSTD decompression. */
+    CPA_DC_ZSTD_LITERAL_BUFFER_UNDERRUN = -52,
+    /**< A literal buffer underrun occurred during ZSTD decompression. */
+    CPA_DC_ZSTD_SEQ_OVERFLOW_ERROR = -53,
+    /**< During ZSTD decompression, a number of sequences overflow error
+     * occurred. */
+    CPA_DC_ZERO_TOKEN_OFFSET = -55,
+    /**< Token offset is 0. This error code applies to LZ4 and ZSTD
+     * compression format */
+    CPA_DC_ZSTD_SEQ_PADDING_BYTE_CORRUPTED_ERROR = -56,
+    /**< A corrupted padding byte error occurred during ZSTD decompression */
+    CPA_DC_ZSTD_CMN_TAG_CORRUPTED_ERROR = -57,
+    /**< A corrupted tag error occurred during ZSTD decompression */
+    CPA_DC_ZSTD_SYMBOL_CPR_MODE_ERROR = -61,
+    /**< A symbol compression mode reserved bits not zero error occurred during
+     * ZSTD decompression */
+    CPA_DC_ZSTD_FRAME_CONTENT_SIZE_MISMATCH = -62,
+    /**< At the end of a Zstandard decompression request, the number of bytes
+     * produced by decompression accelerator did not match the
+     * Frame_Content_Size (if present) */
+    CPA_DC_ZSTD_FRAME_CONTENT_CHECKSUM_MISMATCH = -63,
+    /**< At the end of a Zstandard frame decode, the content checksum
+     * (xxhash64) computed by the decompression accelerator did not match
+     * the content checksum in the Zstandard frame */
+    CPA_DC_ZSTD_ZERO_COMPRESSED_BLOCK_SIZE = -64,
+    /**< Zstandard compressed block of size 0 encountered */
+    CPA_DC_ZSTD_FRAME_HEADER_UNDERFLOW_ERROR = -65,
+    /**< Zstandard frame header underflow error */
+    CPA_DC_ZSTD_CONTENT_CHECKSUM_UNDERFLOW_ERROR = -66,
+    /**< Zstandard content checksum underflow error */
     CPA_DC_LZ4_MAX_BLOCK_SIZE_EXCEEDED = -93,
     /**< LZ4 max block size exceeded */
     CPA_DC_LZ4_BLOCK_OVERFLOW_ERR = -95,
-    /**< LZ4 Block Overflow Error */
+    /**< LZ4 block overflow error */
     CPA_DC_LZ4_TOKEN_IS_ZERO_ERR = -98,
-    /**< LZ4 Decoded token offset or token length is zero */
+    /**< LZ4 decoded token offset or token length is zero */
     CPA_DC_LZ4_DISTANCE_OUT_OF_RANGE_ERR = -100,
-    /**< LZ4 Distance out of range for len/distance pair */
+    /**< LZ4 distance out of range for len/distance pair */
     CPA_DC_E2E_NO_DECOMPRESSION = -101,
     /**< Integrity input CRC computed by compression accelerator OR
      *   CnVnR or ASB resulted in uncompressed data */
@@ -576,7 +615,7 @@ typedef enum _CpaDcReqStatus
  *        - CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_NO_HDRS
  *
  *****************************************************************************/
-typedef enum _CpaDcAutoSelectBest
+typedef enum
 {
     CPA_DC_ASB_DISABLED = 0,
     /**< Auto select best mode is disabled */
@@ -595,6 +634,69 @@ typedef enum _CpaDcAutoSelectBest
 /**
  *****************************************************************************
  * @ingroup cpaDc
+ *      Supported threshold value range in bytes for auto-select best feature
+ *      when threshold mode is used.
+ *
+ * @description
+ *      This enumeration lists the supported threshold values. This
+ *      enumeration should be used as an input parameter of the
+ *      cpaDcSetAsbThreshold() API.
+ *
+  * @see
+ *      cpaDcSetAsbThreshold()
+ *
+*****************************************************************************/
+typedef enum
+{
+    CPA_DC_ASB_THRESHOLD_256 = 0,
+    CPA_DC_ASB_THRESHOLD_512 = 1,
+    CPA_DC_ASB_THRESHOLD_1024 = 2,
+    CPA_DC_ASB_THRESHOLD_2048 = 3,
+    CPA_DC_ASB_THRESHOLD_4096 = 4,
+    CPA_DC_ASB_THRESHOLD_8192 = 5,
+    CPA_DC_ASB_THRESHOLD_16384 = 6,
+    CPA_DC_ASB_THRESHOLD_32768 = 7,
+    CPA_DC_ASB_THRESHOLD_65536 = 8,
+} CpaDcAsbThreshold;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Supported ratio value range for auto-select best feature when ratio
+ *      mode is used.
+ *
+ * @description
+ *      This enumeration lists the supported ratio values. This
+ *      enumeration should be used as an input parameter of the
+ *      cpaDcSetAsbRatio() API.
+ *
+  * @see
+ *      cpaDcSetAsbRatio()
+ *
+*****************************************************************************/
+typedef enum
+{
+    CPA_DC_ASB_RATIO_1_SIXTEENTH = 1,
+    CPA_DC_ASB_RATIO_2_SIXTEENTH = 2,
+    CPA_DC_ASB_RATIO_3_SIXTEENTH = 3,
+    CPA_DC_ASB_RATIO_4_SIXTEENTH = 4,
+    CPA_DC_ASB_RATIO_5_SIXTEENTH = 5,
+    CPA_DC_ASB_RATIO_6_SIXTEENTH = 6,
+    CPA_DC_ASB_RATIO_7_SIXTEENTH = 7,
+    CPA_DC_ASB_RATIO_8_SIXTEENTH = 8,
+    CPA_DC_ASB_RATIO_9_SIXTEENTH = 9,
+    CPA_DC_ASB_RATIO_10_SIXTEENTH = 10,
+    CPA_DC_ASB_RATIO_11_SIXTEENTH = 11,
+    CPA_DC_ASB_RATIO_12_SIXTEENTH = 12,
+    CPA_DC_ASB_RATIO_13_SIXTEENTH = 13,
+    CPA_DC_ASB_RATIO_14_SIXTEENTH = 14,
+    CPA_DC_ASB_RATIO_15_SIXTEENTH = 15,
+    CPA_DC_ASB_RATIO_16_SIXTEENTH = 16
+} CpaDcAsbRatio;
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
  *      Supported modes for skipping regions of input or output buffers.
  *
  * @description
@@ -602,7 +704,7 @@ typedef enum _CpaDcAutoSelectBest
  *      input or output buffers.
  *
  *****************************************************************************/
-typedef enum _CpaDcSkipMode
+typedef enum
 {
     CPA_DC_SKIP_DISABLED = 0,
     /**< Skip mode is disabled */
@@ -626,7 +728,7 @@ typedef enum _CpaDcSkipMode
  *      cpaDcCompressDataWithDict() and cpaDcDecompressDataWithDict() APIs.
  *
  *****************************************************************************/
-typedef enum _CpaDcDictType
+typedef enum
 {
     CPA_DC_UNCOMPRESSED_DICT = 0,
     /**< Uncompressed dictionary format */
@@ -644,7 +746,7 @@ typedef enum _CpaDcDictType
  *      corresponding CRCs.
  *
  *****************************************************************************/
-typedef enum _CpaDcLZ4OutputFormat
+typedef enum
 {
     CPA_DC_LZ4_OUTPUT_WITH_HEADER = 0,
     /**< When this mode is selected, the destination buffer contains LZ4 data
@@ -730,7 +832,7 @@ typedef void (*CpaDcCallbackFn)(void *callbackTag, CpaStatus status);
  *      both stateful and stateless compress and decompress sessions.
  *
  ****************************************************************************/
-typedef struct _CpaDcInstanceCapabilities
+typedef struct
 {
     CpaBoolean statefulLZSCompression;
     /**<True if the Instance supports Stateful LZS compression */
@@ -867,7 +969,7 @@ typedef struct _CpaDcInstanceCapabilities
  *      setup a session.
  *
  ****************************************************************************/
-typedef struct _CpaDcSessionSetupData
+typedef struct
 {
     CpaDcCompLvl compLevel;
     /**<Compression Level from CpaDcCompLvl */
@@ -905,17 +1007,25 @@ typedef struct _CpaDcSessionSetupData
         For data compressed with lz4BlockIndependence set to CPA_FALSE,
         it is not possible to perform parallel decompression on the
         compressed blocks. It is also not possible to access the produced
-        LZ4 blocks randomly.
-        */
+        LZ4 blocks randomly. */
     CpaDcChecksum checksum;
     /**<Desired checksum required for the session */
     CpaBoolean accumulateXXHash;
-    /**<If TRUE the xxHash calculation for LZ4 requests using the session
-        based APIs will be accumulated across requests, with a valid xxHash
-        being written to CpaDcRqResults.checksum for the request which
-        specifies CPA_DC_FLUSH_FINAL in CpaDcOpData.flushFlag. When the
-        CPA_DC_FLUSH_FINAL is received, the internal XXHash state will be
-        reset for this session.
+    /**<Accumulated xxhash is a feature that maintains an xxhash32
+        checksum across multiple packets for the same stream. It only
+        applies to the LZ4 compression format for requests in the compression
+        direction.
+        If set to TRUE the xxHash calculation for LZ4 requests using the
+        session based APIs will be accumulated across requests, with a
+        valid xxHash being written to CpaDcRqResults.checksum for the
+        request which specifies CPA_DC_FLUSH_FINAL in CpaDcOpData.flushFlag.
+        When the CPA_DC_FLUSH_FINAL is received, the internal XXHash state
+        will be reset for this session. Intermediate requests must be
+        submitted with the CPA_DC_FLUSH_FULL flag.
+        When accumulateXXHash is set to CPA_TRUE, auto-select best must be
+        set to CPA_DC_ASB_DISABLED.
+        If set to FALSE, the CpaDcOpData.flushFlag must be set to
+        CPA_DC_FLUSH_FINAL for all LZ4 compression requests.
         In the compression direction one exception is if a CPA_DC_OVERFLOW
         error is returned, the xxHash value in the checksum field will be
         valid for requests up to that point and the internal XXHash state
@@ -925,7 +1035,9 @@ typedef struct _CpaDcSessionSetupData
         specifying CPA_DC_FLUSH_FINAL.
         Additionally the user can force the internal XXHash state to reset
         (even on overflow) by calling cpaDcResetXXHashState on this session.
-        For the No-Session APIs (Ns) this flag will have no effect */
+        For the No-Session APIs (Ns) this flag will have no effect.
+        Accumulated xxhash is not supported with combined or decompression
+        sessions. */
 } CpaDcSessionSetupData;
 
 typedef CpaDcSessionSetupData CpaDcNsSetupData;
@@ -940,7 +1052,7 @@ typedef CpaDcSessionSetupData CpaDcNsSetupData;
  *      update a session.
  *
  ****************************************************************************/
-typedef struct _CpaDcSessionUpdateData
+typedef struct
 {
     CpaDcCompLvl compLevel;
     /**<Compression Level from CpaDcCompLvl */
@@ -960,7 +1072,7 @@ typedef struct _CpaDcSessionUpdateData
  *      jobs submitted and completed for both compression and decompression.
  *
  ****************************************************************************/
-typedef struct _CpaDcStats
+typedef struct
 {
     Cpa64U numCompRequests;
     /**< Number of successful compression requests */
@@ -1004,7 +1116,7 @@ typedef struct _CpaDcStats
  *      the checksum value will contain checksum produced by the operation.
  *
  ****************************************************************************/
-typedef struct _CpaDcRqResults
+typedef struct
 {
     CpaDcReqStatus status;
     /**< Additional status details from accelerator */
@@ -1024,10 +1136,10 @@ typedef struct _CpaDcRqResults
      * checksum value that will be used to seed the checksums produced by
      * the stateless operation.
      *
-     * The checksum algorithm CPA_DC_XXHASH32 does not support passing an
-     * input value in this parameter. Any initial value passed will be
-     * ignored by the compression/decompression operation when this
-     * checksum algorithm is used.
+     * The checksum algorithms CPA_DC_XXHASH32 and CPA_DC_XXHASH64 do not
+     * support passing an input value in this parameter. Any initial
+     * value passed will be ignored by the compression/decompression
+     * operation when this checksum algorithm is used.
      *
      * For data plane "partial read" decompression operations,
      * the checksum is computed from the beginning of the decompressed data
@@ -1048,10 +1160,10 @@ typedef struct _CpaDcRqResults
  * @ingroup cpaDc
  *      Integrity CRC Size
  * @description
- * 	Enum of possible integrity CRC sizes.
+ *      Enum of possible integrity CRC sizes.
  *
  ****************************************************************************/
-typedef enum _CpaDcIntegrityCrcSize
+typedef enum
 {
     CPA_DC_INTEGRITY_CRC32 = 0,
     /**< 32-bit Integrity CRCs */
@@ -1068,7 +1180,7 @@ typedef enum _CpaDcIntegrityCrcSize
  *      calculations performed for a single request.
  *
  ****************************************************************************/
-typedef struct _CpaIntegrityCrc
+typedef struct
 {
     Cpa32U iCrc; /**< CRC calculated on request's input  buffer */
     Cpa32U oCrc; /**< CRC calculated on request's output buffer */
@@ -1083,7 +1195,7 @@ typedef struct _CpaIntegrityCrc
  *      calculations performed for a single request.
  *
  ****************************************************************************/
-typedef struct _CpaIntegrityCrc64b
+typedef struct
 {
     Cpa64U iCrc; /**< CRC calculated on request's input  buffer */
     Cpa64U oCrc; /**< CRC calculated on request's output buffer */
@@ -1106,7 +1218,7 @@ typedef struct _CpaIntegrityCrc64b
  *      this structure must be allocated in physical contiguous memory
  *
  ****************************************************************************/
-typedef struct _CpaCrcData
+typedef struct
 {
     Cpa32U crc32;
     /**< CRC32 calculated on the input buffer during compression
@@ -1131,7 +1243,7 @@ typedef struct _CpaCrcData
  *      into the output buffer.
  *
  ****************************************************************************/
-typedef struct _CpaDcSkipData
+typedef struct
 {
     CpaDcSkipMode skipMode;
     /**<Skip mode from CpaDcSkipMode for buffer processing */
@@ -1154,7 +1266,7 @@ typedef struct _CpaDcSkipData
  *      compression operations.
  *
  ****************************************************************************/
-typedef struct _CpaDcOpData
+typedef struct
 {
     CpaDcFlush flushFlag;
     /**< Indicates the type of flush to be performed. */
@@ -1206,7 +1318,7 @@ typedef struct _CpaDcOpData
  *      compression operations with additional options
  *
  ****************************************************************************/
-typedef struct _CpaDcOpData2
+typedef struct
 {
     CpaDcOpData dcOpData;
     /**< Data for compress operation. */
@@ -1247,7 +1359,7 @@ typedef struct _CpaDcOpData2
  *      bytes do need to be.
  *
  ****************************************************************************/
-typedef struct _CpaDcDictionaryData
+typedef struct
 {
     CpaBufferList *pDictionaryBuff;
     /**< Pointer to a CpaBufferList containing the dictionary data */
@@ -1333,7 +1445,7 @@ cpaDcQueryCapabilities(CpaInstanceHandle dcInstance,
  *      session.
  *      This function specifies a BufferList for context data.
  *      A single session can be used for both compression and decompression
- *      requests.  Clients MAY register a callback
+ *      requests. Clients MAY register a callback
  *      function for the compression service using this function.
  *      This function returns a unique session handle each time this function
  *      is invoked.
@@ -1344,7 +1456,7 @@ cpaDcQueryCapabilities(CpaInstanceHandle dcInstance,
  *
  * @context
  *      This is a synchronous function and it cannot sleep. It can be executed
- *in a context that does not permit sleeping.
+ *      in a context that does not permit sleeping.
  * @assumptions
  *      None
  * @sideEffects
@@ -1389,7 +1501,7 @@ cpaDcQueryCapabilities(CpaInstanceHandle dcInstance,
  *      compressed under this session will be compressed to the level
  *      specified in the pSessionData structure. Lower compression level
  *      numbers indicate a request for faster compression at the
- *      expense of compression ratio.  Higher compression level numbers
+ *      expense of compression ratio. Higher compression level numbers
  *      indicate a request for higher compression ratios at the expense of
  *      execution time.
  *
@@ -1406,7 +1518,7 @@ cpaDcQueryCapabilities(CpaInstanceHandle dcInstance,
  *
  *      The window size specified in the pSessionData must be match exactly
  *      one of the supported window sizes specified in the capabilities
- *      structure.  If a bi-directional session is being initialized, then
+ *      structure. If a bi-directional session is being initialized, then
  *      the window size must be valid for both compress and decompress.
  *
  * @see
@@ -1725,6 +1837,152 @@ CpaStatus cpaDcUpdateSession(const CpaInstanceHandle dcInstance,
  *****************************************************************************/
 CpaStatus cpaDcRemoveSession(const CpaInstanceHandle dcInstance,
                              CpaDcSessionHandle pSessionHandle);
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Compression auto-select best threshold.
+ *
+ * @description
+ *      This function sets a value in the session which is used when
+ *      AutoSelectBest (ASB) is enabled.
+ *      The value is used to calculate a threshold per operation.
+ *      If the compressed data size produced by the compressor is greater
+ *      than this operation threshold then stored block(s) of uncompressed
+ *      data will be returned in the destination buffer instead.
+ *
+ *      The operation threshold is the nearest asbThreshold multiple that is
+ *      less than the uncompressed input data size.
+ *      Example: If asbThreshold is set to CPA_DC_ASB_THRESHOLD_4096,
+ *      i.e. 4KB, then the operation threshold will be a 4KB multiple.
+ *      So for input data in the range [8K+1...12K] the threshold will be set
+ *      to 8KB and stored blocks returned if the compressed data is > 8KB.
+ *      Or for input data of 44k the threshold will be set to 40k and stored
+ *      blocks returned if the compressed data is > 40k.
+ *
+ *      This function can be called at any time after a successful call of
+ *      cpaDcInitSession().
+ *      This function does not change the parameters to compression requests
+ *      already in flight.
+ *      This function replaces the value set by cpaDcSetAsbRatio(), so only
+ *      one of these 2 functions can be used at any time in a session.
+ *
+ * @context
+ *      This is a synchronous function that cannot sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]      dcInstance        Instance handle.
+ * @param[in,out]  pSessionHandle    Session handle.
+ * @param[in]      asbThreshold      Threshold value, see enumeration
+ *                                   CpaDcAsbThreshold listing the acceptable
+ *                                   threshold values.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The component has been initialized via cpaDcStartInstance function.
+ *      The session has been initialized via cpaDcInitSession function.
+ * @post
+ *      None
+ * @note
+ *      This is a synchronous function and has no completion callback
+ *      associated with it.
+ *      This API does not support No-session APIs.
+ *      When CPA_DC_ASB_ENABLED is used the output will be a format compliant
+ *      block, whether the data is compressed or not.  A "stored block" refers
+ *      to a block which holds uncompressed data in an algorithm-compliant
+ *      format (uncompressed block + header).
+ *
+ * @see
+ *      cpaDcInitSession()
+ *
+ *****************************************************************************/
+CpaStatus cpaDcSetAsbThreshold(const CpaInstanceHandle dcInstance,
+                               CpaDcSessionHandle pSessionHandle,
+                               CpaDcAsbThreshold asbThreshold);
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Compression auto-select best ratio.
+ *
+ * @description
+ *      This function sets a value in the session which is used when
+ *      AutoSelectBest (ASB) is enabled. The value is used to calculate a
+ *      threshold per operation. If the compressed data size produced by
+ *      the compressor is greater than this operation threshold then stored
+ *      block(s) of uncompressed data will be returned in the destination
+ *      buffer instead. The operation threshold is a ratio of the uncompressed
+ *      input data size.
+ *
+ *      Example: If asbRatio is set to CPA_DC_ASB_RATIO_12_SIXTEENTHS, then
+ *      the threshold will be set at 75% of the uncompressed input data size.
+ *      So for input data 44k the threshold will be set to 33k and stored
+ *      blocks returned if the compressed data is > 33k.
+ *
+ *      This function can be called at any time after a successful call of
+ *      cpaDcInitSession().
+ *      This function does not change the parameters to compression requests
+ *      already in flight.
+ *      This function replaces the value set by cpaDcSetAsbThreshold(), so
+ *      only one of these 2 functions can be used at any time in a session.
+ *
+ * @context
+ *      This is a synchronous function that cannot sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]      dcInstance        Instance handle.
+ * @param[in,out]  pSessionHandle    Session handle.
+ * @param[in]      asbRatio          Ratio value as described in enum
+ *                                   CpaDcAsbRatio
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_RESOURCE       Error related to system resources.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The component has been initialized via cpaDcStartInstance function.
+ *      The session has been initialized via cpaDcInitSession function.
+ * @post
+ *      None
+ * @note
+ *      This is a synchronous function and has no completion callback
+ *      associated with it.
+ *      This API does not support No-session APIs.
+ *
+ * @see
+ *      cpaDcInitSession()
+ *
+ *****************************************************************************/
+CpaStatus cpaDcSetAsbRatio(const CpaInstanceHandle dcInstance,
+                           CpaDcSessionHandle pSessionHandle,
+                           CpaDcAsbRatio asbRatio);
 
 /**
  *****************************************************************************
@@ -2349,7 +2607,7 @@ CpaStatus cpaDcCompressDataWithDict(CpaInstanceHandle dcInstance,
  *                                      all of the data for the compression
  *                                      session, allowing the function to
  *                                      release history data.
- * @param[in]        callbackTag        User supplied value to help correlate
+ * @param[in]       callbackTag         User supplied value to help correlate
  *                                      the callback with its associated
  *                                      request.
  *
@@ -2369,7 +2627,7 @@ CpaStatus cpaDcCompressDataWithDict(CpaInstanceHandle dcInstance,
  *     pSessionHandle has session related state information
  * @note
  *      This function passes control to the compression service for
- *      decompression.  The function returns the status from the service.
+ *      decompression. The function returns the status from the service.
  *
  *      This function may be called repetitively with input until all of the
  *      input has been provided and all the output has been consumed.
@@ -2384,8 +2642,8 @@ CpaStatus cpaDcCompressDataWithDict(CpaInstanceHandle dcInstance,
  *      CPA_DC_FLUSH_FINAL to indicate processing a particular compressed
  *      data segment is complete. It should be noted that this function may
  *      have to be called more than once to process data after flushFlag
- *      has been set if the destination buffer fills.  Refer to
- *      buffer processing rules in cpaDcCompressData().
+ *      has been set if the destination buffer fills. Refer to buffer
+ *      processing rules in cpaDcCompressData().
  *
  *      Synchronous or Asynchronous operation of the API is determined by
  *      the value of the callbackFn parameter passed to cpaDcInitSession()
@@ -3723,6 +3981,62 @@ CpaStatus cpaDcGetStatusText(const CpaInstanceHandle dcInstance,
  *****************************************************************************/
 CpaStatus cpaDcSetAddressTranslation(const CpaInstanceHandle instanceHandle,
                                      CpaVirtualToPhysical virtual2Physical);
+
+/**
+ *****************************************************************************
+ * @ingroup cpaDc
+ *      Zstandard Compression Bound API
+ *
+ * @description
+ *      This function provides the maximum output buffer size for a Zstandard
+ *      compression operation in the "worst case" (non-compressible) scenario.
+ *      It's primary purpose is for output buffer memory allocation.
+ *
+ *      Note that the function will return CPA_STATUS_FAIL if the calculated
+ *      worst case output size exceeds 2^32-1. In this case, an actual
+ *      compression operation for the specified input size may complete
+ *      successfully if the data is compressible.
+ *
+ * @context
+ *      This is a synchronous function that will not sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in]      dcInstance      Instance handle.
+ * @param[in]      inputSize       Input Buffer size.
+ * @param[out]     outputSize      Maximum output buffer size.
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully.
+ * @retval CPA_STATUS_FAIL           Function failed. Calculated output size
+ *                                   exceeds 2^32-1.
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED    Function is not supported.
+ *
+ * @pre
+ *      The component has been initialized via cpaDcStartInstance function.
+ * @post
+ *      None
+ * @note
+ *      This is a synchronous function and has no completion callback
+ *      associated with it.
+ *
+ * @see
+ *      None
+ *
+ *****************************************************************************/
+CpaStatus cpaDcZstdCompressBound(const CpaInstanceHandle dcInstance,
+                                 Cpa32U inputSize,
+                                 Cpa32U *outputSize);
+
 #ifdef __cplusplus
 } /* close the extern "C" { */
 #endif

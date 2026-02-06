@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -200,7 +148,9 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa8U *pAuthKey = NULL;
+    Cpa32U *pTempKey = NULL;
     Cpa32U authKeyLenInBytes = 0;
+    Cpa32U wordIndex = 0;
     CpaCySymHashAlgorithm hashAlgorithm =
         pSessionSetup->hashSetupData.hashAlgorithm;
     CpaCySymHashAuthModeSetupData *pAuthModeSetupData =
@@ -271,188 +221,175 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
 
     /* state1 is not allocated for AES XCBC/CCM/GCM/Kasumi/UIA2
      * so for these algorithms set state2 only */
-    if (CPA_CY_SYM_HASH_AES_XCBC == hashAlgorithm)
+    switch (hashAlgorithm)
     {
-        status = LacSymHash_AesECBPreCompute(instanceHandle,
-                                             hashAlgorithm,
-                                             authKeyLenInBytes,
-                                             pAuthKey,
-                                             pWorkingBuffer,
-                                             pState2,
-                                             callbackFn,
-                                             pCallbackTag);
-    }
-    else if (CPA_CY_SYM_HASH_AES_CMAC == hashAlgorithm)
-    {
-        /* First, copy the original key to pState2 */
-        memcpy(pState2, pAuthKey, authKeyLenInBytes);
-        /* Then precompute */
-        if (authKeyLenInBytes == ICP_QAT_HW_AES_128_KEY_SZ)
-        {
+        case CPA_CY_SYM_HASH_AES_XCBC:
             status = LacSymHash_AesECBPreCompute(instanceHandle,
-                                                 hashAlgorithm,
-                                                 authKeyLenInBytes,
-                                                 pAuthKey,
-                                                 pWorkingBuffer,
-                                                 pState2,
-                                                 callbackFn,
-                                                 pCallbackTag);
-        }
-        else
-        {
+                                                hashAlgorithm,
+                                                authKeyLenInBytes,
+                                                pAuthKey,
+                                                pWorkingBuffer,
+                                                pState2,
+                                                callbackFn,
+                                                pCallbackTag);
+            break;
+        case CPA_CY_SYM_HASH_AES_CMAC:
+            /* First, copy the original key to pState2 */
+            osalMemCopy(pState2, pAuthKey, authKeyLenInBytes);
+            /* Then precompute */
+            if (authKeyLenInBytes == ICP_QAT_HW_AES_128_KEY_SZ)
+            {
+                status = LacSymHash_AesECBPreCompute(instanceHandle,
+                                                    hashAlgorithm,
+                                                    authKeyLenInBytes,
+                                                    pAuthKey,
+                                                    pWorkingBuffer,
+                                                    pState2,
+                                                    callbackFn,
+                                                    pCallbackTag);
+            }
+            else
+            {
+                callbackFn(pCallbackTag);
+            }
+            break;
+        case CPA_CY_SYM_HASH_AES_CCM:
+            /* The Inner Hash Initial State2 block is 32 bytes long.
+             * Therefore, for keys bigger than 128 bits (16 bytes),
+             * there is no space for 16 zeroes.
+             */
+            if (pSessionSetup->cipherSetupData.cipherKeyLenInBytes ==
+                ICP_QAT_HW_AES_128_KEY_SZ)
+            {
+                /* The Inner Hash Initial State2 block must contain K
+                 * (the cipher key) and 16 zeroes which will be replaced with
+                 * EK(Ctr0) by the QAT-ME.
+                 */
+
+                /* Write the auth key which for CCM is equivalent to cipher key. */
+                osalMemCopy(pState2,
+                            pSessionSetup->cipherSetupData.pCipherKey,
+                            pSessionSetup->cipherSetupData.cipherKeyLenInBytes);
+
+                /* Initialize remaining buffer space to all zeroes. */
+                LAC_OS_BZERO(pState2 +
+                                pSessionSetup->cipherSetupData.cipherKeyLenInBytes,
+                            ICP_QAT_HW_AES_CCM_CBC_E_CTR0_SZ);
+            }
+
+            /* There is no request sent to the QAT for this operation,
+             * so just invoke the user's callback directly to signal
+             * completion of the precompute.
+             */
             callbackFn(pCallbackTag);
-        }
-    }
-    else if (CPA_CY_SYM_HASH_AES_CCM == hashAlgorithm)
-    {
-        /*
-         * The Inner Hash Initial State2 block is 32 bytes long.
-         * Therefore, for keys bigger than 128 bits (16 bytes),
-         * there is no space for 16 zeroes.
-         */
-        if (pSessionSetup->cipherSetupData.cipherKeyLenInBytes ==
-            ICP_QAT_HW_AES_128_KEY_SZ)
-        {
-            /*
-             * The Inner Hash Initial State2 block must contain K
-             * (the cipher key) and 16 zeroes which will be replaced with
-             * EK(Ctr0) by the QAT-ME.
+            break;
+        case CPA_CY_SYM_HASH_AES_GCM:
+        case CPA_CY_SYM_HASH_AES_GMAC:
+            /* The Inner Hash Initial State2 block contains the following
+             *      H (the Galois Hash Multiplier)
+             *      len(A) (the length of A), (length before padding)
+             *      16 zeroes which will be replaced with EK(Ctr0) by the QAT.
              */
 
-            /* write the auth key which for CCM is equivalent to cipher key */
-            osalMemCopy(pState2,
-                        pSessionSetup->cipherSetupData.pCipherKey,
-                        pSessionSetup->cipherSetupData.cipherKeyLenInBytes);
+            /* Reset state2. */
+            LAC_OS_BZERO(pState2,
+                        ICP_QAT_HW_GALOIS_H_SZ + ICP_QAT_HW_GALOIS_LEN_A_SZ +
+                            ICP_QAT_HW_GALOIS_E_CTR0_SZ);
 
-            /* initialize remaining buffer space to all zeroes */
-            LAC_OS_BZERO(pState2 +
-                             pSessionSetup->cipherSetupData.cipherKeyLenInBytes,
-                         ICP_QAT_HW_AES_CCM_CBC_E_CTR0_SZ);
-        }
+            /* Write H (the Galois Hash Multiplier) where H = E(K, 0...0).
+             * This will only write bytes 0-15 of pState2.
+             */
+            status = LacSymHash_AesECBPreCompute(
+                instanceHandle,
+                hashAlgorithm,
+                pSessionSetup->cipherSetupData.cipherKeyLenInBytes,
+                pSessionSetup->cipherSetupData.pCipherKey,
+                pWorkingBuffer,
+                pState2,
+                callbackFn,
+                pCallbackTag);
 
-        /* There is no request sent to the QAT for this operation,
-         * so just invoke the user's callback directly to signal
-         * completion of the precompute
-         */
-        callbackFn(pCallbackTag);
-    }
-    else if (CPA_CY_SYM_HASH_AES_GCM == hashAlgorithm ||
-             CPA_CY_SYM_HASH_AES_GMAC == hashAlgorithm)
-    {
-        /*
-         * The Inner Hash Initial State2 block contains the following
-         *      H (the Galois Hash Multiplier)
-         *      len(A) (the length of A), (length before padding)
-         *      16 zeroes which will be replaced with EK(Ctr0) by the QAT.
-         */
+            if (CPA_STATUS_SUCCESS == status)
+            {
+                /* Write len(A) (the length of A) into bytes 16-19 of pState2
+                 * in big-endian format. This field is 8 bytes. */
+                *(Cpa32U *)&pState2[ICP_QAT_HW_GALOIS_H_SZ] =
+                    LAC_MEM_WR_32(pAuthModeSetupData->aadLenInBytes);
+            }
+            break;
+        case CPA_CY_SYM_HASH_KASUMI_F9:
+            pTempKey = (Cpa32U *)(pState2 + authKeyLenInBytes);
+            /* The Inner Hash Initial State2 block must contain IK
+             * (Initialisation Key), followed by IK XOR-ed with KM
+             * (Key Modifier): IK||(IK^KM).
+             */
 
-        /* Memset state2 to 0 */
-        LAC_OS_BZERO(pState2,
-                     ICP_QAT_HW_GALOIS_H_SZ + ICP_QAT_HW_GALOIS_LEN_A_SZ +
-                         ICP_QAT_HW_GALOIS_E_CTR0_SZ);
+            /* Write the auth key. */
+            osalMemCopy(pState2, pAuthKey, authKeyLenInBytes);
+            /* Initialise temp key with auth key. */
+            osalMemCopy(pTempKey, pAuthKey, authKeyLenInBytes);
 
-        /* write H (the Galois Hash Multiplier) where H = E(K, 0...0)
-         * This will only write bytes 0-15 of pState2
-         */
-        status = LacSymHash_AesECBPreCompute(
-            instanceHandle,
-            hashAlgorithm,
-            pSessionSetup->cipherSetupData.cipherKeyLenInBytes,
-            pSessionSetup->cipherSetupData.pCipherKey,
-            pWorkingBuffer,
-            pState2,
-            callbackFn,
-            pCallbackTag);
+            /* XOR Key with KASUMI F9 key modifier at 4 bytes level. */
+            for (wordIndex = 0;
+                wordIndex < LAC_BYTES_TO_LONGWORDS(authKeyLenInBytes);
+                wordIndex++)
+            {
+                pTempKey[wordIndex] ^= LAC_HASH_KASUMI_F9_KEY_MODIFIER_4_BYTES;
+            }
+            /* There is no request sent to the QAT for this operation,
+             * so just invoke the user's callback directly to signal
+             * completion of the precompute.
+             */
+            callbackFn(pCallbackTag);
+            break;
+        case CPA_CY_SYM_HASH_SNOW3G_UIA2:
+            /* The Inner Hash Initial State2 should be all zeros. */
+            LAC_OS_BZERO(pState2, ICP_QAT_HW_SNOW_3G_UIA2_STATE2_SZ);
 
-        if (CPA_STATUS_SUCCESS == status)
-        {
-            /* write len(A) (the length of A) into bytes 16-19 of pState2
-             * in big-endian format. This field is 8 bytes */
-            *(Cpa32U *)&pState2[ICP_QAT_HW_GALOIS_H_SZ] =
-                LAC_MEM_WR_32(pAuthModeSetupData->aadLenInBytes);
-        }
-    }
-    else if (CPA_CY_SYM_HASH_KASUMI_F9 == hashAlgorithm)
-    {
-        Cpa32U wordIndex = 0;
-        Cpa32U *pTempKey = (Cpa32U *)(pState2 + authKeyLenInBytes);
-        /*
-         * The Inner Hash Initial State2 block must contain IK
-         * (Initialisation Key), followed by IK XOR-ed with KM
-         * (Key Modifier): IK||(IK^KM).
-         */
-
-        /* write the auth key */
-        memcpy(pState2, pAuthKey, authKeyLenInBytes);
-        /* initialise temp key with auth key */
-        memcpy(pTempKey, pAuthKey, authKeyLenInBytes);
-
-        /* XOR Key with KASUMI F9 key modifier at 4 bytes level */
-        for (wordIndex = 0;
-             wordIndex < LAC_BYTES_TO_LONGWORDS(authKeyLenInBytes);
-             wordIndex++)
-        {
-            pTempKey[wordIndex] ^= LAC_HASH_KASUMI_F9_KEY_MODIFIER_4_BYTES;
-        }
-        /* There is no request sent to the QAT for this operation,
-         * so just invoke the user's callback directly to signal
-         * completion of the precompute
-         */
-        callbackFn(pCallbackTag);
-    }
-    else if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == hashAlgorithm)
-    {
-        /*
-         * The Inner Hash Initial State2 should be all zeros
-         */
-        LAC_OS_BZERO(pState2, ICP_QAT_HW_SNOW_3G_UIA2_STATE2_SZ);
-
-        /* There is no request sent to the QAT for this operation,
-         * so just invoke the user's callback directly to signal
-         * completion of the precompute
-         */
-        callbackFn(pCallbackTag);
-    }
-    else if (CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm)
-    {
-        /*
-         * The Inner Hash Initial State2 should contain the key
-         * and zero the rest of the state.
-         */
-        if (authKeyLenInBytes == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
-        {
-            LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_3G_EIA3_STATE2_SZ);
-        }
-        else
-        {
-            LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_256_STATE2_SZ);
-        }
-        memcpy(pState2, pAuthKey, authKeyLenInBytes);
-        /* There is no request sent to the QAT for this operation,
-         * so just invoke the user's callback directly to signal
-         * completion of the precompute
-         */
-        callbackFn(pCallbackTag);
-    }
-    else if (CPA_CY_SYM_HASH_POLY == hashAlgorithm)
-    {
-        /* There is no request sent to the QAT for this operation,
-         * so just invoke the user's callback directly to signal
-         * completion of the precompute
-         */
-        callbackFn(pCallbackTag);
-    }
-    else /* For Hmac Precomputes */
-    {
-        status = LacSymHash_HmacPreComputes(instanceHandle,
-                                            hashAlgorithm,
-                                            authKeyLenInBytes,
-                                            pAuthKey,
-                                            pWorkingBuffer,
-                                            pState1,
-                                            pState2,
-                                            callbackFn,
-                                            pCallbackTag);
+            /* There is no request sent to the QAT for this operation,
+             * so just invoke the user's callback directly to signal
+             * completion of the precompute.
+             */
+            callbackFn(pCallbackTag);
+            break;
+        case CPA_CY_SYM_HASH_ZUC_EIA3:
+            /* The Inner Hash Initial State2 should contain the key
+             * and zero for the rest of state2.
+             */
+            if (authKeyLenInBytes == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
+            {
+                LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_3G_EIA3_STATE2_SZ);
+            }
+            else
+            {
+                LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_256_STATE2_SZ);
+            }
+            osalMemCopy(pState2, pAuthKey, authKeyLenInBytes);
+            /* There is no request sent to the QAT for this operation,
+             * so just invoke the user's callback directly to signal
+             * completion of the precompute.
+             */
+            callbackFn(pCallbackTag);
+            break;
+        case CPA_CY_SYM_HASH_POLY:
+            /* There is no request sent to the QAT for this operation,
+             * so just invoke the user's callback directly to signal
+             * completion of the precompute.
+             */
+            callbackFn(pCallbackTag);
+            break;
+        default:
+            /* Default case will cover Hmac precompute operations. */
+            status = LacSymHash_HmacPreComputes(instanceHandle,
+                                                hashAlgorithm,
+                                                authKeyLenInBytes,
+                                                pAuthKey,
+                                                pWorkingBuffer,
+                                                pState1,
+                                                pState2,
+                                                callbackFn,
+                                                pCallbackTag);
+            break;
     }
 
     return status;
@@ -682,9 +619,9 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
              * bytes long
              */
             if ((pHashSetupData->authModeSetupData.aadLenInBytes !=
-                 ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ) &&
+                ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ) &&
                 (pHashSetupData->authModeSetupData.aadLenInBytes !=
-                 ICP_QAT_HW_ZUC_256_IV_SZ))
+                ICP_QAT_HW_ZUC_256_IV_SZ))
             {
                 LAC_INVALID_PARAM_LOG("aadLenInBytes");
                 return CPA_STATUS_INVALID_PARAM;

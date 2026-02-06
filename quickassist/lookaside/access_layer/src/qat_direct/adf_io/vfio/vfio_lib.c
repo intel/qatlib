@@ -1,36 +1,10 @@
 /***************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 #include <errno.h>
@@ -43,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -55,10 +30,10 @@
 static int container_fd = -1;
 static int container_fd_ref = 0;
 
-#define VFIO_GET_REGION_ADDR(x) ((uint64_t)x << 40ULL)
-
 /* PMISC BAR number */
 #define ADF_PMISC_BAR 1
+
+#define IRQ_SET_BUF_LEN (sizeof(struct vfio_irq_set) + sizeof(int))
 
 static int pci_vfio_set_command(int dev_fd, int command, bool op)
 {
@@ -158,6 +133,12 @@ int open_vfio_dev(const char *vfio_file,
 
     struct vfio_group_status group_status = { .argsz = sizeof(group_status) };
     struct vfio_device_info device_info = { .argsz = sizeof(device_info) };
+    struct vfio_irq_info irq_info = { .argsz = sizeof(irq_info),
+                                          .index = VFIO_PCI_MSI_IRQ_INDEX };
+    char irq_set_buf[IRQ_SET_BUF_LEN];
+    struct vfio_irq_set *irq_set;
+    int *fd_ptr;
+    int evtfd;
 
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -1);
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(vfio_file, -1);
@@ -341,6 +322,49 @@ int open_vfio_dev(const char *vfio_file,
     /* Init VF2PF communication */
     dev->pfvf = adf_init_pfvf_dev_data(dev->pcs.bar[ADF_PMISC_BAR].ptr, pci_id);
 
+    /* Setup IRQ with eventfd */
+    if (ioctl(dev->vfio_dev_fd, VFIO_DEVICE_GET_IRQ_INFO, &irq_info) < 0)
+    {
+        ADF_ERROR("VFIO_DEVICE_GET_IRQ_INFO failed %s\n", strerror(errno));
+        close_vfio_dev(dev);
+        return -1;
+    }
+
+    if (!(irq_info.flags & VFIO_IRQ_INFO_EVENTFD))
+    {
+        ADF_ERROR("Device interrupt doesn't support eventfd\n");
+        close_vfio_dev(dev);
+        return -1;
+    }
+
+    evtfd = eventfd(0, EFD_NONBLOCK);
+    if (evtfd < 0)
+    {
+        ADF_ERROR("eventfd failed %s\n", strerror(errno));
+        close_vfio_dev(dev);
+        return -1;
+    }
+
+    irq_set = (struct vfio_irq_set *)irq_set_buf;
+    irq_set->argsz = IRQ_SET_BUF_LEN;
+    irq_set->count = 1;
+    irq_set->flags = VFIO_IRQ_SET_DATA_EVENTFD | VFIO_IRQ_SET_ACTION_TRIGGER;
+    irq_set->index = VFIO_PCI_MSI_IRQ_INDEX;
+    irq_set->start = 0;
+    fd_ptr = (int *)&irq_set->data;
+    *fd_ptr = evtfd;
+
+    ret = ioctl(dev->vfio_dev_fd, VFIO_DEVICE_SET_IRQS, irq_set);
+    if (ret)
+    {
+        ADF_ERROR("VFIO_DEVICE_SET_IRQS failed %s\n", strerror(errno));
+        close(evtfd);
+        dev->event_fd = -1;
+        close_vfio_dev(dev);
+        return -1;
+    }
+    dev->event_fd = evtfd;
+
     return 0;
 }
 
@@ -362,6 +386,13 @@ void close_vfio_dev(vfio_dev_info_t *dev)
         }
     }
     pcs->nr_bar = 0;
+
+    /* Close event fd if it was opened */
+    if (dev->event_fd >= 0)
+    {
+        close(dev->event_fd);
+        dev->event_fd = -1;
+    }
 
     pci_vfio_set_command(dev->vfio_dev_fd, PCI_COMMAND_MEMORY, false);
 

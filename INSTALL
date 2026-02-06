@@ -40,7 +40,6 @@ This package also links against files with the following licenses:
 
 For BSD-3-Clause license, please see the file LICENSE contained in the top
 level folder.
-For Dual BSD/GPLv2 please see the file headers of the relevant files.
 
 ===============================================================================
 
@@ -561,6 +560,9 @@ Compilation and installation - detailed instructions
 
         RUNNING IN A VIRTUAL MACHINE / GUEST
 
+        For virtualization setup please refer to the following link:
+        https://intel.github.io/quickassist/qatlib/running_in_vm.html
+
         When passing VFs to a guest, the BDFs on the guest should facilitate qatlib
         recognizing whether VFs are from the same PF or not.
         So the libvirt XML file should specify that VFs from the same host
@@ -600,8 +602,25 @@ Compilation and installation - detailed instructions
             fi
 
             group=${vfio_group##*/}
+
+            # Skip the new 'devices' folder in kernel 6.14+
+            if [ "$group" = "devices" ]; then
+                continue
+            fi
+
+            # Check if the group is numeric (additional safety check)
+            if ! [[ "$group" =~ ^[0-9]+$ ]]; then
+                continue
+            fi
+
             # assume one bdf per iommu group
             bdf=$(ls /sys/kernel/iommu_groups/$group/devices/)
+
+            # Check if bdf was found
+            if [ -z "$bdf" ]; then
+                continue
+            fi
+
             vendor=$(cat /sys/kernel/iommu_groups/$group/devices/$bdf/vendor)
             node=$(cat /sys/kernel/iommu_groups/$group/devices/$bdf/numa_node)
             did=$(cat /sys/kernel/iommu_groups/$group/devices/$bdf/device)
@@ -890,7 +909,7 @@ not intended for use in medical, life saving, life sustaining, critical control
 Intel may make changes to specifications and product descriptions at any time,
 without notice.
 
-(C) Intel Corporation 2022
+(C) Intel Corporation 2026
 
 * Other names and brands may be claimed as the property of others.
 

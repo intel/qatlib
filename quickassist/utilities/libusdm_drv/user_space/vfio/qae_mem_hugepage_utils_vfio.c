@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 /**
@@ -74,6 +22,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -97,7 +46,8 @@ static const char sys_dir_path[] = "/sys/kernel/mm/hugepages";
 extern int vfio_container_fd;
 extern int g_noiommu_enabled;
 
-#define HUGEPAGE_FILE_DIR "/dev/hugepages/qat-usdm.XXXXXX"
+#define UMASK_OWNER_ONLY  0077
+#define HUGEPAGE_FILE_DIR "/dev/hugepages/qat/qat-usdm.XXXXXX"
 #define HUGEPAGE_FILE_LEN (sizeof(HUGEPAGE_FILE_DIR))
 #define HUGEPAGE_SYS_NODE "hugepages-2048kB"
 #define HUGEPAGE_SOCKET_PATH_SIZE 50
@@ -217,6 +167,7 @@ STATIC int mem_virt2phy(const void *virtaddr, uint64_t *physaddr_ptr)
     {
         CMD_ERROR(
             "%s(): could not read %s: %d\n", __func__, PAGEMAP_FILE, errno);
+        close(fd);
         return retval;
     }
     else if (retval != sizeof(page))
@@ -224,6 +175,7 @@ STATIC int mem_virt2phy(const void *virtaddr, uint64_t *physaddr_ptr)
        CMD_ERROR("%s(): read %d bytes from %s "
                 "but expected %zu:\n",
                 __func__, retval, PAGEMAP_FILE, sizeof(page));
+       close(fd);
        return -EINVAL;
     }
 
@@ -277,7 +229,10 @@ STATIC void *__qae_vfio_hugepage_mmap_addr(const size_t size)
     void *addr = NULL;
     int ret = 0;
     int hpg_fd;
+    mode_t old_umask;
     char hpg_fname[HUGEPAGE_FILE_LEN];
+
+    old_umask = umask(UMASK_OWNER_ONLY);
 
     /*
      * for every mapped huge page there will be a separate file descriptor
@@ -298,6 +253,7 @@ STATIC void *__qae_vfio_hugepage_mmap_addr(const size_t size)
         return NULL;
     }
 
+    umask(old_umask);
     unlink(hpg_fname);
 
     addr = qae_mmap(NULL,

@@ -1,36 +1,10 @@
 /*****************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  *****************************************************************************/
 #include <libgen.h>
@@ -98,29 +72,240 @@ static int filter_vfio_files(const struct dirent *entry)
     return entry->d_name[0] != '.';
 }
 
+static void process_and_validate_vfio_device_group(
+    struct dirent **sysdevice_dir,
+    int num_vfio_device,
+    const char *vfio_file_name,
+    struct dirent *vfio_entry,
+    int vfiofile,
+    struct qatmgr_dev_data *dev_list,
+    int *num_devs,
+    int keep_fd)
+{
+    char filename[256], *bdfname;
+    int sysfile_fd, numa_node = 0, found = 0, i;
+    unsigned device = 0, vendor = 0, domain, bus, dev, func;
+    uint32_t vfio_dir_name_len, device_dir_name_len, buf_size, str_len;
+    struct dirent *device_entry;
+    FILE *sysfile;
+
+    if (num_vfio_device <= 0)
+    {
+        goto cleanup;
+    }
+
+    /* Process only the first device */
+    device_entry = sysdevice_dir[0];
+
+    /* Warn if there are multiple devices in the group */
+    if (num_vfio_device > 1)
+    {
+        qat_log(LOG_LEVEL_INFO,
+                "Multiple vfio devices in group %s. "
+                "Using first device only\n",
+                vfio_entry->d_name);
+    }
+
+    /* Open /sys/kernel/iommu_groups/<group>/devices/<device>/device */
+    vfio_dir_name_len = strnlen(vfio_entry->d_name, sizeof(vfio_entry->d_name));
+    device_dir_name_len =
+        strnlen(device_entry->d_name, sizeof(device_entry->d_name));
+    buf_size = sizeof(filename) - (sizeof(DEVICE_FILE) - 1) +
+               (NUM_STR_FORMAT_SPECIFIER * STR_FORMAT_SPECIFIER_LEN);
+    str_len = vfio_dir_name_len + device_dir_name_len;
+
+    if (buf_size <= str_len)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to copy device file name\n");
+        goto cleanup;
+    }
+
+    snprintf(filename,
+             sizeof(filename),
+             DEVICE_FILE,
+             VFIO_FILE_SIZE,
+             vfio_file_name,
+             (buf_size - VFIO_FILE_SIZE - 1),
+             device_entry->d_name);
+
+    sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+    if (sysfile_fd < 0)
+    {
+        goto cleanup;
+    }
+
+    sysfile = fdopen(sysfile_fd, "r");
+    if (!sysfile)
+    {
+        close(sysfile_fd);
+        goto cleanup;
+    }
+
+    if (fscanf(sysfile, "%x", &device) != 1)
+    {
+        qat_log(LOG_LEVEL_INFO, "Failed to read device from %s\n", filename);
+        /*
+         * If the fscanf fails, the check of device ids below will fail
+         * and break out of the loop at that point.
+         */
+    }
+    fclose(sysfile);
+    qat_log(LOG_LEVEL_INFO, "Checking %s\n", filename);
+    if (!is_qat_device(device))
+    {
+        goto cleanup;
+    }
+
+    buf_size = sizeof(filename) - (sizeof(VENDOR_FILE) - 1) +
+               (NUM_STR_FORMAT_SPECIFIER * STR_FORMAT_SPECIFIER_LEN);
+    if (buf_size <= str_len)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to copy vendor file name\n");
+        goto cleanup;
+    }
+
+    snprintf(filename,
+             sizeof(filename),
+             VENDOR_FILE,
+             VFIO_FILE_SIZE,
+             vfio_file_name,
+             (buf_size - VFIO_FILE_SIZE - 1),
+             device_entry->d_name);
+
+    sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+    if (sysfile_fd < 0)
+    {
+        goto cleanup;
+    }
+
+    sysfile = fdopen(sysfile_fd, "r");
+    if (!sysfile)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to open %s\n", filename);
+        close(sysfile_fd);
+        goto cleanup;
+    }
+
+    if (fscanf(sysfile, "%x", &vendor) != 1)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to read vendor from %s\n", filename);
+        /*
+         * If the fscanf fails, the check of vendor id below will fail
+         * and break out of the loop at that point.
+         */
+    }
+    fclose(sysfile);
+
+    if (vendor != INTEL_VENDOR_ID)
+    {
+        goto cleanup;
+    }
+
+    /* Extract the BDF from the file name */
+    bdfname = basename(device_entry->d_name);
+    if (sscanf(bdfname, "%x:%x:%x.%x", &domain, &bus, &dev, &func) != 4)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to scan BDF string\n");
+        goto cleanup;
+    }
+
+    dev_list[*num_devs].bdf = GET_BDF(domain, bus, dev, func);
+    buf_size =
+        sizeof(dev_list[*num_devs].vfio_file) - (sizeof(DEVVFIO_DIR) - 1) - 1;
+    str_len = strnlen(vfio_entry->d_name, sizeof(vfio_entry->d_name));
+    if (buf_size <= str_len)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to copy device file name\n");
+        goto cleanup;
+    }
+
+    snprintf(dev_list[*num_devs].vfio_file,
+             sizeof(dev_list[*num_devs].vfio_file),
+             DEVVFIO_DIR "/%.*s",
+             buf_size - 1,
+             vfio_entry->d_name);
+
+    buf_size = sizeof(filename) - (sizeof(NUMA_NODE) - 1) +
+               (NUM_STR_FORMAT_SPECIFIER * STR_FORMAT_SPECIFIER_LEN);
+    if (buf_size <= str_len)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to copy Numa node\n");
+        goto cleanup;
+    }
+
+    snprintf(filename,
+             sizeof(filename),
+             NUMA_NODE,
+             VFIO_FILE_SIZE,
+             vfio_file_name,
+             (buf_size - VFIO_FILE_SIZE - 1),
+             device_entry->d_name);
+
+    sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
+    if (sysfile_fd < 0)
+    {
+        goto cleanup;
+    }
+
+    sysfile = fdopen(sysfile_fd, "r");
+    if (!sysfile)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Failed to open %s\n", filename);
+        close(sysfile_fd);
+        goto cleanup;
+    }
+
+    if (fscanf(sysfile, "%d", &numa_node) != 1)
+    {
+        qat_log(
+            LOG_LEVEL_ERROR, "Failed to read numa node from %s\n", filename);
+    }
+    fclose(sysfile);
+
+    /* numa_node may be reported as -1 on VM */
+    if (numa_node < 0)
+        numa_node = 0;
+
+    dev_list[*num_devs].numa_node = numa_node;
+    found = 1;
+    dev_list[*num_devs].devid = device;
+
+    if (keep_fd)
+        dev_list[*num_devs].group_fd = vfiofile;
+    else
+        dev_list[*num_devs].group_fd = -1;
+
+    (*num_devs)++;
+
+cleanup:
+    if (sysdevice_dir)
+    {
+        for (i = 0; i < num_vfio_device; i++)
+        {
+            free(sysdevice_dir[i]);
+        }
+        free(sysdevice_dir);
+    }
+    if (!found && vfiofile >= 0)
+    {
+        close(vfiofile);
+    }
+}
+
 int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
                               struct qatmgr_dev_data *dev_list,
                               const unsigned list_size,
                               int keep_fd)
 {
-    struct dirent **devvfio_dir;
-    struct dirent **sysdevice_dir;
-    FILE *sysfile;
-    int sysfile_fd;
+    struct dirent **devvfio_dir = NULL;
+    struct dirent **sysdevice_dir = NULL;
     struct dirent *vfio_entry;
-    struct dirent *device_entry;
     int num_devs = 0;
-    unsigned device, vendor;
     char filename[256];
     char devices_dir_name[256];
     int vfiofile = -1;
-    char *bdfname;
-    unsigned domain, bus, dev, func;
-    int found = 0;
-    int numa_node;
-    uint32_t vfio_dir_name_len = 0, device_dir_name_len = 0;
     uint32_t buf_size = 0, str_len = 0;
-    int num_vfio_group, num_vfio_device, i, j;
+    int num_vfio_group, num_vfio_device, i;
     char *vfio_file_name = NULL;
 
     if (!dev_list || !list_size || !num_devices)
@@ -213,194 +398,15 @@ int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
             continue;
         }
 
-        found = 0;
-        /* For each device in this group. Should only be one. */
-        for (j = 0; j < num_vfio_device; j++)
-        {
-            device_entry = sysdevice_dir[j];
-
-            /* Open /sys/kernel/iommu_groups/<group>/devices/<device>/device */
-            vfio_dir_name_len =
-                strnlen(vfio_entry->d_name, sizeof(vfio_entry->d_name));
-            device_dir_name_len =
-                strnlen(device_entry->d_name, sizeof(device_entry->d_name));
-            buf_size = sizeof(filename) - (sizeof(DEVICE_FILE) - 1) +
-                       (NUM_STR_FORMAT_SPECIFIER * STR_FORMAT_SPECIFIER_LEN);
-            str_len = vfio_dir_name_len + device_dir_name_len;
-
-            if (buf_size <= str_len)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to copy device file name\n");
-                break;
-            }
-            snprintf(filename,
-                     sizeof(filename),
-                     DEVICE_FILE,
-                     VFIO_FILE_SIZE,
-                     vfio_file_name,
-                     (buf_size - VFIO_FILE_SIZE - 1),
-                     device_entry->d_name);
-
-            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
-            if (sysfile_fd < 0)
-                break;
-
-            sysfile = fdopen(sysfile_fd, "r");
-            if (!sysfile)
-            {
-                close(sysfile_fd);
-                break;
-            }
-            device = 0;
-            if (fscanf(sysfile, "%x", &device) != 1)
-            {
-                qat_log(LOG_LEVEL_INFO,
-                        "Failed to read device from %s\n",
-                        filename);
-                /*
-                 * If the fscanf fails, the check of device ids below will fail
-                 * and break out of the loop at that point.
-                 */
-            }
-            fclose(sysfile);
-            qat_log(LOG_LEVEL_INFO, "Checking %s\n", filename);
-            if (!is_qat_device(device))
-                break;
-
-            buf_size = sizeof(filename) - (sizeof(VENDOR_FILE) - 1) +
-                       (NUM_STR_FORMAT_SPECIFIER * STR_FORMAT_SPECIFIER_LEN);
-            if (buf_size <= str_len)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to copy vendor file name\n");
-                break;
-            }
-            snprintf(filename,
-                     sizeof(filename),
-                     VENDOR_FILE,
-                     VFIO_FILE_SIZE,
-                     vfio_file_name,
-                     (buf_size - VFIO_FILE_SIZE - 1),
-                     device_entry->d_name);
-
-            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
-            if (sysfile_fd < 0)
-                break;
-
-            sysfile = fdopen(sysfile_fd, "r");
-            if (!sysfile)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to open %s\n", filename);
-                close(sysfile_fd);
-                break;
-            }
-            vendor = 0;
-            if (fscanf(sysfile, "%x", &vendor) != 1)
-            {
-                qat_log(LOG_LEVEL_ERROR,
-                        "Failed to read vendor from %s\n",
-                        filename);
-                /*
-                 * If the fscanf fails, the check of vendor id below will fail
-                 * and break out of the loop at that point.
-                 */
-            }
-            fclose(sysfile);
-            if (vendor != INTEL_VENDOR_ID)
-                break;
-
-            /* Extract the BDF from the file name */
-            bdfname = basename(device_entry->d_name);
-            if (sscanf(bdfname, "%x:%x:%x.%x", &domain, &bus, &dev, &func) != 4)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to scan BDF string\n");
-                break;
-            }
-            dev_list[num_devs].bdf = GET_BDF(domain, bus, dev, func);
-            buf_size = sizeof(dev_list[num_devs].vfio_file) -
-                       (sizeof(DEVVFIO_DIR) - 1) - 1;
-            str_len = strnlen(vfio_entry->d_name, sizeof(vfio_entry->d_name));
-            if (buf_size <= str_len)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to copy device file name\n");
-                break;
-            }
-            snprintf(dev_list[num_devs].vfio_file,
-                     sizeof(dev_list[num_devs].vfio_file),
-                     DEVVFIO_DIR "/%.*s",
-                     buf_size - 1,
-                     vfio_entry->d_name);
-
-            if (j + 1 < num_vfio_device)
-            {
-                qat_log(LOG_LEVEL_INFO,
-                        "Multiple vfio devices in group %s. Ignored\n",
-                        vfio_entry->d_name);
-                break;
-            }
-
-            buf_size = sizeof(filename) - (sizeof(NUMA_NODE) - 1) +
-                       (NUM_STR_FORMAT_SPECIFIER * STR_FORMAT_SPECIFIER_LEN);
-            if (buf_size <= str_len)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to copy Numa node\n");
-                break;
-            }
-            snprintf(filename,
-                     sizeof(filename),
-                     NUMA_NODE,
-                     VFIO_FILE_SIZE,
-                     vfio_file_name,
-                     (buf_size - VFIO_FILE_SIZE - 1),
-                     device_entry->d_name);
-
-            sysfile_fd = open_file_with_link_check(filename, O_RDONLY);
-            if (sysfile_fd < 0)
-                break;
-
-            sysfile = fdopen(sysfile_fd, "r");
-            if (!sysfile)
-            {
-                qat_log(LOG_LEVEL_ERROR, "Failed to open %s\n", filename);
-                close(sysfile_fd);
-                break;
-            }
-            numa_node = 0;
-            if (fscanf(sysfile, "%d", &numa_node) != 1)
-            {
-                qat_log(LOG_LEVEL_ERROR,
-                        "Failed to read numa node from %s\n",
-                        filename);
-            }
-            fclose(sysfile);
-            /* numa_node may be reported as -1 on VM */
-            if (numa_node < 0)
-                numa_node = 0;
-
-            dev_list[num_devs].numa_node = numa_node;
-
-            found = 1;
-
-            dev_list[num_devs].devid = device;
-
-            if (keep_fd)
-                dev_list[num_devs].group_fd = vfiofile;
-            else
-                dev_list[num_devs].group_fd = -1;
-
-            num_devs++;
-            break;
-        }
-
-        for (j = 0; j < num_vfio_device; j++)
-        {
-            free(sysdevice_dir[j]);
-        }
-        free(sysdevice_dir);
-
-        if (!found && vfiofile != -1)
-        {
-            close(vfiofile);
-        }
+        /* Process and validate the VFIO device group */
+        process_and_validate_vfio_device_group(sysdevice_dir,
+                                               num_vfio_device,
+                                               vfio_file_name,
+                                               vfio_entry,
+                                               vfiofile,
+                                               dev_list,
+                                               &num_devs,
+                                               keep_fd);
 
         if (num_devs >= list_size)
             break;
@@ -457,6 +463,15 @@ STATIC int qat_mgr_get_device_capabilities(
         return ret;
     }
 
+    ret = adf_vf2pf_get_capabilities(&vfio_dev.pfvf);
+    if (ret)
+    {
+        qat_log(LOG_LEVEL_ERROR, "Cannot query device capabilities\n");
+        close_vfio_dev(&vfio_dev);
+        device_data->group_fd = -1;
+        return ret;
+    }
+
     ret = adf_vf2pf_get_ring_to_svc(&vfio_dev.pfvf);
     if (ret)
     {
@@ -477,15 +492,20 @@ STATIC int qat_mgr_get_device_capabilities(
                 LOG_LEVEL_DEBUG,
                 "Kernel reported ring_to_svc_map of 0, so assume default\n");
         }
-    }
-
-    ret = adf_vf2pf_get_capabilities(&vfio_dev.pfvf);
-    if (ret)
-    {
-        qat_log(LOG_LEVEL_ERROR, "Cannot query device capabilities\n");
-        close_vfio_dev(&vfio_dev);
-        device_data->group_fd = -1;
-        return ret;
+        /* Some early kernels incorrectly return a default map in the DC-only
+         * case. If the device reported only compression capabilities and no
+         * crypto capabilities, it's safe to assume that all rings are usable
+         * for the compression service.
+         */
+        if ((vfio_dev.pfvf.ring_to_svc_map == DEFAULT_RING_TO_SRV_MAP) &&
+            IS_DC_ONLY(vfio_dev.pfvf.capabilities))
+        {
+            /* That map can't be right, so adjust it. */
+            vfio_dev.pfvf.ring_to_svc_map = DC_ONLY_RING_TO_SRV_MAP;
+            qat_log(
+                LOG_LEVEL_DEBUG,
+                "Got default ring_to_svc_map but no cy, so assume dc_only\n");
+        }
     }
 
     *ext_dc_caps = vfio_dev.pfvf.ext_dc_caps;
@@ -942,12 +962,6 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                      */
                     if (capabilities & ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)
                         capabilities |= ICP_ACCEL_CAPABILITIES_ECEDMONT;
-
-                    /*
-		     * QAT silicon is not spec compliant for ZUC-256, due to
-		     * late changes to that spec. So prevent it from being used.
-		     */
-                    capabilities &= ~ICP_ACCEL_CAPABILITIES_ZUC_256;
                     device_data->accel_capabilities = capabilities;
                     device_data->extended_capabilities = ext_dc_caps;
                 }
@@ -992,6 +1006,13 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                 }
             }
 
+            /*
+             * QAT GEN5 silicon is not spec compliant for ZUC-256, due to
+             * late changes to that spec. So prevent it from being used.
+             */
+            if (IS_QAT_GEN4_2(qat_device_type(devid)))
+                device_data->accel_capabilities &=
+                    ~ICP_ACCEL_CAPABILITIES_ZUC_256;
             snprintf(device_data->name,
                      sizeof(device_data->name),
                      "%s",
@@ -1169,8 +1190,8 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
 
 bool qat_mgr_is_vfio_dev_available(void)
 {
-    struct dirent **devvfio_dir;
-    struct dirent **sysdevice_dir;
+    struct dirent **devvfio_dir = NULL;
+    struct dirent **sysdevice_dir = NULL;
     struct dirent *vfio_entry;
     struct dirent *device_entry;
     FILE *sysfile;
