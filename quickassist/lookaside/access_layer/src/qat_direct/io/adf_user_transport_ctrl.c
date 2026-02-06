@@ -1,36 +1,10 @@
 /*****************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  *****************************************************************************/
 
@@ -440,20 +414,10 @@ STATIC CpaStatus adf_populate_ring_info(adf_dev_ring_handle_t *pRingHandle,
         return CPA_STATUS_FAIL;
     }
 
-    pRingHandle->user_lock = ICP_MALLOC_GEN(sizeof(ICP_MUTEX));
-
-    if (!pRingHandle->user_lock)
+    if (OSAL_SUCCESS != ICP_MUTEX_INIT(&pRingHandle->user_lock))
     {
         ICP_FREE(pRingHandle->service_name);
         ICP_FREE(pRingHandle->section_name);
-        ADF_ERROR("Could not alloc memory for ring lock\n");
-        return CPA_STATUS_FAIL;
-    }
-    if (OSAL_SUCCESS != ICP_MUTEX_INIT(pRingHandle->user_lock))
-    {
-        ICP_FREE(pRingHandle->service_name);
-        ICP_FREE(pRingHandle->section_name);
-        ICP_FREE(pRingHandle->user_lock);
         ADF_ERROR("Mutex init failed for user_lock\n");
         return CPA_STATUS_RESOURCE;
     }
@@ -474,8 +438,7 @@ STATIC CpaStatus adf_populate_ring_info(adf_dev_ring_handle_t *pRingHandle,
     {
         ICP_FREE(pRingHandle->service_name);
         ICP_FREE(pRingHandle->section_name);
-        ICP_MUTEX_UNINIT(pRingHandle->user_lock);
-        ICP_FREE(pRingHandle->user_lock);
+        ICP_MUTEX_UNINIT(&pRingHandle->user_lock);
         ADF_ERROR("Failed to populate the ring info\n");
         return CPA_STATUS_FAIL;
     };
@@ -550,13 +513,13 @@ CpaStatus icp_adf_transCreateHandle(icp_accel_dev_t *accel_dev,
      * for at that time, we don't know which device the user will be use */
     if (NULL == bank->bundle)
     {
-        ICP_MUTEX_LOCK(bank->user_bank_lock);
+        ICP_MUTEX_LOCK(&bank->user_bank_lock);
         if (0 > init_bank_from_accel(accel_dev, bank))
         {
-            ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+            ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
             return CPA_STATUS_FAIL;
         }
-        ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+        ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
     }
 
     if (CPA_STATUS_SUCCESS ==
@@ -671,6 +634,8 @@ CpaStatus icp_adf_transCreateHandle(icp_accel_dev_t *accel_dev,
         uint32_t *csr_base_addr = pRingHandle->csr_addr;
         WRITE_CSR_INT_COL_EN(pRingHandle->bank_offset,
                              banks[pRingHandle->bank_num].interrupt_mask);
+        WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset,
+                              ETR_CSR_INTR_COL_CTL_TIME);
     }
 
     return CPA_STATUS_SUCCESS;
@@ -709,13 +674,13 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
      * for at that time, we don't know which device the user will be use */
     if (NULL == bank->bundle)
     {
-        ICP_MUTEX_LOCK(bank->user_bank_lock);
+        ICP_MUTEX_LOCK(&bank->user_bank_lock);
         if (CPA_STATUS_SUCCESS != reinit_bank_from_accel(accel_dev, bank))
         {
-            ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+            ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
             goto trans_reinit_handle_failed;
         }
-        ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+        ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
     }
     adf_dev_bank_handle_get(bank);
 
@@ -793,6 +758,8 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
         uint32_t *csr_base_addr = pRingHandle->csr_addr;
         WRITE_CSR_INT_COL_EN(pRingHandle->bank_offset,
                              banks[pRingHandle->bank_num].interrupt_mask);
+        WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset,
+                              ETR_CSR_INTR_COL_CTL_TIME);
     }
 
     return CPA_STATUS_SUCCESS;
@@ -800,6 +767,52 @@ trans_reinit_handle_failed:
     icp_adf_transReleaseHandle(*trans_handle);
     *trans_handle = NULL;
     return CPA_STATUS_FAIL;
+}
+
+CpaStatus icp_adf_transSetRespMode(icp_comms_trans_handle *trans_handle,
+                                CpaBoolean irq_enable)
+{
+    adf_dev_ring_handle_t *pRingHandle = NULL;
+    icp_accel_dev_t *accel_dev = NULL;
+    adf_dev_bank_handle_t *banks = NULL;
+    adf_dev_bank_handle_t *bank = NULL;
+    uint32_t *csr_base_addr = NULL;
+
+    ICP_CHECK_FOR_NULL_PARAM(trans_handle);
+    pRingHandle = (adf_dev_ring_handle_t *)trans_handle;
+    ICP_CHECK_FOR_NULL_PARAM(pRingHandle);
+    accel_dev = pRingHandle->accel_dev;
+    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
+
+    banks = accel_dev->banks;
+    ICP_CHECK_FOR_NULL_PARAM(banks);
+    bank = &banks[pRingHandle->bank_num];
+    ICP_CHECK_FOR_NULL_PARAM(bank);
+
+    if ((pRingHandle->resp == ICP_RESP_TYPE_IRQ && irq_enable) ||
+        (pRingHandle->resp == ICP_RESP_TYPE_POLL && !irq_enable))
+    {
+        return CPA_STATUS_SUCCESS;
+    }
+
+    if (irq_enable)
+    {
+        pRingHandle->interrupt_user_mask = 1 << pRingHandle->ring_num;
+        bank->interrupt_mask |= pRingHandle->interrupt_user_mask;
+    }
+    else
+    {
+        bank->interrupt_mask &= ~(pRingHandle->interrupt_user_mask);
+        pRingHandle->interrupt_user_mask = 0;
+    }
+
+    csr_base_addr = pRingHandle->csr_addr;
+    WRITE_CSR_INT_COL_EN(pRingHandle->bank_offset, bank->interrupt_mask);
+    WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset, ETR_CSR_INTR_COL_CTL_TIME);
+
+    pRingHandle->resp = irq_enable ? ICP_RESP_TYPE_IRQ : ICP_RESP_TYPE_POLL;
+
+    return CPA_STATUS_SUCCESS;
 }
 
 STATIC CpaStatus icp_adf_transCleanHandle(icp_comms_trans_handle trans_handle)
@@ -876,8 +889,7 @@ CpaStatus icp_adf_transReleaseHandle(icp_comms_trans_handle trans_handle)
 
     if (NULL != pRingHandle->user_lock)
     {
-        ICP_MUTEX_UNINIT(pRingHandle->user_lock);
-        ICP_FREE(pRingHandle->user_lock);
+        ICP_MUTEX_UNINIT(&pRingHandle->user_lock);
     }
 
     pbanks = accel_dev->banks;
@@ -1006,33 +1018,6 @@ CpaStatus icp_adf_getInflightRequests(icp_comms_trans_handle trans_handle,
 }
 
 /*
- * adf_user_unmap_rings
- * Device is going down - unmap all rings allocated for this device
- */
-CpaStatus adf_user_unmap_rings(icp_accel_dev_t *accel_dev)
-{
-    CpaStatus stat = CPA_STATUS_SUCCESS;
-    adf_dev_ring_handle_t *pRingHandle = NULL;
-    adf_dev_bank_handle_t *bank = NULL;
-    int i = 0, l = 0;
-
-    bank = accel_dev->banks;
-    for (i = 0; i < accel_dev->maxNumBanks; i++)
-    {
-        if (NULL == bank->rings)
-            continue;
-
-        for (l = 0; l < accel_dev->maxNumRingsPerBank; l++)
-        {
-            pRingHandle = (bank->rings)[i];
-            if (pRingHandle)
-                adf_ring_freebuf(pRingHandle);
-        }
-    }
-    return stat;
-}
-
-/*
  * Internal functions which performs all the
  * tasks necessary to poll a response ring.
  */
@@ -1093,7 +1078,7 @@ CpaStatus icp_adf_pollBank(Cpa32U accelId,
     ICP_CHECK_PARAM_LT_MAX(bank_number, accel_dev->maxNumBanks);
     banks = accel_dev->banks;
     bank = &banks[bank_number];
-    ICP_MUTEX_LOCK(bank->user_bank_lock);
+    ICP_MUTEX_LOCK(&bank->user_bank_lock);
 
     /* Read the ring status CSR to determine which rings are empty. */
     csrVal = READ_CSR_E_STAT_EXT(bank->csr_addr, bank->bank_offset);
@@ -1103,7 +1088,7 @@ CpaStatus icp_adf_pollBank(Cpa32U accelId,
      * are all empty. */
     if (!(csrVal & bank->pollingMask))
     {
-        ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+        ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
         return CPA_STATUS_RETRY;
     }
 
@@ -1144,7 +1129,7 @@ CpaStatus icp_adf_pollBank(Cpa32U accelId,
         }
     }
     /* Return SUCCESS if adf_pollRing returned SUCCESS at any stage */
-    ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+    ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
     if (stat_total)
     {
         return CPA_STATUS_SUCCESS;
@@ -1292,7 +1277,7 @@ CpaStatus icp_adf_transGetFdForHandle(icp_comms_trans_handle trans_hnd, int *fd)
     adf_dev_ring_handle_t *ring_handle = (adf_dev_ring_handle_t *)trans_hnd;
     struct adf_io_user_bundle *bundle =
         (struct adf_io_user_bundle *)ring_handle->bank_data->bundle;
-    local_fd = bundle->fd;
+    local_fd = bundle->efd;
 
     if (local_fd >= 0)
     {
@@ -1333,7 +1318,7 @@ CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
         return CPA_STATUS_FAIL;
     }
 
-    ICP_MUTEX_LOCK(ring_hnd_first->user_lock);
+    ICP_MUTEX_LOCK(&ring_hnd_first->user_lock);
     csr_base_addr = (Cpa8U *)ring_hnd_first->csr_addr;
 
     for (i = 0; i < num_transHandles; i++)
@@ -1341,7 +1326,7 @@ CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
         ring_hnd = (adf_dev_ring_handle_t *)trans_hnd[i];
         if (!ring_hnd)
         {
-            ICP_MUTEX_UNLOCK(ring_hnd_first->user_lock);
+            ICP_MUTEX_UNLOCK(&ring_hnd_first->user_lock);
             return CPA_STATUS_FAIL;
         }
         /* And with polling ring mask. If the
@@ -1363,9 +1348,11 @@ CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
         {
             WRITE_CSR_INT_COL_EN(ring_hnd->bank_offset,
                                  ring_hnd->bank_data->interrupt_mask);
+            WRITE_CSR_INT_COL_CTL(ring_hnd->bank_offset,
+                                  ETR_CSR_INTR_COL_CTL_TIME);
         }
     }
-    ICP_MUTEX_UNLOCK(ring_hnd_first->user_lock);
+    ICP_MUTEX_UNLOCK(&ring_hnd_first->user_lock);
     /* If any of the rings in the instance had data and was polled
      * return SUCCESS. */
     if (stat_total)
@@ -1433,7 +1420,7 @@ CpaStatus icp_adf_checkRingError(icp_comms_trans_handle *trans_hnd,
         return CPA_STATUS_SUCCESS;
     }
 
-    ICP_MUTEX_LOCK(ring_hnd_first->user_lock);
+    ICP_MUTEX_LOCK(&ring_hnd_first->user_lock);
 
     for (i = 0; i < num_transHandles; i++)
     {
@@ -1451,7 +1438,7 @@ CpaStatus icp_adf_checkRingError(icp_comms_trans_handle *trans_hnd,
             break;
         }
     }
-    ICP_MUTEX_UNLOCK(ring_hnd_first->user_lock);
+    ICP_MUTEX_UNLOCK(&ring_hnd_first->user_lock);
 
     return status;
 }
@@ -1478,27 +1465,13 @@ CpaStatus adf_user_transport_init(icp_accel_dev_t *accel_dev)
     for (i = 0; i < accel_dev->maxNumBanks; i++)
     {
         bank = &banks[i];
-        bank->user_bank_lock = ICP_MALLOC_GEN(sizeof(ICP_MUTEX));
-        if (!bank->user_bank_lock)
-        {
-            ADF_ERROR("Could not alloc memory for bank mutex\n");
-            for (x = i - 1; x >= 0; x--)
-            {
-                bank = &banks[x];
-                ICP_MUTEX_UNINIT(bank->user_bank_lock);
-                ICP_FREE(bank->user_bank_lock);
-            }
-            adf_proxy_depopulate_device_info(accel_dev);
-            return CPA_STATUS_FAIL;
-        }
-        if (OSAL_SUCCESS != ICP_MUTEX_INIT(bank->user_bank_lock))
+        if (OSAL_SUCCESS != ICP_MUTEX_INIT(&bank->user_bank_lock))
         {
             ADF_ERROR("Mutex init failed for user_bank_lock\n");
-            for (x = i; x >= 0; x--)
+            for (x = 0; x < i; x++)
             {
                 bank = &banks[x];
-                ICP_MUTEX_UNINIT(bank->user_bank_lock);
-                ICP_FREE(bank->user_bank_lock);
+                ICP_MUTEX_UNINIT(&bank->user_bank_lock);
             }
             adf_proxy_depopulate_device_info(accel_dev);
             return CPA_STATUS_RESOURCE;
@@ -1523,7 +1496,7 @@ CpaStatus adf_user_transport_reinit(icp_accel_dev_t *accel_dev)
     for (i = 0; i < accel_dev->maxNumBanks; i++)
     {
         bank = &banks[i];
-        if (OSAL_SUCCESS != ICP_MUTEX_INIT(bank->user_bank_lock))
+        if (OSAL_SUCCESS != ICP_MUTEX_INIT(&bank->user_bank_lock))
         {
             ADF_ERROR("Mutex init failed for user_bank_lock\n");
             return CPA_STATUS_RESOURCE;
@@ -1555,8 +1528,7 @@ CpaStatus adf_user_transport_exit(icp_accel_dev_t *accel_dev)
 
         if (bank->user_bank_lock)
         {
-            ICP_MUTEX_UNINIT(bank->user_bank_lock);
-            ICP_FREE(bank->user_bank_lock);
+            ICP_MUTEX_UNINIT(&bank->user_bank_lock);
         }
 
         ICP_FREE(bank->rings);
@@ -1586,9 +1558,9 @@ CpaStatus adf_user_transport_clean(icp_accel_dev_t *accel_dev)
             adf_io_free_bundle(bank->bundle);
             bank->bundle = NULL;
         }
-        if ((bank->user_bank_lock) && (*(ICP_MUTEX *)(bank->user_bank_lock)))
+        if (bank->user_bank_lock)
         {
-            ICP_MUTEX_UNINIT(bank->user_bank_lock);
+            ICP_MUTEX_UNINIT(&bank->user_bank_lock);
         }
         ICP_FREE(bank->rings);
     }

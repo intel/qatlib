@@ -1,36 +1,10 @@
 /***************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 #include <string.h>
@@ -115,7 +89,7 @@ static int adf_reserve_ring(adf_dev_bank_handle_t *bank, uint32_t ring_number)
         return status;
     }
 
-    status = ICP_MUTEX_LOCK(bank->user_bank_lock);
+    status = ICP_MUTEX_LOCK(&bank->user_bank_lock);
     if (status)
     {
         ADF_ERROR("Failed to lock bank with error %d\n", status);
@@ -129,7 +103,7 @@ static int adf_reserve_ring(adf_dev_bank_handle_t *bank, uint32_t ring_number)
     else
         status = -EBUSY;
 
-    ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+    ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
 
     return status;
 }
@@ -139,14 +113,14 @@ static void adf_unreserve_ring(adf_dev_bank_handle_t *bank,
 {
     int status;
 
-    status = ICP_MUTEX_LOCK(bank->user_bank_lock);
+    status = ICP_MUTEX_LOCK(&bank->user_bank_lock);
     if (status)
     {
         ADF_ERROR("Failed to lock bank with error %d\n", status);
         return;
     }
     bank->ring_mask &= ~(1 << ring_number);
-    ICP_MUTEX_UNLOCK(bank->user_bank_lock);
+    ICP_MUTEX_UNLOCK(&bank->user_bank_lock);
 }
 
 CpaStatus adf_user_put_msg(adf_dev_ring_handle_t *ring,
@@ -161,7 +135,7 @@ CpaStatus adf_user_put_msg(adf_dev_ring_handle_t *ring,
     ICP_CHECK_FOR_NULL_PARAM(ring->accel_dev);
 
 #ifndef ICP_WITHOUT_QP_SUBMISSION_LOCK
-    status = ICP_MUTEX_LOCK(ring->user_lock);
+    status = ICP_MUTEX_LOCK(&ring->user_lock);
     if (status)
     {
         ADF_ERROR("Failed to lock bank with error %d\n", status);
@@ -211,7 +185,7 @@ CpaStatus adf_user_put_msg(adf_dev_ring_handle_t *ring,
 
 adf_user_put_msg_exit:
 #ifndef ICP_WITHOUT_QP_SUBMISSION_LOCK
-    ICP_MUTEX_UNLOCK(ring->user_lock);
+    ICP_MUTEX_UNLOCK(&ring->user_lock);
 #endif
     return status;
 }
@@ -489,20 +463,6 @@ int32_t adf_reinit_ring(adf_dev_ring_handle_t *ring,
         ring, bank, ring_num, bank->csr_addr, num_msgs, msg_size, nodeid);
 }
 
-int32_t adf_ring_freebuf(adf_dev_ring_handle_t *ring)
-{
-    if (ring->ring_virt_addr)
-    {
-        /* Clean the ring before freeing*/
-        osalMemZeroExplicit(ring->ring_virt_addr, ring->ring_size);
-        mem_free(&ring->ring_virt_addr, ring);
-
-        ring->ring_virt_addr = NULL;
-    }
-
-    return 0;
-}
-
 static void adf_clean_ring(adf_dev_ring_handle_t *ring)
 {
     uint32_t *csr_base_addr = ring->csr_addr;
@@ -561,7 +521,7 @@ int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
 {
     int32_t status = 0;
 
-    status = ICP_MUTEX_LOCK(ring->user_lock);
+    status = ICP_MUTEX_LOCK(&ring->user_lock);
     if (OSAL_SUCCESS != status)
     {
         ADF_ERROR("Failed to lock bank with error %d\n", status);
@@ -571,7 +531,7 @@ int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
     *numInflightRequests = *ring->in_flight;
     *maxInflightRequests = ring->max_requests_inflight;
 
-    ICP_MUTEX_UNLOCK(ring->user_lock);
+    ICP_MUTEX_UNLOCK(&ring->user_lock);
 
     return status;
 }

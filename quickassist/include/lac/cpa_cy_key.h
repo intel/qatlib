@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -110,7 +58,7 @@ extern "C" {
  *      Enumeration of the different SSL operations that can be specified in
  *      the struct @ref CpaCyKeyGenSslOpData.  It identifies the label.
  *****************************************************************************/
-typedef enum _CpaCyKeySslOp
+typedef enum
 {
     CPA_CY_KEY_SSL_OP_MASTER_SECRET_DERIVE = 1,
     /**< Derive the master secret */
@@ -155,7 +103,7 @@ typedef enum _CpaCyKeySslOp
  *      associated userLabel.
  *
  ****************************************************************************/
-typedef struct _CpaCyKeyGenSslOpData
+typedef struct
 {
     CpaCyKeySslOp sslOp;
     /**< Indicate the SSL operation to be performed */
@@ -203,7 +151,7 @@ typedef struct _CpaCyKeyGenSslOpData
  *      CpaCyKeyGenTlsOpData data structure.
  *
  *****************************************************************************/
-typedef enum _CpaCyKeyTlsOp
+typedef enum
 {
     CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE = 1,
     /**< Derive the master secret using the TLS PRF.
@@ -243,7 +191,7 @@ typedef enum _CpaCyKeyTlsOp
  *      extraction and expansion of keying material.
  *
  *****************************************************************************/
-typedef enum _CpaCyKeyHKDFOp
+typedef enum
 {
     CPA_CY_HKDF_KEY_EXTRACT = 12,
     /**< HKDF Extract operation
@@ -284,7 +232,7 @@ typedef enum _CpaCyKeyHKDFOp
  *      TLS operation that require HKDF key operations.
  *
  *****************************************************************************/
-typedef enum _CpaCyKeyHKDFCipherSuite
+typedef enum
 {
     CPA_CY_HKDF_TLS_AES_128_GCM_SHA256 = 1,
     CPA_CY_HKDF_TLS_AES_256_GCM_SHA384,
@@ -349,7 +297,7 @@ typedef enum _CpaCyKeyHKDFCipherSuite
  *          <br> context = context as defined in RFC8446
  *
  ****************************************************************************/
-typedef struct _CpaCyKeyGenHKDFExpandLabel
+typedef struct
 {
     Cpa8U label[CPA_CY_HKDF_KEY_MAX_LABEL_SZ];
     /**< HKDFLabel field as defined in RFC8446 sec 7.1.
@@ -387,7 +335,7 @@ typedef struct _CpaCyKeyGenHKDFExpandLabel
  *          <br> labels - See notes above
  *
  ****************************************************************************/
-typedef struct _CpaCyKeyGenHKDFOpData
+typedef struct
 {
     CpaCyKeyHKDFOp hkdfKeyOp;
     /**< Keying operation to be performed. */
@@ -449,7 +397,7 @@ typedef struct _CpaCyKeyGenHKDFOpData
  *      and associated userLabel.
  *
  ****************************************************************************/
-typedef struct _CpaCyKeyGenTlsOpData
+typedef struct
 {
     CpaCyKeyTlsOp tlsOp;
     /**< TLS operation to be performed */
@@ -484,7 +432,7 @@ typedef struct _CpaCyKeyGenTlsOpData
  * @see
  *        cpaCyKeyGenMgf
  ****************************************************************************/
-typedef struct _CpaCyKeyGenMgfOpData
+typedef struct
 {
     CpaFlatBuffer seedBuffer;
     /**<  Caller MUST allocate a buffer and populate with the input seed
@@ -511,7 +459,7 @@ typedef struct _CpaCyKeyGenMgfOpData
  * @see
  *        cpaCyKeyGenMgfExt
  ****************************************************************************/
-typedef struct _CpaCyKeyGenMgfOpDataExt
+typedef struct
 {
     CpaCyKeyGenMgfOpData baseOpData;
     /**<  "Base" operational data for MGF generation */
@@ -533,7 +481,7 @@ typedef struct _CpaCyKeyGenMgfOpDataExt
  *      initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyKeyGenStats
+typedef struct
 {
     Cpa32U numSslKeyGenRequests;
     /**< Total number of successful SSL key generation requests. */
@@ -582,7 +530,7 @@ typedef struct _CpaCyKeyGenStats
  *      initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyKeyGenStats64
+typedef struct
 {
     Cpa64U numSslKeyGenRequests;
     /**< Total number of successful SSL key generation requests. */
@@ -1158,7 +1106,7 @@ CpaStatus cpaCyKeyGenMgfExt(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCyKeyGenQueryStats(const CpaInstanceHandle instanceHandle,
-                      struct _CpaCyKeyGenStats *pKeyGenStats);
+                      CpaCyKeyGenStats *pKeyGenStats);
 
 /**
  *****************************************************************************

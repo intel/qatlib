@@ -1,36 +1,10 @@
 /*****************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  *****************************************************************************/
 #include <assert.h>
@@ -91,15 +65,28 @@ STATIC int reopen_vfio_dev(vfio_dev_info_t *vfio_dev, int accelId, int pciDevId)
     vfio_container_fd = vfio_dev->vfio_container_fd;
     if (qaeRegisterDevice(vfio_container_fd))
     {
-        close(vfio_dev->vfio_group_fd);
+        close_vfio_dev(vfio_dev);
         goto exit;
     }
 
-    adf_vf2pf_check_compat_version(&(vfio_dev->pfvf));
-    adf_vf2pf_notify_init(&vfio_dev->pfvf);
+    if (adf_vf2pf_check_compat_version(&(vfio_dev->pfvf)))
+    {
+        ADF_DEBUG("adf_vf2pf_check_compat_version failed!\n");
+        goto cleanup;
+    }
+
+    if (adf_vf2pf_notify_init(&vfio_dev->pfvf))
+    {
+        ADF_DEBUG("adf_vf2pf_notify_init failed!\n");
+        goto cleanup;
+    }
     status = 0;
 
 exit:
+    return status;
+cleanup:
+    qaeUnregisterDevice(vfio_dev->vfio_container_fd);
+    close_vfio_dev(vfio_dev);
     return status;
 }
 
@@ -157,7 +144,7 @@ CpaStatus adf_io_userProxyInit(char const *const name)
     return CPA_STATUS_SUCCESS;
 }
 
-void adf_io_userProcessStop(void)
+CpaStatus adf_io_userProcessStop(void)
 {
     struct qatmgr_msg_req req = { 0 };
     struct qatmgr_msg_rsp rsp = { 0 };
@@ -165,11 +152,12 @@ void adf_io_userProcessStop(void)
     assert(sizeof(req.name) == sizeof(currentProcess));
     snprintf(req.name, sizeof(req.name), "%s", currentProcess);
 
-    qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_PUT);
+    if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_SECTION_PUT))
+        ADF_ERROR("Qatmgr failed msg :%d\n", QATMGR_MSGTYPE_SECTION_PUT);
 
     memset(currentProcess, 0, QATMGR_MAX_STRLEN);
 
-    qatmgr_close();
+    return qatmgr_close();
 }
 
 void adf_io_userProxyShutdown(void)

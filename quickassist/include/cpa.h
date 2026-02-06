@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -148,7 +96,7 @@ extern "C" {
  *      when minor changes to the API have occurred.
  *
  *****************************************************************************/
-#define CPA_API_VERSION_NUM_MINOR (6)
+#define CPA_API_VERSION_NUM_MINOR (8)
 
 /**
  *****************************************************************************
@@ -262,7 +210,7 @@ typedef CpaPhysicalAddr (*CpaVirtualToPhysical)(void *pVirtualAddr);
  *      physical memory as determined by @ref CpaInstanceInfo2.
  *
  *****************************************************************************/
-typedef struct _CpaFlatBuffer
+typedef struct
 {
     Cpa32U dataLenInBytes;
     /**< Data length specified in bytes.
@@ -298,7 +246,7 @@ typedef struct _CpaFlatBuffer
  *      returned size (in bytes) may then be passed in a memory allocation
  *      routine to allocate the pPrivateMetaData memory.
  *****************************************************************************/
-typedef struct _CpaBufferList
+typedef struct
 {
     Cpa32U numBuffers;
     /**< Number of buffers in the list */
@@ -327,7 +275,7 @@ typedef struct _CpaBufferList
  *      Functions taking this structure do not need to do any virtual to
  *      physical address translation before writing the buffer to hardware.
  *****************************************************************************/
-typedef struct _CpaPhysFlatBuffer
+typedef struct
 {
     Cpa32U dataLenInBytes;
     /**< Data length specified in bytes.
@@ -360,7 +308,7 @@ typedef struct _CpaPhysFlatBuffer
  *      case, the individual "flat" buffers are represented using
  *      physical, rather than virtual, addresses.
  *****************************************************************************/
-typedef struct _CpaPhysBufferList
+typedef struct
 {
     Cpa64U reserved0;
     /**< Reserved for internal usage */
@@ -382,7 +330,7 @@ typedef struct _CpaPhysBufferList
  *      CRC algorithm, other than those natively supported by the API.
  *
  ****************************************************************************/
-typedef struct _CpaCrcControlData
+typedef struct
 {
     Cpa64U polynomial;
     /**< Polynomial used for CRC64 calculation.*/
@@ -517,7 +465,7 @@ typedef Cpa32S CpaStatus;
  *      Enumeration of the different instance types.
  *
  *****************************************************************************/
-typedef enum _CpaInstanceType
+typedef enum
 {
     CPA_INSTANCE_TYPE_CRYPTO = 0,
     /**< Cryptographic instance type */
@@ -539,7 +487,7 @@ typedef enum _CpaInstanceType
  *      Enumeration of the different service types.
  *
  *****************************************************************************/
-typedef enum _CpaAccelerationServiceType
+typedef enum
 {
     CPA_ACC_SVC_TYPE_CRYPTO = CPA_INSTANCE_TYPE_CRYPTO,
     /**< Cryptography */
@@ -574,7 +522,7 @@ typedef enum _CpaAccelerationServiceType
  *      Enumeration of the different instance states that are possible.
  *
  *****************************************************************************/
-typedef enum _CpaInstanceState
+typedef enum
 {
     CPA_INSTANCE_STATE_INITIALISED = 0,
     /**< Instance is in the initialized state and ready for use. */
@@ -590,7 +538,7 @@ typedef enum _CpaInstanceState
  *      Enumeration of the different operational states that are possible.
  *
  *****************************************************************************/
-typedef enum _CpaOperationalState
+typedef enum
 {
     CPA_OPER_STATE_DOWN = 0,
     /**< Instance is not available for use. May not yet be initialized,
@@ -625,11 +573,11 @@ typedef enum _CpaOperationalState
  *      Structure that contains the information to describe the instance.
  *
  *****************************************************************************/
-typedef struct _CpaInstanceInfo
+typedef struct
 {
-    enum _CpaInstanceType type;
+    CpaInstanceType type;
     /**< Type definition for this instance. */
-    enum _CpaInstanceState state;
+    CpaInstanceState state;
     /**< Operational state of the instance. */
     Cpa8U name[CPA_INSTANCE_MAX_NAME_SIZE_IN_BYTES];
     /**< Simple text string identifier for the instance. */
@@ -664,7 +612,7 @@ typedef struct _CpaInstanceInfo
  *      number of the accelerators.
  *
  *****************************************************************************/
-typedef struct _CpaPhysicalInstanceId
+typedef struct
 {
     Cpa16U packageId;
     /**< Identifies the package within which the accelerator is
@@ -689,7 +637,7 @@ typedef struct _CpaPhysicalInstanceId
  *      Structure that contains the information to describe the instance.
  *
  *****************************************************************************/
-typedef struct _CpaInstanceInfo2
+typedef struct
 {
     CpaAccelerationServiceType accelerationServiceType;
     /**< Type of service provided by this instance. */
@@ -787,7 +735,7 @@ typedef struct _CpaInstanceInfo2
  *  Instance notification callback function to be invoked.
  *
  *****************************************************************************/
-typedef enum _CpaInstanceEvent
+typedef enum
 {
     CPA_INSTANCE_EVENT_RESTARTING = 0,
     /**< Event type that triggers the registered instance notification callback
@@ -930,6 +878,143 @@ CpaStatus cpaGetInstances(
 
 /**
  *****************************************************************************
+ * @ingroup cpa_BaseDataTypes
+ *      RX Collection Type
+ * @description
+ *      Enumeration of the modes which can be set to configure how the
+ *      application wants to be notified when responses are ready on
+ *      a service instance.
+ *
+ *****************************************************************************/
+typedef enum
+{
+    CPA_INST_RX_NOTIFY_NONE = 1,
+    /**< The application is not notified when responses are ready. It collects
+     * responses by periodically calling one of the polling APIs. */
+    CPA_INST_RX_NOTIFY_BY_EVENT = 2
+    /**< The device will be configured to generate an interrupt when responses
+     * are ready. The application can monitor for this event. On detection, the
+     * application should collect responses by calling one of the polling APIs.
+     */
+} CpaInstanceResponseMode;
+
+/**
+ *****************************************************************************
+ * @file cpa.h
+ * @ingroup cpa
+ *      Set the mode for being notified about responses on a service instance.
+ *
+ * @description
+ *      This function configures how the application will be notified when
+ *      responses are ready from the service instance. Available options are
+ *      described in CpaInstanceResponseMode.
+ *
+ * @context
+ *      This function MUST NOT be called from an interrupt context as it MAY
+ *      sleep.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      This function is synchronous and blocking.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle          Instance handle
+ * @param[in] accelerationServiceType This must match the Acceleration
+ *                                    Service of the instance. In an instance
+ *                                    which has two service types, e.g.
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO includes both
+ *                                    ASYM and SYM services, both of the
+ *                                    services will be set to the same mode.
+ * @param[in] responseMode            The mode which will be used to notify
+ *                                    the application that responses are ready.
+ *
+ * @retval CPA_STATUS_SUCCESS         Function executed successfully.
+ * @retval CPA_STATUS_FAIL            Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM   Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED     Function is not supported.
+ * @retval CPA_STATUS_RETRY           Resubmit the request.
+ *
+ * @pre
+ *      This function should only be called when there are no operations
+ *      in-flight in the instance. The behaviour will be undefined for
+ *      operations which are in-flight.
+ * @post
+ *      None
+ * @note
+ *      None
+ * @see
+ *      cpaInstanceGetResponseMode
+ *
+ *****************************************************************************/
+CpaStatus cpaInstanceSetResponseMode(
+                const CpaInstanceHandle instanceHandle,
+                const CpaAccelerationServiceType accelerationServiceType,
+                const CpaInstanceResponseMode responseMode);
+
+/**
+ *****************************************************************************
+ * @file cpa.h
+ * @ingroup cpa
+ *      Query the configured mode for being notified about responses on a
+ *      service instance.
+ *
+ * @description
+ *      This function returns the configured mode of being notified when
+ *      responses are ready from a service instance. Modes are described in
+ *      CpaInstanceResponseMode.
+ *
+ * @context
+ *      This is a synchronous function that cannot sleep. It can be
+ *      executed in a context that does not permit sleeping.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle          Instance handle
+ * @param[in] accelerationServiceType This must match the Acceleration service
+ *                                    supported by the instance, except for
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO. In this case
+ *                                    the instance supports two services, so
+ *                                    this parameter must be set to either
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO_ASYM or
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO_SYM.
+ * @param[in,out] pResponseMode       A pointer to the location where the
+ *                                    configured mode will be stored.
+ *
+ * @retval CPA_STATUS_SUCCESS         Function executed successfully.
+ * @retval CPA_STATUS_FAIL            Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM   Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED     Function is not supported.
+ *
+ * @pre
+ *      None
+ * @post
+ *      None
+ * @note
+ *      None
+ * @see
+ *      cpaInstanceSetResponseMode
+ *
+ *****************************************************************************/
+CpaStatus cpaInstanceGetResponseMode(
+                const CpaInstanceHandle instanceHandle,
+                const CpaAccelerationServiceType accelerationServiceType,
+                CpaInstanceResponseMode *pResponseMode);
+
+/**
+ *****************************************************************************
  * @ingroup cpa
  *      Instance Allocation Policies
  * @description
@@ -937,7 +1022,7 @@ CpaStatus cpaGetInstances(
  *      used for allocating instances using the cpaAllocInstance() API.
  *
  *****************************************************************************/
-typedef enum _CpaInstanceAllocPolicy
+typedef enum
 {
     CPA_INST_ALLOC_NONE = 0,
     /**< No policy specified. The implementation will choose a default

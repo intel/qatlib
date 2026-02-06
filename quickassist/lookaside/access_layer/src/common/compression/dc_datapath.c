@@ -1,62 +1,10 @@
 /****************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -107,11 +55,9 @@
 #include "dc_err_sim.h"
 #endif
 #include "dc_error_counter.h"
-#ifndef KERNEL_SPACE
 #include <stdlib.h>
 #include "dc_crc32.h"
 #include "dc_crc64.h"
-#endif
 #include "sal_misc_error_stats.h"
 #define DC_COMP_MAX_BUFF_SIZE (1024 * 64)
 
@@ -155,7 +101,6 @@ Cpa64U getDcErrorCounter(CpaDcReqStatus dcError)
     return 0;
 }
 
-#ifndef KERNEL_SPACE
 STATIC void dcUpdateCompStateCrc(dc_compression_cookie_t *pCookie,
                                  const Cpa32U offset,
                                  const Cpa32U newCrcValue)
@@ -531,13 +476,13 @@ void dcHandleIntegrityChecksums(dc_compression_cookie_t *pCookie,
         pDcResults->checksum = crc_external->crc32;
     }
     else if (CPA_DC_ADLER32 == checksumType ||
+             CPA_DC_XXHASH64 == checksumType ||
              CPA_DC_XXHASH32 == checksumType)
     {
-        /* XXHASH32 and Adler share the same member */
+        /* XXHASH64, XXHASH32 and Adler share the same member */
         pDcResults->checksum = crc_external->adler32;
     }
 }
-#endif
 
 void dcCompression_ProcessCallback(void *pRespMsg)
 {
@@ -571,14 +516,12 @@ void dcCompression_ProcessCallback(void *pRespMsg)
 #endif
 
 #ifndef ICP_DC_ONLY
-#ifndef KERNEL_SPACE
     if (pCompRespMsg->comn_resp.response_type ==
         ICP_QAT_FW_COMN_REQ_CPM_FW_COMP_CHAIN)
     {
         dcChainProcessResults(pRespMsg);
         return;
     }
-#endif
 #endif
 
     /* Extract request data pointer from the opaque data */
@@ -918,6 +861,7 @@ void dcCompression_ProcessCallback(void *pRespMsg)
                     pCompRespMsg->comp_resp_pars.crc.legacy.curr_crc32;
             }
             else if ((CPA_DC_ADLER32 == pSessionDesc->checksumType) ||
+                     (CPA_DC_XXHASH64 == pSessionDesc->checksumType) ||
                      (CPA_DC_XXHASH32 == pSessionDesc->checksumType))
             {
                 pResults->checksum =
@@ -1017,9 +961,9 @@ void dcCompression_ProcessCallback(void *pRespMsg)
                  * compression and decompression direction. With Traditional API
                  * this error message will be returned only in stateless
                  * decompression direction */
-                LAC_LOG_ERROR(
-                    "Unrecoverable error: stateless overflow. You may "
-                    "need to increase the size of your destination buffer");
+                LAC_LOG_DEBUG("Error: stateless overflow.");
+                LAC_LOG_DEBUG(
+                    "Try resubmitting with a larger destination buffer.");
             }
         }
 
@@ -1158,7 +1102,6 @@ CpaStatus dcCompression_SwRespMsgCallback(lac_memblk_bucket_t *pBucket)
  * @retval CPA_STATUS_INVALID_PARAM   Invalid parameter passed in
  *
  *****************************************************************************/
-#ifndef KERNEL_SPACE
 CpaStatus dcCheckOpData(sal_compression_service_t *pService,
                         CpaDcOpData *pOpData,
                         CpaDcSessionDir sessDirection)
@@ -1261,7 +1204,6 @@ CpaStatus dcCheckOpData(sal_compression_service_t *pService,
 
     return CPA_STATUS_SUCCESS;
 }
-#endif
 
 /**
  *****************************************************************************
@@ -1508,6 +1450,58 @@ void dcCompRequestParamsPopulate(icp_qat_fw_comp_req_params_t *pCompReqParams,
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
+ *      Calculate the ASB value to be programmed in firmware
+ *
+ * @description
+ *      This function will calculate the ASB value to be programmed in
+ *      firmware based on the src length, asb mode and asb value
+ *
+ *
+ * @param[in]   srcLen           Length of the source data
+ * @param[in]   asbMode         Threshold mode or ratio mode
+ * @param[in]   asbValue        ASB value in session descriptor
+ *
+ *****************************************************************************/
+inline Cpa32U dcCalcAsbRegValue(Cpa32U srcLen,
+                                dc_asb_mode_t asbMode,
+                                Cpa32U asbValue)
+{
+    Cpa32U asbRegVal = 0;
+    Cpa32U asbThresholdSize = 0;
+    Cpa32U numSrcBlks = 0;
+    Cpa32U numDestBlks = 0;
+
+    if (asbMode == DC_ASB_RATIO_MODE)
+    {
+        asbRegVal = BUILD_ASB_RATIO_MODE_VALUE(srcLen, asbValue);
+    }
+    else if (asbMode == DC_ASB_THRESHOLD_MODE)
+    {
+        asbThresholdSize = BUILD_ASB_THRESH_VALUE_DEFAULT(asbValue);
+
+        /* Number of blocks needed for source data */
+        numSrcBlks = srcLen / asbThresholdSize;
+        if ((srcLen % asbThresholdSize) != 0)
+            numSrcBlks++;
+
+        numDestBlks = numSrcBlks - 1;
+
+        /* If source fits within one block, need to add one to get
+         * meaningful ASB_Register setting
+         */
+        if (numDestBlks == 0)
+            numDestBlks++;
+
+        /* Set the ASB register to save at least one block */
+        asbRegVal = ADJUST_ASB_THRESH_VALUE(numDestBlks, asbThresholdSize);
+    }
+
+    return asbRegVal;
+}
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
  *      Create the requests for compression or decompression
  *
  * @description
@@ -1578,6 +1572,10 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
     Cpa32U errorInjectionCode = ICP_QAT_FW_COMP_CNV_ERROR_NONE;
     Cpa16U numInterBuffs = 0;
     CpaBoolean statefulLiteUnsupported = CPA_FALSE;
+    CpaBoolean asbSupported = CPA_FALSE;
+    CpaBoolean asbRatioSupported = CPA_FALSE;
+    CpaBoolean asbThresholdSupported = CPA_FALSE;
+    Cpa32U asbRegValue = 0;
     Cpa32U val32 = 0;
     icp_qat_fw_comp_dict_type_t fwDictType = ICP_QAT_FW_COMP_DICT_TYPE_NONE;
     icp_qat_hw_compression_config_t *pCompConfig = NULL;
@@ -1650,6 +1648,9 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
     errorInjectionSupported = pDcCapabilities->cnv.errorInjection;
     numInterBuffs = pDcCapabilities->numInterBuffs;
     statefulLiteUnsupported = pDcCapabilities->statefulLiteUnsupported;
+    asbSupported = pDcCapabilities->asb.supported;
+    asbRatioSupported = pDcCapabilities->asb.asbRatioSupported;
+    asbThresholdSupported = pDcCapabilities->asb.asbTshSupported;
 
     /* Populate the compression cookie */
     pCookie->dcInstance = pService;
@@ -1681,10 +1682,8 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
     if (NULL != pOpData)
     {
         flush = pOpData->flushFlag;
-#ifndef KERNEL_SPACE
         pCookie->integrityCrcCheck = pOpData->integrityCrcCheck;
         pCookie->verifyHwIntegrityCrcs = pOpData->verifyHwIntegrityCrcs;
-#endif
     }
     else
     {
@@ -1798,7 +1797,24 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
                    initialising here. */
         }
     }
-#ifndef KERNEL_SPACE
+    if ((asbSupported) && (asbRatioSupported || asbThresholdSupported))
+    {
+        /* Check if ASB is enabled */
+        if (ICP_QAT_FW_COMP_AUTO_SELECT_BEST_GET(
+                pMsg->comn_hdr.serv_specif_flags))
+        {
+            asbRegValue = dcCalcAsbRegValue(
+                (Cpa32U)(srcTotalDataLenInBytes - dictionaryLenInBytes),
+                pSessionDesc->asb_mode,
+                pSessionDesc->asb_value);
+
+            /* Capping asb value to asb max block size */
+            if (asbRegValue > pSessionDesc->asb_max_block_size)
+                asbRegValue = pSessionDesc->asb_max_block_size;
+
+            pMsg->u3.asb_threshold.asb_value = asbRegValue;
+        }
+    }
     /* Backup source and destination buffer addresses,
      * CRC calculations both for CNV and translator overflow
      * will be performed on them in the callback function.
@@ -1860,7 +1876,6 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
 
         crcMode = ICP_QAT_FW_COMP_CRC_MODE_LEGACY;
     }
-#endif
     /* Populate the cmdFlags */
     if (CPA_TRUE == pDcCapabilities->overflowResubmitUnsupported &&
         CPA_DC_FLUSH_FINAL == flush)
@@ -2777,13 +2792,11 @@ CpaStatus cpaDcCompressData2(CpaInstanceHandle dcInstance,
     {
         return CPA_STATUS_INVALID_PARAM;
     }
-#ifndef KERNEL_SPACE
     if (CPA_STATUS_SUCCESS !=
         dcCheckOpData(pService, pOpData, pSessionDesc->sessDirection))
     {
         return CPA_STATUS_INVALID_PARAM;
     }
-#endif
 #endif
 #ifdef ICP_DC_DYN_NOT_SUPPORTED
     if (CPA_DC_HT_FULL_DYNAMIC == pSessionDesc->huffType)

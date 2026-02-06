@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -76,6 +24,7 @@
 
 #define ICV_LENGTH 16
 #define AES_BLOCK_SIZE 16
+#define ACTUAL_IV_DATA_LEN 12
 
 /* For IPSec outbound direction we encrypt the payload and then
    generate the ICV. For IPSec inbound direction we compare the
@@ -91,8 +40,14 @@ static Cpa8U sampleCipherKey[] = { 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1
                              	   0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
                              	   0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08 };
 
-static Cpa8U sampleCipherIv[] = { 0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce,
-                                  0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88 };
+/* As per QAT API documentation, GCM IV allocation size should be
+ * 16 bytes even if IV data is less than 16 bytes. Hence appending
+ * 0 bytes after the actual 12 bytes of IV. The 0 padding of IV to
+ * 16 bytes will also be part of the hash of the message (even
+ * though the IV itself is less than 16 bytes).
+ */
+static Cpa8U sampleCipherIv[] = { 0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,
+                                  0xde, 0xca, 0xf8, 0x88, 0x00, 0x00, 0x00, 0x00 };
 
 static Cpa8U sampleAddAuthData[] = {
             0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed,
@@ -119,7 +74,8 @@ static Cpa8U expectedOutput[] = {
     /* ESP header unmodified */
     0x00, 0x00, 0x01, 0x2c, 0x00, 0x00, 0x00, 0x05,
     /* IV unmodified */
-    0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88,
+    0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,
+    0xde, 0xca, 0xf8, 0x88, 0x00, 0x00, 0x00, 0x00,
     /* Ciphertext */
     0x52, 0x2d, 0xc1, 0xf0, 0x99, 0x56, 0x7d, 0x07, 0xf4, 0x7f, 0x37, 0xa3,
     0x2a, 0x84, 0x42, 0x7d, 0x64, 0x3a, 0x8c, 0xdc, 0xbf, 0xe5, 0xc0, 0xc9,
@@ -287,7 +243,7 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
             pOpData->sessionCtx = sessionCtx;
             pOpData->packetType = CPA_CY_SYM_PACKET_TYPE_FULL;
             pOpData->pIv = pIvBuffer;
-            pOpData->ivLenInBytes = sizeof(sampleCipherIv);
+            pOpData->ivLenInBytes = ACTUAL_IV_DATA_LEN;
             pOpData->cryptoStartSrcOffsetInBytes =
                 sizeof(sampleEspHdrData) + sizeof(sampleCipherIv);
             pOpData->messageLenToCipherInBytes = sizeof(samplePayload);
@@ -312,7 +268,7 @@ static CpaStatus algChainPerformOp(CpaInstanceHandle cyInstHandle,
             pOpData->sessionCtx = sessionCtx;
             pOpData->packetType = CPA_CY_SYM_PACKET_TYPE_FULL;
             pOpData->pIv = pIvBuffer;
-            pOpData->ivLenInBytes = sizeof(sampleCipherIv);
+            pOpData->ivLenInBytes = ACTUAL_IV_DATA_LEN;
             pOpData->cryptoStartSrcOffsetInBytes =
                 sizeof(sampleEspHdrData) + sizeof(sampleCipherIv);
             pOpData->messageLenToCipherInBytes =

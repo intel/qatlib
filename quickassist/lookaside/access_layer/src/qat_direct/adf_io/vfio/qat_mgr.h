@@ -1,36 +1,10 @@
 /***************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 #ifndef QAT_MGR_H
@@ -50,10 +24,15 @@
  * by qatlib only qatmgr should need to check the version in hdr.
  * However checking is done in qatlib to catch incompatibilities if paired
  * with an earlier qatmgr version created before this check was added.
+ *
+ * Note, this is a 16-bit representation of the QAT_LIBRARY_VERSION for
+ * ease of sharing across the socket interface and it intentionally leaves
+ * out the patch number as changes that are significant enough to make the
+ * qatlib/qatmgr pair incompatible should not be done in a patch release.
  */
 #define THIS_LIB_VERSION                                                       \
-    (uint16_t)((SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER << 8) +                 \
-               SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER)
+    (uint16_t)((QAT_LIBRARY_VERSION_MAJOR << 8) +                 \
+               QAT_LIBRARY_VERSION_MINOR)
 #define VER_STR_LEN 12
 #define VER_STR(n, str) (snprintf(str, VER_STR_LEN, "%d.%d", n >> 8, n & 0xff))
 
@@ -111,6 +90,9 @@
      COMP << CFG_SERV_RING_PAIR_2_SHIFT |                                      \
      DECOMP << CFG_SERV_RING_PAIR_3_SHIFT)
 #endif
+#define DC_ONLY_RING_TO_SRV_MAP                                                \
+    (COMP | COMP << CFG_SERV_RING_PAIR_1_SHIFT |                               \
+     COMP << CFG_SERV_RING_PAIR_2_SHIFT | COMP << CFG_SERV_RING_PAIR_3_SHIFT)
 
 #define INTEL_VENDOR_ID 0x8086
 #define MAX_NUM_CONCURRENT_REQUEST 512
@@ -418,7 +400,7 @@ int destroy_section_data_mutex(void);
 
 int open_file_with_link_check(const char *filename, int flags);
 DIR *open_dir_with_link_check(const char *dirname);
-int is_qat_device(int device_id);
+int is_qat_device(unsigned device_id);
 int init_cpu_data();
 void free_cpu_data();
 struct pf_capabilities *find_pf_capabilities(uint32_t pf);

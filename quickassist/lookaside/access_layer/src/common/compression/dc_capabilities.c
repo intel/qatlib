@@ -1,62 +1,10 @@
 /****************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -114,6 +62,12 @@ CpaStatus dcGetAsbEnablePrefCapabilityStatus(dc_capabilities_t *pDcCapabilities,
             break;
         case CPA_DC_LZ4S:
             if (pDcCapabilities->lz4s.asbEnablePref)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.asbEnablePref)
             {
                 *pCapStatus = CPA_TRUE;
             }
@@ -201,6 +155,18 @@ dcGetAlgoWindowSizeForCapabilityStatus(dc_capabilities_t *pDcCapabilities,
                     pDcCapabilities->lz4s.validWindowSizeMaskCompression;
             }
             break;
+        case CPA_DC_ZSTD:
+            if (dir == CPA_DC_DIR_COMPRESS)
+            {
+                windowSizeMask =
+                    pDcCapabilities->zstd.validWindowSizeMaskCompression;
+            }
+            else
+            {
+                windowSizeMask =
+                    pDcCapabilities->zstd.validWindowSizeMaskDecompression;
+            }
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -245,6 +211,9 @@ dcGetAlgoWindowSizeCapabilityStatus(dc_capabilities_t *pDcCapabilities,
             break;
         case CPA_DC_LZ4S:
             *pU32Status = pDcCapabilities->lz4s.historyBufferSize;
+            break;
+        case CPA_DC_ZSTD:
+            *pU32Status = pDcCapabilities->zstd.historyBufferSize;
             break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
@@ -317,6 +286,15 @@ dcGetCompDictSupportCapabilityStatus(dc_capabilities_t *pDcCapabilities,
                 *pCapStatus = CPA_TRUE;
             }
             break;
+        case CPA_DC_ZSTD:
+            if ((pDcCapabilities->zstd.supported) &&
+                (pDcCapabilities->zstd.dictCompSupported) &&
+                ((pDcCapabilities->zstd.dirMask & dirMask) == dirMask) &&
+                (pDcCapabilities->zstd.dictCap & DC_CAPS_COMPRESSED_DICT))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -341,6 +319,12 @@ dcChainGetPcrc64CapabilityStatus(dc_capabilities_t *pDcCapabilities,
             break;
         case CPA_DC_LZ4:
             if (pDcCapabilities->lz4.programmableCrc64)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.programmableCrc64)
             {
                 *pCapStatus = CPA_TRUE;
             }
@@ -410,6 +394,13 @@ dcGetDirCapabilityStatus(dc_capabilities_t *pDcCapabilities,
                 *pCapStatus = CPA_TRUE;
             }
             break;
+        case CPA_DC_ZSTD:
+            if ((pDcCapabilities->zstd.supported) &&
+                ((pDcCapabilities->zstd.dirMask & dirMask) == dirMask))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -417,10 +408,10 @@ dcGetDirCapabilityStatus(dc_capabilities_t *pDcCapabilities,
     return CPA_STATUS_SUCCESS;
 }
 
-STATIC CpaStatus dcGetCrcOverBlockCapabilityStatus(
-    dc_extd_ftrs_t* pExtendedFtrs,
-    Cpa32U algo,
-    CpaBoolean* pCapStatus)
+STATIC INLINE CpaStatus
+dcGetCrcOverBlockCapabilityStatus(dc_extd_ftrs_t *pExtendedFtrs,
+                                  Cpa32U algo,
+                                  CpaBoolean *pCapStatus)
 {
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pCapStatus);
@@ -451,6 +442,7 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
     Cpa32U capabilitiesMask = 0, dirMask = 0;
     dc_capabilities_t *pDcCapabilities = NULL;
     dc_extd_ftrs_t *pExtendedFtrs = NULL;
+    CpaStatus result = CPA_STATUS_SUCCESS;
 
     if (CPA_INSTANCE_HANDLE_SINGLE == dcInstance)
     {
@@ -483,6 +475,7 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
         case CPA_DC_DEFLATE:
         case CPA_DC_LZ4:
         case CPA_DC_LZ4S:
+        case CPA_DC_ZSTD:
             break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm not supported\n");
@@ -522,18 +515,18 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
                 pCapabilityResp->boolStatus = CPA_FALSE;
                 break;
             }
-            dcGetDirCapabilityStatus(pDcCapabilities,
-                                     capabilitiesMask,
-                                     capabilityReq.algo,
-                                     dirMask,
-                                     &pCapabilityResp->boolStatus);
+            result = dcGetDirCapabilityStatus(pDcCapabilities,
+                                              capabilitiesMask,
+                                              capabilityReq.algo,
+                                              dirMask,
+                                              &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_WINDOW_SIZE_4K:
         case CPA_DC_CAP_BOOL_WINDOW_SIZE_8K:
         case CPA_DC_CAP_BOOL_WINDOW_SIZE_16K:
         case CPA_DC_CAP_BOOL_WINDOW_SIZE_32K:
         case CPA_DC_CAP_BOOL_WINDOW_SIZE_64K:
-            dcGetAlgoWindowSizeForCapabilityStatus(
+            result = dcGetAlgoWindowSizeForCapabilityStatus(
                 pDcCapabilities,
                 capabilityReq.capId,
                 capabilityReq.dir,
@@ -541,10 +534,11 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
                 &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_U32_DEFAULT_WINDOW_SIZE:
-            dcGetAlgoWindowSizeCapabilityStatus(pDcCapabilities,
-                                                capabilityReq.dir,
-                                                capabilityReq.algo,
-                                                &pCapabilityResp->u32Status);
+            result = dcGetAlgoWindowSizeCapabilityStatus(
+                pDcCapabilities,
+                capabilityReq.dir,
+                capabilityReq.algo,
+                &pCapabilityResp->u32Status);
             break;
         case CPA_DC_CAP_BOOL_DYNAMIC_HUFFMAN:
             if (capabilityReq.dir == CPA_DC_DIR_COMPRESS)
@@ -581,28 +575,28 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
             }
             break;
         case CPA_DC_CAP_BOOL_BLOCK_SIZE_64K:
-            dcGetMaxBlockSizeForBitmaskCapabilityStatus(
+            result = dcGetMaxBlockSizeForBitmaskCapabilityStatus(
                 pDcCapabilities,
                 DC_CAPS_LZ4_64K,
                 capabilityReq.algo,
                 &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_BLOCK_SIZE_256K:
-            dcGetMaxBlockSizeForBitmaskCapabilityStatus(
+            result = dcGetMaxBlockSizeForBitmaskCapabilityStatus(
                 pDcCapabilities,
                 DC_CAPS_LZ4_256K,
                 capabilityReq.algo,
                 &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_BLOCK_SIZE_1M:
-            dcGetMaxBlockSizeForBitmaskCapabilityStatus(
+            result = dcGetMaxBlockSizeForBitmaskCapabilityStatus(
                 pDcCapabilities,
                 DC_CAPS_LZ4_1M,
                 capabilityReq.algo,
                 &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_BLOCK_SIZE_4M:
-            dcGetMaxBlockSizeForBitmaskCapabilityStatus(
+            result = dcGetMaxBlockSizeForBitmaskCapabilityStatus(
                 pDcCapabilities,
                 DC_CAPS_LZ4_4M,
                 capabilityReq.algo,
@@ -615,29 +609,25 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
             }
             break;
         case CPA_DC_CAP_BOOL_CHECKSUM_CRC32:
-            if (pDcCapabilities->checksum & DC_CAPS_CRC32 &&
-                capabilityReq.dir == CPA_DC_DIR_COMPRESS)
+            if (pDcCapabilities->checksum & DC_CAPS_CRC32)
             {
                 pCapabilityResp->boolStatus = CPA_TRUE;
             }
             break;
         case CPA_DC_CAP_BOOL_CHECKSUM_ADLER32:
-            if (pDcCapabilities->checksum & DC_CAPS_ADLER32 &&
-                capabilityReq.dir == CPA_DC_DIR_COMPRESS)
+            if (pDcCapabilities->checksum & DC_CAPS_ADLER32)
             {
                 pCapabilityResp->boolStatus = CPA_TRUE;
             }
             break;
         case CPA_DC_CAP_BOOL_CHECKSUM_XXHASH32:
-            if (pDcCapabilities->checksum & DC_CAPS_XXHASH32 &&
-                capabilityReq.dir == CPA_DC_DIR_COMPRESS)
+            if (pDcCapabilities->checksum & DC_CAPS_XXHASH32)
             {
                 pCapabilityResp->boolStatus = CPA_TRUE;
             }
             break;
         case CPA_DC_CAP_BOOL_CHECKSUM_XXHASH64:
-            if (pDcCapabilities->checksum & DC_CAPS_XXHASH64 &&
-                capabilityReq.dir == CPA_DC_DIR_COMPRESS)
+            if (pDcCapabilities->checksum & DC_CAPS_XXHASH64)
             {
                 pCapabilityResp->boolStatus = CPA_TRUE;
             }
@@ -704,16 +694,17 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
             if (capabilityReq.dir == CPA_DC_DIR_COMPRESS &&
                 capabilityReq.algo != CPA_DC_LZ4S)
             {
-                dcGetHashChainingCapabilityStatus(pDcCapabilities,
-                                                  capabilityReq.algo,
-                                                  &pCapabilityResp->boolStatus);
+                result = dcGetHashChainingCapabilityStatus(
+                    pDcCapabilities,
+                    capabilityReq.algo,
+                    &pCapabilityResp->boolStatus);
             }
             break;
         case CPA_DC_CAP_BOOL_CHAIN_COMPRESS_THEN_AEAD:
             if (capabilityReq.dir == CPA_DC_DIR_COMPRESS &&
                 capabilityReq.algo != CPA_DC_LZ4S)
             {
-                dcGetCompAeadChainingCapabilityStatus(
+                result = dcGetCompAeadChainingCapabilityStatus(
                     pDcCapabilities,
                     capabilityReq.algo,
                     &pCapabilityResp->boolStatus);
@@ -723,7 +714,7 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
             if (capabilityReq.dir == CPA_DC_DIR_DECOMPRESS &&
                 capabilityReq.algo != CPA_DC_LZ4S)
             {
-                dcGetAeadDecompChainingCapabilityStatus(
+                result = dcGetAeadDecompChainingCapabilityStatus(
                     pDcCapabilities,
                     capabilityReq.algo,
                     &pCapabilityResp->boolStatus);
@@ -737,62 +728,59 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
             }
             break;
         case CPA_DC_CAP_BOOL_UNCOMPRESSED_DICT:
-            dcGetUncompDictSupportCapabilityStatus(
+            result = dcGetUncompDictSupportCapabilityStatus(
                 pDcCapabilities,
                 capabilityReq.algo,
                 dirMask,
                 &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_COMPRESSED_DICT:
-            dcGetCompDictSupportCapabilityStatus(pDcCapabilities,
-                                                 capabilityReq.algo,
-                                                 dirMask,
-                                                 &pCapabilityResp->boolStatus);
+            result = dcGetCompDictSupportCapabilityStatus(
+                pDcCapabilities,
+                capabilityReq.algo,
+                dirMask,
+                &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_ZERO_LENGTH_REQ:
             if (capabilityReq.dir == CPA_DC_DIR_COMPRESS)
             {
-                dcGetZeroLengthReqCapabilityStatus(
+                result = dcGetZeroLengthReqCapabilityStatus(
                     pDcCapabilities,
                     capabilityReq.algo,
                     &pCapabilityResp->boolStatus);
             }
             break;
         case CPA_DC_CAP_BOOL_PROGRAMMABLE_CRC64:
-            if (capabilityReq.dir == CPA_DC_DIR_COMPRESS)
-            {
-                dcGetPcrc64CapabilityStatus(pDcCapabilities,
-                                            capabilityReq.algo,
-                                            &pCapabilityResp->boolStatus);
-            }
+            result = dcGetPcrc64CapabilityStatus(pDcCapabilities,
+                                                 capabilityReq.algo,
+                                                 &pCapabilityResp->boolStatus);
             break;
         case CPA_DC_CAP_BOOL_ASB_ENABLE_PREFERRED:
             if (capabilityReq.dir == CPA_DC_DIR_COMPRESS)
             {
-                dcGetAsbEnablePrefCapabilityStatus(
+                result = dcGetAsbEnablePrefCapabilityStatus(
                     pDcCapabilities,
                     capabilityReq.algo,
                     &pCapabilityResp->boolStatus);
             }
             break;
         case CPA_DC_CAP_BOOL_CHAIN_PROGRAMMABLE_CRC64:
-            if (capabilityReq.dir == CPA_DC_DIR_COMPRESS)
-            {
+            result =
                 dcChainGetPcrc64CapabilityStatus(pDcCapabilities,
                                                  capabilityReq.algo,
                                                  &pCapabilityResp->boolStatus);
-            }
             break;
         case CPA_DC_CAP_BOOL_E2E_CRC_OVER_COMP_BLOCK:
-            dcGetCrcOverBlockCapabilityStatus(pExtendedFtrs,
-                                              capabilityReq.algo,
-                                              &pCapabilityResp->boolStatus);
+            result =
+                dcGetCrcOverBlockCapabilityStatus(pExtendedFtrs,
+                                                  capabilityReq.algo,
+                                                  &pCapabilityResp->boolStatus);
             break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Capability is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
     }
-    return CPA_STATUS_SUCCESS;
+    return result;
 }
 
 inline CpaStatus dcGetUncompDictSupportCapabilityStatus(
@@ -837,6 +825,15 @@ inline CpaStatus dcGetUncompDictSupportCapabilityStatus(
                 *pCapStatus = CPA_TRUE;
             }
             break;
+        case CPA_DC_ZSTD:
+            if ((pDcCapabilities->zstd.supported) &&
+                (pDcCapabilities->zstd.dictCompSupported) &&
+                ((pDcCapabilities->zstd.dirMask & dirMask) == dirMask) &&
+                (pDcCapabilities->zstd.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -872,6 +869,12 @@ inline CpaStatus dcGetZeroLengthReqCapabilityStatus(
             break;
         case CPA_DC_LZ4S:
             if (pDcCapabilities->lz4s.zerolengthRequests)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.zerolengthRequests)
             {
                 *pCapStatus = CPA_TRUE;
             }
@@ -914,6 +917,12 @@ inline CpaStatus dcGetPcrc64CapabilityStatus(dc_capabilities_t *pDcCapabilities,
                 *pCapStatus = CPA_TRUE;
             }
             break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.programmableCrc64)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -942,6 +951,12 @@ inline CpaStatus dcGetHashChainingCapabilityStatus(
             break;
         case CPA_DC_LZ4:
             if (pDcCapabilities->lz4.hashThenCompressSupported)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.hashThenCompressSupported)
             {
                 *pCapStatus = CPA_TRUE;
             }
@@ -978,6 +993,12 @@ inline CpaStatus dcGetCompAeadChainingCapabilityStatus(
                 *pCapStatus = CPA_TRUE;
             }
             break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.compressThenAeadSupported)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -1006,6 +1027,12 @@ inline CpaStatus dcGetAeadDecompChainingCapabilityStatus(
             break;
         case CPA_DC_LZ4:
             if (pDcCapabilities->lz4.aeadThenDecompressSupported)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.aeadThenDecompressSupported)
             {
                 *pCapStatus = CPA_TRUE;
             }

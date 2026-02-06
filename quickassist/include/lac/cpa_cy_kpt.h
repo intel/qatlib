@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -119,7 +67,7 @@ typedef Cpa64U CpaCyKptHandle;
  *      KPT APIs.
  *
  *****************************************************************************/
-typedef enum CpaCyKptKeyManagementStatus_t
+typedef enum
 {
     CPA_CY_KPT_SUCCESS = 0,
     /**< Generic success status for all KPT wrapping key handling functions */
@@ -154,7 +102,7 @@ typedef enum CpaCyKptKeyManagementStatus_t
  *      cpaCyKptQueryDeviceCredentials
  *
  *****************************************************************************/
-typedef struct CpaCyKptValidationKey_t
+typedef struct
 {
     CpaCyRsaPublicKey publicKey;
     /**< Key */
@@ -172,7 +120,7 @@ typedef struct CpaCyKptValidationKey_t
  *      This enumeration lists supported cipher algorithms and modes.
  *
  *****************************************************************************/
-typedef enum CpaCyKptWrappingKeyType_t
+typedef enum
 {
     CPA_CY_KPT_WRAPPING_KEY_TYPE_AES256_GCM = 0
 } CpaCyKptWrappingKeyType;
@@ -187,7 +135,7 @@ typedef enum CpaCyKptWrappingKeyType_t
  *      cpaCyKptLoadKey calls.
  *
  *****************************************************************************/
-typedef struct CpaCyKptLoadKey_t
+typedef struct
 {
     CpaFlatBuffer eSWK;
     /**< Encrypted SWK */
@@ -232,7 +180,7 @@ typedef struct CpaCyKptLoadKey_t
  *      information.
  *
  *****************************************************************************/
-typedef struct CpaCyKptUnwrapContext_t
+typedef struct
 {
     CpaCyKptHandle kptHandle;
     /**< This is application's unique handle that identifies its
@@ -289,7 +237,7 @@ typedef struct CpaCyKptUnwrapContext_t
  *      It is critical a unique nonce is used for each SWK encrypt operation.
  *
  *****************************************************************************/
-typedef struct CpaCyKptRsaPrivateKeyRep1_t
+typedef struct
 {
     CpaFlatBuffer privateKey;
     /**< The EncryptedRSAKey concatenated with AuthTag */
@@ -345,7 +293,7 @@ typedef struct CpaCyKptRsaPrivateKeyRep1_t
  * @note It is critical a unique nonce is used for each SWK encrypt operation.
  *
  *****************************************************************************/
-typedef struct CpaCyKptRsaPrivateKeyRep2_t
+typedef struct
 {
     CpaFlatBuffer privateKey;
     /**< RSA private key representation 2 is built up from the
@@ -365,7 +313,7 @@ typedef struct CpaCyKptRsaPrivateKeyRep2_t
  *      second representation results in faster decryption operations.
  *
  *****************************************************************************/
-typedef struct CpaCyKptRsaPrivateKey_t
+typedef struct
 {
     CpaCyRsaVersion version;
     /**< Indicates the version of the PKCS #1 specification that is
@@ -415,7 +363,7 @@ typedef struct CpaCyKptRsaPrivateKey_t
  *      first order, e.g. inputData.pData[0] = MSB.
  *
  *****************************************************************************/
-typedef struct CpaCyKptRsaDecryptOpData_t
+typedef struct
 {
     CpaCyKptRsaPrivateKey *pRecipientPrivateKey;
     /**< Pointer to the recipient's RSA private key. */
@@ -476,7 +424,7 @@ typedef struct CpaCyKptRsaDecryptOpData_t
  *      cpaCyEcdsaSignRS()
  *
  *****************************************************************************/
-typedef struct CpaCyKptEcdsaSignRSOpData_t
+typedef struct
 {
     CpaFlatBuffer privateKey;
     /**< Encrypted private key data of the form

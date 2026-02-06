@@ -1,63 +1,11 @@
 
 /******************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  *****************************************************************************/
 
@@ -84,6 +32,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <cpa_cy_sym.h>
+#include <cpa_dc.h>
 #include "openssl/sha.h"
 
 /**
@@ -125,12 +74,12 @@ typedef sem_t *sample_code_semaphore_t;
 #define CY_SYM_DP_NUM_BUFFERS (1000)
 
 #define CY_SYM_DP_NUM_LOOPS (100)
-#define CLI_OPT_LEN (25)
+#define CLI_OPT_LEN (50)
 #define RUN_ALL_TESTS (127)
 #define DEFAULT_SIGN_OF_LIFE (0)
 #define USE_V1_CONFIG_FILE (1)
 #define USE_V2_CONFIG_FILE (2)
-#define MAX_NUMOPT (16)
+#define MAX_NUMOPT (18)
 
 typedef struct option_s
 {
@@ -408,5 +357,103 @@ CpaStatus enableBackoffStatic(uint32_t numBusyLoops);
 *
 *****************************************************************************/
 void sample_code_wait_threads_arrived(Cpa32U sleepTimeout, Cpa32U maxRetries);
+
+/**
+ *****************************************************************************
+ * @ingroup sampleCode
+ *      sampleCodeDynamicPoll
+ *
+ * @description
+ *      Performs dynamic polling on a QAT instance with automatic mode
+ *      switching between event-driven (epoll) and traditional polling modes.
+ *      The function monitors the instance's response mode at runtime and
+ *      adapts the polling mechanism accordingly for optimal performance.
+ *
+ * @param[in] instanceHandle - Handle to the QAT acceleration instance
+ * @param[in] serviceType    - Type of acceleration service (CRYPTO_SYM,
+ *                             CRYPTO_ASYM, DATA_COMPRESSION, or
+ *                             DATA_DECOMPRESSION)
+ *
+ * @retval
+ *     none
+ *
+ * @pre
+ *      Instance must be initialized and started
+ * @post
+ *      Polling thread runs until service is stopped
+ *
+ *****************************************************************************/
+void sampleCodeDynamicPoll(CpaInstanceHandle instanceHandle,
+                           CpaAccelerationServiceType serviceType);
+
+
+/**
+ *****************************************************************************
+ * @ingroup sampleCode
+ *      sampleCodeDcDynamicPollWrapper
+ *
+ * @description
+ *      Thread wrapper function for Data Compression dynamic polling.
+ *      This function is designed to be used as a pthread entry point and
+ *      calls the service-specific DC dynamic polling implementation.
+ *
+ * @param[in] instanceHandle - Pointer to CpaInstanceHandle for DC service
+ *
+ * @retval
+ *     none (void* for pthread compatibility)
+ *
+ * @pre
+ *      DC instance must be initialized
+ * @post
+ *      Polling continues until DC service is stopped
+ *
+ *****************************************************************************/
+void sampleCodeDcDynamicPollWrapper(void* instanceHandle);
+
+/**
+ *****************************************************************************
+ * @ingroup sampleCode
+ *      sampleCodeSymDynamicPollWrapper
+ *
+ * @description
+ *      Thread wrapper function for Crypto Symmetric dynamic polling.
+ *      This function is designed to be used as a pthread entry point and
+ *      calls the generic dynamic polling implementation for symmetric crypto.
+ *
+ * @param[in] instanceHandle - Pointer to CpaInstanceHandle for CY SYM service
+ *
+ * @retval
+ *     none (void* for pthread compatibility)
+ *
+ * @pre
+ *      CY SYM instance must be initialized
+ * @post
+ *      Polling continues until CY service is stopped
+ *
+ *****************************************************************************/
+void sampleCodeSymDynamicPollWrapper(void* instanceHandle);
+
+/**
+ *****************************************************************************
+ * @ingroup sampleCode
+ *      sampleCodeAsymDynamicPollWrapper
+ *
+ * @description
+ *      Thread wrapper function for Crypto Asymmetric dynamic polling.
+ *      This function is designed to be used as a pthread entry point and
+ *      calls the generic dynamic polling implementation for asymmetric crypto.
+ *
+ * @param[in] instanceHandle - Pointer to CpaInstanceHandle for CY ASYM service
+ *
+ * @retval
+ *     none (void* for pthread compatibility)
+ *
+ * @pre
+ *      CY ASYM instance must be initialized
+ * @post
+ *      Polling continues until CY service is stopped
+ *
+ *****************************************************************************/
+void sampleCodeAsymDynamicPollWrapper(void* instanceHandle);
 
 #endif

@@ -3,7 +3,7 @@
 #
 #   BSD LICENSE
 # 
-#   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
+#   Copyright(c) 2007-2026 Intel Corporation. All rights reserved.
 #   All rights reserved.
 # 
 #   Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,8 @@
 #   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
+#   These contents may have been developed with support from one or more
+#   Intel-operated generative artificial intelligence solutions.
 #
 #################################################################
 

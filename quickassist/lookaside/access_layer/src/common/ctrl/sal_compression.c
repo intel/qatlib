@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -321,18 +269,6 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     pCompressionService->isPolled =
         (Cpa8U)Sal_Strtoul(adfGetParam, NULL, SAL_CFG_BASE_DEC);
 
-#ifdef KERNEL_SPACE
-    /* Kernel instances do not support epoll mode */
-    if (SAL_RESP_EPOLL_CFG_FILE == pCompressionService->isPolled)
-    {
-        LAC_LOG_ERROR_PARAMS(
-            "IsPolled %u is not supported for kernel instance %s",
-            pCompressionService->isPolled,
-            temp_string);
-        return CPA_STATUS_FAIL;
-    }
-#endif
-#ifndef KERNEL_SPACE
     /* User instances only support poll and epoll mode */
     if (SAL_RESP_POLL_CFG_FILE != pCompressionService->isPolled &&
         SAL_RESP_EPOLL_CFG_FILE != pCompressionService->isPolled)
@@ -343,7 +279,6 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
                              temp_string);
         return CPA_STATUS_FAIL;
     }
-#endif
 
     status = icp_adf_cfgGetParamValue(
         device, LAC_CFG_SECTION_GENERAL, ADF_DEV_PKG_ID, adfGetParam);
@@ -367,35 +302,15 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     pCompressionService->nodeAffinity =
         (Cpa32U)Sal_Strtoul(adfGetParam, NULL, SAL_CFG_BASE_DEC);
 
-    /* In case of interrupt instance, use the bank affinity set by adf_ctl
-     * Otherwise, use the instance affinity for backwards compatibility */
-    if (SAL_RESP_POLL_CFG_FILE != pCompressionService->isPolled)
-    {
-        /* Next need to read the [AcceleratorX] section of the config file */
-        status = Sal_StringParsing(SAL_CFG_ACCEL_SEC,
-                                   pCompressionService->acceleratorNum,
-                                   "",
-                                   temp_string2);
-        LAC_CHECK_STATUS(status);
+    strSize = snprintf(temp_string2, sizeof(temp_string2), "%s", section);
+    LAC_CHECK_PARAM_RANGE(strSize, 1, sizeof(temp_string2));
 
-        status = Sal_StringParsing(SAL_CFG_ETRMGR_BANK,
-                                   bankNum,
-                                   SAL_CFG_ETRMGR_CORE_AFFINITY,
-                                   temp_string);
-        LAC_CHECK_STATUS(status);
-    }
-    else
-    {
-        strSize = snprintf(temp_string2, sizeof(temp_string2), "%s", section);
-        LAC_CHECK_PARAM_RANGE(strSize, 1, sizeof(temp_string2));
-
-        status = Sal_StringParsing(
-            serviceName,
-            pCompressionService->generic_service_info.instance,
-            SAL_CFG_ETRMGR_CORE_AFFINITY,
-            temp_string);
-        LAC_CHECK_STATUS(status);
-    }
+    status =
+        Sal_StringParsing(serviceName,
+                          pCompressionService->generic_service_info.instance,
+                          SAL_CFG_ETRMGR_CORE_AFFINITY,
+                          temp_string);
+    LAC_CHECK_STATUS(status);
 
     status = icp_adf_cfgGetParamValue(
         device, temp_string2, temp_string, adfGetParam);
@@ -767,7 +682,6 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
     pCompressionService->pDcChainService = NULL;
 
 #ifndef ICP_DC_ONLY
-#ifndef KERNEL_SPACE
     /* Only init Chaining service if loaded FW supports chaining */
     if ((CHAINING_CAPABILITY_MASK & device->dcExtendedFeatures) &&
         (SAL_SERVICE_TYPE_COMPRESSION ==
@@ -787,7 +701,6 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
             goto cleanup;
         }
     }
-#endif
 #endif
 
     pCompressionService->generic_service_info.state =
@@ -809,6 +722,8 @@ cleanup:
     {
         Lac_MemPoolDestroy(*poolID);
     }
+
+    dcStatsFree(pCompressionService);
 
     SalCtrl_DcDebugShutdown(device, service);
 
@@ -882,6 +797,12 @@ CpaStatus SalCtrl_CompressionShutdown(icp_accel_dev_t *device,
     {
         LAC_LOG_ERROR("Not in the correct state to call shutdown");
         return CPA_STATUS_FAIL;
+    }
+
+    if (pCompressionService->generic_service_info.virt2PhysClient)
+    {
+        osalMemFree(pCompressionService->generic_service_info.virt2PhysClient);
+        pCompressionService->generic_service_info.virt2PhysClient = NULL;
     }
 
     if (SAL_SERVICE_TYPE_COMPRESSION == service->type)
@@ -1160,7 +1081,6 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
     pCompressionService->pDcChainService = NULL;
 
 #ifndef ICP_DC_ONLY
-#ifndef KERNEL_SPACE
     /* Only init Chaining service if loaded FW supports chaining */
     if ((CHAINING_CAPABILITY_MASK & device->dcExtendedFeatures))
     {
@@ -1178,7 +1098,6 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
             goto cleanup;
         }
     }
-#endif
 #endif
 
     pCompressionService->generic_service_info.dcExtendedFeatures =
@@ -1619,15 +1538,6 @@ CpaStatus cpaDcStopInstance(CpaInstanceHandle instanceHandle)
     LAC_CHECK_NULL_PARAM(insHandle);
     pService = (sal_compression_service_t *)insHandle;
 
-    /* Free Intermediate Buffer Pointers Array */
-    if (pService->pInterBuffPtrsArray != NULL)
-    {
-        LAC_OS_CAFREE(pService->pInterBuffPtrsArray);
-        pService->pInterBuffPtrsArray = 0;
-    }
-
-    pService->pInterBuffPtrsArrayPhyAddr = 0;
-
     dev = icp_adf_getAccelDevByAccelId(pService->acceleratorNum);
     if (NULL == dev)
     {
@@ -1639,6 +1549,16 @@ CpaStatus cpaDcStopInstance(CpaInstanceHandle instanceHandle)
 
     /* Decrement dev ref counter */
     icp_adf_qaDevPut(dev);
+
+    /* Free Intermediate Buffer Pointers Array */
+    if (pService->pInterBuffPtrsArray != NULL)
+    {
+        LAC_OS_CAFREE(pService->pInterBuffPtrsArray);
+        pService->pInterBuffPtrsArray = 0;
+    }
+
+    pService->pInterBuffPtrsArrayPhyAddr = 0;
+
     return CPA_STATUS_SUCCESS;
 }
 
@@ -1663,6 +1583,7 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     CpaStatus status = CPA_STATUS_SUCCESS;
     char keyStr[ADF_CFG_MAX_KEY_LEN_IN_BYTES] = { '\0' };
     char valStr[CPA_INST_NAME_SIZE] = { '\0' };
+    char valStrInstName[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = { '\0' };
     char *section = NULL;
     char *serviceName = NULL;
     Cpa32S strSize = 0;
@@ -1700,8 +1621,8 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
     snprintf((char *)pInstanceInfo2->swVersion,
              CPA_INST_SW_VERSION_SIZE,
              "Version %d.%d",
-             SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER,
-             SAL_INFO2_DRIVER_SW_VERSION_MIN_NUMBER);
+             QAT_LIBRARY_VERSION_MAJOR,
+             QAT_LIBRARY_VERSION_MINOR);
     pInstanceInfo2->swVersion[CPA_INST_SW_VERSION_SIZE - 1] = '\0';
 
     /* Note we can safely read the contents of the compression service instance
@@ -1778,16 +1699,21 @@ CpaStatus cpaDcInstanceGetInfo2(const CpaInstanceHandle instanceHandle,
                           SAL_CFG_NAME,
                           keyStr);
     LAC_CHECK_STATUS(status);
-    status = icp_adf_cfgGetParamValue(dev, section, keyStr, valStr);
+    status = icp_adf_cfgGetParamValue(dev, section, keyStr, valStrInstName);
+
     LAC_CHECK_STATUS(status);
 
-    strSize = strnlen(valStr, sizeof(valStr));
+    strSize = strnlen(valStrInstName, sizeof(valStrInstName));
     LAC_CHECK_PARAM_RANGE(strSize, 1, CPA_INST_NAME_SIZE);
     snprintf((char *)pInstanceInfo2->instName,
              CPA_INST_NAME_SIZE,
              "%.*s",
              CPA_INST_NAME_SIZE - 1,
-             valStr);
+             valStrInstName);
+
+    /* Copy valStrInstName to valStr for safe instID concatenation */
+    strncpy(valStr, valStrInstName, CPA_INST_NAME_SIZE - 1);
+    valStr[CPA_INST_NAME_SIZE - 1] = '\0';
 
     strSize = strnlen(valStr, sizeof(valStr)) +
               strnlen(section, LAC_USER_PROCESS_NAME_MAX_LEN) + 1;
@@ -2075,7 +2001,7 @@ CpaStatus cpaDcSetAddressTranslation(const CpaInstanceHandle instanceHandle,
 
     pService = (sal_service_t *)insHandle;
 
-    pService->virt2PhysClient = virtual2Physical;
+    *(pService->virt2PhysClient) = virtual2Physical;
 
     return CPA_STATUS_SUCCESS;
 }

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([qatlib], [25.08.0], [qat-linux@intel.com])
+AC_INIT([qatlib], [26.02.0], [qat-linux@intel.com])
 AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects tar-pax])
 
 AM_SILENT_RULES([yes])
@@ -11,8 +11,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AC_SUBST([LIBQAT_VERSION], [8:0:4])
-AC_SUBST([LIBUSDM_VERSION], [1:2:1])
+AC_SUBST([LIBQAT_VERSION], [9:0:5])
+AC_SUBST([LIBUSDM_VERSION], [2:0:2])
 
 # Checks for programs.
 AC_PROG_AWK
@@ -328,11 +328,20 @@ AC_ARG_ENABLE(treat-crc-from-comp-engine-as-error,
 )
 AM_CONDITIONAL([TREAT_CRC_FROM_COMP_ENGINE_AS_ERROR_AC], [test x$treat_crc_from_comp_engine_as_error = xtrue])
 
+# Udev rules directory (allow user override, default: ${prefix}/lib/udev/rules.d)
+AC_ARG_WITH([udevrulesdir],
+    AS_HELP_STRING([--with-udevrulesdir=DIR],[Location to install QAT udev rules (default: ${prefix}/lib/udev/rules.d)]),
+    [udevrulesdir="$withval"],
+    [udevrulesdir='${prefix}/lib/udev/rules.d'])
+#AC_MSG_NOTICE([QAT udev rules will install to: $udevrulesdir])
+AC_SUBST([UDEVRULESDIR], [$udevrulesdir])
+
 # Config files.
 AC_CONFIG_FILES([Makefile qatlib.spec qatlib.pc libqat.pc libusdm.pc])
 if test x$enable_systemd != xno
 then
     AC_CONFIG_FILES([quickassist/utilities/service/qat.service quickassist/utilities/service/qat_init.sh])
+    AC_CONFIG_FILES([quickassist/utilities/service/99-qat-vfio.rules])
 fi
 
 # Substitutions in spec file

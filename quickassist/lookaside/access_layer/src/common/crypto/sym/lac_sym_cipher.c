@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -123,6 +71,7 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
     lac_session_desc_t *pSessionDesc =
         LAC_SYM_SESSION_DESC_FROM_CTX_GET(pOpData->sessionCtx);
     CpaCySymCipherAlgorithm algorithm = pSessionDesc->cipherAlgorithm;
+    CpaBoolean isGcm = LAC_CIPHER_IS_GCM(algorithm);
 #ifdef ICP_PARAM_CHECK
     unsigned ivLenInBytes = 0;
 #endif
@@ -149,7 +98,7 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
             if (pOpData->ivLenInBytes != ivLenInBytes)
             {
                 /* GCM with 12 byte IV is supported */
-                if (!((LAC_CIPHER_IS_GCM(algorithm) &&
+                if (!((isGcm &&
                        pOpData->ivLenInBytes == LAC_CIPHER_IV_SIZE_GCM_12) ||
                       LAC_CIPHER_IS_CCM(algorithm)))
                 {
@@ -397,7 +346,7 @@ CpaStatus LacCipher_SessionSetupDataCheck(
                 }
                 break;
             case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
-                /* QAT-FW only supports 256 bits Cipher Key size for Snow_3G */
+                /* QAT-FW supports 128 bits cipher key size for snow_3G */
                 if (pCipherSetupData->cipherKeyLenInBytes !=
                     ICP_QAT_HW_SNOW_3G_UEA2_KEY_SZ)
                 {
@@ -527,21 +476,22 @@ Cpa32U LacCipher_GetCipherSliceType(sal_service_t *pService,
     Cpa32U sliceType = ICP_QAT_FW_LA_USE_LEGACY_SLICE_TYPE;
     Cpa32U capabilitiesMask = pService->capabilitiesMask;
 
-    if (LAC_CIPHER_IS_XTS_MODE(cipherAlgorithm) ||
-        LAC_CIPHER_IS_CHACHA(cipherAlgorithm) ||
-        LAC_CIPHER_IS_GCM(cipherAlgorithm))
+    switch (cipherAlgorithm)
     {
-        sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
-    }
-    else if (LAC_CIPHER_IS_CCM(cipherAlgorithm) &&
-             LAC_CIPHER_AES_V2(capabilitiesMask))
-    {
-        sliceType = ICP_QAT_FW_LA_USE_LEGACY_SLICE_TYPE;
-    }
-    else if (LAC_CIPHER_IS_AES(cipherAlgorithm) &&
-             LAC_CIPHER_IS_CTR_MODE(cipherAlgorithm))
-    {
-        sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
+        case CPA_CY_SYM_CIPHER_AES_XTS:
+        case CPA_CY_SYM_CIPHER_CHACHA:
+        case CPA_CY_SYM_CIPHER_AES_GCM:
+        case CPA_CY_SYM_CIPHER_AES_CTR:
+            sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
+            break;
+        case CPA_CY_SYM_CIPHER_AES_CCM:
+            if (!LAC_CIPHER_AES_V2(capabilitiesMask))
+            {
+                sliceType = ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
+            }
+            break;
+        default:
+            break;
     }
 
     return sliceType;

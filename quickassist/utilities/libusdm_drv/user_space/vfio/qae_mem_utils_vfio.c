@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 /**
@@ -97,11 +45,23 @@ void *cache_pid = NULL;
 #define FIRST_IOVA IOVA_SLAB_SIZE
 #define NUM_IOVA_SLABS (1 << (IOVA_BITS - SLAB_BITS))
 #define MAX_IOVA ((1ll << IOVA_BITS) - IOVA_SLAB_SIZE)
+/* Maximum size for qaeMemMapContiguousIova: 2GB */
+#define QAE_IOVA_MAP_MAX_SIZE (2UL * 1024 * 1024 * 1024)
 
 #ifdef ICP_THREAD_SPECIFIC_USDM
 /* Needed to protect iova allocation for GEN2 devices */
 pthread_mutex_t iova_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif /* ICP_THREAD_SPECIFIC_USDM */
+
+#ifndef ICP_WITHOUT_THREAD
+#ifndef ICP_THREAD_SPECIFIC_USDM
+/*
+ * This is the lock used to protect qaeMemAllocNUMA() and qaeMemFreeNUMA()
+ * functions and it is declared in qae_mem_common.c
+ */
+extern pthread_mutex_t mutex;
+#endif
+#endif
 
 #define E_NOIOMMU_MODE "/sys/module/vfio/parameters/enable_unsafe_noiommu_mode"
 
@@ -226,18 +186,19 @@ static int vfio_noiommu_enabled(void)
 {
     int fd, cnt;
     char enabled;
+    int ret = 0;
 
     fd = qae_open(E_NOIOMMU_MODE, O_RDONLY);
     if (fd < 0)
     {
-        CMD_ERROR(
+        CMD_DEBUG(
             "%s():%d could not open %s\n", __func__, __LINE__, E_NOIOMMU_MODE);
         return 0;
     }
 
     cnt = qae_read(fd, &enabled, 1);
     if (cnt == 1 &&  enabled == 'Y')
-        return 1;
+        ret = 1;
 
     if (qae_close(fd))
     {
@@ -245,7 +206,7 @@ static int vfio_noiommu_enabled(void)
             "%s():%d could not close %s\n", __func__, __LINE__, E_NOIOMMU_MODE);
     }
 
-    return 0;
+    return ret;
 }
 
 inline int dma_map_slab(const void *virt,
@@ -1010,3 +971,262 @@ int qaeUnregisterDevice(int fd)
     return ret;
 }
 #endif /* ICP_THREAD_SPECIFIC_USDM */
+
+uint64_t qaeMemMapContiguousIova(void *virt, size_t size)
+{
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    UNUSED(virt);
+    UNUSED(size);
+
+    CMD_DEBUG("%s:%d is not supported in thread-specific mode\n",
+              __func__, __LINE__);
+
+    return 0;
+#else
+    uint64_t iova;
+    int ret = 0;
+
+    /* Validate virtual address */
+    if (virt == NULL)
+    {
+        CMD_DEBUG("%s:%d NULL virtual address provided\n",
+                  __func__, __LINE__);
+        return 0;
+    }
+
+    /* Validate size: must be > 0 and <= 2GB */
+    if (size == 0 || size > QAE_IOVA_MAP_MAX_SIZE)
+    {
+        CMD_DEBUG("%s:%d Invalid size=%u. Must be > 0, multiple of %lu, "
+                  "and <= 2GB\n", __func__, __LINE__, size, PAGE_SIZE);
+        return 0;
+    }
+
+    /*
+     * Validate virtual address alignment based on page granularity.
+     * When hugepages are enabled (2MB granularity), the page table stores
+     * entries in 2MB chunks. Virtual addresses must be 2MB-aligned to ensure
+     * store_mmap_range() correctly maps the entire range. With 4KB granularity,
+     * any 4KB-aligned address works.
+     */
+    if (__qae_hugepage_enabled())
+    {
+        if ((uintptr_t)virt & (HUGEPAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Virtual address %p must be 2MB-aligned when "
+                      "hugepages are enabled\n", __func__, __LINE__, virt);
+            return 0;
+        }
+        if (size & (HUGEPAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Size=%u must be 2MB-aligned when hugepages "
+                      "are enabled\n", __func__, __LINE__, size);
+            return 0;
+        }
+    }
+    else
+    {
+        if ((uintptr_t)virt & (PAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Virtual address %p must be 4KB-aligned\n",
+                      __func__, __LINE__, virt);
+            return 0;
+        }
+        if (size & (PAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Size=%u must be 4KB-aligned\n",
+                       __func__, __LINE__, size);
+            return 0;
+        }
+    }
+
+    /* Fail if in no-IOMMU mode - requires IOMMU for DMA mapping */
+    if (g_noiommu_enabled)
+    {
+        CMD_DEBUG("%s:%d Cannot map IOVA in no-IOMMU mode\n",
+                  __func__, __LINE__);
+        return 0;
+    }
+
+    /* Fail if VFIO container is not registered */
+    if (vfio_container_fd < 0)
+    {
+        CMD_DEBUG("%s:%d VFIO container not registered. "
+                  "Call qaeRegisterDevice() first.\n",
+                  __func__, __LINE__);
+        return 0;
+    }
+
+    ret = mem_mutex_lock(&mutex);
+    if (unlikely(ret))
+    {
+        CMD_DEBUG("%s:%d Error on mutex lock %s\n",
+                  __func__, __LINE__, strerror(ret));
+        return 0;
+    }
+
+    /* Allocate IOVA address space with IOVA_SLAB_SIZE alignment */
+    iova = allocate_iova(size, IOVA_SLAB_SIZE);
+    if (!iova)
+    {
+        CMD_DEBUG("%s:%d Failed to allocate IOVA for size=%u. "
+                  "IOVA space may be fragmented.\n",
+                  __func__, __LINE__, size);
+        goto error;
+    }
+
+    /* Map the virtual address to the allocated IOVA */
+    if (dma_map_slab(virt, iova, size))
+    {
+        CMD_DEBUG("%s:%d Failed to DMA map virt=%p to iova=0x%lx size=%u\n",
+                  __func__, __LINE__, virt, (unsigned long)iova, size);
+        iova_release(iova, size);
+        iova = 0;
+        goto error;
+    }
+
+    /*
+     * Register the mapping in the page table for qaeVirtToPhysNUMA support.
+     * We must use the same granularity as the global load_addr_fptr function
+     * expects. If hugepages are enabled system-wide, load_addr_fptr points
+     * to load_addr_hpg which expects 2MB entries. If disabled, it points to
+     * load_addr which expects 4KB entries.
+     */
+    store_mmap_range(&g_page_table, virt, iova, size, __qae_hugepage_enabled());
+
+error:
+    ret = mem_mutex_unlock(&mutex);
+    if (unlikely(ret))
+    {
+        CMD_DEBUG("%s:%d Error on mutex unlock %s\n",
+                  __func__, __LINE__, strerror(ret));
+    }
+
+    return iova;
+#endif
+}
+
+int qaeMemUnmapContiguousIova(void *virt, size_t size)
+{
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    UNUSED(virt);
+    UNUSED(size);
+
+    CMD_DEBUG("%s:%d is not supported in thread-specific mode\n",
+              __func__, __LINE__);
+
+    return 1;
+#else
+    int mutex_ret = 0;
+    uint64_t iova;
+    int ret = 0;
+
+    /* Validate virtual address */
+    if (virt == NULL)
+    {
+        CMD_DEBUG("%s:%d NULL virtual address provided\n",
+                  __func__, __LINE__);
+        return 1;
+    }
+
+    /* Validate size: must be > 0 and <= 2GB */
+    if (size == 0 || size > QAE_IOVA_MAP_MAX_SIZE)
+    {
+        CMD_DEBUG("%s:%d Invalid size=%u. Must be > 0, multiple of %lu, "
+                  "and <= 2GB\n", __func__, __LINE__, size, PAGE_SIZE);
+        return 1;
+    }
+
+    /* Validate virtual address alignment based on page granularity */
+    if (__qae_hugepage_enabled())
+    {
+        if ((uintptr_t)virt & (HUGEPAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Virtual address %p must be 2MB-aligned when "
+                      "hugepages are enabled\n", __func__, __LINE__, virt);
+            return 1;
+        }
+        if (size & (HUGEPAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Size=%u must be 2MB-aligned when hugepages "
+                      "are enabled\n", __func__, __LINE__, size);
+            return 1;
+        }
+    }
+    else
+    {
+        if ((uintptr_t)virt & (PAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Virtual address %p must be 4KB-aligned\n",
+                      __func__, __LINE__, virt);
+            return 1;
+        }
+        if (size & (PAGE_SIZE - 1))
+        {
+            CMD_DEBUG("%s:%d Size=%u must be 4KB-aligned\n",
+                       __func__, __LINE__, size);
+            return 1;
+        }
+    }
+
+    /* Fail if in no-IOMMU mode */
+    if (g_noiommu_enabled)
+    {
+        CMD_DEBUG("%s:%d Cannot unmap IOVA in no-IOMMU mode\n",
+                  __func__, __LINE__);
+        return 1;
+    }
+
+    mutex_ret = mem_mutex_lock(&mutex);
+    if (unlikely(mutex_ret))
+    {
+        CMD_DEBUG("%s:%d Error on mutex lock %s\n",
+                  __func__, __LINE__, strerror(mutex_ret));
+        return 1;
+    }
+
+    /* Lookup the IOVA from the page table using the virtual address */
+    iova = qaeVirtToPhysNUMA(virt);
+    if (iova == 0)
+    {
+        CMD_DEBUG("%s:%d Could not find IOVA for virt=%p\n",
+                  __func__, __LINE__, virt);
+        ret = 1;
+        goto exit;
+    }
+
+    /* Align IOVA to slab boundary for release */
+    iova = iova & ~(IOVA_SLAB_SIZE - 1);
+
+    /*
+     * Clear the page table entries for qaeVirtToPhysNUMA.
+     * Use the same granularity as when we stored the mapping.
+     */
+    store_mmap_range(&g_page_table, virt, 0, size, __qae_hugepage_enabled());
+
+    /* Unmap from IOMMU if container is active */
+    if (vfio_container_fd >= 0)
+    {
+        ret = dma_unmap_slab(iova, size);
+        if (ret)
+        {
+            CMD_DEBUG("%s:%d Failed to DMA unmap iova=0x%lx size=%u\n",
+                      __func__, __LINE__, (unsigned long)iova, size);
+            /* Continue to release IOVA even on unmap failure */
+        }
+    }
+
+    /* Release the IOVA address space */
+    iova_release(iova, size);
+
+exit:
+    mutex_ret = mem_mutex_unlock(&mutex);
+    if (unlikely(mutex_ret))
+    {
+        CMD_DEBUG("%s:%d Error on mutex unlock %s\n",
+                  __func__, __LINE__, strerror(mutex_ret));
+    }
+
+    return ret;
+#endif
+}

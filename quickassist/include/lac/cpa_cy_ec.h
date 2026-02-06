@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -184,7 +132,7 @@ extern "C" {
  *        arithmetic is implemented in terms of operations on the bits.</li>
  *      </ul>
  *****************************************************************************/
-typedef enum _CpaCyEcFieldType
+typedef enum
 {
     CPA_CY_EC_FIELD_TYPE_PRIME = 1,
     /**< A prime field, GF(p) */
@@ -208,7 +156,7 @@ typedef enum _CpaCyEcFieldType
  *      cpaCyEcGenericPointVerify()
  *
  *****************************************************************************/
-typedef enum _CpaCyEcCurveType
+typedef enum
 {
     CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_PRIME = 1,
     /**< A Weierstrass curve with arithmetic in terms of the
@@ -233,7 +181,7 @@ typedef enum _CpaCyEcCurveType
  *      edwards25519 and edwards448
  *
  *****************************************************************************/
-typedef enum _CpaCyEcMontEdwdsCurveType
+typedef enum
 {
     CPA_CY_EC_MONTEDWDS_CURVE25519_TYPE = 1,
     /**< Montgomery 25519 curve */
@@ -271,7 +219,7 @@ typedef enum _CpaCyEcMontEdwdsCurveType
  *      CpaCyEcFieldType
  *
  *****************************************************************************/
-typedef struct _CpaCyEcCurveParametersWeierstrass
+typedef struct
 {
     CpaCyEcFieldType fieldType;
     /**< Prime or Binary */
@@ -301,7 +249,7 @@ typedef struct _CpaCyEcCurveParametersWeierstrass
  *      CpaCyEcCurveParametersWeierstrass
  *
  *****************************************************************************/
-typedef union _CpaCyEcCurveParameters {
+typedef union {
     CpaCyEcCurveParametersWeierstrass weierstrassParameters;
 } CpaCyEcCurveParameters;
 
@@ -335,7 +283,7 @@ typedef union _CpaCyEcCurveParameters {
  *      cpaCyEcGenericPointVerify
  *
  *****************************************************************************/
-typedef struct _CpaCyEcCurve
+typedef struct
 {
     CpaCyEcCurveType curveType;
     CpaCyEcCurveParameters parameters;
@@ -369,7 +317,7 @@ typedef struct _CpaCyEcCurve
  *      cpaCyEcPointMultiply()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcPointMultiplyOpData
+typedef struct
 {
     CpaFlatBuffer k;
     /**< scalar multiplier  (k > 0 and k < n) */
@@ -421,7 +369,7 @@ typedef struct _CpaCyEcPointMultiplyOpData
  *      cpaCyEcGenericPointMultiply()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcGenericPointMultiplyOpData
+typedef struct
 {
     CpaFlatBuffer k;
     /** <scalar multiplier  (k > 0 and k < n) */
@@ -465,7 +413,7 @@ typedef struct _CpaCyEcGenericPointMultiplyOpData
  *      cpaCyEcGenericPointVerify()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcGenericPointVerifyOpData
+typedef struct
 {
     CpaFlatBuffer xP;
     /** <x coordinate of public key */
@@ -509,7 +457,7 @@ typedef struct _CpaCyEcGenericPointVerifyOpData
  *      cpaCyEcMontEdwdsPointMultiply()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcMontEdwdsPointMultiplyOpData
+typedef struct
 {
     CpaCyEcMontEdwdsCurveType curveType;
     /**< field type for the operation */
@@ -520,13 +468,12 @@ typedef struct _CpaCyEcMontEdwdsPointMultiplyOpData
     /**< k scalar multiplier for the operation */
     CpaFlatBuffer x;
     /**< x value.  Used in scalar variable point multiplication operations.
-     * Not required if the generator is True. Must be NULL if not required.
+     * Not required if the generator is True.
      * The size of the buffer MUST be 32B for 25519 curves and 64B for 448
      * curves */
     CpaFlatBuffer y;
     /**< y value.  Used in variable point multiplication of operations.
      * Not required if the generator is True.
-     * Must be NULL if not required.
      * The size of the buffer MUST be 32B for 25519 curves and 64B for 448
      * curves */
 } CpaCyEcMontEdwdsPointMultiplyOpData;
@@ -559,7 +506,7 @@ typedef struct _CpaCyEcMontEdwdsPointMultiplyOpData
  *      cpaCyEcPointVerify()
  *
  *****************************************************************************/
-typedef struct _CpaCyEcPointVerifyOpData
+typedef struct
 {
     CpaFlatBuffer xq;
     /**< x coordinate candidate point */
@@ -586,7 +533,7 @@ typedef struct _CpaCyEcPointVerifyOpData
  *      initialized, and are collected per instance.
  *
  ****************************************************************************/
-typedef struct _CpaCyEcStats64
+typedef struct
 {
     Cpa64U numEcPointMultiplyRequests;
     /**< Total number of EC Point Multiplication operation requests. */

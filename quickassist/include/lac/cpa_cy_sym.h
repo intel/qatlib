@@ -1,62 +1,10 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -127,7 +75,7 @@ typedef void *CpaCySymSessionCtx;
  *      cpaCySymPerformOp()
  *
  *****************************************************************************/
-typedef enum _CpaCySymPacketType
+typedef enum
 {
     CPA_CY_SYM_PACKET_TYPE_FULL = 1,
     /**< Perform an operation on a full packet*/
@@ -151,7 +99,7 @@ typedef enum _CpaCySymPacketType
  * @see
  *      cpaCySymPerformOp
  *****************************************************************************/
-typedef enum _CpaCySymOp
+typedef enum
 {
     CPA_CY_SYM_OP_NONE = 0,
     /**< No operation */
@@ -179,7 +127,7 @@ typedef enum _CpaCySymOp
  *      This enumeration lists supported cipher algorithms and modes.
  *
  *****************************************************************************/
-typedef enum _CpaCySymCipherAlgorithm
+typedef enum
 {
     CPA_CY_SYM_CIPHER_NULL = 1,
     /**< NULL cipher algorithm. No mode applies to the NULL algorithm. */
@@ -264,7 +212,7 @@ typedef enum _CpaCySymCipherAlgorithm
  *      This enum indicates the cipher direction (encryption or decryption).
  *
  *****************************************************************************/
-typedef enum _CpaCySymCipherDirection
+typedef enum
 {
     CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT = 1,
     /**< Encrypt Data */
@@ -282,7 +230,7 @@ typedef enum _CpaCySymCipherDirection
  *      the cipher key in addition to other cipher related data.
  *
  *****************************************************************************/
-typedef struct _CpaCySymDeriveOpData
+typedef struct
 {
     Cpa8U *pContext;
     /**< Pointer to Context structure */
@@ -299,7 +247,7 @@ typedef struct _CpaCySymDeriveOpData
  *      Decryption) to setup a session.
  *
  *****************************************************************************/
-typedef struct _CpaCySymCipherSetupData
+typedef struct
 {
     CpaCySymCipherAlgorithm cipherAlgorithm;
     /**< Cipher algorithm and mode */
@@ -344,7 +292,7 @@ typedef struct _CpaCySymCipherSetupData
  *      This enum indicates the Hash Mode.
  *
  *****************************************************************************/
-typedef enum _CpaCySymHashMode
+typedef enum
 {
     CPA_CY_SYM_HASH_MODE_PLAIN = 1,
     /**< Plain hash.  Can be specified for MD5 and the SHA family of
@@ -368,7 +316,7 @@ typedef enum _CpaCySymHashMode
  *      This enumeration lists supported hash algorithms.
  *
  *****************************************************************************/
-typedef enum _CpaCySymHashAlgorithm
+typedef enum
 {
     CPA_CY_SYM_HASH_NONE = 0,
     /**< No hash algorithm. */
@@ -487,7 +435,7 @@ typedef enum _CpaCySymHashAlgorithm
  *      CPA_CY_SYM_HASH_MODE_NESTED mode.
  *
  *****************************************************************************/
-typedef struct _CpaCySymHashNestedModeSetupData
+typedef struct
 {
     Cpa8U *pInnerPrefixData;
     /**< A pointer to a buffer holding the Inner Prefix data. For optimal
@@ -519,7 +467,7 @@ typedef struct _CpaCySymHashNestedModeSetupData
  *      CPA_CY_SYM_HASH_MODE_AUTH mode.
  *
  *****************************************************************************/
-typedef struct _CpaCySymHashAuthModeSetupData
+typedef struct
 {
     Cpa8U *authKey;
     /**< Authentication key pointer.
@@ -577,7 +525,7 @@ typedef struct _CpaCySymHashAuthModeSetupData
  *      three hash modes and MUST be set for each mode.
  *
  *****************************************************************************/
-typedef struct _CpaCySymHashSetupData
+typedef struct
 {
     CpaCySymHashAlgorithm hashAlgorithm;
     /**< Hash algorithm. For mode CPA_CY_SYM_MODE_HASH_NESTED, this is the
@@ -620,7 +568,7 @@ typedef struct _CpaCySymHashSetupData
  *      This enum defines the ordering of operations for algorithm chaining.
  *
  ****************************************************************************/
-typedef enum _CpaCySymAlgChainOrder
+typedef enum
 {
     CPA_CY_SYM_ALG_CHAIN_ORDER_HASH_THEN_CIPHER = 1,
     /**< Perform the hash operation followed by the cipher operation. If it is
@@ -701,7 +649,7 @@ typedef enum _CpaCySymAlgChainOrder
  *      setup a session.
  *
  ****************************************************************************/
-typedef struct _CpaCySymSessionSetupData
+typedef struct
 {
     CpaCyPriority sessionPriority;
     /**< Priority of this session */
@@ -770,7 +718,7 @@ typedef struct _CpaCySymSessionSetupData
  * @description
  *      This structure contains data relating to resetting a session.
  ****************************************************************************/
-typedef struct _CpaCySymSessionUpdateData
+typedef struct
 {
     Cpa32U flags;
     /**< Flags indicating which fields to update.
@@ -816,7 +764,7 @@ typedef struct _CpaCySymSessionUpdateData
  *      before it has been returned in the callback, undefined behavior will
  *      result.
  ****************************************************************************/
-typedef struct _CpaCySymOpData
+typedef struct
 {
     CpaCySymSessionCtx sessionCtx;
     /**< Handle for the initialized session context */
@@ -975,10 +923,14 @@ typedef struct _CpaCySymOpData
      *   <br>
      *   The macro @ref CPA_CY_SYM_CCM_SET_AAD may be used here.
      *
-     * - the array should be big enough to hold the above fields, plus
+     * - the array should be big enough to hold the above fields plus
      *   any padding to round this up to the nearest multiple of the
      *   block size (16 bytes).  Padding will be added by the
      *   implementation.
+     *
+     * - the minimum size of the array should be 32 bytes. This applies
+     *   even in the case where there is no additional authentication data,
+     *   i.e. CpaCySymHashAuthModeSetupData.aadLenInBytes is zero.
      *
      * Finally, for GCM (@ref CPA_CY_SYM_HASH_AES_GCM), the caller
      * should setup this field as follows:
@@ -1026,7 +978,7 @@ typedef struct _CpaCySymOpData
  *      before it has been returned in the callback, undefined behavior will
  *      result.
  ****************************************************************************/
-typedef struct _CpaCySymOpData2
+typedef struct
 {
 
     CpaCySymOpData symOpData;
@@ -1078,7 +1030,7 @@ typedef struct _CpaCySymOpData2
  *      operations. Statistics are set to zero when the component is
  *      initialized.
  ****************************************************************************/
-typedef struct _CpaCySymStats
+typedef struct
 {
     Cpa32U numSessionsInitialized;
     /**<  Number of session initialized */
@@ -1111,7 +1063,7 @@ typedef struct _CpaCySymStats
  *      the Symmetric Cryptographic operations.
  *      Statistics are set to zero when the component is initialized.
  ****************************************************************************/
-typedef struct _CpaCySymStats64
+typedef struct
 {
     Cpa64U numSessionsInitialized;
     /**<  Number of session initialized */
@@ -1783,7 +1735,7 @@ CpaStatus cpaCySymPerformOp(const CpaInstanceHandle instanceHandle,
  *****************************************************************************/
 CpaStatus CPA_DEPRECATED
 cpaCySymQueryStats(const CpaInstanceHandle instanceHandle,
-                   struct _CpaCySymStats *pSymStats);
+                   CpaCySymStats *pSymStats);
 
 /**
  *****************************************************************************
@@ -1873,7 +1825,7 @@ else
  *      ownership of the memory passes to the function. Ownership of the
  *      memory returns to the client when the function returns.
  *****************************************************************************/
-typedef struct _CpaCySymCapabilitiesInfo
+typedef struct
 {
     CPA_BITMAP(ciphers, CPA_CY_SYM_CIPHER_CAP_BITMAP_SIZE);
     /**< Bitmap representing which cipher algorithms (and modes) are

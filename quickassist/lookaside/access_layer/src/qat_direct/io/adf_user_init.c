@@ -1,36 +1,10 @@
 /******************************************************************************
  *
- *   BSD LICENSE
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  *****************************************************************************/
 /******************************************************************************
@@ -123,7 +97,12 @@ STATIC inline CpaStatus adf_subsystemRemove(
     ICP_CHECK_FOR_NULL_PARAM(subsystem);
 
     subsystem_hdl = pSubsystemTableHead;
-    ICP_MUTEX_LOCK(&subsystemTableLock);
+    status = ICP_MUTEX_LOCK(&subsystemTableLock);
+    if (status)
+    {
+        ADF_ERROR("Failed to acquire subsystem table lock %d\n", status);
+        return status;
+    }
     ICP_FIND_ELEMENT_IN_LIST(subsystem, subsystem_hdl, status);
     if (CPA_STATUS_SUCCESS != status)
     {
@@ -137,7 +116,12 @@ STATIC inline CpaStatus adf_subsystemRemove(
     }
     ICP_REMOVE_ELEMENT_FROM_LIST(
         subsystem, pSubsystemTable, pSubsystemTableHead);
-    ICP_MUTEX_UNLOCK(&subsystemTableLock);
+    status = ICP_MUTEX_UNLOCK(&subsystemTableLock);
+    if (status)
+    {
+        ADF_ERROR("Failed to relinquish subsystem table lock %d\n", status);
+        return status;
+    }
     if (0 != subsystemTableLock && NULL == pSubsystemTableHead)
     {
         ICP_MUTEX_UNINIT(&subsystemTableLock);
@@ -188,30 +172,24 @@ STATIC CpaStatus do_shutdown(icp_accel_dev_t *accel_dev,
     ICP_CHECK_FOR_NULL_PARAM(accel_dev);
     ICP_CHECK_PARAM_LT_MAX(accel_dev->accelId, ADF_MAX_DEVICES - 1);
 
-    /* Shutdown the subsystem if required */
-    if (BIT_IS_SET(
-            subsystem_hdl->subsystemStatus[accel_dev->accelId].subsystemInitBit,
-            0))
+    /* Send shutdown event */
+    ADF_DEBUG("Sending event %d to %s\n",
+              ADF_EVENT_SHUTDOWN,
+              subsystem_hdl->subsystem_name);
+
+    status = subsystem_hdl->subserviceEventHandler(
+        accel_dev, ADF_EVENT_SHUTDOWN, NULL);
+
+    if (CPA_STATUS_SUCCESS != status)
     {
-        /* Send shutdown event */
-        ADF_DEBUG("Sending event %d to %s\n",
-                  ADF_EVENT_SHUTDOWN,
+        ADF_ERROR("Failed to shutdown subservice %s\n",
                   subsystem_hdl->subsystem_name);
-
-        status = subsystem_hdl->subserviceEventHandler(
-            accel_dev, ADF_EVENT_SHUTDOWN, NULL);
-
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            ADF_ERROR("Failed to shutdown subservice %s\n",
-                      subsystem_hdl->subsystem_name);
-        }
-        else
-        {
-            CLEAR_STATUS_BIT(subsystem_hdl->subsystemStatus[accel_dev->accelId]
-                                 .subsystemInitBit,
-                             0);
-        }
+    }
+    else
+    {
+        CLEAR_STATUS_BIT(subsystem_hdl->subsystemStatus[accel_dev->accelId]
+                             .subsystemInitBit,
+                         0);
     }
     return status;
 }
@@ -297,12 +275,18 @@ CpaStatus icp_adf_subsystemUnregister(
     {
         if (NULL != *accel_tbl)
         {
-            status = do_shutdown((*accel_tbl), subsystem_hdl);
-            if (CPA_STATUS_SUCCESS != status)
+            /* Shutdown the subsystem if required */
+            if (BIT_IS_SET(
+            subsystem_hdl->subsystemStatus[(*accel_tbl)->accelId].subsystemInitBit,
+            0))
             {
-                ADF_ERROR("Failed to shutdown subservice %s.\n",
-                          subsystem_hdl->subsystem_name);
-                ADF_DEBUG("Removing subservice from the subservice table.\n");
+                status = do_shutdown((*accel_tbl), subsystem_hdl);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    ADF_ERROR("Failed to shutdown subservice %s.\n",
+                              subsystem_hdl->subsystem_name);
+                    ADF_DEBUG("Removing subservice from the subservice table.\n");
+                }
             }
         }
         accel_tbl++;

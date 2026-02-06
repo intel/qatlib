@@ -1,62 +1,10 @@
 /****************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- *   redistributing this file, you may do so under either license.
+ *   SPDX-License-Identifier: BSD-3-Clause
+ *   Copyright(c) 2007-2026 Intel Corporation
  * 
- *   GPL LICENSE SUMMARY
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- * 
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of version 2 of the GNU General Public License as
- *   published by the Free Software Foundation.
- * 
- *   This program is distributed in the hope that it will be useful, but
- *   WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   General Public License for more details.
- * 
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *   The full GNU General Public License is included in this distribution
- *   in the file called LICENSE.GPL.
- * 
- *   Contact Information:
- *   Intel Corporation
- * 
- *   BSD LICENSE
- * 
- *   Copyright(c) 2007-2022 Intel Corporation. All rights reserved.
- *   All rights reserved.
- * 
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of Intel Corporation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *   These contents may have been developed with support from one or more
+ *   Intel-operated generative artificial intelligence solutions.
  *
  ***************************************************************************/
 
@@ -636,6 +584,80 @@ typedef struct dc_capabilities_lz4s_s
 /**
  *****************************************************************************
  * @ingroup dc_capabilities
+ *      DC zstd capabilitities content
+ * @description
+ *      Definition of zstd capabilitities data
+ *****************************************************************************/
+typedef struct dc_capabilities_zstd_s
+{
+    /**< Bits set to '1' for each valid window size supported by
+     * the compression implementation */
+    Cpa16U validWindowSizeMaskCompression;
+
+    /**< Bits set to '1' for each valid window size supported by
+     * the decompression implementation */
+    Cpa16U validWindowSizeMaskDecompression;
+
+    /**< Flag to define if algorithm is supported (TRUE) or not (FALSE) */
+    Cpa8U supported : DC_BITFIELD_SIZE_1;
+
+    /**< Flag to indicate if dictionary compression is supported (TRUE) or not
+     * (FALSE) */
+    Cpa8U dictCompSupported : DC_BITFIELD_SIZE_1;
+
+    /**< Dictionary type, see \ref CpaDcDictType */
+    Cpa8U dictCap : DC_BITFIELD_SIZE_2;
+
+    /**< Session direction, see \ref CpaDcDir */
+    Cpa8U dirMask : DC_BITFIELD_SIZE_2;
+
+    /**< Bypass incomplete operation if file error */
+    Cpa8U bypassIncompleteFileErr : DC_BITFIELD_SIZE_1;
+
+    /**< True if the algorithm is supported by Auto select
+     * best feature */
+    Cpa8U asbSupported : DC_BITFIELD_SIZE_1;
+
+    /**< Window size, see \ref CpaDcCompWindowSize */
+    Cpa8U historyBufferSize : DC_BITFIELD_SIZE_3;
+
+    /**< True if the instance can calculate an xxHash-64 hash over
+     * the uncompressed data */
+    Cpa8U checksumXXHash64 : DC_BITFIELD_SIZE_1;
+
+    /**< True if zero length requests */
+    Cpa8U zerolengthRequests : DC_BITFIELD_SIZE_1;
+
+    /**< True if the current compression format supports programmable CRC64 */
+    Cpa8U programmableCrc64 : DC_BITFIELD_SIZE_1;
+
+    /**< True if its preferred to keep ASB enabled */
+    Cpa8U asbEnablePref : DC_BITFIELD_SIZE_1;
+
+    /**< True if the algorithm supports HASH THEN COMPRESS chaining
+     * operation */
+    Cpa8U hashThenCompressSupported : DC_BITFIELD_SIZE_1;
+
+    /**< True if the algorithm supports COMPRESS_THEN_AEAD
+     * chaining operation */
+    Cpa8U compressThenAeadSupported : DC_BITFIELD_SIZE_1;
+
+    /**< True if the algorithm supports AEAD_THEN_DECOMPRESS
+     * chaining operation */
+    Cpa8U aeadThenDecompressSupported : DC_BITFIELD_SIZE_1;
+
+    /**< True if the HW supports dictionary ID */
+    Cpa8U dictId : DC_BITFIELD_SIZE_1;
+
+    Cpa8U zstdReserved : DC_BITFIELD_SIZE_5;
+
+} dc_capabilities_zstd_t;
+
+#define DC_CAPS_ZSTD_LENGTH (sizeof(dc_capabilities_zstd_t))
+
+/**
+ *****************************************************************************
+ * @ingroup dc_capabilities
  *      Supported HW device generations.
  * @description
  *      - QAT supported device generations ranging between Gen2 and Gen4.
@@ -749,6 +771,7 @@ typedef struct dc_capabilities_s
     dc_capabilities_deflate_t deflate;
     dc_capabilities_lz4_t lz4;
     dc_capabilities_lz4s_t lz4s;
+    dc_capabilities_zstd_t zstd;
 
     /**< Generic data not related to device and not related
      * to the type of algorithm */
@@ -816,6 +839,7 @@ typedef struct dc_capabilities_s
                                 Cpa32U *outputSize);
     CpaStatus (*dcLZ4Bound)(Cpa32U inputSize, Cpa32U *outputSize);
     CpaStatus (*dcLZ4SBound)(Cpa32U inputSize, Cpa32U *outputSize);
+    CpaStatus (*dcZstdBound)(Cpa32U inputSize, Cpa32U *outputSize);
 } dc_capabilities_t;
 
 /* Type to access extended features bit fields */
