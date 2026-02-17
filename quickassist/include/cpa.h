@@ -38,8 +38,8 @@
  *
  *****************************************************************************/
 
-#ifndef CPA_H
-#define CPA_H
+#ifndef CPA_QAT_H
+#define CPA_QAT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -1138,4 +1138,4 @@ CpaStatus cpaFreeInstance(CpaInstanceHandle instanceHandle);
 } /* close the extern "C" { */
 #endif
 
-#endif /* CPA_H */
+#endif /* CPA_QAT_H */
