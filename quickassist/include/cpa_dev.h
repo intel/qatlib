@@ -36,9 +36,7 @@
 extern "C" {
 #endif
 
-#ifndef CPA_H
 #include "cpa.h"
-#endif
 
 /*****************************************************************************
  * @ingroup cpaDev
