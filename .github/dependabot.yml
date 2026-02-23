@@ -5,8 +5,7 @@ updates:
     directory: "/"
     schedule:
       # Check for updates to GitHub Actions every week on Sunday
-      interval: "weekly"
-      day: "sunday"
+      interval: "monthly"
     groups:
       # Group PRs
       github-actions:
