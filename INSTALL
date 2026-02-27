@@ -97,8 +97,8 @@ Check System Prerequisites
         /lib/firmware/qat_4xxx_mmp.bin or /lib/firmware/qat_4xxx_mmp.bin.xz
         If not, download the firmware images from linux-firmware and copy them
         to /lib/firmware:
-        wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qat_4xxx.bin
-        wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qat_4xxx_mmp.bin
+        wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/intel/qat/qat_4xxx.bin
+        wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/intel/qat/qat_4xxx_mmp.bin
         sudo mv qat_4xxx.bin /lib/firmware
         sudo mv qat_4xxx_mmp.bin /lib/firmware
         See Supported Devices table linked above for firmware filenames for
