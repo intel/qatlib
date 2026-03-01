@@ -413,7 +413,7 @@ void *__qae_alloc_addr(size_t size,
                      p_ctrl_blk->virt_addr,
                      p_ctrl_blk->phy_addr,
                      p_ctrl_blk->size,
-                     __qae_hugepage_enabled());
+                     HUGE_PAGE == p_ctrl_blk->type);
 
     if (LARGE == mem_type)
     {

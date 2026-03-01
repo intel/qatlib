@@ -548,6 +548,8 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
     if (HUGE_PAGE == type)
     {
         slab = __qae_vfio_hugepage_alloc_slab(fd, size, node, type, alignment);
+        if (!slab && __qae_vfio_disable_hugepages())
+            slab = ioctl_alloc_slab(fd, size, alignment, node, SMALL);
     }
     else
     {
@@ -580,6 +582,8 @@ dev_mem_info_t *__qae_alloc_slab(const int fd,
     if (HUGE_PAGE == type)
     {
         slab = __qae_vfio_hugepage_alloc_slab(fd, size, node, type, alignment);
+        if (!slab && __qae_vfio_disable_hugepages())
+            slab = ioctl_alloc_slab(fd, size, alignment, node, SMALL);
     }
     else
     {

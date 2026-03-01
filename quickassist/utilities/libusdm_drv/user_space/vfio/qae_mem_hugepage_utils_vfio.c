@@ -41,6 +41,7 @@
 #endif
 
 static bool g_hugepages_enabled = false;
+static bool g_hugepages_allocated = false;
 static size_t g_num_hugepages = 0;
 static const char sys_dir_path[] = "/sys/kernel/mm/hugepages";
 extern int vfio_container_fd;
@@ -197,9 +198,29 @@ STATIC int mem_virt2phy(const void *virtaddr, uint64_t *physaddr_ptr)
 API_LOCAL
 int __qae_vfio_init_hugepages()
 {
+    char free_hp_path[HUGEPAGE_SYSFS_PATH_SIZE] = { };
+    unsigned long free_hp = 0;
     int ret = 0;
+
     if (get_num_hugepages_per_system(HUGEPAGE_SYS_NODE))
         return -EIO;
+
+    if (g_num_hugepages > 0)
+    {
+        /*
+         * Check if any hugepages are actually free.
+         * If all hugepages are consumed (e.g. by DPDK), do not enable
+         * hugepage mode to avoid allocation failures at runtime.
+         */
+        snprintf(free_hp_path, sizeof(free_hp_path), "%s/%s/free_hugepages",
+                 sys_dir_path, HUGEPAGE_SYS_NODE);
+        if (parse_sysfs_value(free_hp_path, &free_hp) == 0 && free_hp == 0)
+        {
+            CMD_DEBUG("No free hugepages available (nr_hugepages=%zu). "
+                      "Disabling hugepage mode.\n", g_num_hugepages);
+            g_num_hugepages = 0;
+        }
+    }
 
     if (g_num_hugepages > 0)
     {
@@ -222,6 +243,27 @@ API_LOCAL
 int __qae_hugepage_enabled()
 {
     return g_hugepages_enabled;
+}
+
+API_LOCAL
+int __qae_vfio_disable_hugepages()
+{
+    if (g_hugepages_allocated)
+    {
+        CMD_ERROR("Hugepage allocation failed but hugepage slabs already "
+                  "exist. Cannot fall back to regular memory.\n");
+        return 0;
+    }
+
+    CMD_DEBUG("Hugepage allocation failed, disabling hugepage mode. "
+              "Falling back to regular memory allocation.\n");
+
+    g_hugepages_enabled = false;
+    __qae_set_free_page_table_fptr(free_page_table);
+    __qae_set_loadaddr_fptr(load_addr);
+    __qae_set_loadkey_fptr(load_key);
+
+    return 1;
 }
 
 STATIC void *__qae_vfio_hugepage_mmap_addr(const size_t size)
@@ -350,6 +392,7 @@ dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
         save_slab_to_tmp_list(slab);
 #endif
         /* This is required for adding into hash table.*/
+        g_hugepages_allocated = true;
         return slab;
     }
 
@@ -377,6 +420,7 @@ dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
     slab->flag_pinned = PINNED;
 #endif
 
+    g_hugepages_allocated = true;
     return slab;
 
 error:

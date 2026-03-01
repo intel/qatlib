@@ -57,4 +57,7 @@ int __qae_vfio_init_hugepages(void);
 
 API_LOCAL
 int __qae_hugepage_enabled(void);
+
+API_LOCAL
+int __qae_vfio_disable_hugepages(void);
 #endif
