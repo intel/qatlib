@@ -255,7 +255,7 @@ Resolved issues relating to the Intel® QAT software are described in this secti
 
 | Issue ID | Description |
 |-------------|------------|
-| QAT20-41747 | [DC - SAL initialization fails on VFIO compression-only devices due to incorrect ring_to_svc_map](#qat20-41747) |
+| QAT20-41747 | [DC - Initialization fails on VFIO compression-only devices with "Error parsing enabled services from ADF"](#qat20-41747) |
 | QATE-106300 | [CY – CCP authenticated encryption can cause undefined behaviour if AAD size is not a 64-byte multiple](#qate-106300) |
 | QATE-106085 | [GEN - A QATlib process fails to start a 4xxx device on kernel v6.1 LTS](#qate-106085) |
 | QAT20-41023 | [GEN - QAT applications fail for non-root users when kernel boot parameter 'vfio-pci-ids' is defined](#qat20-41023) |
@@ -284,10 +284,10 @@ Resolved issues relating to the Intel® QAT software are described in this secti
 | QATE-12241 | [CY - TLS1.2 with secret key lengths greater than 64 are not supported](#qate-12241) |
 
 ## QAT20-41747
-| Title         | DC - SAL initialization fails on VFIO compression-only devices due to incorrect ring_to_svc_map |
+| Title         | DC - Initialization fails on VFIO compression-only devices with "Error parsing enabled services from ADF" |
 |---------------|:----------------------------------------------------------------------------------------------|
 | Reference #   | QAT20-41747                                                                                   |
-| Description   | On systems using VFIO with QAT devices configured for compression-only, SAL initialization may fail due to the driver using an incorrect default ring_to_svc_map value. When this occurs, users may observe errors such as:<br>&nbsp;&nbsp;[error] SalCtrl_GetEnabledServices() - : Error parsing enabled services from ADF;<br>&nbsp;&nbsp;[error] SalCtrl_ServiceEventHandler() - : Failed to get enabled services;<br>&nbsp;&nbsp;[error] ADF_UIO_PROXY: adf_user_subsystemInit: Failed to initialise Subservice SAL;<br>&nbsp;&nbsp;[error] ADF_UIO_PROXY: adf_user_subsystemStart: Failed to start Subservice SAL |
+| Description   | On certain systems with QAT devices configured for compression-only, SAL initialization may fail due to the library receiving an  incorrect default ring_to_svc_map value from the kernel driver during PF2VF communication. When this occurs, users may observe errors such as:<br>&nbsp;&nbsp;[error] SalCtrl_GetEnabledServices() - : Error parsing enabled services from ADF;<br>&nbsp;&nbsp;[error] SalCtrl_ServiceEventHandler() - : Failed to get enabled services;<br>&nbsp;&nbsp;[error] ADF_UIO_PROXY: adf_user_subsystemInit: Failed to initialise Subservice SAL;<br>&nbsp;&nbsp;[error] ADF_UIO_PROXY: adf_user_subsystemStart: Failed to start Subservice SAL.<br> This only occurs when qatlib is paired with some kernel drivers in some distros, e.g. this was observed on SUSE SLES 15 SP4. The issue has not been observed with latest or LTS kernels. It only affects qatlib versions 24.02, 24.09 and 25.08. |
 | Implication   | Applications may fail to start, showing errors related to enabled services parsing and SAL initialization. |
 | Resolution    | Fixed in 26.02 |
 | Affected OS   | Linux |
