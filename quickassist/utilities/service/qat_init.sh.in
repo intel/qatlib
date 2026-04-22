@@ -113,7 +113,7 @@ check_driver() {
     ATTEMPT_CNT=0
     CURRENT_STATE=$(get_module_state)
 
-    while [ "$CURRENT_STATE" != "Live" ]
+    while ! echo "$CURRENT_STATE" | grep -q "^Live$"
     do
         if [ $ATTEMPT_CNT -ge $TIMEOUT_CNT ]; then
             TIMEOUT=$(awk "BEGIN {print $ATTEMPT_CNT * $ATTEMPT_INTERVAL}")
