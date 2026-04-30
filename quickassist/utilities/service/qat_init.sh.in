@@ -88,7 +88,7 @@ get_module_state() {
     do
         CMD="$CMD -e ^$SUPPORTED_DRIVER_NAME"
     done
-    echo "$(cat /proc/modules | grep $CMD | cut -d' ' -f5)"
+    echo "$(cat /proc/modules | grep $CMD | cut -d' ' -f5 | sort -u)"
 }
 
 check_driver() {
