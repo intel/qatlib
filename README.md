@@ -205,10 +205,21 @@ where: \<Component\> is one of the following:
 
 | Issue ID | Description |
 |-------------|------------|
+| QAT20-42511 | [GEN - QATlib acceleration services may fail due to broken PF/VF communication when compiling with GCC 16.1](#qat20-42511) |
 | QATE-102747 | [GEN - Intel QAT Concurrent Initialization Failure in Standalone Mode](#qate-102747) |
 | QATE-102390 | [GEN - [error] validateConcurrRequest() - : Invalid numConcurrRequests](#qate-102390) |
 | QATE-3241  | [CY - cpaCySymPerformOp when used with parameter checking may reveal the amount of padding](#qate-3241) |
 | QATE-76073 | [GEN - If PF device configuration is modified without restarting qatmgr, undefined behavior may occur](#qate-76073) |
+
+## QAT20-42511
+| Title      | GEN - QATlib acceleration services may fail due to broken PF/VF communication when compiling with GCC 16.1 |
+|----------|:-------------|
+| Reference # | QAT20-42511 |
+| Description | GCC 16.1 at -O2 may optimize a volatile 32-bit CSR read to a byte access when only one bit is tested. QAT mailbox CSRs require full DWORD transactions; the optimized read causes VF2PF ACK polling to time out, preventing QATlib to retrieve device configuration via PF/VF communication. In this scenario the QATlib process defaults to assuming it's working with an early kernel driver which only supports cryptographic services and fails to start compression or DCC instances. It will start cryptographic instances, but some of the operations may fail unless all QAT PFs are configured with `ServicesEnabled=asym;sym`. |
+| Implication | Acceleration services may fail or applications may report no compression instances when built with GCC 16.1. |
+| Resolution | Use an earlier version of GCC or if using GCC 16.1 compile with -fno-fuse-ops-with-volatile-access |
+| Affected OS | Linux |
+| Driver/Module | CPM-IA - General |
 
 ## QATE-102747
 | Title      | GEN - Intel QAT Concurrent Initialization Failure in Standalone Mode |
