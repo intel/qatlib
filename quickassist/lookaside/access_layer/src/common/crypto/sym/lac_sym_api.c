@@ -32,7 +32,6 @@
 #include "icp_adf_transport.h"
 #include "icp_adf_transport_dp.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "icp_qat_fw_la.h"
 
 /*
@@ -101,6 +100,20 @@
         CPA_CY_SYM_CIPHER_SNOW3G_UEA2 == cipherAlgorithm) &&                   \
        CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm)) &&                          \
      !extAlgchainSupported)
+
+#define LAC_CHECK_COMBINATIONS(firstExpression, secondExpression)              \
+    ((firstExpression && !secondExpression) ||                                 \
+     (!firstExpression && secondExpression))
+
+#define LAC_CHECK_MANDATORY_ALGO_COMBINATION(                                  \
+    cipherExpression, hashExpression, algoName)                                \
+    if (LAC_CHECK_COMBINATIONS(cipherExpression, hashExpression))              \
+    {                                                                          \
+        LAC_INVALID_PARAM_LOG1("Invalid combination of Cipher/Hash "           \
+                               "algorithms for %s",                            \
+                               algoName);                                      \
+        return CPA_STATUS_INVALID_PARAM;                                       \
+    }
 
 #define CIPHER_INCL_MASK                                                       \
     ((1U << CPA_CY_SYM_CIPHER_AES_CCM) | (1U << CPA_CY_SYM_CIPHER_AES_GCM))
@@ -202,12 +215,18 @@ LacSymSession_CapabilityCheck(const CpaInstanceHandle instanceHandle,
     CpaBoolean extAlgchainSupported = CPA_FALSE;
     CpaCyCapabilitiesInfo cyCapInfo = { 0 };
     Cpa32U mask = ((sal_service_t *)instanceHandle)->capabilitiesMask;
+    sal_crypto_service_t *pService = (sal_crypto_service_t *)instanceHandle;
 
     /* initialize convenient pointers to cipher and hash contexts */
     const CpaCySymCipherSetupData *const pCipherSetupData =
         (const CpaCySymCipherSetupData *)&pSessionSetupData->cipherSetupData;
     const CpaCySymHashSetupData *const pHashSetupData =
         &pSessionSetupData->hashSetupData;
+    CpaCySymCipherAlgorithm cipherAlgorithm = pCipherSetupData->cipherAlgorithm;
+    CpaCySymHashAlgorithm hashAlgorithm = pHashSetupData->hashAlgorithm;
+    Cpa32U cipherKeyLenInBytes = pCipherSetupData->cipherKeyLenInBytes;
+    Cpa32U authKeyLenInBytes =
+        pHashSetupData->authModeSetupData.authKeyLenInBytes;
 
     status = SalCtrl_CySymQueryCapabilities(instanceHandle, &symCapInfo);
     LAC_CHECK_STATUS(status);
@@ -215,74 +234,75 @@ LacSymSession_CapabilityCheck(const CpaInstanceHandle instanceHandle,
     SalCtrl_CyQueryCapabilities(instanceHandle, &cyCapInfo);
     extAlgchainSupported = cyCapInfo.extAlgchainSupported;
 
+    if ((ICP_QAT_HW_AES_192_KEY_SZ == authKeyLenInBytes ||
+         ICP_QAT_HW_AES_192_KEY_SZ == cipherKeyLenInBytes) &&
+        IS_GEN6_DEV(pService))
+    {
+        LAC_UNSUPPORTED_PARAM_LOG("AES 192-bit key size is not supported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
     /* Ensure cipher algorithm is correct and supported */
     if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
         (CPA_CY_SYM_OP_CIPHER == pSessionSetupData->symOperation))
     {
-        if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers,
-                                 pCipherSetupData->cipherAlgorithm))
+        if (!CPA_BITMAP_BIT_TEST(symCapInfo.ciphers, cipherAlgorithm))
         {
             LAC_UNSUPPORTED_PARAM_LOG("UnSupported cipherAlgorithm");
             return CPA_STATUS_UNSUPPORTED;
-        }
-        if (pCipherSetupData->cipherAlgorithm == CPA_CY_SYM_CIPHER_ZUC_EEA3)
-        {
-            if (!(mask & ICP_ACCEL_CAPABILITIES_ZUC_256) &&
-                (pCipherSetupData->cipherKeyLenInBytes ==
-                 ICP_QAT_HW_ZUC_256_KEY_SZ))
-            {
-                LAC_UNSUPPORTED_PARAM_LOG(
-                    "Cipher algorithm ZUC_256 is unsupported.");
-                return CPA_STATUS_UNSUPPORTED;
-            }
         }
     }
     /* Ensure hash algorithm is correct and supported */
     if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
         (CPA_CY_SYM_OP_HASH == pSessionSetupData->symOperation))
     {
-        if (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes,
-                                 pHashSetupData->hashAlgorithm))
+        if (!CPA_BITMAP_BIT_TEST(symCapInfo.hashes, hashAlgorithm))
         {
             LAC_UNSUPPORTED_PARAM_LOG("UnSupported hash Algorithm");
             return CPA_STATUS_UNSUPPORTED;
         }
-        if (pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_AES_CMAC)
+        if (CPA_CY_SYM_HASH_AES_CMAC == hashAlgorithm)
         {
             if (!(mask & ICP_ACCEL_CAPABILITIES_WIRELESS_CRYPTO_EXT) &&
-                (pHashSetupData->authModeSetupData.authKeyLenInBytes ==
-                     ICP_QAT_HW_AES_192_KEY_SZ ||
-                 pHashSetupData->authModeSetupData.authKeyLenInBytes ==
-                     ICP_QAT_HW_AES_256_KEY_SZ))
+                (ICP_QAT_HW_AES_192_KEY_SZ == authKeyLenInBytes ||
+                 ICP_QAT_HW_AES_256_KEY_SZ == authKeyLenInBytes))
             {
-                LAC_INVALID_PARAM_LOG("Hash algorithm AES_CMAC with 192/256"
-                                      "bits key is unsupported.");
+                LAC_UNSUPPORTED_PARAM_LOG("Hash algorithm AES_CMAC with 192/256"
+                                          "bits key is unsupported.");
                 return CPA_STATUS_UNSUPPORTED;
             }
         }
-        if (pHashSetupData->hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3)
+        if (CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm)
         {
             if (!(mask & ICP_ACCEL_CAPABILITIES_ZUC_256) &&
-                (pHashSetupData->authModeSetupData.authKeyLenInBytes ==
-                 ICP_QAT_HW_ZUC_256_KEY_SZ))
+                (ICP_QAT_HW_ZUC_256_KEY_SZ == authKeyLenInBytes))
             {
                 LAC_UNSUPPORTED_PARAM_LOG(
-                    "Hash algorithm ZUC_256 is unsupported.");
+                    "Hash algorithm ZUC_EIA3 with 256-bit key is unsupported.");
                 return CPA_STATUS_UNSUPPORTED;
             }
         }
     }
 
-    /* Ensure CCM, GCM, Kasumi, Snow3G and ZUC cipher and hash algorithms are
-     * selected together for Algorithm Chaining */
     if (CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation)
     {
-        if (IS_EXT_ALG_CHAIN_UNSUPPORTED(pCipherSetupData->cipherAlgorithm,
-                                         pHashSetupData->hashAlgorithm,
-                                         extAlgchainSupported))
+        if (IS_EXT_ALG_CHAIN_UNSUPPORTED(
+                cipherAlgorithm, hashAlgorithm, extAlgchainSupported))
         {
             LAC_UNSUPPORTED_PARAM_LOG("ExtAlgChain feature not supported");
             return CPA_STATUS_UNSUPPORTED;
+        }
+
+        if (IS_GEN6_DEV(instanceHandle))
+        {
+            /* Cipher+hash or hash+cipher chaining combinations are not
+             * supported with Gen6 HW configuration. */
+            if ((CPA_CY_SYM_CIPHER_AES_CTR == cipherAlgorithm) ||
+                (CPA_CY_SYM_CIPHER_AES_XTS == cipherAlgorithm))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Chaining is unsupported on this instance");
+                return CPA_STATUS_UNSUPPORTED;
+            }
         }
     }
     return CPA_STATUS_SUCCESS;
@@ -315,6 +335,8 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
         (const CpaCySymCipherSetupData *)&pSessionSetupData->cipherSetupData;
     const CpaCySymHashSetupData *const pHashSetupData =
         &pSessionSetupData->hashSetupData;
+    CpaCySymCipherAlgorithm cipherAlgorithm = pCipherSetupData->cipherAlgorithm;
+    CpaCySymHashAlgorithm hashAlgorithm = pHashSetupData->hashAlgorithm;
 
     if ((CPA_CY_SYM_OP_ALGORITHM_CHAINING == pSessionSetupData->symOperation) ||
         (CPA_CY_SYM_OP_CIPHER == pSessionSetupData->symOperation))
@@ -322,8 +344,7 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
         /* Protect against value of cipher outside the bitmap
          * and check if cipher algorithm is correct
          */
-        if (pCipherSetupData->cipherAlgorithm >=
-            CPA_CY_SYM_CIPHER_CAP_BITMAP_SIZE)
+        if (cipherAlgorithm >= CPA_CY_SYM_CIPHER_CAP_BITMAP_SIZE)
         {
             LAC_INVALID_PARAM_LOG("Cipher algorithm is invalid");
             return CPA_STATUS_INVALID_PARAM;
@@ -336,7 +357,7 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
         /* Protect against value of hash outside the bitmap
          * and check if hash algorithm is correct
          */
-        if (pHashSetupData->hashAlgorithm >= CPA_CY_SYM_HASH_CAP_BITMAP_SIZE)
+        if (hashAlgorithm >= CPA_CY_SYM_HASH_CAP_BITMAP_SIZE)
         {
             LAC_INVALID_PARAM_LOG("Hash algorithm is invalid");
             return CPA_STATUS_INVALID_PARAM;
@@ -348,65 +369,31 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
     switch (pSessionSetupData->symOperation)
     {
         case CPA_CY_SYM_OP_ALGORITHM_CHAINING:
-            /* Ensure that both hash and cipher algorithms are
-             * POLY and CHACHA.
-             */
-            if (((CPA_CY_SYM_CIPHER_CHACHA ==
-                  pCipherSetupData->cipherAlgorithm) &&
-                 (CPA_CY_SYM_HASH_POLY != pHashSetupData->hashAlgorithm)) ||
-                ((CPA_CY_SYM_HASH_POLY == pHashSetupData->hashAlgorithm) &&
-                 (CPA_CY_SYM_CIPHER_CHACHA !=
-                  pCipherSetupData->cipherAlgorithm)))
-            {
-                LAC_INVALID_PARAM_LOG("Invalid combination of Cipher/Hash "
-                                      "algorithms for CHACHA/POLY");
-                return CPA_STATUS_INVALID_PARAM;
-            }
 
-            /* Ensure that both hash and cipher algorithms are CCM */
-            if (((CPA_CY_SYM_CIPHER_AES_CCM ==
-                  pCipherSetupData->cipherAlgorithm) &&
-                 (CPA_CY_SYM_HASH_AES_CCM != pHashSetupData->hashAlgorithm)) ||
-                ((CPA_CY_SYM_HASH_AES_CCM == pHashSetupData->hashAlgorithm) &&
-                 (CPA_CY_SYM_CIPHER_AES_CCM !=
-                  pCipherSetupData->cipherAlgorithm)))
-            {
-                LAC_INVALID_PARAM_LOG(
-                    "Invalid combination of Cipher/Hash algorithms for CCM");
-                return CPA_STATUS_INVALID_PARAM;
-            }
+            LAC_CHECK_MANDATORY_ALGO_COMBINATION(
+                (CPA_CY_SYM_CIPHER_CHACHA == cipherAlgorithm),
+                (CPA_CY_SYM_HASH_POLY == hashAlgorithm),
+                "CHACHA/POLY");
+            LAC_CHECK_MANDATORY_ALGO_COMBINATION(
+                (CPA_CY_SYM_CIPHER_AES_CCM == cipherAlgorithm),
+                (CPA_CY_SYM_HASH_AES_CCM == hashAlgorithm),
+                "CCM");
+            LAC_CHECK_MANDATORY_ALGO_COMBINATION(
+                (CPA_CY_SYM_CIPHER_KASUMI_F8 == cipherAlgorithm),
+                (CPA_CY_SYM_HASH_KASUMI_F9 == hashAlgorithm),
+                "Kasumi");
+            LAC_CHECK_MANDATORY_ALGO_COMBINATION(
+                (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgorithm),
+                ((CPA_CY_SYM_HASH_AES_GCM == hashAlgorithm) ||
+                 (CPA_CY_SYM_HASH_AES_GMAC == hashAlgorithm)),
+                "GCM");
 
-            /* Ensure that both hash and cipher algorithms are GCM/GMAC */
-            if ((CPA_CY_SYM_CIPHER_AES_GCM ==
-                     pCipherSetupData->cipherAlgorithm &&
-                 (CPA_CY_SYM_HASH_AES_GCM != pHashSetupData->hashAlgorithm &&
-                  CPA_CY_SYM_HASH_AES_GMAC != pHashSetupData->hashAlgorithm)) ||
-                ((CPA_CY_SYM_HASH_AES_GCM == pHashSetupData->hashAlgorithm ||
-                  CPA_CY_SYM_HASH_AES_GMAC == pHashSetupData->hashAlgorithm) &&
-                 CPA_CY_SYM_CIPHER_AES_GCM !=
-                     pCipherSetupData->cipherAlgorithm))
-            {
-                LAC_INVALID_PARAM_LOG(
-                    "Invalid combination of Cipher/Hash algorithms for GCM");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-
-            /* Ensure that both hash and cipher algorithms are Kasumi */
-            if (((CPA_CY_SYM_CIPHER_KASUMI_F8 ==
-                  pCipherSetupData->cipherAlgorithm) &&
-                 (CPA_CY_SYM_HASH_KASUMI_F9 !=
-                  pHashSetupData->hashAlgorithm)) ||
-                ((CPA_CY_SYM_HASH_KASUMI_F9 == pHashSetupData->hashAlgorithm) &&
-                 (CPA_CY_SYM_CIPHER_KASUMI_F8 !=
-                  pCipherSetupData->cipherAlgorithm)))
-            {
-                LAC_INVALID_PARAM_LOG(
-                    "Invalid combination of Cipher/Hash algorithms for Kasumi");
-                return CPA_STATUS_INVALID_PARAM;
-            }
+            /* Remaining checks apply only to pre-Gen6 devices */
+            if (IS_GEN6_DEV(instanceHandle))
+                break;
 
             /* Ensure that algorithm chaining operation is performed for
-             * supported wireless algorithms.
+             * supported wireless algorithms for Gen4 QAT devices.
              *
              * The following are supported algorithm chaining cipher + hash
              * combinations. Any cipher from the below list can be mixed with
@@ -415,43 +402,33 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
              * Ciphers: Snow3g_UEA2, ZUC_EEA3, AES_CTR, NULL_CIPHER.
              * Hash: Snow3g_UIA2, ZUC_EIA3, AES_CMAC.
              */
-            if ((CPA_CY_SYM_CIPHER_SNOW3G_UEA2 ==
-                 pCipherSetupData->cipherAlgorithm) ||
-                (CPA_CY_SYM_CIPHER_ZUC_EEA3 ==
-                 pCipherSetupData->cipherAlgorithm))
+            if ((CPA_CY_SYM_CIPHER_SNOW3G_UEA2 == cipherAlgorithm) ||
+                (CPA_CY_SYM_CIPHER_ZUC_EEA3 == cipherAlgorithm))
             {
-                if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 !=
-                     pHashSetupData->hashAlgorithm) &&
-                    (CPA_CY_SYM_HASH_ZUC_EIA3 !=
-                     pHashSetupData->hashAlgorithm) &&
-                    (CPA_CY_SYM_HASH_AES_CMAC != pHashSetupData->hashAlgorithm))
+                if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 != hashAlgorithm) &&
+                    (CPA_CY_SYM_HASH_ZUC_EIA3 != hashAlgorithm) &&
+                    (CPA_CY_SYM_HASH_AES_CMAC != hashAlgorithm))
                 {
                     LAC_INVALID_PARAM_LOG2("Invalid algorithm chaining "
                                            "combination, cipher: %d, hash: %d",
-                                           pCipherSetupData->cipherAlgorithm,
-                                           pHashSetupData->hashAlgorithm);
+                                           cipherAlgorithm,
+                                           hashAlgorithm);
 
                     return CPA_STATUS_INVALID_PARAM;
                 }
             }
-            else if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 ==
-                      pHashSetupData->hashAlgorithm) ||
-                     (CPA_CY_SYM_HASH_ZUC_EIA3 ==
-                      pHashSetupData->hashAlgorithm))
+            else if ((CPA_CY_SYM_HASH_SNOW3G_UIA2 == hashAlgorithm) ||
+                     (CPA_CY_SYM_HASH_ZUC_EIA3 == hashAlgorithm))
             {
-                if ((CPA_CY_SYM_CIPHER_SNOW3G_UEA2 !=
-                     pCipherSetupData->cipherAlgorithm) &&
-                    (CPA_CY_SYM_CIPHER_ZUC_EEA3 !=
-                     pCipherSetupData->cipherAlgorithm) &&
-                    (CPA_CY_SYM_CIPHER_AES_CTR !=
-                     pCipherSetupData->cipherAlgorithm) &&
-                    (CPA_CY_SYM_CIPHER_NULL !=
-                     pCipherSetupData->cipherAlgorithm))
+                if ((CPA_CY_SYM_CIPHER_SNOW3G_UEA2 != cipherAlgorithm) &&
+                    (CPA_CY_SYM_CIPHER_ZUC_EEA3 != cipherAlgorithm) &&
+                    (CPA_CY_SYM_CIPHER_AES_CTR != cipherAlgorithm) &&
+                    (CPA_CY_SYM_CIPHER_NULL != cipherAlgorithm))
                 {
                     LAC_INVALID_PARAM_LOG2("Invalid algorithm chaining "
-                                           "combination, hash: %d, cipher: %d",
-                                           pHashSetupData->hashAlgorithm,
-                                           pCipherSetupData->cipherAlgorithm);
+                                           "combination, cipher: %d, hash: %d",
+                                           cipherAlgorithm,
+                                           hashAlgorithm);
 
                     return CPA_STATUS_INVALID_PARAM;
                 }
@@ -459,11 +436,9 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
             break;
         case CPA_CY_SYM_OP_CIPHER:
             /* Ensure that cipher algorithm is not CCM, CHACHA or GCM */
-            if ((CPA_CY_SYM_CIPHER_AES_CCM ==
-                 pCipherSetupData->cipherAlgorithm) ||
-                (CPA_CY_SYM_CIPHER_AES_GCM ==
-                 pCipherSetupData->cipherAlgorithm) ||
-                (CPA_CY_SYM_CIPHER_CHACHA == pCipherSetupData->cipherAlgorithm))
+            if ((CPA_CY_SYM_CIPHER_AES_CCM == cipherAlgorithm) ||
+                (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgorithm) ||
+                (CPA_CY_SYM_CIPHER_CHACHA == cipherAlgorithm))
             {
                 LAC_INVALID_PARAM_LOG("Invalid algorithm for cipher operation");
                 return CPA_STATUS_INVALID_PARAM;
@@ -471,10 +446,10 @@ LacSymSession_ParamCheck(const CpaInstanceHandle instanceHandle,
             break;
         case CPA_CY_SYM_OP_HASH:
             /* Ensure that hash algorithm is not CCM, POLY or GCM/GMAC */
-            if ((CPA_CY_SYM_HASH_AES_CCM == pHashSetupData->hashAlgorithm) ||
-                (CPA_CY_SYM_HASH_AES_GCM == pHashSetupData->hashAlgorithm) ||
-                (CPA_CY_SYM_HASH_AES_GMAC == pHashSetupData->hashAlgorithm) ||
-                (CPA_CY_SYM_HASH_POLY == pHashSetupData->hashAlgorithm))
+            if ((CPA_CY_SYM_HASH_AES_CCM == hashAlgorithm) ||
+                (CPA_CY_SYM_HASH_AES_GCM == hashAlgorithm) ||
+                (CPA_CY_SYM_HASH_AES_GMAC == hashAlgorithm) ||
+                (CPA_CY_SYM_HASH_POLY == hashAlgorithm))
             {
                 LAC_INVALID_PARAM_LOG("Invalid algorithm for hash operation");
                 return CPA_STATUS_INVALID_PARAM;
@@ -1135,6 +1110,15 @@ STATIC CpaStatus LacSym_Perform(const CpaInstanceHandle instanceHandle,
 
         LacSync_DestroySyncCookie(&pSyncCallbackData);
         return status;
+    }
+    if (CPA_CY_SYM_PACKET_TYPE_FULL != pOpData->packetType)
+    {
+        if (((sal_service_t *)instanceHandle)->isGen6)
+        {
+            LAC_UNSUPPORTED_PARAM_LOG(
+                "Partial packets are not supported on Gen6");
+            return CPA_STATUS_UNSUPPORTED;
+        }
     }
 
 #ifdef ICP_PARAM_CHECK

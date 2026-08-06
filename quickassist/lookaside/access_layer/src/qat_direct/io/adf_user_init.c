@@ -32,7 +32,7 @@
 STATIC subservice_registation_handle_t *pSubsystemTable = NULL;
 STATIC subservice_registation_handle_t *pSubsystemTableHead = NULL;
 STATIC ICP_MUTEX subsystemTableLock = { 0 };
-char *icp_module_name = "ADF_UIO_PROXY";
+char *icp_module_name = "ADF_IO_PROXY";
 
 /* Slepping time before subsystem is started */
 #define SLEEP_TIME 50000
@@ -686,20 +686,14 @@ CpaStatus adf_subsystemError(icp_accel_dev_t *accel_dev)
 }
 
 /*
- * Function to reset subsystem table head, the pointer
- * to the head of the list and lock.
+ * Function to reset subsystem table, the pointer
+ * to the head of the list and lock. This function should be
+ * called only if the subsystem table is empty.
  */
 CpaStatus icp_adf_resetSubsystemTable(void)
 {
     pSubsystemTable = NULL;
     pSubsystemTableHead = NULL;
-    if (0 == subsystemTableLock)
-    {
-        if (OSAL_SUCCESS != ICP_MUTEX_INIT(&subsystemTableLock))
-        {
-            ADF_ERROR("Mutex init failed for subsystemTabl lock\n");
-            return CPA_STATUS_RESOURCE;
-        }
-    }
+    subsystemTableLock = 0;
     return CPA_STATUS_SUCCESS;
 }

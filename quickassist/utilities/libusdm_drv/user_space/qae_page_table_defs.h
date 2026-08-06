@@ -33,9 +33,15 @@
 #define QAE_PAGE_MASK (~(PAGE_SIZE - 1))
 #define LEVEL_SIZE (PAGE_SIZE / sizeof(uint64_t))
 
+/* 2MB hugepage */
 #define HUGEPAGE_SIZE (0x200000)
 #define HUGEPAGE_SHIFT (21)
 #define HUGEPAGE_MASK (~(HUGEPAGE_SIZE - 1))
+
+/* 1GB hugepage */
+#define HUGEPAGE_1G_SIZE (0x40000000)
+#define HUGEPAGE_1G_SHIFT (30)
+#define HUGEPAGE_1G_MASK (~(HUGEPAGE_1G_SIZE - 1))
 
 typedef struct
 {
@@ -56,10 +62,20 @@ typedef struct
     uint64_t idxl4 : 9;
 } hugepage_entry_t;
 
+/* 1GB hugepage page-index breakdown: uses L4->L3->base at L2, 30-bit offset */
+typedef struct
+{
+    uint64_t offset : 30;
+    uint64_t idxl2 : 9;
+    uint64_t idxl3 : 9;
+    uint64_t idxl4 : 9;
+} gigapage_entry_t;
+
 typedef union {
     uint64_t addr;
     page_entry_t pg_entry;
     hugepage_entry_t hpg_entry;
+    gigapage_entry_t gpg_entry;
 } page_index_t;
 
 typedef struct page_table_t
@@ -71,8 +87,11 @@ typedef struct page_table_t
 } page_table_t;
 
 typedef void (*free_page_table_fptr_t)(page_table_t *const table);
-typedef void (*store_addr_fptr_t)(page_table_t *, uintptr_t, uint64_t);
 typedef uint64_t (*load_addr_fptr_t)(page_table_t *, void *);
 typedef uint64_t (*load_key_fptr_t)(page_table_t *, void *);
+typedef void (*store_mmap_range_fptr_t)(page_table_t *,
+                                        void *,
+                                        uint64_t,
+                                        size_t);
 
 #endif /* QAE_PAGE_TABLE_DEFS_H */

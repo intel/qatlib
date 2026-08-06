@@ -189,12 +189,12 @@ volatile CpaBoolean dataIntegrityVerify_g = CPA_FALSE;
 volatile CpaBoolean hwVerify_g = CPA_FALSE;
 volatile CpaBoolean keyCorrupt_g = CPA_FALSE;
 volatile CpaBoolean enableReadInstance_g = CPA_FALSE;
-
+Cpa16U numDecompInstances_g = 0;
 /* DC chaining specific variable to enable S/W write chaining operation */
 volatile CpaBoolean swWrite_g = CPA_FALSE;
 
 volatile CpaBoolean isNsRequest_g = CPA_FALSE;
-int verboseOutput = 1;
+int verboseOutput = 0;
 
 CpaStatus setHwVerify(CpaBoolean val);
 CpaStatus setSwWrite(CpaBoolean val);
@@ -215,6 +215,22 @@ CpaStatus setDcNsFlag(CpaBoolean val)
 }
 EXPORT_SYMBOL(isNsRequest_g);
 EXPORT_SYMBOL(setDcNsFlag);
+volatile CpaBoolean decompServiceRequest_g = CPA_FALSE;
+CpaStatus setDecompServiceRequest(CpaBoolean val)
+{
+    if (val == 1)
+    {
+        decompServiceRequest_g = CPA_TRUE;
+    }
+    else
+    {
+        decompServiceRequest_g = CPA_FALSE;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(decompServiceRequest_g);
+EXPORT_SYMBOL(setDecompServiceRequest);
+
 CpaStatus setDataIntegrity(CpaBoolean val)
 {
     dataIntegrity_g = val;
@@ -1378,6 +1394,14 @@ void freeInstanceMapping(void)
     {
         qaeMemFree((void **)&dcInst_g);
     }
+    if (NULL != decompInst_g)
+    {
+        qaeMemFree((void **)&decompInst_g);
+    }
+    if (NULL != decompInstMap_g)
+    {
+        qaeMemFree((void **)&decompInstMap_g);
+    }
     if (NULL != cyInstMap_g)
     {
         qaeMemFree((void **)&cyInstMap_g);
@@ -1465,8 +1489,6 @@ CpaStatus getCryptoInstanceMapping(void)
                 {
                     packageIdCount_g = info.physInstId.packageId;
                 }
-                if (verboseOutput)
-                {
                     PRINT("Inst %u, Affin: %u, Dev: %u, Accel %u, "
                           "BDF %02X:%02X:%02X\n",
                           i,
@@ -1476,7 +1498,6 @@ CpaStatus getCryptoInstanceMapping(void)
                           (Cpa8U)((info.physInstId.busAddress) >> 8),
                           (Cpa8U)((info.physInstId.busAddress) & 0xFF) >> 3,
                           (Cpa8U)((info.physInstId.busAddress) & 7));
-                }
                 if (info.isPolled)
                     cyInstMap_g[i] = coreAffinity;
                 else
@@ -1757,8 +1778,6 @@ CpaStatus getCompressionInstanceMapping(void)
                 {
                     packageIdCount_g = info.physInstId.packageId;
                 }
-                if (verboseOutput)
-                {
                     PRINT("Inst %u, Affin: %u, Dev: %u, Accel %u, "
                           "BDF %02X:%02X:%02X\n",
                           i,
@@ -1768,7 +1787,6 @@ CpaStatus getCompressionInstanceMapping(void)
                           (Cpa8U)((info.physInstId.busAddress) >> 8),
                           (Cpa8U)((info.physInstId.busAddress) & 0xFF) >> 3,
                           (Cpa8U)((info.physInstId.busAddress) & 7));
-                }
                 if (info.isPolled)
                     dcInstMap_g[i] = coreAffinity;
                 else
@@ -1792,6 +1810,111 @@ CpaStatus getCompressionInstanceMapping(void)
 }
 EXPORT_SYMBOL(getCompressionInstanceMapping);
 #endif
+
+/*get the instance to core affinity mapping of the Decompression instances and
+ * populate the InstMap structure*/
+CpaStatus getDecompressionInstanceMapping(void)
+{
+    CpaStatus status = CPA_STATUS_FAIL;
+    Cpa32U i = 0;
+    Cpa32U coreAffinity = 0;
+    CpaInstanceInfo2 info = { 0 };
+
+    /*get the number of decompression instances*/
+    status =
+        cpaGetNumInstances(CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION, &numInst_g);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("cpaDcGetNumInstances failed with status: %d\n", status);
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
+    }
+    if (numInst_g > 0)
+    {
+        /* use single instance for latency and COO */
+        if (singleInstRequired_g)
+        {
+            numInst_g = 1;
+        }
+        /*allocate memory to store the instance handles*/
+        dcInst_g = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInst_g);
+        if (dcInst_g == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for instances\n");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+        /*get the instances handles and place in allocated memory*/
+        status = cpaGetInstances(
+            CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION, numInst_g, dcInst_g);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("cpaDcGetInstances failed with status: %d\n", status);
+            freeInstanceMapping();
+            return status;
+        }
+        /*allocate memory for the instance core mapping*/
+        dcInstMap_g = qaeMemAlloc(sizeof(Cpa32U) * numInst_g);
+        if (dcInstMap_g == NULL)
+        {
+            PRINT_ERR("Failed to allocate memory for instance mapping\n");
+            freeInstanceMapping();
+            return CPA_STATUS_FAIL;
+        }
+
+        for (i = 0; i < numInst_g; i++)
+        {
+            status = cpaDcInstanceGetInfo2(dcInst_g[i], &info);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR("could not get instance info\n");
+                freeInstanceMapping();
+                return status;
+            }
+            if (CPA_STATUS_SUCCESS ==
+                getCoreAffinity(dcInst_g[i], &coreAffinity, COMPRESSION))
+            {
+                if ((packageIdCount_g < info.physInstId.packageId) &&
+                    (info.operState == CPA_OPER_STATE_UP) &&
+                    CPA_FALSE == devicesCounted_g)
+                {
+                    packageIdCount_g = info.physInstId.packageId;
+                }
+                if (verboseOutput)
+                {
+                    PRINT("Inst %u, Affin: %u, Dev: %u, Accel %u, "
+                          "EE %u, BDF %02X:%02X:%02X\n",
+                          i,
+                          coreAffinity,
+                          info.physInstId.packageId,
+                          info.physInstId.acceleratorId,
+                          info.physInstId.executionEngineId,
+                          (Cpa8U)((info.physInstId.busAddress) >> 8),
+                          (Cpa8U)((info.physInstId.busAddress) & 0xFF) >> 3,
+                          (Cpa8U)((info.physInstId.busAddress) & 7));
+                }
+                if (info.isPolled)
+                    dcInstMap_g[i] = coreAffinity;
+                else
+                    dcInstMap_g[i] = coreAffinity + 1;
+            }
+            else
+            {
+                freeInstanceMapping();
+                return CPA_STATUS_FAIL;
+            }
+        }
+        devicesCounted_g = CPA_TRUE;
+    }
+    else
+    {
+        PRINT("There are no decompression instances\n");
+        freeInstanceMapping();
+        return CPA_STATUS_FAIL;
+    }
+    return status;
+}
+EXPORT_SYMBOL(getDecompressionInstanceMapping);
 
 CpaStatus createStartandWaitForCompletionCrypto(Cpa32U instType)
 {
@@ -1823,6 +1946,7 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
     Cpa16U nAsymInstances = 0;
 
     if ((instType != COMPRESSION)
+        && (instType != DECOMPRESSION)
     )
     {
         cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &nSymInstances);
@@ -1913,6 +2037,17 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
             numInst = numInst_g;
         }
         break;
+        case DECOMPRESSION:
+        {
+            if (CPA_STATUS_SUCCESS != getDecompressionInstanceMapping())
+            {
+                PRINT_ERR("Could not get Decompression Instance mapping\n");
+                return CPA_STATUS_FAIL;
+            }
+            instMap = dcInstMap_g;
+            numInst = numInst_g;
+        }
+        break;
 #endif
         default:
         {
@@ -1938,12 +2073,20 @@ CpaStatus createStartandWaitForCompletion(Cpa32U instType)
         return status;
     }
 #if CY_API_VERSION_AT_LEAST(3, 0)
-    if ((isSymAsymConf == CPA_TRUE) && (instType == SYM || instType == ASYM))
+    if (isSymAsymConf == CPA_TRUE)
     {
-
-        qatModifyCyThreadLogicalQaInstance(
-            0, cyInst_g, sym_asymInst, numInst_g);
-        isChangingThreadQaInstanceRequired_g = CPA_FALSE;
+        if (instType == SYM)
+        {
+            qatModifyCyThreadLogicalQaInstance(
+                0, symCyInst_g, sym_asymInst, nSymInstances);
+            isChangingThreadQaInstanceRequired_g = CPA_FALSE;
+        }
+        else if (instType == ASYM)
+        {
+            qatModifyCyThreadLogicalQaInstance(
+                0, asymCyInst_g, sym_asymInst, nAsymInstances);
+            isChangingThreadQaInstanceRequired_g = CPA_FALSE;
+        }
     }
 #endif
     status = startThreads();

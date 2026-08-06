@@ -89,7 +89,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* QAT includes */
 #include "icp_qat_fw_la.h"
@@ -113,6 +112,9 @@
 #include "sal_statistics.h"
 #include "lac_ec_nist_curves.h"
 
+/**< Number of bytes of ECDSA cryptographically secure random data for DPA */
+#define LAC_ECDSA_DPA_P384_RANDOM_DATA_SIZE 48
+
 typedef struct _OptCurveParams
 {
     Cpa32U dataOperationSizeBytes;
@@ -121,6 +123,7 @@ typedef struct _OptCurveParams
     const Cpa8U *n;
     const Cpa8U *a;
     const Cpa8U *b;
+    CpaBoolean dpa_support;
 } OptCurveParams;
 
 /*
@@ -256,6 +259,21 @@ typedef struct _OptCurveParams
         LAC_MEM_SHARED_WRITE_FROM_PTR(out.s, pS);                              \
     } while (0);
 
+/* Macro to populate DPA Sign RS parameters */
+#define LacDpaEcdsaP384SignRSOpDataWrite(in, out, pOpData, random, pR, pS)     \
+    do                                                                         \
+    {                                                                          \
+        /* Populate input parameters */                                        \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.rnd, random);                         \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.k, &pOpData->k);                      \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.e, &pOpData->m);                      \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.d, &pOpData->d);                      \
+                                                                               \
+        /* Populate output parameters */                                       \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.r, pR);                              \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.s, pS);                              \
+    } while (0);
+
 /**< @ingroup Lac_Ec
  * macro to write in/out parameters for the P256 and P384
  * Ecdsa SignRS operation */
@@ -278,6 +296,7 @@ STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
                                       const CpaCyEcdsaSignRSCbFunc pCb,
                                       void *pCallbackTag,
                                       const CpaCyEcdsaSignRSOpData *pOpData,
+                                      lac_pke_dpa_op_data_t *pDpa,
                                       CpaBoolean *pMultiplyStatus,
                                       CpaFlatBuffer *pR,
                                       CpaFlatBuffer *pS);
@@ -460,6 +479,7 @@ STATIC void LacEc_FlatBuffToConcate(Cpa8U **ptr,
  ***************************************************************************/
 STATIC CpaBoolean
 LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
+                                CpaBoolean dpa,
                                 const CpaFlatBuffer *pP,
                                 const CpaFlatBuffer *pN,
                                 const CpaFlatBuffer *pA,
@@ -473,6 +493,7 @@ LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
         /* P256 */
         { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_256_BITS),
           .functionRS = PKE_ECDSA_SIGN_RS_P256,
+          .dpa_support = CPA_FALSE,
           .p = nist_p256_p,
           .n = nist_p256_n,
           .a = nist_p256_a,
@@ -481,6 +502,15 @@ LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
         /* P384 */
         { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
           .functionRS = PKE_ECDSA_SIGN_RS_P384,
+          .dpa_support = CPA_FALSE,
+          .p = nist_p384_p,
+          .n = nist_p384_n,
+          .a = nist_p384_a,
+          .b = nist_p384_b },
+        /* DPA P384 */
+        { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
+          .functionRS = PKE_DPA_ECDSA_SIGN_RS_P384,
+          .dpa_support = CPA_TRUE,
           .p = nist_p384_p,
           .n = nist_p384_n,
           .a = nist_p384_a,
@@ -499,6 +529,9 @@ LacEcdsa_SignRSGetOptFunctionId(CpaCyEcFieldType primeRepresentation,
         if (!res)
             continue;
 
+        res = (dpa == curves[i].dpa_support);
+        if (!res)
+            continue;
         res = LacPke_CompareFlatAndPtr(
             pN, curves[i].n, curves[i].dataOperationSizeBytes);
         if (!res)
@@ -540,6 +573,7 @@ LacEcdsa_SignRSFillMMPStructsOpt(icp_qat_fw_mmp_input_param_t *in,
                                  Cpa32U function,
                                  Cpa32U size,
                                  const CpaCyEcdsaSignRSOpData *pOpData,
+                                 const lac_pke_dpa_op_data_t *pDpa,
                                  CpaFlatBuffer *pR,
                                  CpaFlatBuffer *pS)
 {
@@ -575,6 +609,15 @@ LacEcdsa_SignRSFillMMPStructsOpt(icp_qat_fw_mmp_input_param_t *in,
                                               pOpData,
                                               pR,
                                               pS);
+            break;
+
+        case PKE_DPA_ECDSA_SIGN_RS_P384:
+            LacDpaEcdsaP384SignRSOpDataWrite(in->mmp_dpa_ecdsa_sign_rs_p384,
+                                             out->mmp_dpa_ecdsa_sign_rs_p384,
+                                             pOpData,
+                                             pDpa->pRandom,
+                                             pR,
+                                             pS);
             break;
 
         default:
@@ -1531,6 +1574,7 @@ CpaStatus cpaCyEcdsaSignS(const CpaInstanceHandle instanceHandle_in,
  ***************************************************************************/
 STATIC CpaStatus LacEcdsa_SignRSSyn(const CpaInstanceHandle instanceHandle,
                                     const CpaCyEcdsaSignRSOpData *pOpData,
+                                    lac_pke_dpa_op_data_t *pDpa,
                                     CpaBoolean *pMultiplyStatus,
                                     CpaFlatBuffer *pR,
                                     CpaFlatBuffer *pS)
@@ -1551,6 +1595,7 @@ STATIC CpaStatus LacEcdsa_SignRSSyn(const CpaInstanceHandle instanceHandle,
                                       LacSync_GenDualFlatBufVerifyCb,
                                       pSyncCallbackData,
                                       pOpData,
+                                      pDpa,
                                       pMultiplyStatus,
                                       pR,
                                       pS);
@@ -1660,6 +1705,7 @@ void LacEcdsa_SignRSCallback(CpaStatus status,
 STATIC
 CpaStatus LacEcdsa_SignRSBasicParamCheck(const CpaInstanceHandle instanceHandle,
                                          const CpaCyEcdsaSignRSOpData *pOpData,
+                                         lac_pke_dpa_op_data_t *pDpa,
                                          CpaBoolean *pMultiplyStatus,
                                          CpaFlatBuffer *pR,
                                          CpaFlatBuffer *pS)
@@ -1694,6 +1740,9 @@ CpaStatus LacEcdsa_SignRSBasicParamCheck(const CpaInstanceHandle instanceHandle,
     LAC_CHECK_SIZE(pR, CHECK_NONE, 0);
     LAC_CHECK_NULL_PARAM(pS->pData);
     LAC_CHECK_SIZE(pS, CHECK_NONE, 0);
+    if (pDpa->dpa)
+        LAC_CHECK_FLAT_BUFFER_PARAM(
+            pDpa->pRandom, CHECK_EQUALS, LAC_ECDSA_DPA_P384_RANDOM_DATA_SIZE);
     if (CPA_CY_EC_FIELD_TYPE_PRIME != pOpData->fieldType &&
         CPA_CY_EC_FIELD_TYPE_BINARY != pOpData->fieldType)
     {
@@ -1715,7 +1764,8 @@ CpaStatus LacEcdsa_OptimisedSignRS(const CpaInstanceHandle instanceHandle,
                                    void *pCallbackTag,
                                    const CpaCyEcdsaSignRSOpData *pOpData,
                                    CpaFlatBuffer *pR,
-                                   CpaFlatBuffer *pS)
+                                   CpaFlatBuffer *pS,
+                                   const lac_pke_dpa_op_data_t *pDpa)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_crypto_service_t *pCryptoService = NULL;
@@ -1751,6 +1801,7 @@ CpaStatus LacEcdsa_OptimisedSignRS(const CpaInstanceHandle instanceHandle,
     }
 #endif
     optCurve = LacEcdsa_SignRSGetOptFunctionId(pOpData->fieldType,
+                                               pDpa->dpa,
                                                &(pOpData->q),
                                                &(pOpData->n),
                                                &(pOpData->a),
@@ -1792,6 +1843,7 @@ CpaStatus LacEcdsa_OptimisedSignRS(const CpaInstanceHandle instanceHandle,
                                               functionID,
                                               dataOperationSize,
                                               pOpData,
+                                              pDpa,
                                               pR,
                                               pS);
     /* Send pke request */
@@ -1837,6 +1889,10 @@ CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
                            CpaFlatBuffer *pR,
                            CpaFlatBuffer *pS)
 {
+    /* DPA is disabled for non DPA API calls */
+    lac_pke_dpa_op_data_t dpa = { .pRandom = NULL,
+                                  .createRandomData = CPA_FALSE,
+                                  .dpa = CPA_FALSE };
 #ifdef ICP_TRACE
     LAC_LOG7("Called with params (0x%lx, 0x%lx, 0x%lx, 0x%lx, "
              "0x%lx, 0x%lx, 0x%lx)\n",
@@ -1853,6 +1909,7 @@ CpaStatus cpaCyEcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
                                 pCb,
                                 pCallbackTag,
                                 pOpData,
+                                &dpa,
                                 pMultiplyStatus,
                                 pR,
                                 pS);
@@ -1862,6 +1919,7 @@ STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
                                       const CpaCyEcdsaSignRSCbFunc pCb,
                                       void *pCallbackTag,
                                       const CpaCyEcdsaSignRSOpData *pOpData,
+                                      lac_pke_dpa_op_data_t *pDpa,
                                       CpaBoolean *pMultiplyStatus,
                                       CpaFlatBuffer *pR,
                                       CpaFlatBuffer *pS)
@@ -1904,6 +1962,9 @@ STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
     SAL_CHECK_INSTANCE_CRYPTO_CAPABILITY(instanceHandle, ecdsa);
 
     pCryptoService = (sal_crypto_service_t *)instanceHandle;
+    if (pDpa->dpa && (!pCryptoService->generic_service_info.dpaSupport ||
+                      pDpa->createRandomData == CPA_TRUE))
+        return CPA_STATUS_UNSUPPORTED;
 
     /* Check if the API has been called in synchronous mode */
     if (NULL == pCb)
@@ -1911,6 +1972,7 @@ STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
         /* Call synchronous mode function */
         return LacEcdsa_SignRSSyn(instanceHandle,
                                   pOpData,
+                                  pDpa,
                                   pMultiplyStatus,
                                   pR,
                                   pS);
@@ -1920,6 +1982,7 @@ STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
     /* Basic Param Checking */
     status = LacEcdsa_SignRSBasicParamCheck(instanceHandle,
                                             pOpData,
+                                            pDpa,
                                             pMultiplyStatus,
                                             pR,
                                             pS);
@@ -1942,7 +2005,7 @@ STATIC CpaStatus LacEcdsa_EcdsaSignRS(const CpaInstanceHandle instanceHandle_in,
         CpaStatus isSupported = CPA_STATUS_SUCCESS;
 
         isSupported = LacEcdsa_OptimisedSignRS(
-            instanceHandle, pCb, pCallbackTag, pOpData, pR, pS);
+            instanceHandle, pCb, pCallbackTag, pOpData, pR, pS, pDpa);
 
         /* If LacEcdsa_OptimisedSignRS returns CPA_STATUS_UNSUPPORTED,
          * this means that the optimised path is not supported for the curve.
@@ -2310,7 +2373,27 @@ CpaStatus cpaCyEcdsaDpaSignRS(const CpaInstanceHandle instanceHandle,
                               CpaFlatBuffer *pR,
                               CpaFlatBuffer *pS)
 {
-    return CPA_STATUS_UNSUPPORTED;
+    lac_pke_dpa_op_data_t dpa = { .pRandom = pRandom,
+                                  .createRandomData = createRandomData,
+                                  .dpa = CPA_TRUE };
+
+#ifdef ICP_TRACE
+    LAC_LOG9("Called with params (0x%lx, 0x%lx, 0x%lx, 0x%lx, "
+             "0x%lx, %d, 0x%lx, 0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)instanceHandle,
+             (LAC_ARCH_UINT)pCb,
+             (LAC_ARCH_UINT)pCallbackTag,
+             (LAC_ARCH_UINT)pOpData,
+             (LAC_ARCH_UINT)pRandom,
+             (LAC_ARCH_UINT)createRandomData,
+             (LAC_ARCH_UINT)pSignStatus,
+             (LAC_ARCH_UINT)pR,
+             (LAC_ARCH_UINT)pS);
+#endif
+    LAC_CHECK_NULL_PARAM(pRandom);
+
+    return LacEcdsa_EcdsaSignRS(
+        instanceHandle, pCb, pCallbackTag, pOpData, &dpa, pSignStatus, pR, pS);
 }
 
 /**

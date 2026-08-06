@@ -61,6 +61,7 @@ int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *pRingHandle);
 
 CpaBoolean adf_user_check_resp_ring(adf_dev_ring_handle_t *ring);
 CpaStatus adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring);
+void adf_user_sync_ring_head(adf_dev_ring_handle_t *ring);
 int32_t adf_user_get_inflight_requests(adf_dev_ring_handle_t *ring,
                                        uint32_t *maxInflightRequests,
                                        uint32_t *numInflightRequests);

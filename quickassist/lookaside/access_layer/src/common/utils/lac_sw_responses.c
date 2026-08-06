@@ -67,6 +67,29 @@ void LacSwResp_InitNumPoolsBusy(void)
 /**
  *******************************************************************************
  * @ingroup LacSwResponses
+ * This function frees the bucket with memblks containing in-flight requests.
+ ******************************************************************************/
+STATIC
+void LacSwResp_MemBlkBucketDestroy(lac_memblk_bucket_t *pBucket)
+{
+    if (NULL == pBucket)
+    {
+        return;
+    }
+
+    if (NULL != pBucket->mem_blk)
+    {
+        osalMemFree(pBucket->mem_blk);
+    }
+
+    osalMemFree(pBucket);
+
+    return;
+}
+
+/**
+ *******************************************************************************
+ * @ingroup LacSwResponses
  * This function creates a bucket with in-order memblks.
  ******************************************************************************/
 STATIC
@@ -125,6 +148,15 @@ lac_memblk_bucket_t *LacSwResp_MemBlkBucketCreate(lac_mem_pool_hdr_t *pPoolID)
             continue;
         }
         pBucket->numBlksInRing++;
+        if (pBucketBlk[opaque % numBlksUsed] != NULL)
+        {
+            LAC_LOG_ERROR1(
+                "Software response generation failed! pBucket index %llu "
+                "is already occupied!",
+                opaque % numBlksUsed);
+            LacSwResp_MemBlkBucketDestroy(pBucket);
+            return NULL;
+        }
         pBucketBlk[opaque % numBlksUsed] = pCurrentBlk;
         if (opaque < seq)
         {
@@ -133,29 +165,6 @@ lac_memblk_bucket_t *LacSwResp_MemBlkBucketCreate(lac_mem_pool_hdr_t *pPoolID)
         }
     }
     return pBucket;
-}
-
-/**
- *******************************************************************************
- * @ingroup LacSwResponses
- * This function frees the bucket with memblks containing in-flight requests.
- ******************************************************************************/
-STATIC
-void LacSwResp_MemBlkBucketDestroy(lac_memblk_bucket_t *pBucket)
-{
-    if (NULL == pBucket)
-    {
-        return;
-    }
-
-    if (NULL != pBucket->mem_blk)
-    {
-        osalMemFree(pBucket->mem_blk);
-    }
-
-    osalMemFree(pBucket);
-
-    return;
 }
 
 STATIC

@@ -40,7 +40,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* FW includes */
 #include "icp_qat_fw_la.h"
@@ -57,6 +56,9 @@
 #include "lac_sal_types_crypto.h"
 #include "lac_rsa_p.h"
 #include "lac_rsa_stats_p.h"
+
+#define RSA_PRIME(dpaEnabled, rsaPrime) (dpaEnabled) ? (rsaPrime) : NULL
+#define LAC_DPA_RSA_RANDOM_BITS (4608)
 
 /*
 ********************************************************************************
@@ -102,6 +104,8 @@ STATIC CpaStatus
 LacRsa_DecryptParamsCheck(const CpaInstanceHandle instanceHandle,
                           const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                           const CpaCyRsaDecryptOpData *pDecryptData,
+                          const CpaCyRsaDpaOpData *pDpaDecryptData,
+                          CpaBoolean dpaEnabled,
                           CpaFlatBuffer *pOutputData);
 #endif
 
@@ -121,6 +125,8 @@ STATIC CpaStatus LacRsa_Type1Decrypt(const CpaInstanceHandle instanceHandle,
                                      const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                                      void *pCallbackTag,
                                      const CpaCyRsaDecryptOpData *pDecryptData,
+                                     const CpaCyRsaDpaOpData *pDpaDecryptData,
+                                     CpaBoolean dpaEnabled,
                                      CpaFlatBuffer *pOutputData);
 
 /*
@@ -130,6 +136,8 @@ STATIC CpaStatus LacRsa_Type2Decrypt(const CpaInstanceHandle instanceHandle,
                                      const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                                      void *pCallbackTag,
                                      const CpaCyRsaDecryptOpData *pDecryptData,
+                                     const CpaCyRsaDpaOpData *pDpaDecryptData,
+                                     CpaBoolean dpaEnabled,
                                      CpaFlatBuffer *pOutputData);
 
 /*
@@ -137,12 +145,16 @@ STATIC CpaStatus LacRsa_Type2Decrypt(const CpaInstanceHandle instanceHandle,
  */
 STATIC CpaStatus LacRsa_DecryptSynch(const CpaInstanceHandle instanceHandle,
                                      const CpaCyRsaDecryptOpData *pDecryptData,
+                                     const CpaCyRsaDpaOpData *pDpaDecryptData,
+                                     CpaBoolean dpaEnabled,
                                      CpaFlatBuffer *pOutputData);
 
 STATIC CpaStatus LacRsa_Decrypt(const CpaInstanceHandle instanceHandle,
                                 const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                                 void *pCallbackTag,
                                 const CpaCyRsaDecryptOpData *pDecryptData,
+                                const CpaCyRsaDpaOpData *pDpaDecryptData,
+                                CpaBoolean dpaEnabled,
                                 CpaFlatBuffer *pOutputData)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -164,6 +176,8 @@ STATIC CpaStatus LacRsa_Decrypt(const CpaInstanceHandle instanceHandle,
     {
         return LacRsa_DecryptSynch(instanceHandle,
                                    pDecryptData,
+                                   pDpaDecryptData,
+                                   dpaEnabled,
                                    pOutputData);
     }
 #ifdef ICP_PARAM_CHECK
@@ -171,6 +185,8 @@ STATIC CpaStatus LacRsa_Decrypt(const CpaInstanceHandle instanceHandle,
     status = LacRsa_DecryptParamsCheck(instanceHandle,
                                        pRsaDecryptCb,
                                        pDecryptData,
+                                       pDpaDecryptData,
+                                       dpaEnabled,
                                        pOutputData);
 #endif
     if (CPA_STATUS_SUCCESS == status)
@@ -182,6 +198,8 @@ STATIC CpaStatus LacRsa_Decrypt(const CpaInstanceHandle instanceHandle,
                                          pRsaDecryptCb,
                                          pCallbackTag,
                                          pDecryptData,
+                                         pDpaDecryptData,
+                                         dpaEnabled,
                                          pOutputData);
         }
         else /* Must be type2 key as param check has passed */
@@ -190,6 +208,8 @@ STATIC CpaStatus LacRsa_Decrypt(const CpaInstanceHandle instanceHandle,
                                          pRsaDecryptCb,
                                          pCallbackTag,
                                          pDecryptData,
+                                         pDpaDecryptData,
+                                         dpaEnabled,
                                          pOutputData);
         }
     }
@@ -245,6 +265,8 @@ CpaStatus cpaCyRsaDecrypt(const CpaInstanceHandle instanceHandle_in,
                             pRsaDecryptCb,
                             pCallbackTag,
                             pDecryptData,
+                            NULL,
+                            CPA_FALSE,
                             pOutputData);
 
     return status;
@@ -257,11 +279,63 @@ CpaStatus cpaCyRsaDpaDecrypt(const CpaInstanceHandle instanceHandle_in,
                              const CpaCyRsaDpaOpData *pDpaOpData,
                              CpaFlatBuffer *pOutputData)
 {
-    return CPA_STATUS_UNSUPPORTED;
+    sal_crypto_service_t *pCryptoService = NULL;
+    CpaInstanceHandle instanceHandle = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+#ifdef ICP_TRACE
+    LAC_LOG6("Called with params (0x%lx, 0x%lx, 0x%lx, 0x%lx, "
+             "0x%lx, 0x%lx)\n",
+             (LAC_ARCH_UINT)instanceHandle_in,
+             (LAC_ARCH_UINT)pRsaDecryptCb,
+             (LAC_ARCH_UINT)pCallbackTag,
+             (LAC_ARCH_UINT)pDecryptData,
+             (LAC_ARCH_UINT)pDpaOpData,
+             (LAC_ARCH_UINT)pOutputData);
+#endif
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pDpaOpData);
+#endif
+    if (pDpaOpData->createRandomData)
+    {
+        LAC_LOG_ERROR("Creating random data for DPA is not supported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+    LAC_CHECK_NULL_PARAM(pDpaOpData->pRandom);
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle_in)
+    {
+        instanceHandle = Lac_GetFirstHandle(SAL_SERVICE_TYPE_CRYPTO_ASYM);
+    }
+    else
+    {
+        instanceHandle = instanceHandle_in;
+    }
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_INSTANCE_HANDLE(instanceHandle);
+#endif
+    pCryptoService = (sal_crypto_service_t *)instanceHandle;
+    if (!pCryptoService->generic_service_info.dpaSupport)
+    {
+        LAC_LOG_ERROR1("%s: DPA not supported on this device\n", __func__);
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    status = LacRsa_Decrypt(instanceHandle,
+                            pRsaDecryptCb,
+                            pCallbackTag,
+                            pDecryptData,
+                            pDpaOpData,
+                            CPA_TRUE,
+                            pOutputData);
+
+    return status;
 }
 
 STATIC CpaStatus LacRsa_DecryptSynch(const CpaInstanceHandle instanceHandle,
                                      const CpaCyRsaDecryptOpData *pDecryptData,
+                                     const CpaCyRsaDpaOpData *pDpaDecryptData,
+                                     CpaBoolean dpaEnabled,
                                      CpaFlatBuffer *pOutputData)
 {
     CpaStatus status = CPA_STATUS_FAIL;
@@ -278,6 +352,8 @@ STATIC CpaStatus LacRsa_DecryptSynch(const CpaInstanceHandle instanceHandle,
                                 LacSync_GenFlatBufCb,
                                 pSyncCallbackData,
                                 pDecryptData,
+                                pDpaDecryptData,
+                                dpaEnabled,
                                 pOutputData);
     }
     else
@@ -316,6 +392,8 @@ STATIC CpaStatus
 LacRsa_DecryptParamsCheck(const CpaInstanceHandle instanceHandle,
                           const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                           const CpaCyRsaDecryptOpData *pDecryptData,
+                          const CpaCyRsaDpaOpData *pDpaDecryptData,
+                          CpaBoolean dpaEnabled,
                           CpaFlatBuffer *pOutputData)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -327,12 +405,19 @@ LacRsa_DecryptParamsCheck(const CpaInstanceHandle instanceHandle,
     LAC_CHECK_NULL_PARAM(pDecryptData);
     /* Check the Private Key is correct version, type and for NULL params */
     status =
-        LacRsa_CheckPrivateKeyParam(pDecryptData->pRecipientPrivateKey);
+        LacRsa_CheckPrivateKeyParam(
+            pDecryptData->pRecipientPrivateKey,
+            RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeP),
+            RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeQ),
+            dpaEnabled);
     LAC_CHECK_STATUS(status);
 
     /* Get the opSize */
-    opSizeInBytes =
-        LacRsa_GetPrivateKeyOpSize(pDecryptData->pRecipientPrivateKey);
+    opSizeInBytes = LacRsa_GetPrivateKeyOpSize(
+        pDecryptData->pRecipientPrivateKey,
+        RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeP),
+        RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeQ),
+        dpaEnabled);
     if (CPA_FALSE == LacRsa_IsValidRsaSize(opSizeInBytes))
     {
         LAC_INVALID_PARAM_LOG(
@@ -350,23 +435,33 @@ LacRsa_DecryptParamsCheck(const CpaInstanceHandle instanceHandle,
     if (CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_1 ==
         pDecryptData->pRecipientPrivateKey->privateKeyRepType)
     {
-        /* Check MSB and LSB of the modulus */
-        LAC_CHECK_RSA_BUFFER_MSB_LSB(
-            &(pDecryptData->pRecipientPrivateKey->privateKeyRep1.modulusN),
-            opSizeInBytes,
-            CPA_TRUE,
-            CPA_TRUE);
-
-        /* Standards based check: 0 < inputData < n */
-        LAC_CHECK_NON_ZERO_PARAM(&(pDecryptData->inputData));
-        if (LacPke_Compare(
-                &(pDecryptData->inputData),
-                0,
-                &(pDecryptData->pRecipientPrivateKey->privateKeyRep1.modulusN),
-                0) >= 0)
+        if (dpaEnabled)
         {
-            LAC_INVALID_PARAM_LOG("inputData must be < modulusN");
-            return CPA_STATUS_INVALID_PARAM;
+            LAC_CHECK_FLAT_BUFFER_PARAM(
+                pDpaDecryptData->pRandom,
+                CHECK_EQUALS,
+                LAC_BITS_TO_BYTES(LAC_DPA_RSA_RANDOM_BITS));
+        }
+        else
+        {
+            /* Check MSB and LSB of the modulus */
+            LAC_CHECK_RSA_BUFFER_MSB_LSB(
+                &(pDecryptData->pRecipientPrivateKey->privateKeyRep1.modulusN),
+                opSizeInBytes,
+                CPA_TRUE,
+                CPA_TRUE);
+
+            /* Standards based check: 0 < inputData < n */
+            LAC_CHECK_NON_ZERO_PARAM(&(pDecryptData->inputData));
+            if (LacPke_Compare(&(pDecryptData->inputData),
+                               0,
+                               &(pDecryptData->pRecipientPrivateKey
+                                     ->privateKeyRep1.modulusN),
+                               0) >= 0)
+            {
+                LAC_INVALID_PARAM_LOG("inputData must be < modulusN");
+                return CPA_STATUS_INVALID_PARAM;
+            }
         }
     }
     else
@@ -397,6 +492,8 @@ CpaStatus LacRsa_Type1Decrypt(const CpaInstanceHandle instanceHandle,
                               const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                               void *pCallbackTag,
                               const CpaCyRsaDecryptOpData *pDecryptData,
+                              const CpaCyRsaDpaOpData *pDpaDecryptData,
+                              CpaBoolean dpaEnabled,
                               CpaFlatBuffer *pOutputData)
 {
     Cpa32U opSizeInBytes = 0;
@@ -412,11 +509,22 @@ CpaStatus LacRsa_Type1Decrypt(const CpaInstanceHandle instanceHandle,
     LAC_ASSERT_NOT_NULL(pDecryptData);
     LAC_ASSERT_NOT_NULL(pOutputData);
 
-    opSizeInBytes =
-        LacRsa_GetPrivateKeyOpSize(pDecryptData->pRecipientPrivateKey);
-    functionalityId = LacPke_GetMmpId(LAC_BYTES_TO_BITS(opSizeInBytes),
-                                      lacRsaDp1SizeIdMap,
-                                      LAC_ARRAY_LEN(lacRsaDp1SizeIdMap));
+    opSizeInBytes = LacRsa_GetPrivateKeyOpSize(
+        pDecryptData->pRecipientPrivateKey,
+        RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeP),
+        RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeQ),
+        dpaEnabled);
+    if (dpaEnabled)
+    {
+        if (LAC_BYTES_TO_BITS(opSizeInBytes) == LAC_3072_BITS)
+            functionalityId = PKE_DPA_RSA_DP1_3072;
+    }
+    else
+    {
+        functionalityId = LacPke_GetMmpId(LAC_BYTES_TO_BITS(opSizeInBytes),
+                                          lacRsaDp1SizeIdMap,
+                                          LAC_ARRAY_LEN(lacRsaDp1SizeIdMap));
+    }
 
     if (LAC_PKE_INVALID_FUNC_ID == functionalityId)
     {
@@ -429,36 +537,92 @@ CpaStatus LacRsa_Type1Decrypt(const CpaInstanceHandle instanceHandle,
     osalMemSet(
         pOutputData->pData, 0, (pOutputData->dataLenInBytes - opSizeInBytes));
 
-    /* populate input parameters */
-    LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_rsa_dp1_1024.c,
-                                  &(pDecryptData->inputData));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, c)] =
-        opSizeInBytes;
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, c)] =
-        CPA_FALSE;
+    if (dpaEnabled)
+    {
+        /* populate input parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp1_3072.c,
+                                      &(pDecryptData->inputData));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t, c)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t,
+                                     c)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp1_1024.d,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep1.privateExponentD));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, d)] =
-        opSizeInBytes;
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, d)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp1_3072.d,
+                                      &(pDecryptData->pRecipientPrivateKey
+                                            ->privateKeyRep1.privateExponentD));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t, d)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t,
+                                     d)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp1_1024.n,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep1.modulusN));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, n)] =
-        opSizeInBytes;
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, n)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp1_3072.e,
+                                      (pDpaDecryptData->pRsaPublicE));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t, e)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t,
+                                     e)] = CPA_FALSE;
 
-    /* populate output parameters */
-    LAC_MEM_SHARED_WRITE_FROM_PTR(out.mmp_rsa_dp1_1024.m, pOutputData);
-    pOutArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_output_t, m)] =
-        opSizeInBytes;
-    internalMemOutList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_output_t, m)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp1_3072.p,
+                                      (pDpaDecryptData->pRsaPrimeP));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t, p)] =
+            pDpaDecryptData->pRsaPrimeP->dataLenInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t,
+                                     p)] = CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp1_3072.q,
+                                      (pDpaDecryptData->pRsaPrimeQ));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t, q)] =
+            pDpaDecryptData->pRsaPrimeQ->dataLenInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t,
+                                     q)] = CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp1_3072.r,
+                                      (pDpaDecryptData->pRandom));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t, r)] =
+            pDpaDecryptData->pRandom->dataLenInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t,
+                                     r)] = CPA_FALSE;
+
+        /* populate output parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.mmp_dpa_rsa_dp1_3072.m, pOutputData);
+        pOutArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_output_t,
+                                   m)] = opSizeInBytes;
+        internalMemOutList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp1_3072_output_t,
+                                      m)] = CPA_FALSE;
+    }
+    else
+    {
+        /* populate input parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_rsa_dp1_1024.c,
+                                      &(pDecryptData->inputData));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, c)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, c)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_rsa_dp1_1024.d,
+                                      &(pDecryptData->pRecipientPrivateKey
+                                            ->privateKeyRep1.privateExponentD));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, d)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, d)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_rsa_dp1_1024.n,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep1.modulusN));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, n)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_input_t, n)] =
+            CPA_FALSE;
+
+        /* populate output parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.mmp_rsa_dp1_1024.m, pOutputData);
+        pOutArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_output_t, m)] =
+            opSizeInBytes;
+        internalMemOutList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp1_output_t, m)] =
+            CPA_FALSE;
+    }
 
     /* populate callback data */
     cbData.pClientCb = pRsaDecryptCb;
@@ -483,6 +647,8 @@ CpaStatus LacRsa_Type2Decrypt(const CpaInstanceHandle instanceHandle,
                               const CpaCyGenFlatBufCbFunc pRsaDecryptCb,
                               void *pCallbackTag,
                               const CpaCyRsaDecryptOpData *pDecryptData,
+                              const CpaCyRsaDpaOpData *pDpaDecryptData,
+                              CpaBoolean dpaEnabled,
                               CpaFlatBuffer *pOutputData)
 {
     Cpa32U opSizeInBytes = 0;
@@ -499,11 +665,22 @@ CpaStatus LacRsa_Type2Decrypt(const CpaInstanceHandle instanceHandle,
     LAC_ASSERT_NOT_NULL(pDecryptData);
     LAC_ASSERT_NOT_NULL(pOutputData);
 
-    opSizeInBytes =
-        LacRsa_GetPrivateKeyOpSize(pDecryptData->pRecipientPrivateKey);
-    functionalityId = LacPke_GetMmpId(LAC_BYTES_TO_BITS(opSizeInBytes),
-                                      lacRsaDp2SizeIdMap,
-                                      LAC_ARRAY_LEN(lacRsaDp2SizeIdMap));
+    opSizeInBytes = LacRsa_GetPrivateKeyOpSize(
+        pDecryptData->pRecipientPrivateKey,
+        RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeP),
+        RSA_PRIME(dpaEnabled, pDpaDecryptData->pRsaPrimeQ),
+        dpaEnabled);
+    if (dpaEnabled)
+    {
+        if (LAC_BYTES_TO_BITS(opSizeInBytes) == LAC_3072_BITS)
+            functionalityId = PKE_DPA_RSA_DP2_3072;
+    }
+    else
+    {
+        functionalityId = LacPke_GetMmpId(LAC_BYTES_TO_BITS(opSizeInBytes),
+                                          lacRsaDp2SizeIdMap,
+                                          LAC_ARRAY_LEN(lacRsaDp2SizeIdMap));
+    }
 
     if (LAC_PKE_INVALID_FUNC_ID == functionalityId)
     {
@@ -514,60 +691,137 @@ CpaStatus LacRsa_Type2Decrypt(const CpaInstanceHandle instanceHandle,
     /* Zero ms bytes of output buffer */
     osalMemSet(
         pOutputData->pData, 0, (pOutputData->dataLenInBytes - opSizeInBytes));
-    /* populate input parameters */
-    LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_rsa_dp2_1024.c,
-                                  &(pDecryptData->inputData));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, c)] =
-        opSizeInBytes;
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, c)] =
-        CPA_FALSE;
+    if (dpaEnabled)
+    {
+        /* populate input parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp2_3072.c,
+                                      &(pDecryptData->inputData));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t, c)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     c)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp2_1024.p,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.prime1P));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, p)] =
-        LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, p)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp2_3072.e,
+                                      pDpaDecryptData->pRsaPublicE);
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t, e)] =
+            pDpaDecryptData->pRsaPublicE->dataLenInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     e)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp2_1024.q,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.prime2Q));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, q)] =
-        LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, q)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_dpa_rsa_dp2_3072.p,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.prime1P));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t, p)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     p)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp2_1024.dp,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.exponent1Dp));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dp)] =
-        LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dp)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_dpa_rsa_dp2_3072.q,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.prime2Q));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t, q)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     q)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp2_1024.dq,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.exponent2Dq));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dq)] =
-        LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dq)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_dpa_rsa_dp2_3072.dp,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.exponent1Dp));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                  dp)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     dp)] = CPA_FALSE;
 
-    LAC_MEM_SHARED_WRITE_FROM_PTR(
-        in.mmp_rsa_dp2_1024.qinv,
-        &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.coefficientQInv));
-    pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, qinv)] =
-        LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
-    internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, qinv)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_dpa_rsa_dp2_3072.dq,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.exponent2Dq));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                  dq)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     dq)] = CPA_FALSE;
 
-    /* populate output parameters */
-    LAC_MEM_SHARED_WRITE_FROM_PTR(out.mmp_rsa_dp2_1024.m, pOutputData);
-    pOutArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_output_t, m)] =
-        opSizeInBytes;
-    internalMemOutList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_output_t, m)] =
-        CPA_FALSE;
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp2_3072.qinv,
+                                      &(pDecryptData->pRecipientPrivateKey
+                                            ->privateKeyRep2.coefficientQInv));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                  qinv)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     qinv)] = CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_dpa_rsa_dp2_3072.r,
+                                      (pDpaDecryptData->pRandom));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t, r)] =
+            pDpaDecryptData->pRandom->dataLenInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t,
+                                     r)] = CPA_FALSE;
+
+        /* populate output parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.mmp_dpa_rsa_dp2_3072.m, pOutputData);
+        pOutArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_output_t,
+                                   m)] = opSizeInBytes;
+        internalMemOutList[LAC_IDX_OF(icp_qat_fw_mmp_dpa_rsa_dp2_3072_output_t,
+                                      m)] = CPA_FALSE;
+    }
+    else
+    {
+        /* populate input parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_rsa_dp2_1024.c,
+                                      &(pDecryptData->inputData));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, c)] =
+            opSizeInBytes;
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, c)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_rsa_dp2_1024.p,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.prime1P));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, p)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, p)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_rsa_dp2_1024.q,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.prime2Q));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, q)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, q)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_rsa_dp2_1024.dp,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.exponent1Dp));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dp)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dp)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(
+            in.mmp_rsa_dp2_1024.dq,
+            &(pDecryptData->pRecipientPrivateKey->privateKeyRep2.exponent2Dq));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dq)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, dq)] =
+            CPA_FALSE;
+
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.mmp_rsa_dp2_1024.qinv,
+                                      &(pDecryptData->pRecipientPrivateKey
+                                            ->privateKeyRep2.coefficientQInv));
+        pInArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, qinv)] =
+            LAC_RSA_TYPE_2_BUF_SIZE_GET(opSizeInBytes);
+        internalMemInList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_input_t, qinv)] =
+            CPA_FALSE;
+
+        /* populate output parameters */
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.mmp_rsa_dp2_1024.m, pOutputData);
+        pOutArgSizeList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_output_t, m)] =
+            opSizeInBytes;
+        internalMemOutList[LAC_IDX_OF(icp_qat_fw_mmp_rsa_dp2_output_t, m)] =
+            CPA_FALSE;
+    }
 
     /* populate callback data */
     cbData.pClientCb = pRsaDecryptCb;

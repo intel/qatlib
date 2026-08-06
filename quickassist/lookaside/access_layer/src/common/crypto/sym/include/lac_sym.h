@@ -310,6 +310,9 @@ typedef struct icp_qat_la_auth_req_params_s
         uint8_t aad_sz;
         /**< Size in bytes of padded AAD data to prefix to the packet for CCM
          *  or GCM processing */
+        uint8_t hmac_key_sz;
+        /**< Size in bytes of HMAC key */
+
     } u2;
 
     uint8_t resrvd1;

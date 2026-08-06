@@ -21,6 +21,22 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Deprecated attribute macro for USDM APIs.
+ *
+ * When QAE_DEPRECATED is applied to a function declaration, compilers that
+ * support __attribute__((deprecated)) will emit a warning at each call site,
+ * alerting users that the function should no longer be used.
+ *
+ * Uncomment the deprecated macro if you need to see which APIs are deprecated.
+ */
+#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(_WIN64)
+#define QAE_DEPRECATED
+/* #define QAE_DEPRECATED __attribute__((deprecated)) */
+#else
+#define QAE_DEPRECATED
+#endif
+
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else
@@ -392,6 +408,36 @@ int qaeMemUnmapContiguousIova(void *virt, size_t size);
  ****************************************************************************/
 void qaeAtFork(void);
 #endif
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *       qaeMemInit
+ *
+ * @brief
+ *      @deprecated This function is a no-op and is no longer required.
+ *      The USDM library self-initializes on first use (e.g. when
+ *      qaeMemAllocNUMA() is called). Existing callers may continue to
+ *      call this function without error; it will return 0 (success)
+ *      immediately.
+ *
+ * @retval 0 always (success)
+ *
+ ****************************************************************************/
+QAE_DEPRECATED int32_t qaeMemInit(void);
+
+/**
+ *****************************************************************************
+ * @ingroup CommonMemoryDriver
+ *      qaeMemDestroy
+ *
+ * @brief
+ *      @deprecated This function is a no-op and is no longer required.
+ *      The USDM library manages its own cleanup. Existing callers may
+ *      continue to call this function without error; it does nothing.
+ *
+ ****************************************************************************/
+QAE_DEPRECATED void qaeMemDestroy(void);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

@@ -30,7 +30,6 @@
 #include "sal_statistics.h"
 
 #include "icp_adf_user_proxy.h"
-#include "icp_adf_debug.h"
 #include "lac_sal_types.h"
 #include "lac_sal.h"
 

@@ -34,6 +34,171 @@ CpaStatus cipherNewPerformanceTest(CpaBoolean mode,
                                    Cpa32U numLoops);
 void qatSymmetricPerformance(single_thread_test_data_t *testSetup);
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+static CpaStatus qatsymDataWithIteration(symmetric_test_params_t *setup,
+                                         CpaCySymOpData *encryptOpData,
+                                         CpaCySymOpData *decryptOpData,
+                                         CpaBufferList *srcBufferListArray)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U iterationCount;
+    Cpa32U i;
+    Cpa32U numLoops;
+
+    CpaInstanceResponseMode originalMode;
+    CpaInstanceResponseMode currentMode;
+    CpaInstanceResponseMode alternateMode;
+
+    /* Get iteration count */
+    status = getCyResponseModeIterationCount(&iterationCount);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get Cy response mode iteration count\n");
+        return status;
+    }
+
+    /* Store original response mode */
+    originalMode = setup->currentResponseMode;
+    /* Determine alternate mode */
+    if (originalMode == CPA_INST_RX_NOTIFY_NONE)
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    }
+    else
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_NONE;
+    }
+    PRINT("Starting response mode iteration: count=%d, initial=%d, "
+          "alternate=%d\n",
+          iterationCount,
+          originalMode,
+          alternateMode);
+    /* Perform iterations with alternating response modes */
+    for (i = 0; i < iterationCount && status == CPA_STATUS_SUCCESS; i++)
+    {
+        if (i % 2 == 0)
+        {
+            /* Even iterations: use original mode */
+            currentMode = originalMode;
+        }
+        else
+        {
+            /* Odd iterations: use alternate mode */
+            currentMode = alternateMode;
+        }
+        /* Update the test parameters with current mode */
+        setup->currentResponseMode = currentMode;
+        /* Get instance type to determine correct service type */
+        CpaInstanceInfo2 instInfo = { 0 };
+        CpaStatus infoStatus =
+            cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instInfo);
+        if (CPA_STATUS_SUCCESS != infoStatus)
+        {
+            PRINT_ERR("Failed to get instance info on iteration %d\n", i);
+            status = infoStatus;
+            break;
+        }
+        CpaStatus modeStatus =
+            cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                       instInfo.accelerationServiceType,
+                                       currentMode);
+        if (CPA_STATUS_SUCCESS != modeStatus)
+        {
+            PRINT_ERR(
+                "Failed to set response mode %d on iteration %d, status: %d\n",
+                currentMode,
+                i,
+                modeStatus);
+            /* Continue with existing mode rather than failing completely */
+        }
+        if (setup->setupData.cipherSetupData.cipherDirection ==
+                CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT &&
+            reliability_g == CPA_FALSE)
+        {
+            status = qatSymPerform(setup, encryptOpData, srcBufferListArray);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR(
+                    "qatSymPerform for encryptOpData returned status %d\n",
+                    status);
+            }
+        }
+        else if (setup->setupData.cipherSetupData.cipherDirection ==
+                     CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT &&
+                 reliability_g == CPA_FALSE)
+        {
+            /*copy numLoops, set setup->numLoops to 1 to compress data, then
+             * restore setup->numLoops to measure decompress performance*/
+            numLoops = setup->numLoops;
+            setup->numLoops = 1;
+
+            status = qatSymPerform(setup, encryptOpData, srcBufferListArray);
+            if (CPA_STATUS_SUCCESS == status)
+            {
+                /*restore setup->NumLoops*/
+                setup->numLoops = numLoops;
+                status =
+                    qatSymPerform(setup, decryptOpData, srcBufferListArray);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR(
+                        "qatSymPerform for decryptOpData returned status %d\n",
+                        status);
+                }
+            }
+        }
+        else if (setup->setupData.cipherSetupData.cipherDirection ==
+                     CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT &&
+                 reliability_g == CPA_TRUE)
+        {
+            /*copy numLoops, set setup->numLoops to 1 to do repeated
+             * compress-swdecompress for numLoops times*/
+            numLoops = setup->numLoops;
+            setup->numLoops = 1;
+            for (i = 0; i < numLoops; i++)
+            {
+                status =
+                    qatSymPerform(setup, encryptOpData, srcBufferListArray);
+
+                // now i need to decrypt
+                if (CPA_STATUS_SUCCESS == status)
+                {
+                    status =
+                        qatSymPerform(setup, decryptOpData, srcBufferListArray);
+
+                    if (CPA_STATUS_SUCCESS == status)
+                    {
+                        /*3rd param is compression setup struct, need to
+                        resolve status = qatCmpBuffers(srcBufferListArray,
+                            copyBufferListArray,
+                            setup);*/
+                    }
+                }
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    break;
+                }
+            }
+        }
+    }
+    /* Restore original mode on both instance and test parameters */
+    setup->currentResponseMode = originalMode;
+
+    CpaStatus restoreStatus = cpaInstanceSetResponseMode(
+        setup->cyInstanceHandle, CPA_ACC_SVC_TYPE_CRYPTO, originalMode);
+    if (CPA_STATUS_SUCCESS != restoreStatus)
+    {
+        PRINT_ERR("Failed to restore original response mode %d after "
+                  "iterations, status: %d\n",
+                  originalMode,
+                  restoreStatus);
+        /* Log error but don't fail the overall operation */
+    }
+    return status;
+}
+
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
 /*allocates buffers store a file for compression. The buffers are sent to
  * hardware, performance is recorded and stored in the setup parameter
@@ -145,6 +310,103 @@ static CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
     // encrypt or decrypt the data
     if (CPA_STATUS_SUCCESS == status)
     {
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+        /* Check if response mode iteration is enabled */
+        Cpa32U iterCount = 0;
+        status = getCyResponseModeIterationCount(&iterCount);
+        PRINT("iterCount = %d\n", iterCount);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Failed to get Cy response mode iteration count in "
+                      "qatSymPerform\n");
+            return status;
+        }
+        if (iterCount > 1)
+        {
+            qatsymDataWithIteration(
+                setup_sym, encryptOpData, decryptOpData, srcBufferListArray);
+        }
+        else
+        {
+            if (setup_sym->setupData.cipherSetupData.cipherDirection ==
+                    CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT &&
+                reliability_g == CPA_FALSE)
+            {
+                status =
+                    qatSymPerform(setup_sym, encryptOpData, srcBufferListArray);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR(
+                        "qatSymPerform for encryptOpData returned status %d\n",
+                        status);
+                }
+            }
+
+            else if (setup_sym->setupData.cipherSetupData.cipherDirection ==
+                         CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT &&
+                     reliability_g == CPA_FALSE)
+            {
+                /*copy numLoops, set setup->numLoops to 1 to compress data, then
+                 * restore setup->numLoops to measure decompress performance*/
+                numLoops = setup_sym->numLoops;
+                setup_sym->numLoops = 1;
+
+                status =
+                    qatSymPerform(setup_sym, encryptOpData, srcBufferListArray);
+                if (CPA_STATUS_SUCCESS == status)
+                {
+                    /*restore setup->NumLoops*/
+                    setup_sym->numLoops = numLoops;
+                    status = qatSymPerform(
+                        setup_sym, decryptOpData, srcBufferListArray);
+                    if (CPA_STATUS_SUCCESS != status)
+                    {
+                        PRINT_ERR("qatSymPerform for decryptOpData returned "
+                                  "status %d\n",
+                                  status);
+                    }
+                }
+            }
+
+            else if (setup_sym->setupData.cipherSetupData.cipherDirection ==
+                         CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT &&
+                     reliability_g == CPA_TRUE)
+            {
+
+                /*copy numLoops, set setup->numLoops to 1 to do repeated
+                 * compress-swdecompress for numLoops times*/
+                numLoops = setup_sym->numLoops;
+                setup_sym->numLoops = 1;
+                for (i = 0; i < numLoops; i++)
+                {
+
+                    status = qatSymPerform(
+                        setup_sym, encryptOpData, srcBufferListArray);
+
+                    // now i need to decrypt
+
+                    if (CPA_STATUS_SUCCESS == status)
+                    {
+                        status = qatSymPerform(
+                            setup_sym, decryptOpData, srcBufferListArray);
+
+                        if (CPA_STATUS_SUCCESS == status)
+                        {
+                            /*3rd param is compression setup struct, need to
+                            resolve status = qatCmpBuffers(srcBufferListArray,
+                                copyBufferListArray,
+                                setup_sym);*/
+                        }
+                    }
+                    if (CPA_STATUS_SUCCESS != status)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+#else // USER_SPACE && SUPPORTED_FEAT_EPOLL not active
         if (setup_sym->setupData.cipherSetupData.cipherDirection ==
                 CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT &&
             reliability_g == CPA_FALSE)
@@ -192,7 +454,8 @@ static CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
 
             /*copy numLoops, set setup->numLoops to 1 to do repeated
              * compress-swdecompress for numLoops times*/
-            PRINT("Starting repeated compress-decompress for %d times\n", setup_sym->numLoops);
+            PRINT("Starting repeated compress-decompress for %d times\n",
+                  setup_sym->numLoops);
             numLoops = setup_sym->numLoops;
             setup_sym->numLoops = 1;
             for (i = 0; i < numLoops; i++)
@@ -222,6 +485,7 @@ static CpaStatus scSymPoc(symmetric_test_params_t *setup_sym)
                 }
             }
         }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     }
 
     // SYMMETRIC
@@ -449,7 +713,66 @@ void qatSymmetricPerformance(single_thread_test_data_t *testSetup)
     symTestSetup.isDpApi = pSetup->isDpApi;
     symTestSetup.cryptoSrcOffset = pSetup->cryptoSrcOffset;
     symTestSetup.digestAppend = pSetup->digestAppend;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Determine the response mode for this instance */
+    Cpa16U instanceIndex = (testSetup->logicalQaInstance) % numInstances;
+    {
+        CpaStatus responseStatus;
+
+        /* First get the actual default response mode from the instance */
+        responseStatus =
+            cpaInstanceGetResponseMode(symTestSetup.cyInstanceHandle,
+                                       CPA_ACC_SVC_TYPE_CRYPTO_SYM,
+                                       &symTestSetup.currentResponseMode);
+        if (CPA_STATUS_SUCCESS != responseStatus)
+        {
+            /* Fallback to assumed default if query fails */
+            symTestSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+            PRINT(
+                "Failed to query instance response mode, using fallback: %d\n",
+                responseStatus);
+        }
+
+        /* Check if this instance has been explicitly configured with override
+         */
+        if (isCyInstanceResponseModeConfigured())
+        {
+            Cpa64U instanceMask = getCyInstanceResponseModeMask();
+
+            /* Check if this instance is in the configured mask */
+            if ((instanceIndex < 64) &&
+                (instanceMask & (1ULL << instanceIndex)))
+            {
+                /* Override with explicitly configured mode */
+                symTestSetup.currentResponseMode = getCyInstanceResponseMode();
+                PRINT("Using explicit response mode %d for instance %d\n",
+                      symTestSetup.currentResponseMode,
+                      instanceIndex);
+            }
+            else
+            {
+                PRINT(
+                    "Using library default response mode %d for instance %d\n",
+                    symTestSetup.currentResponseMode,
+                    instanceIndex);
+            }
+        }
+    }
+
+    /* Print the final response mode for this thread */
+    PRINT("Thread %u using sym instance %u with response mode: %d (%s)\n",
+          testSetup->threadID,
+          instanceIndex,
+          symTestSetup.currentResponseMode,
+          (symTestSetup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE)
+              ? "polling"
+          : (symTestSetup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+              ? "event"
+              : "unknown");
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     /*launch function that does all the work*/
+
     if (CPA_TRUE != checkCapability(cyInstances[testSetup->logicalQaInstance],
                                     &symTestSetup))
     {

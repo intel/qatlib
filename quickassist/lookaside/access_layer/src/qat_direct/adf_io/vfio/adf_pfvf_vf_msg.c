@@ -54,7 +54,7 @@ int adf_vf2pf_notify_init(struct adf_pfvf_dev_data *dev)
 {
     struct pfvf_message msg = { .type = ADF_VF2PF_MSGTYPE_INIT };
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
 
     if (!adf_vf2pf_available())
         return -EIO;
@@ -121,7 +121,7 @@ int adf_vf2pf_check_compat_version(struct adf_pfvf_dev_data *dev)
     };
     struct pfvf_message req;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -197,7 +197,7 @@ int adf_vf2pf_get_ring_to_svc(struct adf_pfvf_dev_data *dev)
 
     uint16_t len = sizeof(rts_map_msg);
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -236,7 +236,7 @@ int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev)
     uint16_t len = sizeof(cap_msg);
     int ret = 0;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
     if (!adf_vf2pf_available())
         return -EIO;
 
@@ -266,6 +266,7 @@ int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev)
                 dev->fw_caps.deflate_caps = cap_msg.deflate_caps;
                 dev->fw_caps.lz4_caps = cap_msg.lz4_caps;
                 dev->fw_caps.lz4s_caps = cap_msg.lz4s_caps;
+                dev->fw_caps.zstd_caps = cap_msg.zstd_caps;
                 dev->fw_caps.is_fw_caps = 1;
             }
             else
@@ -314,7 +315,7 @@ int adf_vf2pf_get_capabilities(struct adf_pfvf_dev_data *dev)
 int adf_check_pf2vf_notification(struct adf_pfvf_dev_data *dev)
 {
     struct pfvf_message msg;
-    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
     msg = adf_recv_pf2vf_msg(dev);
 
     return msg.type;

@@ -27,7 +27,6 @@
 #include "cpa_cy_sym.h"
 
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /*
 *******************************************************************************
@@ -84,6 +83,49 @@ void LacSync_GenBufListVerifyCb(void *pCallbackTag,
 STATIC void LacHash_SyncPrecomputeDoneCb(void *pCallbackTag)
 {
     LacSync_GenWakeupSyncCaller(pCallbackTag, CPA_STATUS_SUCCESS);
+}
+
+/** @ingroup LacHash */
+CpaStatus LacHash_PopulateHmacKey(
+    sal_service_t *pService,
+    const CpaCySymHashSetupData *pHashSetupData,
+    icp_qat_la_bulk_req_ftr_t *pReq,
+    icp_qat_hw_auth_mode_t qatHashMode,
+    Cpa8U *pHashStateBuffer,
+    lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo)
+{
+    icp_qat_la_auth_req_params_t *pHashReqParams =
+        (icp_qat_la_auth_req_params_t *)(&(pReq->serv_specif_rqpars));
+    Cpa8U padding = 0;
+    /* Populate HMAC key address for mode 2 auth,
+     * HMAC key should be 4 byte aligned for Gen6.
+     */
+    if (IS_HASH_MODE_2_AUTH(qatHashMode, pHashSetupData->hashMode))
+    {
+        pHashStateBufferInfo->pData = pHashStateBuffer;
+        pHashStateBufferInfo->pDataPhys = LAC_MEM_CAST_PTR_TO_UINT64(
+            LAC_OS_VIRT_TO_PHYS_EXTERNAL((*pService), pHashStateBuffer));
+        if (pHashStateBufferInfo->pDataPhys == 0)
+        {
+            LAC_LOG_ERROR("Unable to get the physical address of "
+                          "the HMAC key \n");
+            return CPA_STATUS_FAIL;
+        }
+        osalMemCopy(pHashStateBufferInfo->pData,
+                    pHashSetupData->authModeSetupData.authKey,
+                    (Cpa8U)pHashSetupData->authModeSetupData.authKeyLenInBytes);
+        padding = pHashReqParams->u2.hmac_key_sz -
+                  (Cpa8U)pHashSetupData->authModeSetupData.authKeyLenInBytes;
+        /* Reset with zeroes any area reserved for padding in this block */
+        if (0 < padding)
+        {
+            LAC_OS_BZERO(
+                pHashStateBufferInfo->pData +
+                    (Cpa8U)pHashSetupData->authModeSetupData.authKeyLenInBytes,
+                padding);
+        }
+    }
+    return CPA_STATUS_SUCCESS;
 }
 
 /** @ingroup LacHash */
@@ -236,9 +278,9 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
         case CPA_CY_SYM_HASH_AES_CMAC:
             /* First, copy the original key to pState2 */
             osalMemCopy(pState2, pAuthKey, authKeyLenInBytes);
-            /* Then precompute */
             if (authKeyLenInBytes == ICP_QAT_HW_AES_128_KEY_SZ)
             {
+                /* Then precompute */
                 status = LacSymHash_AesECBPreCompute(instanceHandle,
                                                     hashAlgorithm,
                                                     authKeyLenInBytes,
@@ -345,7 +387,6 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
         case CPA_CY_SYM_HASH_SNOW3G_UIA2:
             /* The Inner Hash Initial State2 should be all zeros. */
             LAC_OS_BZERO(pState2, ICP_QAT_HW_SNOW_3G_UIA2_STATE2_SZ);
-
             /* There is no request sent to the QAT for this operation,
              * so just invoke the user's callback directly to signal
              * completion of the precompute.
@@ -359,10 +400,6 @@ CpaStatus LacHash_PrecomputeDataCreate(const CpaInstanceHandle instanceHandle,
             if (authKeyLenInBytes == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
             {
                 LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_3G_EIA3_STATE2_SZ);
-            }
-            else
-            {
-                LAC_OS_BZERO(pState2, ICP_QAT_HW_ZUC_256_STATE2_SZ);
             }
             osalMemCopy(pState2, pAuthKey, authKeyLenInBytes);
             /* There is no request sent to the QAT for this operation,
@@ -428,6 +465,12 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
         case CPA_CY_SYM_HASH_MODE_AUTH:
             break;
         case CPA_CY_SYM_HASH_MODE_NESTED:
+            if (IS_GEN6_DEV(instanceHandle))
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Unsupported hash mode for Gen6 device");
+                return CPA_STATUS_UNSUPPORTED;
+            }
             break;
 
         default:
@@ -458,7 +501,10 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
         /* Check Digest Length is permitted by the algorithm  */
         if ((0 == pHashSetupData->digestResultLenInBytes) ||
             (pHashSetupData->digestResultLenInBytes >
-             pHashAlgInfo->digestLength))
+             pHashAlgInfo->digestLength) ||
+            ((pHashSetupData->digestResultLenInBytes !=
+              pHashAlgInfo->digestLength) &&
+             IS_GEN6_DEV(instanceHandle)))
         {
             LAC_INVALID_PARAM_LOG("digestResultLenInBytes");
             return CPA_STATUS_INVALID_PARAM;
@@ -606,11 +652,9 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
         else if (CPA_CY_SYM_HASH_ZUC_EIA3 == pHashSetupData->hashAlgorithm)
         {
 
-            /* QAT-FW only supports 128/256 bits Integrity Key size for ZUC */
-            if ((pHashSetupData->authModeSetupData.authKeyLenInBytes !=
-                 ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ) &&
-                (pHashSetupData->authModeSetupData.authKeyLenInBytes !=
-                 ICP_QAT_HW_ZUC_256_KEY_SZ))
+            /* ZUC EIA3 only supports 128 bits Integrity Key size */
+            if (pHashSetupData->authModeSetupData.authKeyLenInBytes !=
+                ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
             {
                 LAC_INVALID_PARAM_LOG("authKeyLenInBytes");
                 return CPA_STATUS_INVALID_PARAM;
@@ -618,10 +662,8 @@ CpaStatus LacHash_HashContextCheck(CpaInstanceHandle instanceHandle,
             /* For ZUC EIA3 hash aad field contains IV - it needs to be 16
              * bytes long
              */
-            if ((pHashSetupData->authModeSetupData.aadLenInBytes !=
-                ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ) &&
-                (pHashSetupData->authModeSetupData.aadLenInBytes !=
-                ICP_QAT_HW_ZUC_256_IV_SZ))
+            if (pHashSetupData->authModeSetupData.aadLenInBytes !=
+                ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ)
             {
                 LAC_INVALID_PARAM_LOG("aadLenInBytes");
                 return CPA_STATUS_INVALID_PARAM;

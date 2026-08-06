@@ -31,7 +31,6 @@
 #include "lac_common.h"
 #include "lac_log.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "icp_adf_transport.h"
 #include "lac_sym.h"
 #include "icp_qat_fw_la.h"
@@ -299,27 +298,6 @@ STATIC lac_sym_qat_hash_alg_info_t zucEia3Info = {
     0     /* state size */
 };
 
-STATIC lac_sym_qat_hash_alg_info_t zuc256mac32Info = {
-    LAC_HASH_ZUC_256_MAC_32_DIGEST_SIZE,
-    LAC_HASH_ZUC_256_MAC_32_BLOCK_SIZE,
-    NULL, /* initial state */
-    0     /* state size */
-};
-
-STATIC lac_sym_qat_hash_alg_info_t zuc256mac64Info = {
-    LAC_HASH_ZUC_256_MAC_64_DIGEST_SIZE,
-    LAC_HASH_ZUC_256_MAC_64_BLOCK_SIZE,
-    NULL, /* initial state */
-    0     /* state size */
-};
-
-STATIC lac_sym_qat_hash_alg_info_t zuc256mac128Info = {
-    LAC_HASH_ZUC_256_MAC_128_DIGEST_SIZE,
-    LAC_HASH_ZUC_256_MAC_128_BLOCK_SIZE,
-    NULL, /* initial state */
-    0     /* state size */
-};
-
 STATIC lac_sym_qat_hash_alg_info_t aesCmacWatInfo = {
     LAC_HASH_CMAC_BLOCK_SIZE,
     LAC_HASH_CMAC_DIGEST_SIZE,
@@ -451,34 +429,6 @@ STATIC lac_sym_qat_hash_qat_info_t zucEia3Config = {
     ICP_QAT_HW_ZUC_3G_EIA3_STATE2_SZ
 };
 
-STATIC lac_sym_qat_hash_qat_info_t zuc256mac32Config = {
-    ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_32,
-    0,
-    ICP_QAT_HW_ZUC_256_MAC_32_STATE1_SZ,
-    ICP_QAT_HW_ZUC_256_STATE2_SZ
-};
-
-STATIC lac_sym_qat_hash_qat_info_t zuc256mac64Config = {
-    ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_64,
-    0,
-    ICP_QAT_HW_ZUC_256_MAC_64_STATE1_SZ,
-    ICP_QAT_HW_ZUC_256_STATE2_SZ
-};
-
-STATIC lac_sym_qat_hash_qat_info_t zuc256mac128Config = {
-    ICP_QAT_HW_AUTH_ALGO_ZUC_256_MAC_128,
-    0,
-    ICP_QAT_HW_ZUC_256_MAC_128_STATE1_SZ,
-    ICP_QAT_HW_ZUC_256_STATE2_SZ
-};
-
-STATIC lac_sym_qat_hash_defs_t zuc256Mac32HashDefs = { &zuc256mac32Info,
-                                                       &zuc256mac32Config };
-STATIC lac_sym_qat_hash_defs_t zuc256Mac64HashDefs = { &zuc256mac64Info,
-                                                       &zuc256mac64Config };
-STATIC lac_sym_qat_hash_defs_t zuc256Mac128HashDefs = { &zuc256mac128Info,
-                                                        &zuc256mac128Config };
-
 STATIC lac_sym_qat_hash_qat_info_t aes192CmacConfig = {
     ICP_QAT_HW_AUTH_ALGO_AES_192_CMAC,
     0,
@@ -604,24 +554,8 @@ void LacSymQat_HashAlgLookupGet(CpaInstanceHandle instanceHandle,
                "hash alg Info should not be NULL\n");
 
     *ppHashAlgInfo = pLacHashLookupDefs[hashAlgorithm]->algInfo;
-    if ((hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3) &&
-        (authKeyLenInBytes == ICP_QAT_HW_ZUC_256_KEY_SZ))
-    {
-        if (digestResultLenInBytes == LAC_HASH_ZUC_256_MAC_32_DIGEST_SIZE)
-        {
-            *ppHashAlgInfo = &zuc256mac32Info;
-        }
-        else if (digestResultLenInBytes == LAC_HASH_ZUC_256_MAC_64_DIGEST_SIZE)
-        {
-            *ppHashAlgInfo = &zuc256mac64Info;
-        }
-        else
-        {
-            *ppHashAlgInfo = &zuc256mac128Info;
-        }
-    }
-    else if ((hashAlgorithm == CPA_CY_SYM_HASH_AES_CMAC) &&
-             (authKeyLenInBytes != ICP_QAT_HW_AES_128_KEY_SZ))
+    if ((CPA_CY_SYM_HASH_AES_CMAC == hashAlgorithm) &&
+        (ICP_QAT_HW_AES_128_KEY_SZ != authKeyLenInBytes))
     {
         *ppHashAlgInfo = &aesCmacWatInfo;
     }
@@ -658,23 +592,8 @@ void LacSymQat_HashDefsLookupGet(CpaInstanceHandle instanceHandle,
     LAC_ENSURE(pLacHashLookupDefs[hashAlgorithm]->qatInfo != NULL,
                "hash qatInfo should not be NULL\n");
     *ppHashDefsInfo = pLacHashLookupDefs[hashAlgorithm];
-    if ((hashAlgorithm == CPA_CY_SYM_HASH_ZUC_EIA3) &&
-        (authKeyLenInBytes == ICP_QAT_HW_ZUC_256_KEY_SZ))
-    {
-        if (digestResultLenInBytes == LAC_HASH_ZUC_256_MAC_32_DIGEST_SIZE)
-        {
-            *ppHashDefsInfo = &zuc256Mac32HashDefs;
-        }
-        else if (digestResultLenInBytes == LAC_HASH_ZUC_256_MAC_64_DIGEST_SIZE)
-        {
-            *ppHashDefsInfo = &zuc256Mac64HashDefs;
-        }
-        else
-        {
-            *ppHashDefsInfo = &zuc256Mac128HashDefs;
-        }
-    }
-    else if (hashAlgorithm == CPA_CY_SYM_HASH_AES_CMAC)
+
+    if (hashAlgorithm == CPA_CY_SYM_HASH_AES_CMAC)
     {
         if (authKeyLenInBytes == ICP_QAT_HW_AES_192_KEY_SZ)
         {

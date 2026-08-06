@@ -491,7 +491,7 @@ static CpaStatus genDsaPara(dsa_test_params_t *setup,
                             CpaFlatBuffer **ppdsaS)
 {
     Cpa32U i = 0;
-    Cpa32U status = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
 
     /*DSA parameters */
     /*DSA P parameter, this shall be populated by the hard coded P at the top

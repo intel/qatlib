@@ -117,6 +117,9 @@ dcGetAlgoWindowSizeForCapabilityStatus(dc_capabilities_t *pDcCapabilities,
         case CPA_DC_CAP_BOOL_WINDOW_SIZE_32K:
             validBitMask = DC_32K_WINDOW_MASK;
             break;
+        case CPA_DC_CAP_BOOL_WINDOW_SIZE_64K:
+            validBitMask = DC_64K_WINDOW_MASK;
+            break;
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Window size is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
@@ -428,6 +431,64 @@ dcGetCrcOverBlockCapabilityStatus(dc_extd_ftrs_t *pExtendedFtrs,
             break;
         default:
             LAC_LOG_ERROR("Algorithm is not supported\n");
+            return CPA_STATUS_UNSUPPORTED;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
+STATIC INLINE CpaStatus
+dcGetUncompDictSupportCapabilityStatus(dc_capabilities_t *pDcCapabilities,
+                                       Cpa32U algo,
+                                       Cpa32U dirMask,
+                                       CpaBoolean *pCapStatus)
+{
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pDcCapabilities);
+    LAC_CHECK_NULL_PARAM(pCapStatus);
+#endif
+
+    *pCapStatus = CPA_FALSE;
+
+    switch (algo)
+    {
+        case CPA_DC_DEFLATE:
+            if ((pDcCapabilities->deflate.supported) &&
+                (pDcCapabilities->deflate.dictCompSupported) &&
+                ((pDcCapabilities->deflate.dirMask & dirMask) == dirMask) &&
+                (pDcCapabilities->deflate.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_LZ4:
+            if ((pDcCapabilities->lz4.supported) &&
+                (pDcCapabilities->lz4.dictCompSupported) &&
+                ((pDcCapabilities->lz4.dirMask & dirMask) == dirMask) &&
+                (pDcCapabilities->lz4.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_LZ4S:
+            if ((pDcCapabilities->lz4s.supported) &&
+                (pDcCapabilities->lz4s.dictCompSupported) &&
+                ((pDcCapabilities->lz4s.dirMask & dirMask) == dirMask) &&
+                (pDcCapabilities->lz4s.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        case CPA_DC_ZSTD:
+            if ((pDcCapabilities->zstd.supported) &&
+                (pDcCapabilities->zstd.dictCompSupported) &&
+                ((pDcCapabilities->zstd.dirMask & dirMask) == dirMask) &&
+                (pDcCapabilities->zstd.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+        default:
+            LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;
     }
     return CPA_STATUS_SUCCESS;
@@ -770,6 +831,12 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
                                                  capabilityReq.algo,
                                                  &pCapabilityResp->boolStatus);
             break;
+        case CPA_DC_CAP_BOOL_DICT_ID:
+            result = dcGetDictIdSupportCapabilityStatus(
+                pDcCapabilities,
+                capabilityReq.algo,
+                &pCapabilityResp->boolStatus);
+            break;
         case CPA_DC_CAP_BOOL_E2E_CRC_OVER_COMP_BLOCK:
             result =
                 dcGetCrcOverBlockCapabilityStatus(pExtendedFtrs,
@@ -781,64 +848,6 @@ CpaStatus cpaDcQueryCapabilityByType(CpaInstanceHandle dcInstance,
             return CPA_STATUS_UNSUPPORTED;
     }
     return result;
-}
-
-inline CpaStatus dcGetUncompDictSupportCapabilityStatus(
-    dc_capabilities_t *pDcCapabilities,
-    Cpa32U algo,
-    Cpa32U dirMask,
-    CpaBoolean *pCapStatus)
-{
-#ifdef ICP_PARAM_CHECK
-    LAC_CHECK_NULL_PARAM(pDcCapabilities);
-    LAC_CHECK_NULL_PARAM(pCapStatus);
-#endif
-
-    *pCapStatus = CPA_FALSE;
-
-    switch (algo)
-    {
-        case CPA_DC_DEFLATE:
-            if ((pDcCapabilities->deflate.supported) &&
-                (pDcCapabilities->deflate.dictCompSupported) &&
-                ((pDcCapabilities->deflate.dirMask & dirMask) == dirMask) &&
-                (pDcCapabilities->deflate.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
-            {
-                *pCapStatus = CPA_TRUE;
-            }
-            break;
-        case CPA_DC_LZ4:
-            if ((pDcCapabilities->lz4.supported) &&
-                (pDcCapabilities->lz4.dictCompSupported) &&
-                ((pDcCapabilities->lz4.dirMask & dirMask) == dirMask) &&
-                (pDcCapabilities->lz4.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
-            {
-                *pCapStatus = CPA_TRUE;
-            }
-            break;
-        case CPA_DC_LZ4S:
-            if ((pDcCapabilities->lz4s.supported) &&
-                (pDcCapabilities->lz4s.dictCompSupported) &&
-                ((pDcCapabilities->lz4s.dirMask & dirMask) == dirMask) &&
-                (pDcCapabilities->lz4s.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
-            {
-                *pCapStatus = CPA_TRUE;
-            }
-            break;
-        case CPA_DC_ZSTD:
-            if ((pDcCapabilities->zstd.supported) &&
-                (pDcCapabilities->zstd.dictCompSupported) &&
-                ((pDcCapabilities->zstd.dirMask & dirMask) == dirMask) &&
-                (pDcCapabilities->zstd.dictCap & DC_CAPS_UNCOMPRESSED_DICT))
-            {
-                *pCapStatus = CPA_TRUE;
-            }
-            break;
-        default:
-            LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
-            return CPA_STATUS_UNSUPPORTED;
-    }
-    return CPA_STATUS_SUCCESS;
 }
 
 inline CpaStatus dcGetZeroLengthReqCapabilityStatus(
@@ -1037,6 +1046,39 @@ inline CpaStatus dcGetAeadDecompChainingCapabilityStatus(
                 *pCapStatus = CPA_TRUE;
             }
             break;
+        default:
+            LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
+            return CPA_STATUS_UNSUPPORTED;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
+inline CpaStatus dcGetDictIdSupportCapabilityStatus(
+    dc_capabilities_t *pDcCapabilities,
+    Cpa32U algo,
+    CpaBoolean *pCapStatus)
+{
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pDcCapabilities);
+    LAC_CHECK_NULL_PARAM(pCapStatus);
+#endif
+
+    *pCapStatus = CPA_FALSE;
+
+    switch (algo)
+    {
+        case CPA_DC_DEFLATE:
+        case CPA_DC_LZ4:
+        case CPA_DC_LZ4S:
+            break;
+
+        case CPA_DC_ZSTD:
+            if (pDcCapabilities->zstd.dictId)
+            {
+                *pCapStatus = CPA_TRUE;
+            }
+            break;
+
         default:
             LAC_UNSUPPORTED_PARAM_LOG("Algorithm is not supported\n");
             return CPA_STATUS_UNSUPPORTED;

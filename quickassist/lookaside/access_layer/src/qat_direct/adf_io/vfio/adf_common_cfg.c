@@ -222,6 +222,16 @@ STATIC CpaStatus cfg_getValueFromDeviceInfo(const Cpa32U accelId,
         return CPA_STATUS_SUCCESS;
     }
 
+    if (!ICP_STRNCMP_CONST(pParamName, "osal_log_level_debug"))
+    {
+#ifdef ICP_DEBUG
+        snprintf(pParamValue, ADF_CFG_MAX_VAL_LEN_IN_BYTES, "1");
+#else
+        snprintf(pParamValue, ADF_CFG_MAX_VAL_LEN_IN_BYTES, "0");
+#endif
+        return CPA_STATUS_SUCCESS;
+    }
+
     ADF_ERROR("Unsupported config parameter %s\n", pParamName);
     return CPA_STATUS_FAIL;
 }
@@ -709,7 +719,7 @@ CpaStatus adf_io_getHeartBeatStatus(Cpa32U packageId)
 
     if (packageId == VM_PACKAGE_ID_NONE)
     {
-        ADF_ERROR("This API is not supported on a VM");
+        ADF_ERROR("This API is not supported on a VM\n");
         return CPA_STATUS_UNSUPPORTED;
     }
 
@@ -774,7 +784,7 @@ CpaStatus adf_io_heartbeatSimulateFailure(Cpa32U packageId)
 
     if (packageId == VM_PACKAGE_ID_NONE)
     {
-        ADF_ERROR("This API is not supported on a VM");
+        ADF_ERROR("This API is not supported on a VM\n");
         return CPA_STATUS_UNSUPPORTED;
     }
 

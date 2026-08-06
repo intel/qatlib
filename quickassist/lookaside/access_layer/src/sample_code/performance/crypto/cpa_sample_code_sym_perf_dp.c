@@ -591,9 +591,26 @@ static CpaStatus symmetricDpSetupSession(CpaCySymDpCbFunc pSymCb,
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
             KEY_SIZE_128_IN_BYTES;
     }
+    else if (CPA_CY_SYM_CIPHER_AES_GCM ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            gcmAadLenInBytes_g;
+    }
+    else if (CPA_CY_SYM_CIPHER_AES_CCM ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            ccmAadLenInBytes_g;
+    }
+    else if (CPA_CY_SYM_CIPHER_CHACHA ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            chachaPolyAadLenInBytes_g;
+    }
     else
     {
-        /* For AES-CCM, AAD(additional auth data) is optional.*/
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes = 0;
     }
 
@@ -798,8 +815,14 @@ static CpaStatus symmetricDpPerformOpDataSetup(
                    SYM_AUTH_INIT_VALUE,
                    KEY_SIZE_128_IN_BYTES);
         } /*End of if(CPA_CY_SYM_HASH_SNOW3G_UIA2 == ... */
-        else if (setup->setupData.cipherSetupData.cipherAlgorithm ==
-                 CPA_CY_SYM_CIPHER_AES_CCM)
+        else if ((((setup->setupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_AES_CCM) ||
+                   (setup->setupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_AES_GCM)) &&
+                  (setup->setupData.hashSetupData.hashAlgorithm !=
+                   CPA_CY_SYM_HASH_AES_GMAC)) ||
+                 (setup->setupData.cipherSetupData.cipherAlgorithm ==
+                  CPA_CY_SYM_CIPHER_CHACHA))
         {
             /*must allocate to the nearest block size required
               (above 18 bytes)*/
@@ -815,7 +838,7 @@ static CpaStatus symmetricDpPerformOpDataSetup(
             memset(pOpdata[createCount]->pAdditionalAuthData,
                    0,
                    AES_CCM_MIN_AAD_ALLOC_LENGTH);
-        } /* End of else if(setup->setupData.cipherSetupData.cipherAlgorithm .*/
+        }
 
         /* in this code we always allocate the IV, but it is not always used
          * this reduces the if/else logic when trying to cater for as many
@@ -841,21 +864,12 @@ static CpaStatus symmetricDpPerformOpDataSetup(
             || setup->setupData.cipherSetupData.cipherAlgorithm ==
                    CPA_CY_SYM_CIPHER_SM4_CBC ||
             setup->setupData.cipherSetupData.cipherAlgorithm ==
-                CPA_CY_SYM_CIPHER_SM4_CTR)
+                CPA_CY_SYM_CIPHER_SM4_CTR
+        )
         {
-            if (setup->setupData.cipherSetupData.cipherAlgorithm ==
-                    CPA_CY_SYM_CIPHER_ZUC_EEA3 &&
-                setup->setupData.cipherSetupData.cipherKeyLenInBytes ==
-                    KEY_SIZE_256_IN_BYTES)
-            {
-                pOpdata[createCount]->ivLenInBytes =
-                    IV_LEN_FOR_24_BYTE_BLOCK_CIPHER;
-            }
-            else
-            {
-                pOpdata[createCount]->ivLenInBytes =
-                    IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
-            }
+            pOpdata[createCount]->ivLenInBytes =
+                IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
+
             /* If 0 use default else use value passed. */
             if (0 != setup->ivLength)
             {
@@ -1233,7 +1247,8 @@ static CpaStatus symDpPerformEnqueueOp(symmetric_test_params_t *setup,
              */
             if ((insideLoopCount % maxRequestNum == 0) ||
                 ((insideLoopCount == setup->numBuffLists - 1) &&
-                 (outsideLoopCount == numOfLoops - 1)))
+                 (outsideLoopCount == numOfLoops - 1))
+            )
             {
                 performNowFlag = CPA_TRUE;
             }
@@ -2244,10 +2259,10 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     symTestSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
      * instance*/
-    status = cpaCyGetNumInstances(&numInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
-        PRINT_ERR("cpaCyGetNumInstances error, status:%d, numInstanaces:%d\n",
+        PRINT_ERR("cpaGetNumInstances error, status:%d, numInstanaces:%d\n",
                   status,
                   numInstances);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -2260,17 +2275,11 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         return;
     }
-    if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
+    if (cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM,
+                        numInstances,
+                        cyInstances) != CPA_STATUS_SUCCESS)
     {
         PRINT_ERR("Failed to get instances\n");
-        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        goto exit;
-    }
-    if (testSetup->logicalQaInstance > numInstances)
-    {
-        PRINT_ERR("%u is Invalid Logical QA Instance, max is: %u\n",
-                  testSetup->logicalQaInstance,
-                  numInstances);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
@@ -2399,9 +2408,12 @@ void sampleSymmetricDpPerformance(single_thread_test_data_t *testSetup)
     if (CPA_TRUE != checkCapability(cyInstances[testSetup->logicalQaInstance],
                                     &symTestSetup))
     {
-        PRINT("\nThread %u Invalid test.Capability check failed for the "
-              "requested algorithm on the configured instance\n",
-              testSetup->threadID);
+        if (verboseOutput)
+        {
+            PRINT("\nThread %u Invalid test.Capability check failed for the "
+                  "requested algorithm on the configured instance\n",
+                  testSetup->threadID);
+        }
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
         symTestSetup.performanceStats->threadReturnStatus =
@@ -2509,10 +2521,10 @@ CpaStatus setupSymmetricDpTest(
         return CPA_STATUS_FAIL;
     }
 
-    /*start crypto service if not already started*/
-    if (CPA_STATUS_SUCCESS != startCyServices())
+    /*start Sym service if not already started*/
+    if (CPA_STATUS_SUCCESS != startSymServices())
     {
-        PRINT_ERR("Failed to start Crypto services\n");
+        PRINT_ERR("Failed to start Sym service\n");
         return CPA_STATUS_FAIL;
     }
 
@@ -2582,6 +2594,11 @@ CpaStatus setupSymmetricDpTest(
         {
             symmetricSetup->ivLength = CPA_CIPHER_SPC_IV_SIZE;
         }
+    }
+    if ((CPA_CY_SYM_CIPHER_ZUC_EEA3 == cipherAlg) &&
+        (KEY_SIZE_256_IN_BYTES == cipherKeyLengthInBytes))
+    {
+        symmetricSetup->ivLength = IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
     }
 
     if (((hashAlg == CPA_CY_SYM_HASH_KASUMI_F9) ||

@@ -168,6 +168,24 @@ void SalQatMsg_ContentDescHdrWrite(
     const sal_qat_content_desc_info_t *pContentDescInfo);
 
 /********************************************************************
+ * @ingroup SalQatMsg_KptFlagHdrWrite
+ *
+ * @description
+ *      This function fills in all fields related with KPT service in
+ *      service extension field.
+ *
+ *
+ * @param[in]   pExtSrvSpReqHdr       Pointer to extended_serv_specif_flags
+ *                                    field of request header.
+ *
+ * @return
+ *      none
+ *
+ ********************************************************************/
+void SalQatMsg_KptFlagHdrWrite(
+    icp_qat_fw_ext_serv_specif_flags *pExtSrvSpReqHdr);
+
+/********************************************************************
  * @ingroup SalQatMsg_CtrlBlkSetToReserved
  *
  * @description

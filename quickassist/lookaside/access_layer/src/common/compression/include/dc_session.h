@@ -503,6 +503,30 @@ void dcCompHwBlockPopulateGen4(void *pService,
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
+ *      Populate the compression hardware block for QAT Gen6
+ *
+ * @description
+ *      This function will populate the compression hardware block and update
+ *      for QAT Gen6 the size in bytes of the block
+ *
+ * @param[in]   pService                Pointer to the service
+ * @param[in]   pSessionDesc            Pointer to the session descriptor
+ * @param[in]   pSetupData              Pointer to setup data
+ * @param[in]   pCompConfig             Pointer to slice config word
+ * @param[in]   compDecomp              Direction of the operation
+ * @param[in]   bNsOp                   Boolean to indicate no session operation
+ *
+ *****************************************************************************/
+void dcCompHwBlockPopulateGen6(void *pService,
+                               void *pSessionDesc,
+                               CpaDcNsSetupData *pSetupData,
+                               icp_qat_hw_compression_config_t *pCompConfig,
+                               void *compDecomp,
+                               CpaBoolean bNsOp);
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
  *      Populate the compression hardware block for QAT Gen2
  *
  * @description
@@ -548,18 +572,29 @@ void dcNsCompHwBlockPopulate(void *pService,
                              void *compDecomp,
                              CpaBoolean bNsOp);
 
-CpaStatus dcDeflateBoundGen2(void *pServiceType,
-                             CpaDcHuffType huffType,
+CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
                              Cpa32U inputSize,
                              Cpa32U *outputSize);
 
-CpaStatus dcDeflateBoundGen4(void *pServiceType,
-                             CpaDcHuffType huffType,
+CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
                              Cpa32U inputSize,
                              Cpa32U *outputSize);
 
+CpaStatus dcDeflateBoundGen4_2(CpaDcHuffType huffType,
+                               Cpa32U inputSize,
+                               Cpa32U *outputSize);
+
+CpaStatus dcDeflateBoundGen6(CpaDcHuffType huffType,
+                             Cpa32U inputSize,
+                             Cpa32U *outputSize);
 CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize);
 CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize);
+CpaStatus dcLZ4BoundGen6(Cpa32U inputSize, Cpa32U *outputSize);
+CpaStatus dcLZ4SBoundGen6(Cpa32U inputSize, Cpa32U *outputSize);
+CpaStatus dcZstdBoundGen6(Cpa32U inputSize, Cpa32U *outputSize);
+void dcGetMetaSizeForSrcBuffWithDictGen6(Cpa32U numDictBuffers,
+                                         Cpa32U numSourceBuffers,
+                                         Cpa32U *pSizeInBytes);
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression

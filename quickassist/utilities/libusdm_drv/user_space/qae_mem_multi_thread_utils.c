@@ -224,7 +224,8 @@ static void qae_mem_init_t(void)
     qae_mem_inited = 1;
 }
 
-int32_t qaeMemInit()
+API_LOCAL
+int32_t __qae_memInit()
 {
     int32_t fd_status = 0;
     int32_t status = 0;
@@ -242,6 +243,12 @@ int32_t qaeMemInit()
     fd_status = __qae_open();
 
     return fd_status;
+}
+
+/* Deprecated public no-op stub - library self-initializes on first use */
+int32_t qaeMemInit()
+{
+    return 0;
 }
 
 API_LOCAL
@@ -270,7 +277,8 @@ void __qae_reset_cache(const int fd, void *thread_key)
     } while (slab != NULL);
 }
 
-void qaeMemDestroy(void)
+API_LOCAL
+void __qae_memDestroy(void)
 {
     qae_mem_info_t *tls_ptr = NULL;
 
@@ -291,6 +299,16 @@ void qaeMemDestroy(void)
 
     qae_mem_inited = 0;
     pthread_key_delete(qae_key);
+    /* Reset the once-guard so the key is recreated on the next init;
+     * otherwise pthread_once() skips qae_make_key() and qae_key keeps
+     * referring to the deleted key, making pthread_setspecific() fail. */
+    qae_key_once = PTHREAD_ONCE_INIT;
+}
+
+/* Deprecated no-op; return 0 in rax for int-declared callers. */
+void qaeMemDestroy(void)
+{
+    __asm__ __volatile__("xorl %%eax, %%eax" ::: "rax");
 }
 
 void qae_mem_destroy_t(void *thread_key)
@@ -319,7 +337,7 @@ void *__qae_alloc_addr(size_t size,
     tls_ptr = (qae_mem_info_t *)pthread_getspecific(qae_key);
 
     const size_t phys_align_unit = phys_alignment_byte / UNIT_SIZE;
-    const size_t reserved = div_round_up(sizeof(block_ctrl_t), UNIT_SIZE);
+    const size_t reserved = div_round_up(get_ctrl_size(), UNIT_SIZE);
     /* calculate units needed */
     const size_t requested_pages = div_round_up(size, UNIT_SIZE) + reserved;
 
@@ -369,11 +387,10 @@ void *__qae_alloc_addr(size_t size,
     if (NULL == p_ctrl_blk)
         return NULL;
 
-    store_mmap_range(&g_page_table,
-                     p_ctrl_blk->virt_addr,
-                     p_ctrl_blk->phy_addr,
-                     p_ctrl_blk->size,
-                     __qae_hugepage_enabled());
+    store_mmap_range_fptr(&g_page_table,
+                          p_ctrl_blk->virt_addr,
+                          p_ctrl_blk->phy_addr,
+                          p_ctrl_blk->size);
 
     if (LARGE == mem_type)
     {
@@ -430,6 +447,20 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
         return NULL;
     }
 
+    if (!phys_alignment_byte ||
+        (phys_alignment_byte & (phys_alignment_byte - 1)))
+    {
+        CMD_ERROR("%s:%d Invalid alignment %zu: must be non-zero and a "
+                  "power of 2\n",
+                  __func__,
+                  __LINE__,
+                  phys_alignment_byte);
+        return NULL;
+    }
+
+    if (0 != __qae_memInit())
+        return NULL;
+
     if (size > QAE_MAX_ALLOC_SIZE)
     {
         CMD_ERROR(
@@ -437,20 +468,15 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
         return NULL;
     }
 
-    if (!phys_alignment_byte || phys_alignment_byte > QAE_MAX_PHYS_ALIGN ||
-        (phys_alignment_byte & (phys_alignment_byte - 1)))
+    if (phys_alignment_byte > QAE_MAX_PHYS_ALIGN)
     {
-        CMD_ERROR("%s:%d Invalid alignment parameter %zu. It must be non zero, "
-                  "not more than %llu and multiple of 2 \n",
+        CMD_ERROR("%s:%d Invalid alignment %zu exceeds maximum %llu\n",
                   __func__,
                   __LINE__,
                   phys_alignment_byte,
                   QAE_MAX_PHYS_ALIGN);
         return NULL;
     }
-
-    if (0 != qaeMemInit())
-        return NULL;
 
     if (!qae_mem_inited)
     {

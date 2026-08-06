@@ -39,7 +39,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* FW includes */
 #include "icp_qat_fw_la.h"
@@ -248,4 +247,17 @@ void LacRsa_StatsShow(CpaInstanceHandle instanceHandle)
             rsaStats.numRsaDecryptRequestErrors,
             rsaStats.numRsaDecryptCompleted,
             rsaStats.numRsaDecryptCompletedErrors);
+    /* Perform Info */
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " KPT RSA Decrypt Requests:           %16llu " BORDER "\n" BORDER
+            " KPT RSA Decrypt Request Errors:     %16llu " BORDER "\n" BORDER
+            " KPT RSA Decrypt Completed:          %16llu " BORDER "\n" BORDER
+            " KPT RSA Decrypt Completed Errors:   %16llu " BORDER
+            "\n" SEPARATOR,
+            rsaStats.numKptRsaDecryptRequests,
+            rsaStats.numKptRsaDecryptRequestErrors,
+            rsaStats.numKptRsaDecryptCompleted,
+            rsaStats.numKptRsaDecryptCompletedErrors);
 }

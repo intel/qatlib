@@ -30,6 +30,57 @@
 #include "sal_service_state.h"
 #include "lac_buffer_desc.h"
 
+STATIC CpaStatus dcCheckDictData(CpaInstanceHandle dc_inst,
+                                 CpaDcDictionaryData *pDictionaryData,
+                                 sal_compression_service_t *pService,
+                                 dc_session_desc_t *pSessionDesc,
+                                 const Cpa64U srcBuffSize)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa64U dictionaryBuffSize = 0;
+    CpaDcCapabilityReq capabilityReq = { 0 };
+    CpaDcCapabilityResp capabilityResp = { 0 };
+
+    LAC_CHECK_NULL_PARAM(pDictionaryData);
+    LAC_CHECK_NULL_PARAM(pDictionaryData->pDictionaryBuff);
+
+    switch (pDictionaryData->dictionaryType)
+    {
+        case CPA_DC_UNCOMPRESSED_DICT:
+            /* Uncompressed dictionary type is direction agnostic. */
+            capabilityReq.capId = CPA_DC_CAP_BOOL_UNCOMPRESSED_DICT;
+            capabilityReq.algo = pSessionDesc->compType;
+            capabilityReq.dir = CPA_DC_DIR_COMPRESS;
+            status = cpaDcQueryCapabilityByType(
+                dc_inst, capabilityReq, &capabilityResp);
+            if (CPA_STATUS_SUCCESS != status ||
+                CPA_FALSE == capabilityResp.boolStatus)
+            {
+                LAC_UNSUPPORTED_PARAM_LOG(
+                    "Uncompressed dictionary type is not supported");
+                return CPA_STATUS_UNSUPPORTED;
+            }
+#ifdef ICP_PARAM_CHECK
+            /* Check if the dictionary buffer list is valid */
+            if (LacBuffDesc_BufferListVerify(pDictionaryData->pDictionaryBuff,
+                                             &dictionaryBuffSize,
+                                             LAC_NO_ALIGNMENT_SHIFT) !=
+                CPA_STATUS_SUCCESS)
+            {
+                LAC_INVALID_PARAM_LOG(
+                    "Invalid dictionary buffer list parameter");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+#endif
+            break;
+        default:
+            LAC_UNSUPPORTED_PARAM_LOG("Unsupported dictionary type");
+            return CPA_STATUS_UNSUPPORTED;
+    } /* End switch() */
+
+    return CPA_STATUS_SUCCESS;
+}
+
 CpaStatus cpaDcCompressDataWithDict(CpaInstanceHandle dcInstance,
                                     CpaDcSessionHandle pSessionHandle,
                                     CpaBufferList *pSrcBuff,
@@ -124,7 +175,8 @@ CpaStatus cpaDcCompressDataWithDict(CpaInstanceHandle dcInstance,
     }
 #endif
 
-    retStatus = dcCheckDictData(pDictionaryData, pService, pSessionDesc);
+    retStatus = dcCheckDictData(
+        insHandle, pDictionaryData, pService, pSessionDesc, srcBuffSize);
     if (CPA_STATUS_SUCCESS != retStatus)
     {
         return retStatus;
@@ -229,12 +281,6 @@ CpaStatus cpaDcDecompressDataWithDict(CpaInstanceHandle dcInstance,
     pService = (sal_compression_service_t *)insHandle;
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
 
-    retStatus = dcCheckDictData(pDictionaryData, pService, pSessionDesc);
-    if (CPA_STATUS_SUCCESS != retStatus)
-    {
-        return retStatus;
-    }
-
     /* This check is outside the parameter checking as it is needed to manage
      * zero length requests */
     if (CPA_STATUS_SUCCESS !=
@@ -243,6 +289,13 @@ CpaStatus cpaDcDecompressDataWithDict(CpaInstanceHandle dcInstance,
     {
         LAC_INVALID_PARAM_LOG("Invalid source buffer list parameter");
         return CPA_STATUS_INVALID_PARAM;
+    }
+
+    retStatus = dcCheckDictData(
+        insHandle, pDictionaryData, pService, pSessionDesc, srcBuffSize);
+    if (CPA_STATUS_SUCCESS != retStatus)
+    {
+        return retStatus;
     }
 
 #ifdef ICP_PARAM_CHECK

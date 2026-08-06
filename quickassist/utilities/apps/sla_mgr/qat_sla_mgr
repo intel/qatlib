@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#*****************************************************************************
+#
+#   SPDX-License-Identifier: BSD-3-Clause
+#   Copyright(c) 2007-2026 Intel Corporation
+# 
+#   These contents may have been developed with support from one or more
+#   Intel-operated generative artificial intelligence solutions.
+#
+#*****************************************************************************/
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+RL_PY="$SCRIPT_DIR/qat_sla_rl.py"
+
+if [[ $# -lt 1 ]]; then
+    echo "Usage: $0 <command> <bdf> ..."
+    echo "Use: $0 help - for more info"
+    exit 1
+fi
+
+if [[ ! -f "$RL_PY" ]]; then
+    echo "Error: qat_sla_rl.py not found at $RL_PY"
+    exit 1
+fi
+
+# Verify we are running with the in-tree QAT driver
+if [[ ! -d /sys/module/intel_qat ]]; then
+    if lsmod | grep -q qat; then
+        echo "This is the qat_sla_mgr script for the QAT in-tree stack."
+        echo "You appear to be using an out-of-tree kernel driver."
+        echo "The qat_sla_mgr utility for the OOT stack can be found in the QAT package here:"
+        echo "https://www.intel.com/content/www/us/en/developer/topic-technology/open/quick-assist-technology/overview.html"
+    else
+        echo "No QAT kernel driver is loaded."
+    fi
+    exit 1
+fi
+
+function help()
+{
+    printf "
+    Commands:
+    Create SLA \t\t\t ./qat_sla_mgr create <vf_addr> <cir> <pir> <service>
+    Update SLA \t\t\t ./qat_sla_mgr update <pf_addr> <sla_id> <cir> <pir>
+    Delete SLA \t\t\t ./qat_sla_mgr delete <pf_addr> <sla_id>
+    Delete all SLAs \t\t ./qat_sla_mgr delete_all <pf_addr>
+    List all SLAs \t\t ./qat_sla_mgr list <pf_addr>
+    Device capacity \t\t ./qat_sla_mgr caps <pf_addr>
+    "
+}
+
+case "$1" in
+
+    add | create)
+        # Create SLA - ./qat_sla_mgr create <vf_addr> <cir> <pir> <service>
+        if [[ $# -ne 5 ]]; then
+            echo "Usage: $0 create <vf_addr> <cir> <pir> <service>"
+            exit 1
+        fi
+        python3 "$RL_PY" add "$2" --cir "$3" --pir "$4" --service "$5" --scale_mbps
+        ;;
+
+    update)
+        # Update SLA - ./qat_sla_mgr update <pf_addr> <sla_id> <cir> <pir>
+        if [[ $# -ne 5 ]]; then
+            echo "Usage: $0 update <pf_addr> <sla_id> <cir> <pir>"
+            exit 1
+        fi
+        python3 "$RL_PY" update "$2" --sla_id "$3" --cir "$4" --pir "$5" --scale_mbps
+        ;;
+
+    delete)
+        # Delete SLA - ./qat_sla_mgr delete <pf_addr> <sla_id>
+        if [[ $# -ne 3 ]]; then
+            echo "Usage: $0 delete <pf_addr> <sla_id>"
+            exit 1
+        fi
+        python3 "$RL_PY" rm "$2" --sla_id "$3"
+        ;;
+
+    delete_all)
+        # Delete all SLAs - ./qat_sla_mgr delete_all <pf_addr>
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 delete_all <pf_addr>"
+            exit 1
+        fi
+        python3 "$RL_PY" rm_all "$2"
+        ;;
+
+    caps)
+        # Device capabilities - ./qat_sla_mgr caps <pf_addr>
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 caps <pf_addr>"
+            exit 1
+        fi
+        python3 "$RL_PY" caps "$2" --scale_mbps
+        ;;
+    list)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 list <pf_addr>"
+            exit 1
+        fi
+        python3 "$RL_PY" list "$2" --scale_mbps
+        ;;
+    help)
+        echo ""
+        echo "        SLA Manager for in-tree driver      "
+        help
+        exit 0
+        ;;
+
+    *)
+        echo "Unsupported operation"
+        exit 1
+        ;;
+esac

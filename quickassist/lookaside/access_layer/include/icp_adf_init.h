@@ -172,12 +172,12 @@ CpaStatus adf_subsystemError(icp_accel_dev_t *accel_dev);
  * icp_adf_resetSubsystemTable
  *
  * Description:
- * Function to reset subsystem table head, the pointer
- * to the head of the list and lock.
+ * Function to reset subsystem table, the pointer
+ * to the head of the list and lock. This function should be
+ * called only if the subsystem table is empty.
  *
  * Returns:
  *   CPA_STATUS_SUCCESS   on success
- *   CPA_STATUS_FAIL      on failure
  */
 CpaStatus icp_adf_resetSubsystemTable(void);
 

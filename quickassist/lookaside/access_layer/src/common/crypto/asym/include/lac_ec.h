@@ -37,6 +37,7 @@
 #define LAC_EC_H
 
 #include "cpa_cy_ecdsa.h"
+#include "lac_pke_qat_comms.h"
 
 #define LAC_EC_SIZE_BYTES_MAX LAC_BITS_TO_BYTES(LAC_576_BITS)
 #define LAC_EC_SIZE_BYTES_MIN LAC_BITS_TO_BYTES(LAC_256_BITS)
@@ -252,8 +253,8 @@ CpaStatus LacEc_CheckCurve9QWGF2(const CpaFlatBuffer *pQ,
  *      Check if there is optimised ecdsa SignRS MMP function id for the curve.
  *
  * @description
- *     If the there is optimised ecdsa SignRS MMP function for the curve it
- *     sends a request to firmware with optimised function ID.
+ *     Check if there is SignRS MMP optimized function for the curve and sends
+ *     a request to firmware with optimized function ID.
  *
  * @param[in]  instanceHandle   Instance handle.
  * @param[in]  pCb              Callback function pointer. If this is set to a
@@ -267,6 +268,12 @@ CpaStatus LacEc_CheckCurve9QWGF2(const CpaFlatBuffer *pQ,
  *                              it is returned in the callback.
  * @param[out] pR               ECDSA message signature r.
  * @param[out] pS               ECDSA message signature s.
+ * @param[in]  pDpa             Data structure holding the data buffer filled
+ *                              with cryptographically safe random data, DPA
+ *                              enable boolean and control to create the random
+ *                              data internally.
+ *                              Creation of random data internally is not
+ *                              currently supported.
  *
  * @retval CPA_STATUS_SUCCESS       Function executed successfully.
  * @retval CPA_STATUS_FAIL          Function failed.
@@ -275,7 +282,7 @@ CpaStatus LacEc_CheckCurve9QWGF2(const CpaFlatBuffer *pQ,
  * @retval CPA_STATUS_RESOURCE      Error related to system resources.
  * @retval CPA_STATUS_RESTARTING    API implementation is restarting. Resubmit
  *                                  the request.
- * @retval CPA_STATUS_UNSUPPORTED   Optimised EcdsaSignRS is not supported for
+ * @retval CPA_STATUS_UNSUPPORTED   Optimised EcdsaSignRS is not supported by
  *                                  the platform or the curve.
  *
  *****************************************************************************/
@@ -285,6 +292,7 @@ CpaStatus LacEcdsa_OptimisedSignRS(const CpaInstanceHandle instanceHandle,
                                    void *pCallbackTag,
                                    const CpaCyEcdsaSignRSOpData *pOpData,
                                    CpaFlatBuffer *pR,
-                                   CpaFlatBuffer *pS);
+                                   CpaFlatBuffer *pS,
+                                   const lac_pke_dpa_op_data_t *pDpa);
 
 #endif /* LAC_EC_H */

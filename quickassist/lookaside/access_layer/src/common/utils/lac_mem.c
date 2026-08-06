@@ -27,7 +27,6 @@
 #include "icp_accel_devices.h"
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
-#include "icp_adf_debug.h"
 
 #include "lac_mem.h"
 #include "lac_mem_pools.h"
@@ -86,7 +85,8 @@ Cpa8U *icp_LacBufferResize(CpaInstanceHandle instanceHandle,
     padSize = workingLen - userLen;
 
     /* check size */
-    if (padSize > 0)
+    if ((padSize > 0) ||
+        (IS_GEN6_DEV(instanceHandle) && !IS_4BYTE_ALIGNED(pUserBuffer)))
     {
         do
         {
@@ -193,36 +193,15 @@ CpaPhysicalAddr SalMem_virt2PhysInternal(void *pVirtAddr, void *pServiceGen)
 
 size_t icp_sal_iommu_get_remap_size(size_t size)
 {
-#if (defined(USER_SPACE) || defined(_WIN64))
-    return osalIOMMUgetRemappingSize(size);
-#else
-    int pages = size % PAGE_SIZE ? size / PAGE_SIZE + 1 : size / PAGE_SIZE;
-    size_t new_size = (pages * PAGE_SIZE);
-    return new_size;
-#endif
+    return 0;
 }
 
 CpaStatus icp_sal_iommu_map(Cpa64U phaddr, Cpa64U iova, size_t size)
 {
-#if (defined(USER_SPACE) || defined(_WIN64))
-    return osalIOMMUMap((UINT64)phaddr, (UINT64)iova, size) == 0
-               ? CPA_STATUS_SUCCESS
-               : CPA_STATUS_FAIL;
-#else
-    void *virt_addr = phys_to_virt(phaddr);
-    return qdm_iommu_map((void *)(LAC_ARCH_UINT)iova, virt_addr, size) == 0
-               ? CPA_STATUS_SUCCESS
-               : CPA_STATUS_FAIL;
-#endif
+    return CPA_STATUS_UNSUPPORTED;
 }
 
 CpaStatus icp_sal_iommu_unmap(Cpa64U iova, size_t size)
 {
-#if (defined(USER_SPACE) || defined(_WIN64))
-    return osalIOMMUUnmap((UINT64)iova, size) == 0 ? CPA_STATUS_SUCCESS
-                                                   : CPA_STATUS_FAIL;
-#else
-    return qdm_iommu_unmap(iova, size) == 0 ? CPA_STATUS_SUCCESS
-                                            : CPA_STATUS_FAIL;
-#endif
+    return CPA_STATUS_UNSUPPORTED;
 }

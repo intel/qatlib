@@ -29,6 +29,7 @@ int gDebugParam = 1;
 int useHardCodedCrc = 1;
 int useXstorExtensions = 0;
 
+extern CpaStatus dcChainXstorSample(void);
 extern CpaStatus dcChainSample(void);
 
 int main(int argc, const char **argv)
@@ -55,6 +56,12 @@ int main(int argc, const char **argv)
     }
 
     PRINT_DBG("Starting Chaining Sample Code App ...\n");
+    /* GEN 6 does not support xstore extensions */
+    if (useXstorExtensions)
+    {
+        PRINT_ERR("Xstore extensions are not supported on this device\n");
+        return CPA_STATUS_UNSUPPORTED;
+    }
 
     stat = qaeMemInit();
     if (CPA_STATUS_SUCCESS != stat)
@@ -80,6 +87,25 @@ int main(int argc, const char **argv)
     else
     {
         PRINT_DBG("\nLegacy DC Chaining Sample Code App finished\n");
+    }
+
+    /* Xstor DC Chaining Sample Code */
+    stat = dcChainXstorSample();
+    if (CPA_STATUS_SUCCESS != stat)
+    {
+        if (CPA_STATUS_UNSUPPORTED == stat)
+        {
+            PRINT_ERR("\nXstor DC Chaining Sample Code App unsupported\n");
+            stat = CPA_STATUS_SUCCESS;
+        }
+        else
+        {
+            PRINT_ERR("\nXstor DC Chaining Sample Code App failed\n");
+        }
+    }
+    else
+    {
+        PRINT_DBG("\nXstor DC Chaining Sample Code App finished\n");
     }
 
     icp_sal_userStop();

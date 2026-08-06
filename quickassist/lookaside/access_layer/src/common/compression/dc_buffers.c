@@ -39,6 +39,12 @@
 #define DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_DYN (512)
 #define DC_DEST_BUFF_EXTRA_LZ4_GEN4 (1024)
 #define DC_DEST_BUFF_EXTRA_LZ4S_GEN4 (1024)
+#define DC_DEST_BUFF_EXTRA_LZ4S_GEN6 (1)
+#define DC_ZSTD_FRAME_HEADER_SIZE (14)
+#define DC_ZSTD_CONTENT_CHECKSUM_SIZE (4)
+#define DC_DEST_BUFF_EXTRA_ZSTD_GEN6                                           \
+    (DC_ZSTD_FRAME_HEADER_SIZE + DC_ZSTD_CONTENT_CHECKSUM_SIZE)
+
 #define DC_DEST_BUFF_MIN_EXTRA_BYTES(x) ((x < 8) ? (8 - x) : 0)
 #define DC_BUF_MAX_SIZE (0xFFFFFFFF)
 /* To determine an overflow on a 32 unsigned value */
@@ -93,6 +99,21 @@ CpaStatus cpaDcBufferListGetMetaSize(const CpaInstanceHandle instanceHandle,
     return CPA_STATUS_SUCCESS;
 }
 
+void dcGetMetaSizeForSrcBuffWithDictGen6(Cpa32U numDictBuffers,
+                                         Cpa32U numSourceBuffers,
+                                         Cpa32U *pSizeInBytes)
+{
+    Cpa32U extraBuffers = DC_NUM_EXTRA_BUFFERS;
+
+    /* Add additional space for the dictionary buffers */
+    extraBuffers += numDictBuffers;
+
+    *pSizeInBytes =
+        (sizeof(icp_buffer_list_desc_t) +
+         (sizeof(icp_flat_buffer_desc_t) * (numSourceBuffers + extraBuffers)) +
+         ICP_DESCRIPTOR_ALIGNMENT_BYTES);
+}
+
 /**
  *****************************************************************************
  * @ingroup cpaDc
@@ -132,11 +153,62 @@ CpaStatus cpaDcGetMetaSizeForSrcBuffWithDict(
     Cpa32U numSourceBuffers,
     Cpa32U *pSizeInBytes)
 {
-    return CPA_STATUS_UNSUPPORTED;
+    CpaInstanceHandle insHandle = NULL;
+    sal_compression_service_t *pService;
+    dc_capabilities_t *pDcCapabilities = NULL;
+
+    if (CPA_INSTANCE_HANDLE_SINGLE == instanceHandle)
+    {
+        insHandle = dcGetFirstHandle();
+    }
+    else
+    {
+        insHandle = instanceHandle;
+    }
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_INSTANCE_HANDLE(insHandle);
+    LAC_CHECK_NULL_PARAM(pSizeInBytes);
+
+    /* Ensure this is a compression or decompression instance */
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
+
+    if (0 == numSourceBuffers || 0 == numDictBuffers)
+    {
+        LAC_INVALID_PARAM_LOG("Number of Buffers");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+#endif
+
+#ifdef ICP_TRACE
+    LAC_LOG5("Called with params (0x%lx, %d, %d, 0x%lx[%d])\n",
+             (LAC_ARCH_UINT)instanceHandle,
+             numDictBuffers,
+             numSourceBuffers,
+             (LAC_ARCH_UINT)pSizeInBytes,
+             *pSizeInBytes);
+#endif
+
+    pService = (sal_compression_service_t *)insHandle;
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
+    if (pDcCapabilities->dcGetMetaSizeForSrcBuffWithDict)
+    {
+        (pDcCapabilities->dcGetMetaSizeForSrcBuffWithDict)(
+            numDictBuffers, numSourceBuffers, pSizeInBytes);
+    }
+    else
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    return CPA_STATUS_SUCCESS;
 }
 
-CpaStatus dcDeflateBoundGen2(void *pService,
-                             CpaDcHuffType huffType,
+CpaStatus dcDeflateBoundGen2(CpaDcHuffType huffType,
                              Cpa32U inputSize,
                              Cpa32U *outputSize)
 {
@@ -163,16 +235,12 @@ CpaStatus dcDeflateBoundGen2(void *pService,
     return CPA_STATUS_SUCCESS;
 }
 
-CpaStatus dcDeflateBoundGen4(void *pServiceType,
-                             CpaDcHuffType huffType,
+CpaStatus dcDeflateBoundGen4(CpaDcHuffType huffType,
                              Cpa32U inputSize,
                              Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
     Cpa64U inputSizeLong = (Cpa64U)inputSize;
-    sal_compression_service_t *pService = NULL;
-
-    pService = (sal_compression_service_t *)pServiceType;
 
     switch (huffType)
     {
@@ -183,24 +251,13 @@ CpaStatus dcDeflateBoundGen4(void *pServiceType,
                              DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_STATIC;
             break;
         case CPA_DC_HT_FULL_DYNAMIC:
+            /* Formula for GEN4 dynamic deflate:
+             * Ceil ((9*sourceLen)/8) +
+             * ((((8/7) * sourceLen)/ 16KB) * (150+5)) + 512
+             */
             outputSizeLong = DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_DYN;
             outputSizeLong += CPA_DC_CEIL_DIV(9 * inputSizeLong, 8);
-            if (pService->generic_service_info.isGen4_2)
-            {
-                /* Formula for GEN4_2 dynamic deflate:
-                 * Ceil ((9*sourceLen)/8) +
-                 * ((((8/7) * sourceLen)/ 4KB) * (150+5)) + 512
-                 */
-                outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (4 * 1024);
-            }
-            else
-            {
-                /* Formula for GEN4 dynamic deflate:
-                 * Ceil ((9*sourceLen)/8) +
-                 * ((((8/7) * sourceLen)/ 16KB) * (150+5)) + 512
-                 */
-                outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (16 * 1024);
-            }
+            outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (16 * 1024);
             break;
         default:
             return CPA_STATUS_INVALID_PARAM;
@@ -209,6 +266,74 @@ CpaStatus dcDeflateBoundGen4(void *pServiceType,
     /* Avoid output size overflow */
     if (outputSizeLong & UINT_OVERFLOW)
         return CPA_STATUS_INVALID_PARAM;
+
+    *outputSize = (Cpa32U)outputSizeLong;
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus dcDeflateBoundGen4_2(CpaDcHuffType huffType,
+                               Cpa32U inputSize,
+                               Cpa32U *outputSize)
+{
+    Cpa64U outputSizeLong;
+    Cpa64U inputSizeLong = (Cpa64U)inputSize;
+
+    switch (huffType)
+    {
+        case CPA_DC_HT_STATIC:
+            /* Formula for GEN4.2 (420xx) static deflate:
+             * ceil((9*sourceLen)/8) + 5 + 1024. */
+            outputSizeLong = CPA_DC_CEIL_DIV(9 * inputSizeLong, 8) +
+                             DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_STATIC;
+            break;
+        case CPA_DC_HT_FULL_DYNAMIC:
+            /* Formula for GEN4.2 (420xx) dynamic deflate:
+             * Ceil ((9*sourceLen)/8) +
+             * ((((8/7) * sourceLen)/ 4KB) * (150+5)) + 512
+             */
+            outputSizeLong = DC_DEST_BUFF_EXTRA_DEFLATE_GEN4_DYN;
+            outputSizeLong += CPA_DC_CEIL_DIV(9 * inputSizeLong, 8);
+            outputSizeLong += ((8 * inputSizeLong * 155) / 7) / (4 * 1024);
+            break;
+        default:
+            return CPA_STATUS_INVALID_PARAM;
+    }
+
+    /* Avoid output size overflow */
+    if (outputSizeLong & UINT_OVERFLOW)
+        return CPA_STATUS_INVALID_PARAM;
+
+    *outputSize = (Cpa32U)outputSizeLong;
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus dcDeflateBoundGen6(CpaDcHuffType huffType,
+                             Cpa32U inputSize,
+                             Cpa32U *outputSize)
+{
+    Cpa64U outputSizeLong;
+    Cpa64U inputSizeLong = (Cpa64U)inputSize;
+
+    switch (huffType)
+    {
+        case CPA_DC_HT_FULL_DYNAMIC:
+            /* Formula for GEN6 dynamic deflate:
+             * srcSize + ((((srcSize)>>12) + 1) * 5)
+             */
+            outputSizeLong = inputSizeLong;
+            outputSizeLong += (((inputSizeLong >> 12) + 1) * 5);
+            break;
+        default:
+            LAC_INVALID_PARAM_LOG("Invalid huffType value");
+            return CPA_STATUS_INVALID_PARAM;
+    }
+
+    /* Avoid output size overflow */
+    if (outputSizeLong & UINT_OVERFLOW)
+    {
+        LAC_INVALID_PARAM_LOG("Invalid output size");
+        return CPA_STATUS_INVALID_PARAM;
+    }
 
     *outputSize = (Cpa32U)outputSizeLong;
     return CPA_STATUS_SUCCESS;
@@ -270,8 +395,7 @@ CpaStatus cpaDcDeflateCompressBound(const CpaInstanceHandle dcInstance,
     }
 #endif
 
-    return (pDcCapabilities->dcDeflateBound)(
-        (void *)pService, huffType, inputSize, outputSize);
+    return (pDcCapabilities->dcDeflateBound)(huffType, inputSize, outputSize);
 }
 
 CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
@@ -292,6 +416,24 @@ CpaStatus dcLZ4BoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
     return CPA_STATUS_SUCCESS;
 }
 
+CpaStatus dcLZ4BoundGen6(Cpa32U inputSize, Cpa32U *outputSize)
+{
+    Cpa64U outputSizeLong;
+    Cpa64U inputSizeLong = (Cpa64U)inputSize;
+
+    /* Formula for GEN6 LZ4:
+     * sourceLen + ((((sourceLen)>>16) + 1) * 4)  */
+    outputSizeLong = inputSizeLong;
+    outputSizeLong += (((inputSizeLong >> 16) + 1) * 4);
+
+    /* Avoid output size overflow */
+    if (outputSizeLong & UINT_OVERFLOW)
+        return CPA_STATUS_INVALID_PARAM;
+
+    *outputSize = (Cpa32U)outputSizeLong;
+    return CPA_STATUS_SUCCESS;
+}
+
 CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
 {
     Cpa64U outputSizeLong;
@@ -301,6 +443,43 @@ CpaStatus dcLZ4SBoundGen4(Cpa32U inputSize, Cpa32U *outputSize)
      * sourceLen + Ceil(sourceLen/2000) * 11 + 1024 */
     outputSizeLong = inputSizeLong + DC_DEST_BUFF_EXTRA_LZ4S_GEN4;
     outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 2000) * 11;
+
+    /* Avoid output size overflow */
+    if (outputSizeLong & UINT_OVERFLOW)
+        return CPA_STATUS_INVALID_PARAM;
+
+    *outputSize = (Cpa32U)outputSizeLong;
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus dcLZ4SBoundGen6(Cpa32U inputSize, Cpa32U *outputSize)
+{
+    Cpa64U outputSizeLong;
+    Cpa64U inputSizeLong = (Cpa64U)inputSize;
+
+    /* Formula for GEN6 LZ4S:
+     * sourceLen + Ceil(sourceLen/18) * 1 + 1
+     * Ignoring "* 1" from the formula */
+    outputSizeLong = inputSizeLong + DC_DEST_BUFF_EXTRA_LZ4S_GEN6;
+    outputSizeLong += CPA_DC_CEIL_DIV(inputSizeLong, 18);
+
+    /* Avoid output size overflow */
+    if (outputSizeLong & UINT_OVERFLOW)
+        return CPA_STATUS_INVALID_PARAM;
+
+    *outputSize = (Cpa32U)outputSizeLong;
+    return CPA_STATUS_SUCCESS;
+}
+
+CpaStatus dcZstdBoundGen6(Cpa32U inputSize, Cpa32U *outputSize)
+{
+    Cpa64U outputSizeLong;
+    Cpa64U inputSizeLong = (Cpa64U)inputSize;
+
+    /* Formula for GEN6 Zstd:
+     * 14 + sourceLen + ((sourceLen >> 16) + 1) * 3 + 4 */
+    outputSizeLong = inputSizeLong + DC_DEST_BUFF_EXTRA_ZSTD_GEN6;
+    outputSizeLong += ((inputSizeLong >> 16) + 1) * 3;
 
     /* Avoid output size overflow */
     if (outputSizeLong & UINT_OVERFLOW)

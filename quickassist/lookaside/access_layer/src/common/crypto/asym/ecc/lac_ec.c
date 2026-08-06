@@ -56,7 +56,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* QAT FW includes */
 #include "icp_qat_fw_la.h"
@@ -90,6 +89,7 @@ typedef struct _OptCurveParams
     Cpa32U dataOperationSizeBytes;
     Cpa32U function_point;
     Cpa32U function_generator;
+    CpaBoolean dpa_support;
     const Cpa8U *p;
     const Cpa8U *h;
     const Cpa8U *a;
@@ -119,6 +119,13 @@ typedef const CpaCyEcCurveParametersWeierstrass *LacEc_WSCurvePtr;
 /**< number of 'out' arguments in the arguments size list for the P256 and P384
  * Point Multiply operation */
 #define LAC_POINT_MULTIPLY_P256P384_NUM_OUT_ARGS 2
+/**< number of bytes of random data for DPA */
+#define LAC_EC_DPA_P384_RANDOM_DATA_SIZE 96
+/**< DPA empty initialiser */
+#define EC_NON_DPA_INITIALISER                                                 \
+    {                                                                          \
+        .pRandom = NULL, .createRandomData = CPA_FALSE, .dpa = CPA_FALSE       \
+    }
 
 /**< number of EC statistics */
 #define LAC_EC_NUM_STATS (sizeof(CpaCyEcStats64) / sizeof(Cpa64U))
@@ -150,6 +157,7 @@ typedef struct _PointMultiplyOpData
     const CpaFlatBuffer *a;
     const CpaFlatBuffer *b;
     const CpaFlatBuffer *k;
+    const CpaFlatBuffer *r;
     const CpaFlatBuffer *pXk;
     const CpaFlatBuffer *pYk;
 } PointMultiplyOpData;
@@ -185,6 +193,19 @@ typedef struct _PointMultiplyOpData
  * macro to write in/out parameters for the Generator
  * Point Multiply operation*/
 
+#define LacDpaEcGeneratorPointMultiplyWrite(in, out, data)                     \
+    do                                                                         \
+    {                                                                          \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.k, (data)->k);                        \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.r, (data)->r);                        \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.xr, (data)->pXk);                    \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(out.yr, (data)->pYk);                    \
+    } while (0);
+/**< @ingroup Lac_Ec
+ * macro to write in/out parameters for the DPA Generator
+ * Point Multiply operation
+ */
+
 #define LacEcP256P384PointMultiplyWrite(in, out, data)                         \
     do                                                                         \
     {                                                                          \
@@ -195,6 +216,18 @@ typedef struct _PointMultiplyOpData
 /**< @ingroup Lac_Ec
  * macro to write in/out parameters for the Generic P256 and P384
  * Point Multiply operation*/
+
+#define LacDpaEcP384PointMultiplyWrite(in, out, data)                          \
+    do                                                                         \
+    {                                                                          \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.xp, (data)->xg);                      \
+        LAC_MEM_SHARED_WRITE_FROM_PTR(in.yp, (data)->yg);                      \
+        LacDpaEcGeneratorPointMultiplyWrite(in, out, data)                     \
+    } while (0);
+/**< @ingroup Lac_Ec
+ * macro to write in/out parameters for the DPA Generic P384
+ * Point Multiply operation
+ */
 
 #define LacEcPointVerifyFillStruct(in, px, py, pp, pa, pb)                     \
     do                                                                         \
@@ -414,6 +447,7 @@ STATIC
 CpaStatus LacEc_GenericPointMultiplyBasicParamCheck(
     const CpaCyEcGenericPointMultiplyOpData *pOpData,
     const CpaBoolean *pMultiplyStatus,
+    const lac_pke_dpa_op_data_t *pDpa,
     const CpaFlatBuffer *pOutX,
     const CpaFlatBuffer *pOutY)
 {
@@ -427,6 +461,10 @@ CpaStatus LacEc_GenericPointMultiplyBasicParamCheck(
 
     LAC_CHECK_FLAT_BUFFER_PARAM(pOutX, CHECK_NONE, 0);
     LAC_CHECK_FLAT_BUFFER_PARAM(pOutY, CHECK_NONE, 0);
+
+    if (pDpa->dpa)
+        LAC_CHECK_FLAT_BUFFER_PARAM(
+            pDpa->pRandom, CHECK_EQUALS, LAC_EC_DPA_P384_RANDOM_DATA_SIZE);
 
     /* Currently we require Weierstrass curve - no other type is supported */
     return LacEc_BasicParamCheckWeierstrass(pOpData->pCurve);
@@ -463,6 +501,7 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
     void *pCallbackTag,
     const CpaCyEcPointMultiplyOpData *pOpData_Legacy,
     const CpaCyEcGenericPointMultiplyOpData *pOpData,
+    const lac_pke_dpa_op_data_t *pDpa,
     CpaBoolean *pMultiplyStatus,
     CpaFlatBuffer *pOutX,
     CpaFlatBuffer *pOutY);
@@ -478,6 +517,7 @@ CpaStatus LacEc_CommonPathPointMultiplySynchronous(
     const CpaInstanceHandle instanceHandle,
     const CpaCyEcPointMultiplyOpData *pOpData_Legacy,
     const CpaCyEcGenericPointMultiplyOpData *pOpData,
+    const lac_pke_dpa_op_data_t *pDpa,
     CpaBoolean *pMultiplyStatus,
     CpaFlatBuffer *pOutX,
     CpaFlatBuffer *pOutY)
@@ -496,6 +536,7 @@ CpaStatus LacEc_CommonPathPointMultiplySynchronous(
             pSyncCallbackData,
             pOpData_Legacy,
             pOpData,
+            pDpa,
             pMultiplyStatus,
             pOutX,
             pOutY);
@@ -792,6 +833,7 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
                                   const CpaFlatBuffer *pH,
                                   const CpaFlatBuffer *pA,
                                   const CpaFlatBuffer *pB,
+                                  CpaBoolean dpa,
                                   Cpa32U *dataOperationSizeBytes,
                                   Cpa32U *function,
                                   CpaBoolean generator)
@@ -808,6 +850,7 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
         { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_256_BITS),
           .function_point = PKE_EC_POINT_MULTIPLICATION_P256,
           .function_generator = PKE_EC_GENERATOR_MULTIPLICATION_P256,
+          .dpa_support = CPA_FALSE,
           .p = nist_p256_p,
           .h = nist_p256_h,
           .a = nist_p256_a,
@@ -816,6 +859,16 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
         { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
           .function_point = PKE_EC_POINT_MULTIPLICATION_P384,
           .function_generator = PKE_EC_GENERATOR_MULTIPLICATION_P384,
+          .dpa_support = CPA_FALSE,
+          .p = nist_p384_p,
+          .h = nist_p384_h,
+          .a = nist_p384_a,
+          .b = nist_p384_b },
+        /* DPA P384 */
+        { .dataOperationSizeBytes = LAC_BITS_TO_BYTES(LAC_384_BITS),
+          .function_point = PKE_DPA_EC_POINT_MULTIPLICATION_P384,
+          .function_generator = PKE_DPA_EC_GENERATOR_MULTIPLICATION_P384,
+          .dpa_support = CPA_TRUE,
           .p = nist_p384_p,
           .h = nist_p384_h,
           .a = nist_p384_a,
@@ -835,6 +888,9 @@ CpaBoolean LacEc_GetOptFunctionId(const sal_crypto_service_t *pService,
 
         res = (NULL == pH->pData) || LacPke_CompareFlatAndPtr(
             pH, curves[i].h, curves[i].dataOperationSizeBytes);
+        if (!res)
+            continue;
+        res = (dpa == curves[i].dpa_support);
         if (!res)
             continue;
         res = LacPke_CompareFlatAndPtr(
@@ -896,6 +952,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
     void *pCallbackTag,
     const CpaCyEcPointMultiplyOpData *pOpData_Legacy,
     const CpaCyEcGenericPointMultiplyOpData *pOpData,
+    const lac_pke_dpa_op_data_t *pDpa,
     CpaBoolean *pMultiplyStatus,
     CpaFlatBuffer *pOutX,
     CpaFlatBuffer *pOutY);
@@ -913,6 +970,7 @@ CpaStatus cpaCyEcPointMultiply(const CpaInstanceHandle instanceHandle,
                                CpaFlatBuffer *pXk,
                                CpaFlatBuffer *pYk)
 {
+    lac_pke_dpa_op_data_t dpa = EC_NON_DPA_INITIALISER;
     LAC_CHECK_NULL_PARAM(pOpData);
 
     return LacEcc_CommonPathPointMultiply(instanceHandle,
@@ -920,6 +978,7 @@ CpaStatus cpaCyEcPointMultiply(const CpaInstanceHandle instanceHandle,
                                           pCallbackTag,
                                           pOpData,
                                           NULL,
+                                          &dpa,
                                           pMultiplyStatus,
                                           pXk,
                                           pYk);
@@ -1079,6 +1138,7 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
     void *pCallbackTag,
     const CpaCyEcPointMultiplyOpData *pOpData_Legacy,
     const CpaCyEcGenericPointMultiplyOpData *pOpData,
+    const lac_pke_dpa_op_data_t *pDpa,
     CpaBoolean *pMultiplyStatus,
     CpaFlatBuffer *pOutX,
     CpaFlatBuffer *pOutY)
@@ -1122,6 +1182,7 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
         /* Basic NULL Param Checking  */
         status = LacEc_GenericPointMultiplyBasicParamCheck(pOpData,
                                                            pMultiplyStatus,
+                                                           pDpa,
                                                            pOutX,
                                                            pOutY);
         LAC_CHECK_STATUS(status);
@@ -1171,6 +1232,7 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
                                  .a = pA,
                                  .b = pB,
                                  .k = pK,
+                                 .r = pDpa->pRandom,
                                  .pXk = pOutX,
                                  .pYk = pOutY };
 
@@ -1181,9 +1243,14 @@ CpaStatus LacEcc_CommonPathPointMultiplyOperation(
                                pH,
                                pA,
                                pB,
+                               pDpa->dpa,
                                &dataOperationSizeBytes,
                                &functionID,
                                generator);
+
+    /* DPA EC only supports P384 */
+    if (pDpa->dpa && !optimisedSupported)
+        return CPA_STATUS_UNSUPPORTED;
 
     if (!optimisedSupported)
     {
@@ -1306,6 +1373,16 @@ CpaStatus LacEcc_PointMultiplyFillMMPStructsOpDataWrite(
                 out->mmp_ec_point_multiplication_p384,
                 data);
             return CPA_STATUS_SUCCESS;
+        case PKE_DPA_EC_POINT_MULTIPLICATION_P384:
+            LAC_EC_SET_LIST_PARAMS(inSizes, 4, size);
+            LAC_EC_SET_LIST_PARAMS(inAlloc, 4, externallyAllocated);
+            LAC_EC_SET_LIST_PARAMS(outSizes, 2, size);
+            LAC_EC_SET_LIST_PARAMS(outAlloc, 2, externallyAllocated);
+            LacDpaEcP384PointMultiplyWrite(
+                in->mmp_dpa_ec_point_multiplication_p384,
+                out->mmp_dpa_ec_point_multiplication_p384,
+                data);
+            return CPA_STATUS_SUCCESS;
         case PKE_EC_GENERATOR_MULTIPLICATION_P384:
             LAC_EC_SET_LIST_PARAMS(inSizes, 1, size);
             LAC_EC_SET_LIST_PARAMS(inAlloc, 1, externallyAllocated);
@@ -1314,6 +1391,16 @@ CpaStatus LacEcc_PointMultiplyFillMMPStructsOpDataWrite(
             LacEcGeneratorPointMultiplyWrite(
                 in->mmp_ec_generator_multiplication_p384,
                 out->mmp_ec_generator_multiplication_p384,
+                data);
+            return CPA_STATUS_SUCCESS;
+        case PKE_DPA_EC_GENERATOR_MULTIPLICATION_P384:
+            LAC_EC_SET_LIST_PARAMS(inSizes, 2, size);
+            LAC_EC_SET_LIST_PARAMS(inAlloc, 2, externallyAllocated);
+            LAC_EC_SET_LIST_PARAMS(outSizes, 2, size);
+            LAC_EC_SET_LIST_PARAMS(outAlloc, 2, externallyAllocated);
+            LacDpaEcGeneratorPointMultiplyWrite(
+                in->mmp_dpa_ec_generator_multiplication_p384,
+                out->mmp_dpa_ec_generator_multiplication_p384,
                 data);
             return CPA_STATUS_SUCCESS;
     }
@@ -1757,6 +1844,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
     void *pCallbackTag,
     const CpaCyEcPointMultiplyOpData *pOpData_Legacy,
     const CpaCyEcGenericPointMultiplyOpData *pOpData,
+    const lac_pke_dpa_op_data_t *pDpa,
     CpaBoolean *pMultiplyStatus,
     CpaFlatBuffer *pOutX,
     CpaFlatBuffer *pOutY)
@@ -1772,6 +1860,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
         status = LacEc_CommonPathPointMultiplySynchronous(usedInstanceHandle,
                                                           pOpData_Legacy,
                                                           pOpData,
+                                                          pDpa,
                                                           pMultiplyStatus,
                                                           pOutX,
                                                           pOutY);
@@ -1783,6 +1872,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
                                                          pCallbackTag,
                                                          pOpData_Legacy,
                                                          pOpData,
+                                                         pDpa,
                                                          pMultiplyStatus,
                                                          pOutX,
                                                          pOutY);
@@ -1797,6 +1887,7 @@ CpaStatus LacEcc_CommonPathPointMultiply(
              (LAC_ARCH_UINT)pOpData_Legacy,
              (LAC_ARCH_UINT)pOpData,
              (LAC_ARCH_UINT)pMultiplyStatus);
+    LAC_LOG1("  0x%lx,", (LAC_ARCH_UINT)pDpa);
     LAC_LOG2(" 0x%lx, 0x%lx\n)", (LAC_ARCH_UINT)pOutX, (LAC_ARCH_UINT)pOutY);
 #endif
 
@@ -1827,6 +1918,7 @@ CpaStatus cpaCyEcGenericPointMultiply(
     CpaFlatBuffer *pOutX,
     CpaFlatBuffer *pOutY)
 {
+    lac_pke_dpa_op_data_t dpa = EC_NON_DPA_INITIALISER;
     LAC_CHECK_NULL_PARAM(pOpData);
 
     return LacEcc_CommonPathPointMultiply(instanceHandle,
@@ -1834,6 +1926,7 @@ CpaStatus cpaCyEcGenericPointMultiply(
                                           pCallbackTag,
                                           NULL,
                                           pOpData,
+                                          &dpa,
                                           pMultiplyStatus,
                                           pOutX,
                                           pOutY);
@@ -1850,5 +1943,27 @@ CpaStatus cpaCyEcDpaGenericPointMultiply(
     CpaFlatBuffer *pXk,
     CpaFlatBuffer *pYk)
 {
-    return CPA_STATUS_UNSUPPORTED;
+    sal_crypto_service_t *pCryptoService =
+        (sal_crypto_service_t *)instanceHandle;
+    lac_pke_dpa_op_data_t dpa = { .pRandom = pRandom,
+                                  .createRandomData = createRandomData,
+                                  .dpa = CPA_TRUE };
+
+    LAC_CHECK_NULL_PARAM(pOpData);
+    LAC_CHECK_NULL_PARAM(pRandom);
+    LAC_CHECK_NULL_PARAM(pCryptoService);
+
+    if (!pCryptoService->generic_service_info.dpaSupport ||
+        dpa.createRandomData == CPA_TRUE)
+        return CPA_STATUS_UNSUPPORTED;
+
+    return LacEcc_CommonPathPointMultiply(instanceHandle,
+                                          pCb,
+                                          pCallbackTag,
+                                          NULL,
+                                          pOpData,
+                                          &dpa,
+                                          pMultiplyStatus,
+                                          pXk,
+                                          pYk);
 }

@@ -18,6 +18,8 @@
 #ifndef ADF_PLATFORM_COMMON_H
 #define ADF_PLATFORM_COMMON_H
 
+#include <stdint.h>
+
 /* Number of Rings Per Bank */
 #define ICP_ETR_MAX_RINGS_PER_BANK 16
 
@@ -64,7 +66,7 @@
 #define ICP_RING_NEAR_WATERMARK_KILO_256 0x11
 
 /* Bundle size */
-#define ICP_BUNDLE_SIZE 0x1000
+#define ADF_RING_BUNDLE_SIZE 0x2000
 
 /* For coalescing based on number of messages define the required ring message
  * count, and the limits on the allowed thresholds.
@@ -254,12 +256,42 @@ static inline unsigned int modulo(unsigned int data, unsigned int shift)
 }
 
 /* Ring controller CSR Accessor Macros */
-/* CSR write macro */
-#define ICP_ADF_CSR_WR(csrAddr, csrOffset, val)                                \
-    (void)((*((volatile Cpa32U *)(((Cpa8U *)csrAddr) + csrOffset)) = (val)))
+/* Force MMIO stores to remain 32-bit wide. Some compilers may optimize a
+ * volatile 32-bit CSR write to a narrower access, which breaks QAT
+ * mailbox CSRs that require DWORD transactions. */
+static inline void icp_adf_csr_wr(void *csrAddr,
+                                  uint32_t csrOffset,
+                                  uint32_t val)
+{
+    volatile void *addr = ((char *)csrAddr) + csrOffset;
 
-/* CSR read macro */
-#define ICP_ADF_CSR_RD(csrAddr, csrOffset)                                     \
-    (*((volatile Cpa32U *)(((Cpa8U *)csrAddr) + csrOffset)))
+#if defined(__x86_64__)
+    __asm__ __volatile__("movl %0, (%1)" : : "r"(val), "r"(addr) : "memory");
+#else
+#error "Unsupported architecture for icp_adf_csr_wr"
+#endif
+}
+
+#define ICP_ADF_CSR_WR(csrAddr, csrOffset, val)                                \
+    icp_adf_csr_wr(csrAddr, csrOffset, val)
+
+/* Force MMIO loads to remain 32-bit wide. Some compilers may optimize a
+ * volatile 32-bit CSR read to a narrower access, which breaks QAT
+ * mailbox CSRs that require DWORD transactions. */
+static inline uint32_t icp_adf_csr_rd(void *csrAddr, uint32_t csrOffset)
+{
+    const volatile void *addr = ((char *)csrAddr) + csrOffset;
+    uint32_t val;
+
+#if defined(__x86_64__)
+    __asm__ __volatile__("movl (%1), %0" : "=r"(val) : "r"(addr) : "memory");
+#else
+#error "Unsupported architecture for icp_adf_csr_rd"
+#endif
+
+    return val;
+}
+
+#define ICP_ADF_CSR_RD(csrAddr, csrOffset) icp_adf_csr_rd(csrAddr, csrOffset)
 
 #endif /* ADF_PLATFORM_COMMON_H */

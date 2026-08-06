@@ -85,6 +85,8 @@ typedef struct adf_dev_ring_handle_s
     uint32_t csrTailOffset;
 
     uint32_t *csr_addr;
+    Cpa32U coalescingTimerNs; /* coalescing timer (ns) cached for restore */
+    CpaBoolean coalescingTimerUserSet; /* CPA_TRUE if set by caller */
 } adf_dev_ring_handle_t;
 
 #define IS_RING_IN_WQ_MODE(ring) ((ring)->ringMode == ADF_RING_WQ_MODE)

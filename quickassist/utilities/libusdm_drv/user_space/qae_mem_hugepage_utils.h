@@ -19,6 +19,7 @@
 #define QAE_MEM_HUGEPAGE_UTILS_H
 #include "qae_mem_utils.h"
 #include "qae_mem_user_utils.h"
+#include "qae_page_table_defs.h"
 
 API_LOCAL
 uint64_t __qae_hugepage_virt2phy(const int fd,
@@ -57,4 +58,5 @@ int __qae_vfio_init_hugepages(void);
 
 API_LOCAL
 int __qae_hugepage_enabled(void);
+
 #endif

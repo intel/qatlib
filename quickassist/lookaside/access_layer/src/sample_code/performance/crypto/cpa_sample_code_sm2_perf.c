@@ -589,6 +589,59 @@ void sm2Performance(single_thread_test_data_t *testSetup)
     {
         packageIdCount_g = instanceInfo.physInstId.packageId;
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Determine the response mode for this instance */
+    Cpa16U instanceIndex = (testSetup->logicalQaInstance) % numInstances;
+    {
+        CpaStatus responseStatus;
+
+        /* First get the actual default response mode from the instance */
+        responseStatus =
+            cpaInstanceGetResponseMode(sm2Setup.cyInstanceHandle,
+                                       CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+                                       &sm2Setup.currentResponseMode);
+        if (CPA_STATUS_SUCCESS != responseStatus)
+        {
+            /* Fallback to assumed default if query fails */
+            sm2Setup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+        }
+
+        /* Check if this instance has been explicitly configured with override
+         */
+        if (isCyInstanceResponseModeConfigured())
+        {
+            Cpa64U instanceMask = getCyInstanceResponseModeMask();
+
+            /* Check if this instance is in the configured mask */
+            if ((instanceIndex < 64) &&
+                (instanceMask & (1ULL << instanceIndex)))
+            {
+                /* Override with explicitly configured mode */
+                sm2Setup.currentResponseMode = getCyInstanceResponseMode();
+                PRINT("Using explicit response mode %d for instance %d\n",
+                      sm2Setup.currentResponseMode,
+                      instanceIndex);
+            }
+            else
+            {
+                PRINT(
+                    "Using library default response mode %d for instance %d\n",
+                    sm2Setup.currentResponseMode,
+                    instanceIndex);
+            }
+        }
+    }
+    /* Print the final response mode for this thread */
+    PRINT("Thread %u using CY instance %u with response mode: %d (%s)\n",
+          testSetup->threadID,
+          instanceIndex,
+          sm2Setup.currentResponseMode,
+          (sm2Setup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE) ? "polling"
+          : (sm2Setup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+              ? "event"
+              : "unknown");
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     sm2Setup.nLenInBytes = params->nLenInBytes;
     sm2Setup.fieldType = params->fieldType;
@@ -691,6 +744,16 @@ CpaStatus setupSm2Test(Cpa32U nLenInBits,
         timeStampTime_g = getTimeStampTime();
         PRINT("timeStampTime_g %llu\n", timeStampTime_g);
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Apply any configured response mode overrides before creating polling
+     * threads */
+    if (CPA_STATUS_SUCCESS != applyCyInstanceResponseModeConfiguration())
+    {
+        PRINT_ERR("Error applying Cy instance response mode configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     if (!poll_inline_g)
     {

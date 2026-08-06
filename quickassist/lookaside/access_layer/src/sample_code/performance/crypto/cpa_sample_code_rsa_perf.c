@@ -1162,13 +1162,9 @@ CpaStatus sampleRsaEncrypt(asym_test_params_t *setup,
     return status;
 }
 
-/******************************************************************************
- * @ingroup sampleRSACode
- *
- * @description
- * This functions performs RSA Encrypt using openssl library
- *
- * ****************************************************************************/
+#ifdef SC_KPT2_ENABLED
+#endif
+
 /******************************************************************************
  * @ingroup sampleRSACode
  *
@@ -1700,6 +1696,136 @@ EXPORT_SYMBOL(sampleRsaDecrypt);
 
 static CpaStatus sampleRsaEncryptPerform(asym_test_params_t *setup);
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+static CpaStatus qatrsaDataWithIteration(asym_test_params_t *setup,
+                                         CpaBoolean performEncrypt)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U iterCount = 0;
+    Cpa32U iterNo = 0;
+    CpaInstanceResponseMode originalMode = CPA_INST_RX_NOTIFY_NONE;
+    CpaInstanceResponseMode alternateMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    CpaInstanceInfo2 instanceInfo = { 0 };
+
+    /* Get the iteration count */
+    if (CPA_STATUS_SUCCESS != getCyResponseModeIterationCount(&iterCount))
+    {
+        PRINT_ERR("Failed to get iteration count\n");
+        return CPA_STATUS_FAIL;
+    }
+    if (0 == iterCount)
+    {
+        PRINT_ERR("Invalid iteration count\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    /* Get the current response mode from the instance */
+    status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instanceInfo);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get instance info\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    /* Determine original mode based on instance polling state */
+    if (instanceInfo.isPolled)
+    {
+        originalMode = CPA_INST_RX_NOTIFY_NONE;
+    }
+    else
+    {
+        originalMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    }
+
+    PRINT("Response mode iteration: starting with %s mode, %u iterations\n",
+          (originalMode == CPA_INST_RX_NOTIFY_NONE) ? "POLLING" : "EVENT",
+          iterCount);
+
+    /* Determine the alternate mode */
+    if (CPA_INST_RX_NOTIFY_NONE == originalMode)
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    }
+    else
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_NONE;
+    }
+
+    /* Loop through iterations */
+    for (iterNo = 0; iterNo < iterCount; iterNo++)
+    {
+        CpaInstanceResponseMode modeToSet;
+
+        /* Set the response mode for this iteration */
+        if (iterNo % 2 == 0)
+        {
+            /* Even iteration: use original mode */
+            modeToSet = originalMode;
+        }
+        else
+        {
+            /* Odd iteration: use alternate mode */
+            modeToSet = alternateMode;
+        }
+
+        /* Get instance type to determine correct service type */
+        CpaInstanceInfo2 instInfo = { 0 };
+        status = cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instInfo);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Failed to get instance info on iteration %u\n", iterNo);
+            break;
+        }
+
+        status = cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                            instInfo.accelerationServiceType,
+                                            modeToSet);
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR(
+                "Failed to set response mode for iteration %u (status=%d)\n",
+                iterNo,
+                status);
+            break;
+        }
+
+        /* Perform the appropriate RSA operation */
+        if (performEncrypt)
+        {
+            status = sampleRsaEncryptPerform(setup);
+        }
+        else
+        {
+            status = sampleRsaPerform(setup);
+        }
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("RSA operation failed in iteration %u\n", iterNo);
+            break;
+        }
+    }
+
+    /* Restore the original response mode */
+    PRINT("Restoring original response mode: %s\n",
+          (originalMode == CPA_INST_RX_NOTIFY_NONE) ? "POLLING" : "EVENT");
+
+    CpaInstanceInfo2 restoreInfo = { 0 };
+    CpaStatus infoStatus =
+        cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &restoreInfo);
+    if (CPA_STATUS_SUCCESS == infoStatus)
+    {
+        cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                   restoreInfo.accelerationServiceType,
+                                   originalMode);
+    }
+
+    return status;
+}
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+
 /******************************************************************************
  * @ingroup sampleRSACode
  *
@@ -1948,10 +2074,10 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     rsaTestSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
      * instance*/
-    status = cpaCyGetNumInstances(&numInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
-        PRINT_ERR("cpaCyGetNumInstances error, status:%d, numInstanaces:%d\n",
+        PRINT_ERR("cpaGetNumInstances error, status:%d, numInstanaces:%d\n",
                   status,
                   numInstances);
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1964,7 +2090,9 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         return;
     }
-    if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
+    if (cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+                        numInstances,
+                        cyInstances) != CPA_STATUS_SUCCESS)
     {
         PRINT_ERR("Failed to get instances\n");
         rsaTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -2016,6 +2144,59 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     {
         packageIdCount_g = instanceInfo->physInstId.packageId;
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Determine the response mode for this instance */
+    Cpa16U instanceIndex = (testSetup->logicalQaInstance) % numInstances;
+    {
+        CpaStatus responseStatus;
+
+        /* First get the actual default response mode from the instance */
+        responseStatus =
+            cpaInstanceGetResponseMode(rsaTestSetup.cyInstanceHandle,
+                                       CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+                                       &rsaTestSetup.currentResponseMode);
+        if (CPA_STATUS_SUCCESS != responseStatus)
+        {
+            /* Fallback to assumed default if query fails */
+            rsaTestSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+        }
+        /* Check if this instance has been explicitly configured with override
+         */
+        if (isCyInstanceResponseModeConfigured())
+        {
+            Cpa64U instanceMask = getCyInstanceResponseModeMask();
+
+            /* Check if this instance is in the configured mask */
+            if ((instanceIndex < 64) &&
+                (instanceMask & (1ULL << instanceIndex)))
+            {
+                /* Override with explicitly configured mode */
+                rsaTestSetup.currentResponseMode = getCyInstanceResponseMode();
+                PRINT("Using explicit response mode %d for instance %d\n",
+                      rsaTestSetup.currentResponseMode,
+                      instanceIndex);
+            }
+            else
+            {
+                PRINT(
+                    "Using library default response mode %d for instance %d\n",
+                    rsaTestSetup.currentResponseMode,
+                    instanceIndex);
+            }
+        }
+    }
+    /* Print the final response mode for this thread */
+    PRINT("Thread %u using CY instance %u with response mode: %d (%s)\n",
+          testSetup->threadID,
+          instanceIndex,
+          rsaTestSetup.currentResponseMode,
+          (rsaTestSetup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE)
+              ? "polling"
+          : (rsaTestSetup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+              ? "event"
+              : "unknown");
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     rsaTestSetup.modulusSizeInBytes = testSetup->packetSize;
     rsaTestSetup.rsaKeyRepType = params->rsaKeyRepType;
     rsaTestSetup.numBuffers = params->numBuffers;
@@ -2027,16 +2208,41 @@ void sampleRsaThreadSetup(single_thread_test_data_t *testSetup)
     rsaTestSetup.enableKPT = params->enableKPT;
 #endif
 #endif
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Initialize response mode to polling mode as default */
+    rsaTestSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     /*launch function that does all the work*/
     if (params->performEncrypt)
     {
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+        Cpa32U iterCount = 0;
+        if (CPA_STATUS_SUCCESS == getCyResponseModeIterationCount(&iterCount) &&
+            iterCount > 1)
+        {
+            status = qatrsaDataWithIteration(&rsaTestSetup, CPA_TRUE);
+        }
+        else
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
         {
             status = sampleRsaEncryptPerform(&rsaTestSetup);
         }
     }
     else
     {
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+        Cpa32U iterCount = 0;
+        if (CPA_STATUS_SUCCESS == getCyResponseModeIterationCount(&iterCount) &&
+            iterCount > 1)
+        {
+            status = qatrsaDataWithIteration(&rsaTestSetup, CPA_FALSE);
+        }
+        else
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
         {
             status = sampleRsaPerform(&rsaTestSetup);
         }
@@ -2091,8 +2297,6 @@ CpaStatus printRsaCrtPerfData(thread_creation_data_t *data)
     }
     else
     {
-#if CY_API_VERSION_AT_LEAST(3, 0)
-#ifdef SC_KPT2_ENABLED
         if (CPA_TRUE == params->enableKPT)
         {
             PRINT("KPT RSA CRT DECRYPT\n");
@@ -2101,12 +2305,6 @@ CpaStatus printRsaCrtPerfData(thread_creation_data_t *data)
         {
             PRINT("RSA CRT DECRYPT\n");
         }
-#else
-        PRINT("RSA CRT DECRYPT\n");
-#endif
-#else
-        PRINT("RSA CRT DECRYPT\n");
-#endif
     }
     PRINT("Modulus Size %19u\n", data->packetSize * NUM_BITS_IN_BYTE);
     return (printAsymStatsAndStopServices(data));
@@ -2122,8 +2320,6 @@ CpaStatus printRsaCrtPerfData(thread_creation_data_t *data)
  *****************************************************************************/
 CpaStatus printRsaPerfData(thread_creation_data_t *data)
 {
-#if CY_API_VERSION_AT_LEAST(3, 0)
-#ifdef SC_KPT2_ENABLED
     asym_test_params_t *params = (asym_test_params_t *)data->setupPtr;
     if (CPA_TRUE == params->enableKPT)
     {
@@ -2133,12 +2329,6 @@ CpaStatus printRsaPerfData(thread_creation_data_t *data)
     {
         PRINT("RSA DECRYPT\n");
     }
-#else
-    PRINT("RSA DECRYPT\n");
-#endif
-#else
-    PRINT("RSA DECRYPT\n");
-#endif
     PRINT("Modulus Size %19u\n", data->packetSize * NUM_BITS_IN_BYTE);
     return (printAsymStatsAndStopServices(data));
 }
@@ -2174,10 +2364,10 @@ CpaStatus setupRsaTest(Cpa32U modulusSize,
         PRINT_ERR(" Max is %d\n", MAX_THREAD_VARIATION);
         return CPA_STATUS_FAIL;
     }
-    /*start crypto service if not already started*/
-    if (CPA_STATUS_SUCCESS != startCyServices())
+    /*start Asym service if not already started*/
+    if (CPA_STATUS_SUCCESS != startAsymServices())
     {
-        PRINT_ERR("Error starting Crypto Services\n");
+        PRINT_ERR("Error starting Asym Service\n");
         return CPA_STATUS_FAIL;
     }
     if (iaCycleCount_g)
@@ -2188,6 +2378,16 @@ CpaStatus setupRsaTest(Cpa32U modulusSize,
         timeStampTime_g = getTimeStampTime();
         PRINT("timeStampTime_g %llu\n", timeStampTime_g);
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Apply any configured response mode overrides before creating polling
+     * threads */
+    if (CPA_STATUS_SUCCESS != applyCyInstanceResponseModeConfiguration())
+    {
+        PRINT_ERR("Error applying Cy instance response mode configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     if (!poll_inline_g)
     {
         /* start polling threads if polling is enabled in the configuration

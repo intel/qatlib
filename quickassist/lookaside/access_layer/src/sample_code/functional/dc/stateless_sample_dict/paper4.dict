@@ -1,0 +1,31 @@
+.EQ
+delim $$
+.EN
+.ls 1
+.ce
+PROGRAMMING BY EXAMPLE REVISITED
+.sp
+.ce
+by John G. Cleary
+.ce
+Man-Machine Systems Laboratory
+.ce
+University of Calgary.
+.sp
+.sh "Introduction"
+.pp
+Efforts to construct an artificial intelligence have relied on
+ever more complex and carefully prepared programs.  While useful in
+themselves, these programs
+are unlikely to be useful in situations where ephemeral and
+low value knowledge must be acquired.  For example a person (or robot)
+working in a normal domestic environment knows a lot about which
+cupboards have sticky doors and where the marmalade is kept.  It seems
+unlikely that it will ever be economic to program such knowledge 
+whether this be via a language or a discourse with an expert system.
+.pp
+It is my thesis, then, that any flexible robot system working in the
+real world must contain a component of control intermediate
+between hard wired 'reflex' responses and complex intellectual 
+reasoning.  Such an intermediate system must be adaptive, be able
+to carry out complex patt

@@ -93,6 +93,12 @@ void __qae_set_loadkey_fptr(load_key_fptr_t fp)
     load_key_fptr = fp;
 }
 
+API_LOCAL
+void __qae_set_storemmap_fptr(store_mmap_range_fptr_t fp)
+{
+    store_mmap_range_fptr = fp;
+}
+
 /*
  * Each IOVA_SLAB represents a set of memory pages of size 2MB that
  * are contiguous from the viewpoint of the IO device.
@@ -269,7 +275,8 @@ static inline void ioctl_free_slab(const int fd, dev_mem_info_t *memInfo)
 {
     UNUSED(fd);
 
-    iova_release(memInfo->phy_addr, memInfo->size);
+    if (!g_noiommu_enabled)
+        iova_release(memInfo->phy_addr, memInfo->size);
 
     if (vfio_container_fd < 0)
         return;
@@ -348,7 +355,7 @@ uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
     if (unlikely(mem_mutex_lock(&iova_mutex)))
     {
         CMD_ERROR(
-            "%s:%d Error on thread iova_mutex lock %s\n", __func__, __LINE__);
+            "%s:%d Error on thread iova_mutex lock\n", __func__, __LINE__);
         return 0;
     }
 #endif
@@ -374,7 +381,7 @@ uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
 #ifdef ICP_THREAD_SPECIFIC_USDM
             if (unlikely(mem_mutex_unlock(&iova_mutex)))
             {
-                CMD_ERROR("%s:%d Error on thread iova_mutex unlock %s\n",
+                CMD_ERROR("%s:%d Error on thread iova_mutex unlock\n",
                           __func__,
                           __LINE__);
                 return 0;
@@ -388,7 +395,7 @@ uint64_t allocate_iova(const uint32_t size, uint32_t alignment)
     if (unlikely(mem_mutex_unlock(&iova_mutex)))
     {
         CMD_ERROR(
-            "%s:%d Error on thread iova_mutex unlock %s\n", __func__, __LINE__);
+            "%s:%d Error on thread iova_mutex unlock\n", __func__, __LINE__);
     }
 #endif
 
@@ -522,7 +529,11 @@ static inline dev_mem_info_t *ioctl_alloc_slab(const int fd,
     return slab;
 
 error:
-    iova_release(slab->phy_addr, slab->size);
+    if (!g_noiommu_enabled && slab->phy_addr)
+        iova_release(slab->phy_addr, slab->size);
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    remove_slab_from_tmp_list(slab);
+#endif
     if (SMALL == type)
     {
         qae_munmap(slab, slab->size);
@@ -1092,7 +1103,7 @@ uint64_t qaeMemMapContiguousIova(void *virt, size_t size)
      * to load_addr_hpg which expects 2MB entries. If disabled, it points to
      * load_addr which expects 4KB entries.
      */
-    store_mmap_range(&g_page_table, virt, iova, size, __qae_hugepage_enabled());
+    store_mmap_range_fptr(&g_page_table, virt, iova, size);
 
 error:
     ret = mem_mutex_unlock(&mutex);
@@ -1202,7 +1213,7 @@ int qaeMemUnmapContiguousIova(void *virt, size_t size)
      * Clear the page table entries for qaeVirtToPhysNUMA.
      * Use the same granularity as when we stored the mapping.
      */
-    store_mmap_range(&g_page_table, virt, 0, size, __qae_hugepage_enabled());
+    store_mmap_range_fptr(&g_page_table, virt, 0, size);
 
     /* Unmap from IOMMU if container is active */
     if (vfio_container_fd >= 0)
@@ -1230,3 +1241,4 @@ exit:
     return ret;
 #endif
 }
+

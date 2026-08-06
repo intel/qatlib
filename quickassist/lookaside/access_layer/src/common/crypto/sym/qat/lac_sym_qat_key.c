@@ -21,7 +21,6 @@
 #include "lac_mem.h"
 #include "icp_qat_fw_la.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "lac_list.h"
 #include "lac_sal_types.h"
 #include "lac_sym_qat_key.h"

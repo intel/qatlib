@@ -102,17 +102,22 @@ static void remove_and_close_group(vfio_dev_info_t *dev)
     int ret = 0;
     ICP_CHECK_FOR_NULL_PARAM_VOID(dev);
 
+    /* Try to unset the container. Only one vfio_dev instance sharing a
+     * group_fd will succeed */
     ret = ioctl(
         dev->vfio_group_fd, VFIO_GROUP_UNSET_CONTAINER, dev->vfio_container_fd);
-    if (ret)
+    if (ret == 0)
     {
-        ADF_ERROR("VFIO_GROUP_UNSET_CONTAINER ioctl failed\n");
+        /* Only close the group_fd if we successfully unset the container.
+         * If unset failed, it means either:
+         * 1. Another vfio_dev instance sharing this FD already closed it
+         * 2. Another instance already unset the container
+         * In both cases, we shouldn't close the FD. */
+        close(dev->vfio_group_fd);
     }
+    dev->vfio_group_fd = -1;
     if (container_fd_ref)
         --container_fd_ref;
-    close(dev->vfio_group_fd);
-    dev->vfio_group_fd = -1;
-
     if (!container_fd_ref)
     {
         close(container_fd);
@@ -139,6 +144,7 @@ int open_vfio_dev(const char *vfio_file,
     struct vfio_irq_set *irq_set;
     int *fd_ptr;
     int evtfd;
+    bool group_already_in_container;
 
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -1);
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(vfio_file, -1);
@@ -189,7 +195,10 @@ int open_vfio_dev(const char *vfio_file,
         dev->vfio_group_fd = open(vfio_file, O_RDWR);
         if (dev->vfio_group_fd < 0)
         {
-            ADF_DEBUG("Cannot open %s\n", vfio_file);
+            ADF_DEBUG("Cannot open %s: errno=%d (%s)\n",
+                      vfio_file,
+                      errno,
+                      strerror(errno));
             return -1;
         }
     }
@@ -199,25 +208,34 @@ int open_vfio_dev(const char *vfio_file,
     if (ret)
     {
         ADF_ERROR("VFIO_GROUP_GET_STATUS ioctl failed\n");
-        close(dev->vfio_group_fd);
-        return -1;
+        goto err_close_group;
     }
 
     if (!(group_status.flags & VFIO_GROUP_FLAGS_VIABLE))
     {
         ADF_ERROR("Group is not viable (ie, not all devices bound for vfio)\n");
-        close(dev->vfio_group_fd);
-        return -1;
+        goto err_close_group;
     }
 
-    /* Add the group to the container */
-    ret = ioctl(
-        dev->vfio_group_fd, VFIO_GROUP_SET_CONTAINER, &dev->vfio_container_fd);
-    if (ret)
+    /* If group_fd was provided (>=0) and the group is already in a container,
+     * skip VFIO_GROUP_SET_CONTAINER. This handles the case where the
+     * device kept open from capability check and are now being called again for
+     * actual device usage. The container is already set from the first call. */
+    group_already_in_container =
+        (group_fd >= 0 &&
+         (group_status.flags & VFIO_GROUP_FLAGS_CONTAINER_SET));
+
+    if (!group_already_in_container)
     {
-        ADF_ERROR("VFIO_GROUP_SET_CONTAINER ioctl failed\n");
-        close(dev->vfio_group_fd);
-        return -1;
+        /* Add the group to the container */
+        ret = ioctl(dev->vfio_group_fd,
+                    VFIO_GROUP_SET_CONTAINER,
+                    &dev->vfio_container_fd);
+        if (ret)
+        {
+            ADF_ERROR("VFIO_GROUP_SET_CONTAINER ioctl failed\n");
+            goto err_close_group;
+        }
     }
     container_fd_ref++;
 
@@ -270,6 +288,12 @@ int open_vfio_dev(const char *vfio_file,
     for (i = 0; i < device_info.num_regions; i++)
     {
         struct vfio_region_info reg = { .argsz = sizeof(reg) };
+
+        /* Skip the legacy VGA region */
+        if (i == VFIO_PCI_VGA_REGION_INDEX)
+        {
+            continue;
+        }
 
         reg.index = i;
 
@@ -366,6 +390,12 @@ int open_vfio_dev(const char *vfio_file,
     dev->event_fd = evtfd;
 
     return 0;
+
+err_close_group:
+    /* Only close FD if this function opened it (group_fd < 0) */
+    if (group_fd < 0)
+        close(dev->vfio_group_fd);
+    return -1;
 }
 
 void close_vfio_dev(vfio_dev_info_t *dev)

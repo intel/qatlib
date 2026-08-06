@@ -79,6 +79,7 @@ Check System Prerequisites
         401xx       | 4942 | 4943
         402xx       | 4944 | 4945
         420xx       | 4946 | 4947
+        6xxx        | 4948 | 4949
         ---------------------------
         Examples in this doc are for the 4940 device. See
         https://intel.github.io/quickassist/qatlib/requirements.html#supported-devices

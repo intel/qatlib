@@ -1926,6 +1926,251 @@
  * @li 2 output parameters : @link icp_qat_fw_mmp_ecsm2_keyex_p2_output_s::xus
  * xus @endlink @link icp_qat_fw_mmp_ecsm2_keyex_p2_output_s::yus yus @endlink
  */
+#define PKE_DPA_EC_POINT_MULTIPLICATION_P384 0x000f0fd0
+/**< Functionality ID for ECC P384 Variable Point Multiplication [k]P with DPA
+ * Protection
+ * @li 4 input parameters :
+ *     @link icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_s::xp xp
+ *     @endlink
+ *     @link icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_s::yp yp
+ *     @endlink
+ *     @link icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_s::k k
+ *     @endlink
+ *     @link icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_s::r r
+ *     @endlink
+ * @li 2 output parameters :
+ *     @link icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_output_s::xr xr
+ *     @endlink
+ *     @link icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_output_s::yr yr
+ *     @endlink
+ */
+#define PKE_DPA_EC_GENERATOR_MULTIPLICATION_P384 0x000f0fc0
+/**< Functionality ID for ECC P384 Generator Point Multiplication [k]G with DPA
+ * Protection
+ * @li 2 input parameters :
+ *     @link icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_input_s::k k
+ *     @endlink
+ *     @link icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_input_s::r r
+ *     @endlink
+ * @li 2 output parameters :
+ *     @link icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_output_s::xr
+ *     xr @endlink
+ *     @link icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_output_s::yr
+ *     yr @endlink
+ */
+#define PKE_DPA_ECDSA_SIGN_RS_P384 0x000f0fb0
+/**< Functionality ID for ECC P384 ECDSA Sign RS with DPA Protection
+ * @li 4 input parameters :
+ *     @link icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_s::k k @endlink
+ *     @link icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_s::e e @endlink
+ *     @link icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_s::d d @endlink
+ *     @link icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_s::rnd rnd @endlink
+ * @li 2 output parameters :
+ *     @link icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_output_s::r r @endlink
+ *     @link icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_output_s::s s @endlink
+ */
+#define PKE_DPA_RSA_DP1_3072 0x000f0ff0
+/**< Functionality ID for RSA 3072 Decryption with DPA Protection
+ * @li 6 input parameters :
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s::c c @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s::d d @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s::e e @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s::p p @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s::q q @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s::r r @endlink
+ * @li 1 output parameters :
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp1_3072_output_s::m m @endlink
+ */
+#define PKE_DPA_RSA_DP2_3072 0x000f0fe0
+/**< Functionality ID for RSA 3072 Decryption with DPA Protection with CRT
+ * @li 8 input parameters :
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::c c @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::e e @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::p p @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::q q @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::dp dp @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::dq dq @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::qinv qinv @endlink
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s::r r @endlink
+ * @li 1 output parameters :
+ *     @link icp_qat_fw_mmp_dpa_rsa_dp2_3072_output_s::m m @endlink
+ */
+#define PKE_KPT_ECDSA_SIGN_RS_P521 0xb6563896
+/**< Functionality ID for ECC P521 ECDSA Sign RS
+ * @li 3 input parameters : @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_input_s::kpt_wrapped kpt_wrapped
+ * @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_input_s::kpt_wrapping_context
+ * kpt_wrapping_context @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_input_s::e e @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_output_s::r r @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_output_s::s s @endlink
+ */
+#define PKE_KPT_ECDSA_SIGN_RS_P384 0x22143876
+/**< Functionality ID for ECC P384 ECDSA Sign RS
+ * @li 3 input parameters : @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_input_s::kpt_wrapped kpt_wrapped
+ * @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_input_s::kpt_wrapping_context
+ * kpt_wrapping_context @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_input_s::e e @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_output_s::r r @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_output_s::s s @endlink
+ */
+#define PKE_KPT_ECDSA_SIGN_RS_P256 0x8d153856
+/**< Functionality ID for ECC KPT P256 ECDSA Sign RS
+ * @li 3 input parameters : @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_input_s::kpt_wrapped kpt_wrapped
+ * @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_input_s::key_unwrap_context
+ * key_unwrap_context @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_input_s::e e @endlink
+ * @li 2 output parameters : @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_output_s::r r @endlink @link
+ * icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_output_s::s s @endlink
+ */
+#define PKE_KPT_RSA_DP1_512 0x1b1c3696
+/**< Functionality ID for KPT RSA 512 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_512_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_512_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_512_input_s::kpt_unwrap_context kpt_unwrap_context
+ * @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_512_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP1_1024 0x2d1d36b6
+/**< Functionality ID for KPT RSA 1024 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_1024_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_1024_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_1024_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_1024_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP1_1536 0x451d36d6
+/**< Functionality ID for KPT RSA 1536 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_1536_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_1536_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_1536_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_1536_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP1_2048 0x661936f6
+/**< Functionality ID for KPT RSA 2048 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_2048_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_2048_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_2048_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_2048_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP1_3072 0x751d3716
+/**< Functionality ID for KPT RSA 3072 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_3072_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_3072_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_3072_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_3072_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP1_4096 0x9d1d3736
+/**< Functionality ID for KPT RSA 4096 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_4096_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_4096_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_4096_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_4096_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP1_8192 0xbe203756
+/**< Functionality ID for KPT RSA 8192 Decryption
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_8192_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp1_8192_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp1_8192_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp1_8192_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_512 0x241d3776
+/**< Functionality ID for RSA 512 decryption second form
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_512_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_512_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_512_input_s::kpt_unwrap_context kpt_unwrap_context
+ * @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_512_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_1024 0x4e1d3796
+/**< Functionality ID for RSA 1024 Decryption with CRT
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_1024_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_1024_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_1024_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_1024_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_1536 0x762b37b6
+/**< Functionality ID for KPT RSA 1536 Decryption with CRT
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_1536_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_1536_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_1536_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_1536_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_2048 0xa41a37d6
+/**< Functionality ID for RSA 2048 Decryption with CRT
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_2048_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_2048_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_2048_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_2048_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_3072 0xd41a37f6
+/**< Functionality ID for
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_3072_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_3072_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_3072_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_3072_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_4096 0xd22a3816
+/**< Functionality ID for RSA 4096 Decryption with CRT
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_4096_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_4096_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_4096_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_4096_output_s::m m
+ * @endlink
+ */
+#define PKE_KPT_RSA_DP2_8192 0xae383836
+/**< Functionality ID for RSA 8192 Decryption with CRT
+ * @li 3 input parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_8192_input_s::c c
+ * @endlink @link icp_qat_fw_mmp_kpt_rsa_dp2_8192_input_s::kpt_wrapped
+ * kpt_wrapped @endlink @link
+ * icp_qat_fw_mmp_kpt_rsa_dp2_8192_input_s::kpt_unwrap_context
+ * kpt_unwrap_context @endlink
+ * @li 1 output parameters : @link icp_qat_fw_mmp_kpt_rsa_dp2_8192_output_s::m m
+ * @endlink
+ */
 #define PKE_LIVENESS 0x00000001
 /**< Functionality ID for PKE_LIVENESS
  * @li 0 input parameter(s)

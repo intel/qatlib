@@ -80,6 +80,8 @@
 #define LAC_QAT_ASYM_REQ_SZ_LW 16
 /**< @ingroup LacAsymCommon
  * LAC PKE QAT Request message size) */
+#define LAC_QAT_ASYM_REQ_SZ_IN_BYTES                                           \
+    (LAC_QAT_ASYM_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES)
 
 #define LAC_QAT_ASYM_RESP_SZ_LW 8
 /**< @ingroup LacAsymCommon

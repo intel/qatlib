@@ -23,6 +23,8 @@
 #define QAT_402XX_DEVICE_ID 0x4944
 #define QAT_420XXVF_DEVICE_ID 0x4947
 #define QAT_420XX_DEVICE_ID 0x4946
+#define QAT_6XXXVF_DEVICE_ID 0x4949
+#define QAT_6XXX_DEVICE_ID 0x4948
 
 #define ADDITIONAL_BUF_LEN 2
 
@@ -57,7 +59,11 @@ static const char *qatmgr_msgtype_str[] = {
 #define QATMGR_MSGTYPES_STR_MAX                                                \
     (sizeof(qatmgr_msgtype_str) / sizeof(qatmgr_msgtype_str[0]) - 1)
 
-char *device_names[] = { "4xxx", "420xx" };
+char *device_names[] = { "4xxx",
+                         "420xx",
+                         "6xxx",
+};
+
 int device_names_size = sizeof(device_names) / sizeof(device_names[0]);
 
 struct pf_capabilities *pf_capabilities_head = NULL;
@@ -128,6 +134,8 @@ int is_qat_device(unsigned device_id)
         case QAT_402XX_DEVICE_ID:
         case QAT_420XXVF_DEVICE_ID:
         case QAT_420XX_DEVICE_ID:
+        case QAT_6XXXVF_DEVICE_ID:
+        case QAT_6XXX_DEVICE_ID:
             return 1;
         default:
             return 0;
@@ -150,6 +158,10 @@ int qat_device_type(int device_id)
         case QAT_4XXX_DEVICE_ID:
         case QAT_402XX_DEVICE_ID:
             return DEVICE_4XXX;
+        case QAT_6XXXVF_DEVICE_ID:
+            return DEVICE_6XXXVF;
+        case QAT_6XXX_DEVICE_ID:
+            return DEVICE_6XXX;
         default:
             return 0;
     }
@@ -174,6 +186,10 @@ char *qat_device_name(int device_id)
             return "4xxx";
         case QAT_402XX_DEVICE_ID:
             return "402xx";
+        case QAT_6XXXVF_DEVICE_ID:
+            return "6xxxvf";
+        case QAT_6XXX_DEVICE_ID:
+            return "6xxx";
         default:
             return "unknown";
     }
@@ -639,8 +655,8 @@ STATIC int handle_get_num_devices(struct qatmgr_msg_req *req,
 {
     struct qatmgr_section_data *section;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr))
     {
@@ -673,8 +689,8 @@ STATIC int handle_get_device_info(struct qatmgr_msg_req *req,
     struct qatmgr_section_data *section;
     unsigned device_num;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
     {
@@ -746,6 +762,8 @@ STATIC int handle_get_device_info(struct qatmgr_msg_req *req,
             section->device_data[device_num].fw_caps.lz4_caps;
         rsp->device_info.fw_caps.lz4s_caps =
             section->device_data[device_num].fw_caps.lz4s_caps;
+        rsp->device_info.fw_caps.zstd_caps =
+            section->device_data[device_num].fw_caps.zstd_caps;
         rsp->device_info.fw_caps.is_fw_caps = 1;
     }
 
@@ -763,8 +781,8 @@ STATIC int handle_get_device_id(struct qatmgr_msg_req *req,
     struct qatmgr_device_data *device_data;
     unsigned device_num;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
     {
@@ -813,8 +831,8 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     unsigned device_num;
     size_t len;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
     {
@@ -842,6 +860,12 @@ static int handle_get_vfio_name(struct qatmgr_msg_req *req,
     }
     device_data = section->device_data;
     device_data += device_num;
+
+    qat_log(LOG_LEVEL_DEBUG,
+            "handle_get_vfio_name: section=%s, device=%u, file=%s\n",
+            section->section_name,
+            device_num,
+            device_data->device_file);
 
     rsp->hdr.type = QATMGR_MSGTYPE_VFIO_FILE;
     rsp->hdr.version = THIS_LIB_VERSION;
@@ -873,8 +897,8 @@ STATIC int handle_get_instance_name(struct qatmgr_msg_req *req,
     int device_num;
     char *inst_name;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->inst))
     {
@@ -1057,8 +1081,8 @@ STATIC int handle_get_instance_info(struct qatmgr_msg_req *req,
     int instance_num;
     int device_num;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->inst))
     {
@@ -1201,7 +1225,7 @@ STATIC int handle_get_instance_info(struct qatmgr_msg_req *req,
 
 int release_section(int index, unsigned long id, char *name, size_t name_len)
 {
-    ICP_CHECK_FOR_NULL_PARAM(name);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(name, -EINVAL);
 
     /*
      * In standalone mode, id is the process id of the client. In managed
@@ -1237,8 +1261,8 @@ int release_section(int index, unsigned long id, char *name, size_t name_len)
                 section_data[index].assigned_id);
         return -1;
     }
-    qat_log(LOG_LEVEL_DEBUG, "Released section %s\n", name);
     section_data[index].assigned_id = 0;
+    qat_log(LOG_LEVEL_DEBUG, "Released section %s (id=%lu)\n", name, id);
     return 0;
 }
 
@@ -1260,6 +1284,10 @@ STATIC int get_section(unsigned long id, char **derived_section_name)
 
         section_data[i].assigned_id = id;
         assigned = 1;
+        qat_log(LOG_LEVEL_DEBUG,
+                "Assigned section %s to id=%lu\n",
+                section_data[i].section_name,
+                id);
         break;
     }
 
@@ -1292,9 +1320,9 @@ STATIC int handle_section_request(struct qatmgr_msg_req *req,
     static pid_t pid = 0;
     int name_buf_size;
 
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
-    ICP_CHECK_FOR_NULL_PARAM(index);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(index, -EINVAL);
 
     if (req->hdr.len !=
         sizeof(req->hdr) + ICP_ARRAY_STRLEN_SANITIZE(req->name) + 1)
@@ -1369,10 +1397,10 @@ STATIC int handle_section_release(struct qatmgr_msg_req *req,
                                   unsigned long id,
                                   int *index)
 {
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
-    ICP_CHECK_FOR_NULL_PARAM(index);
-    ICP_CHECK_FOR_NULL_PARAM(section_name);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(index, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(section_name, -EINVAL);
 
     if (req->hdr.len !=
         sizeof(req->hdr) + ICP_ARRAY_STRLEN_SANITIZE(req->name) + 1)
@@ -1414,8 +1442,8 @@ static int handle_get_num_pf_devices(struct qatmgr_msg_req *req,
                                      struct qatmgr_msg_rsp *rsp)
 {
     int32_t num_devices;
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     if (req->hdr.len != sizeof(req->hdr))
     {
@@ -1454,8 +1482,8 @@ STATIC int handle_get_pf_device_info(struct qatmgr_msg_req *req,
 {
     uint16_t device_num;
     int32_t num_devices;
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
 
     /* Use header + additional info length to retrieve PF device information */
     if (req->hdr.len != sizeof(req->hdr) + sizeof(req->device_num))
@@ -1507,10 +1535,10 @@ int handle_message(struct qatmgr_msg_req *req,
                    unsigned long id,
                    int *index)
 {
-    ICP_CHECK_FOR_NULL_PARAM(req);
-    ICP_CHECK_FOR_NULL_PARAM(rsp);
-    ICP_CHECK_FOR_NULL_PARAM(index);
-    ICP_CHECK_FOR_NULL_PARAM(section_name);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(req, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(rsp, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(index, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(section_name, -EINVAL);
     memset(&(rsp->device_info.fw_caps), '\0', sizeof(rsp->device_info.fw_caps));
 
     if (req->hdr.version != THIS_LIB_VERSION)

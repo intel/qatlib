@@ -33,7 +33,6 @@
 *******************************************************************************
 */
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "lac_sym.h"
@@ -417,6 +416,10 @@ CpaStatus cpaCyKeyGenQueryStats(CpaInstanceHandle instanceHandle_in,
 #endif
 
     SAL_RUNNING_CHECK(instanceHandle);
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
     LAC_KEY_STATS32_GET(*pSymKeyStats, instanceHandle);
 
     return CPA_STATUS_SUCCESS;
@@ -452,6 +455,10 @@ CpaStatus cpaCyKeyGenQueryStats64(CpaInstanceHandle instanceHandle_in,
 #endif
 
     SAL_RUNNING_CHECK(instanceHandle);
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
     LAC_KEY_STATS64_GET(*pSymKeyStats, instanceHandle);
 
     return CPA_STATUS_SUCCESS;
@@ -620,6 +627,10 @@ STATIC CpaStatus LacSymKey_MgfSync(const CpaInstanceHandle instanceHandle,
     CpaStatus status = CPA_STATUS_SUCCESS;
 
     lac_sync_op_data_t *pSyncCallbackData = NULL;
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
     status = LacSync_CreateSyncCookie(&pSyncCallbackData);
 
     if (CPA_STATUS_SUCCESS == status)
@@ -774,6 +785,10 @@ LacSymKey_MgfCommon(const CpaInstanceHandle instanceHandle,
 #endif
 
     SAL_RUNNING_CHECK(instanceHandle);
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pOpData);
     LAC_CHECK_NULL_PARAM(pKeyGenMgfOpData);
@@ -2567,6 +2582,10 @@ LacSymKey_KeyGenSslTls(const CpaInstanceHandle instanceHandle_in,
         (SAL_SERVICE_TYPE_CRYPTO | SAL_SERVICE_TYPE_CRYPTO_SYM));
 #endif
     SAL_RUNNING_CHECK(instanceHandle);
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        return CPA_STATUS_UNSUPPORTED;
+    }
     if ((ICP_QAT_FW_LA_CMD_HKDF_EXTRACT <= cmdId) &&
         (ICP_QAT_FW_LA_CMD_HKDF_EXTRACT_AND_EXPAND_LABEL >= cmdId))
     {

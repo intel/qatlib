@@ -194,16 +194,11 @@ int32_t adf_user_check_ring_error(adf_dev_ring_handle_t *ring)
 {
     uint8_t *csr_base_addr = NULL;
     uint32_t ring_stat = 0;
-    device_type_t deviceType;
 
-    ICP_CHECK_FOR_NULL_PARAM(ring);
-
-    deviceType = ring->accel_dev->deviceType;
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(ring, -EINVAL);
 
     /* if generation is not supporting ring error reporting assume there was no
      * error */
-    if (IS_QAT_GEN2(deviceType))
-        return 0;
 
     csr_base_addr = ((uint8_t *)ring->csr_addr);
 
@@ -312,6 +307,27 @@ CpaStatus adf_user_notify_msgs_poll(adf_dev_ring_handle_t *ring)
     return CPA_STATUS_SUCCESS;
 }
 
+/*
+ * Force a sync of the HW ring head CSR with the SW shadow ring->head value.
+ *
+ * adf_user_notify_msgs_poll() coalesces head CSR writes to reduce MMIO impact,
+ * so the HW head can lag behind the SW head between polls. When switching
+ * POLL <-> EPOLL at runtime, the HW must be updated so it is informed of the
+ * responses that have been collected and will not generate unnecessary
+ * interrupts for already collected responses.
+ */
+void adf_user_sync_ring_head(adf_dev_ring_handle_t *ring)
+{
+    ICP_CHECK_FOR_NULL_PARAM_VOID(ring);
+
+    if (IS_RING_IN_WQ_MODE(ring))
+    {
+        WRITE_CSR_RING_HEAD(
+            ring->csr_addr, ring->bank_offset, ring->ring_num, ring->head);
+        ring->coal_write_count = ring->min_resps_per_head_write;
+    }
+}
+
 static void adf_populate_ring_config(adf_dev_ring_handle_t *ring,
                                      adf_dev_bank_handle_t *bank,
                                      uint32_t ring_size_cfg)
@@ -320,9 +336,6 @@ static void adf_populate_ring_config(adf_dev_ring_handle_t *ring,
     uint8_t nearly_full_wm = ICP_RING_NEAR_WATERMARK_512;
     uint8_t nearly_empty_wm = ICP_RING_NEAR_WATERMARK_0;
     uint32_t *csr_base_addr = ring->csr_addr;
-    device_type_t deviceType;
-
-    deviceType = ring->accel_dev->deviceType;
 
     if (bank->tx_rings_mask & (1 << ring->ring_num))
     {
@@ -334,7 +347,6 @@ static void adf_populate_ring_config(adf_dev_ring_handle_t *ring,
             ring_size_cfg, nearly_full_wm, nearly_empty_wm);
     }
 
-    if (!IS_QAT_GEN2(deviceType))
     {
         ring_base_cfg =
             BUILD_RING_BASE_ADDR_GEN4(ring->ring_phys_base_addr, ring_size_cfg);
@@ -342,13 +354,6 @@ static void adf_populate_ring_config(adf_dev_ring_handle_t *ring,
             csr_base_addr, ring->bank_offset, ring->ring_num, ring_base_cfg);
         WRITE_CSR_RING_CONFIG_GEN4(
             csr_base_addr, ring->bank_offset, ring->ring_num, ring_config);
-    }
-    else
-    {
-        ring_base_cfg =
-            BUILD_RING_BASE_ADDR(ring->ring_phys_base_addr, ring_size_cfg);
-        WRITE_CSR_RING_BASE(ring->bank_offset, ring->ring_num, ring_base_cfg);
-        WRITE_CSR_RING_CONFIG(ring->bank_offset, ring->ring_num, ring_config);
     }
 }
 
@@ -366,7 +371,7 @@ static int32_t adf_init_ring_internal(adf_dev_ring_handle_t *ring,
     uint32_t ring_size_bytes = ICP_ET_SIZE_TO_BYTES(ring_size_cfg);
     uint32_t max_space = ring_size_bytes;
 
-    ICP_CHECK_FOR_NULL_PARAM(ring->accel_dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(ring->accel_dev, -EINVAL);
 
     /* Exclusive access to one ring */
     if (adf_reserve_ring(bank, ring_num))
@@ -467,24 +472,17 @@ static void adf_clean_ring(adf_dev_ring_handle_t *ring)
 {
     uint32_t *csr_base_addr = ring->csr_addr;
     ICP_CHECK_FOR_NULL_PARAM_VOID(ring->accel_dev);
-    device_type_t deviceType = ring->accel_dev->deviceType;
 
     adf_io_disable_ring(ring);
 
     if (IS_RING_IN_WQ_MODE(ring))
     {
         /* Clear CSR configuration */
-        if (!IS_QAT_GEN2(deviceType))
         {
             WRITE_CSR_RING_CONFIG_GEN4(
                 csr_base_addr, ring->bank_offset, ring->ring_num, 0);
             WRITE_CSR_RING_BASE_GEN4(
                 csr_base_addr, ring->bank_offset, ring->ring_num, 0);
-        }
-        else
-        {
-            WRITE_CSR_RING_CONFIG(ring->bank_offset, ring->ring_num, 0);
-            WRITE_CSR_RING_BASE(ring->bank_offset, ring->ring_num, 0);
         }
     }
 

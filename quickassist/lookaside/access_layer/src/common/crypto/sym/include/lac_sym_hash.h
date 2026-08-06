@@ -415,6 +415,33 @@ CpaStatus LacHash_StatePrefixAadBufferInit(
     lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo);
 
 /**
+ ******************************************************************************
+ * @ingroup LacHash
+ *      Populates the hmac key for QAT Hash mode 2
+ *
+ * @description
+ *      This function populates the hmac key for qatHash mode 2.
+ *
+ * @param[in] pService              Pointer to service data
+ * @param[in] pHashSetupData        Pointer to hash setup structure
+ * @param[in] pReq                  Pointer to 128B request block.
+ * @param[in] qatHashMode           QAT hash mode
+ * @param[in] pHmacKeyBuffer        Pointer to hmac key buffer
+ * @param[in] pHmacKeyBufferInfo    Pointer to hmac key buffer info
+ *
+ * @retval CPA_STATUS_SUCCESS       Success
+ * @retval CPA_STATUS_FAIL          Operation failed
+ *
+ *****************************************************************************/
+CpaStatus LacHash_PopulateHmacKey(
+    sal_service_t *pService,
+    const CpaCySymHashSetupData *pHashSetupData,
+    icp_qat_la_bulk_req_ftr_t *pReq,
+    icp_qat_hw_auth_mode_t qatHashMode,
+    Cpa8U *pHashStateBuffer,
+    lac_sym_qat_hash_state_buffer_info_t *pHashStateBufferInfo);
+
+/**
 *******************************************************************************
 * @ingroup LacHash
 *      Check parameters for a hash perform operation

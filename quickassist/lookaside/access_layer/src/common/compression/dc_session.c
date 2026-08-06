@@ -31,6 +31,8 @@
 #include "icp_qat_fw_comp.h"
 #include "icp_qat_hw.h"
 #include "icp_qat_hw_20_comp.h"
+#include "icp_qat_hw_51_comp.h"
+
 /*
  *******************************************************************************
  * Include private header files
@@ -826,13 +828,6 @@ void dcCompHwBlockPopulateGen4(void *pServiceType,
                     ICP_QAT_HW_DECOMP_20_LZ4_BLOCK_CHKSUM_ABSENT;
             }
         }
-        else if (CPA_DC_LZ4S == compType)
-        {
-            hw_decomp_lower_csr.algo =
-                ICP_QAT_HW_DECOMP_20_HW_DECOMP_FORMAT_LZ4S;
-            hw_decomp_lower_csr.mmctrl =
-                (icp_qat_hw_decomp_20_min_match_control_t)minMatch;
-        }
         else
         {
             LAC_LOG_ERROR("Algorithm not supported for Decompression\n");
@@ -841,6 +836,230 @@ void dcCompHwBlockPopulateGen4(void *pServiceType,
         pCompConfig->upper_val = 0;
         pCompConfig->lower_val =
             ICP_QAT_FW_DECOMP_20_BUILD_CONFIG_LOWER(hw_decomp_lower_csr);
+    }
+}
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_DataCompression
+ *      Populate the compression hardware block for QAT Gen6
+ *
+ * @description
+ *      This function will populate the compression hardware block and update
+ *      for QAT Gen6 the size in bytes of the block
+ *
+ * @param[in]   pService                Pointer to the service
+ * @param[in]   pSessionDesc            Pointer to the session descriptor
+ * @param[in]   pSetupData              Pointer to setup data
+ * @param[in]   pCompConfig             Pointer to slice config word
+ * @param[in]   compDecomp              Direction of the operation
+ * @param[in]   bNsOp                   Boolean to indicate no session operation
+ *
+ *****************************************************************************/
+void dcCompHwBlockPopulateGen6(void *pServiceType,
+                               void *pSessionDescp,
+                               CpaDcNsSetupData *pSetupData,
+                               icp_qat_hw_compression_config_t *pCompConfig,
+                               void *compDecompDir,
+                               CpaBoolean bNsOp)
+{
+    CpaDcCompType compType = 0;
+    CpaDcCompLvl compLevel = 0;
+    CpaDcCompLZ4BlockMaxSize lz4BlockMaxSize;
+    CpaBoolean lz4BlockChecksum;
+    CpaBoolean lz4BlockIndependence;
+    CpaDcCompMinMatch minMatch;
+    sal_compression_service_t *pService = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    dc_session_desc_t *pSessionDesc = NULL;
+    dc_request_dir_t compDecomp;
+
+    pService = (sal_compression_service_t *)pServiceType;
+    pSessionDesc = (dc_session_desc_t *)pSessionDescp;
+    pDcCapabilities = &pService->dc_capabilities;
+    compDecomp = *(dc_request_dir_t *)compDecompDir;
+
+    if (bNsOp)
+    {
+        compType = pSetupData->compType;
+        compLevel = pSetupData->compLevel;
+        lz4BlockMaxSize = pSetupData->lz4BlockMaxSize;
+        lz4BlockChecksum = pSetupData->lz4BlockChecksum;
+        lz4BlockIndependence = pSetupData->lz4BlockIndependence;
+        minMatch = pSetupData->minMatch;
+    }
+    else
+    {
+        compType = pSessionDesc->compType;
+        compLevel = pSessionDesc->compLevel;
+        lz4BlockMaxSize = pSessionDesc->lz4BlockMaxSize;
+        lz4BlockChecksum = pSessionDesc->lz4BlockChecksum;
+        lz4BlockIndependence = pSessionDesc->lz4BlockIndependence;
+        minMatch = pSessionDesc->minMatch;
+    }
+
+    /* Direction: Compression */
+    if (DC_COMPRESSION_REQUEST == compDecomp)
+    {
+        icp_qat_hw_comp_51_config_csr_upper_t hw_comp_upper_csr;
+        icp_qat_hw_comp_51_config_csr_lower_t hw_comp_lower_csr;
+
+        osalMemSet(&hw_comp_upper_csr, 0, sizeof hw_comp_upper_csr);
+        osalMemSet(&hw_comp_lower_csr, 0, sizeof hw_comp_lower_csr);
+
+        /* Disable Literal + Length Limit Block Drop by default */
+        hw_comp_lower_csr.lllbd = ICP_QAT_HW_COMP_51_LLLBD_CTRL_LLLBD_DISABLED;
+
+        /* Disable Adaptive Block Drop by default */
+        hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_51_ABD_ABD_DISABLED;
+
+        switch (compType)
+        {
+            case CPA_DC_DEFLATE:
+                break;
+            case CPA_DC_LZ4:
+                /* LZ4 algorithm settings */
+                hw_comp_upper_csr.bms =
+                    (icp_qat_hw_comp_51_bms_t)lz4BlockMaxSize;
+
+                if (CPA_TRUE == lz4BlockIndependence)
+                {
+                    hw_comp_upper_csr.scb_mode_reset =
+                        ICP_QAT_HW_COMP_51_SCB_MODE_RESET_MASK_RESET_HB_HT;
+                }
+                else
+                {
+                    hw_comp_upper_csr.scb_mode_reset =
+                        ICP_QAT_HW_COMP_51_SCB_MODE_RESET_MASK_DO_NOT_RESET_HB_HT;
+                }
+                break;
+            case CPA_DC_LZ4S:
+                /* LZ4s algorithm settings */
+                /* Set MinMatch depending on API control setting */
+                hw_comp_lower_csr.mmctrl =
+                    (icp_qat_hw_comp_51_min_match_control_t)minMatch;
+                /* Set DMM algorithm */
+                hw_comp_upper_csr.edmm =
+                    ICP_QAT_HW_COMP_51_DMM_ALGORITHM_EDMM_ENABLED;
+                break;
+            case CPA_DC_ZSTD:
+                break;
+            default:
+                LAC_LOG_ERROR("Compression algorithm not supported\n");
+                break;
+        }
+        /* Set the search depth */
+        switch (compLevel)
+        {
+            case CPA_DC_L1:
+            case CPA_DC_L2:
+            case CPA_DC_L3:
+            case CPA_DC_L4:
+            case CPA_DC_L5:
+                hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_51_SEARCH_DEPTH_LEVEL_1;
+
+                if (CPA_DC_ZSTD == compType)
+                {
+                    /* Set DMM algorithm */
+                    hw_comp_upper_csr.edmm =
+                        ICP_QAT_HW_COMP_51_DMM_ALGORITHM_EDMM_ENABLED;
+                }
+                break;
+            case CPA_DC_L6:
+            case CPA_DC_L7:
+            case CPA_DC_L8:
+                hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_51_SEARCH_DEPTH_LEVEL_6;
+                if (CPA_DC_ZSTD == compType)
+                {
+                    /* Set DMM algorithm */
+                    hw_comp_upper_csr.edmm =
+                        ICP_QAT_HW_COMP_51_DMM_ALGORITHM_ZSTD_DMM_LITE;
+                }
+                break;
+            case CPA_DC_L9:
+                hw_comp_lower_csr.sd = ICP_QAT_HW_COMP_51_SEARCH_DEPTH_LEVEL_9;
+                if (CPA_DC_ZSTD == compType)
+                {
+                    /* Set DMM algorithm */
+                    hw_comp_upper_csr.edmm =
+                        ICP_QAT_HW_COMP_51_DMM_ALGORITHM_ZSTD_DMM_LITE;
+                }
+                break;
+            default:
+                hw_comp_lower_csr.sd =
+                    pDcCapabilities->deviceData.highestHwCompressionDepth;
+
+                if (CPA_DC_DEFLATE == compType)
+                {
+                    /* Enable Literal + Length Limit Block Drop
+                     * with dynamic deflate compression when
+                     * highest compression levels are selected.
+                     */
+                    hw_comp_lower_csr.lllbd =
+                        ICP_QAT_HW_COMP_51_LLLBD_CTRL_LLLBD_ENABLED;
+
+                    /* Enable Adaptive Block Drop for Deflate algorithm
+                     * with higher compression levels
+                     */
+                    hw_comp_lower_csr.abd = ICP_QAT_HW_COMP_51_ABD_ABD_ENABLED;
+                }
+                else if (CPA_DC_ZSTD == compType)
+                {
+                    /* Set DMM algorithm */
+                    hw_comp_upper_csr.edmm =
+                        ICP_QAT_HW_COMP_51_DMM_ALGORITHM_ZSTD_DMM_LITE;
+                }
+                break;
+        }
+        /* Same for all algorithms */
+        pCompConfig->upper_val =
+            ICP_QAT_FW_COMP_51_BUILD_CONFIG_UPPER(hw_comp_upper_csr);
+
+        pCompConfig->lower_val =
+            ICP_QAT_FW_COMP_51_BUILD_CONFIG_LOWER(hw_comp_lower_csr);
+        /* Hard-coded HW-specific values */
+    }
+    else /* Direction: Decompression */
+    {
+        icp_qat_hw_decomp_51_config_csr_lower_t hw_decomp_lower_csr;
+        icp_qat_hw_decomp_51_config_csr_upper_t hw_decomp_upper_csr;
+
+        osalMemSet(&hw_decomp_upper_csr, 0, sizeof hw_decomp_upper_csr);
+        osalMemSet(&hw_decomp_lower_csr, 0, sizeof hw_decomp_lower_csr);
+
+        switch (compType)
+        {
+            case CPA_DC_DEFLATE:
+                break;
+            case CPA_DC_LZ4:
+                /* LZ4 algorithm decompression settings */
+
+                /* Set LZ4 max block size to 64KB */
+                hw_decomp_upper_csr.bms =
+                    (icp_qat_hw_decomp_51_bms_t)lz4BlockMaxSize;
+
+                if (CPA_TRUE == lz4BlockChecksum)
+                {
+                    hw_decomp_lower_csr.lbc =
+                        ICP_QAT_HW_DECOMP_51_LZ4_BLOCK_CHECKSUM_PRESENT;
+                }
+                else
+                {
+                    hw_decomp_lower_csr.lbc =
+                        ICP_QAT_HW_DECOMP_51_LZ4_BLOCK_CHECKSUM_ABSENT;
+                }
+                break;
+            case CPA_DC_ZSTD:
+                break;
+            default:
+                LAC_LOG_ERROR("Unsupported format in decompression direction");
+                break;
+        }
+
+        pCompConfig->upper_val =
+            ICP_QAT_FW_DECOMP_51_BUILD_CONFIG_UPPER(hw_decomp_upper_csr);
+        pCompConfig->lower_val =
+            ICP_QAT_FW_DECOMP_51_BUILD_CONFIG_LOWER(hw_decomp_lower_csr);
     }
 }
 
@@ -893,16 +1112,17 @@ STATIC void dcCompContentDescPopulate(sal_compression_service_t *pService,
         (DC_DECOMPRESSION_REQUEST == compDecomp))
     {
         /* Enable A, B, C, D, and E (CAMs).  */
-        pCompControlBlock->ram_bank_flags = ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank I */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank H */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank G */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank F */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank E */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank D */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank C */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank B */
-            ICP_QAT_FW_COMP_BANK_ENABLED); /* Bank A */
+        ICP_QAT_FW_COMP_RAM_BANK_FLAGS(pCompControlBlock) =
+            ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank I */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank H */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank G */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank F */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank E */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank D */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank C */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank B */
+                ICP_QAT_FW_COMP_BANK_ENABLED); /* Bank A */
         bankEnabled = CPA_TRUE;
     }
     else if ((CPA_DC_STATEFUL == pSessionDesc->sessState) &&
@@ -910,31 +1130,33 @@ STATIC void dcCompContentDescPopulate(sal_compression_service_t *pService,
              (DC_DECOMPRESSION_REQUEST == compDecomp))
     {
         /* Enable A, B, C, and D (no CAMs for LZ4). */
-        pCompControlBlock->ram_bank_flags = ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank I */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank H */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank G */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank F */
-            ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank E */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank D */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank C */
-            ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank B */
-            ICP_QAT_FW_COMP_BANK_ENABLED); /* Bank A */
+        ICP_QAT_FW_COMP_RAM_BANK_FLAGS(pCompControlBlock) =
+            ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank I */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank H */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank G */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank F */
+                ICP_QAT_FW_COMP_BANK_DISABLED, /* Bank E */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank D */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank C */
+                ICP_QAT_FW_COMP_BANK_ENABLED,  /* Bank B */
+                ICP_QAT_FW_COMP_BANK_ENABLED); /* Bank A */
         bankEnabled = CPA_TRUE;
     }
     else
     {
         /* Disable all banks */
-        pCompControlBlock->ram_bank_flags = ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank I */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank H */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank G */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank F */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank E */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank D */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank C */
-            ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank B */
-            ICP_QAT_FW_COMP_BANK_DISABLED); /* Bank A */
+        ICP_QAT_FW_COMP_RAM_BANK_FLAGS(pCompControlBlock) =
+            ICP_QAT_FW_COMP_RAM_FLAGS_BUILD(
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank I */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank H */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank G */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank F */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank E */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank D */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank C */
+                ICP_QAT_FW_COMP_BANK_DISABLED,  /* Bank B */
+                ICP_QAT_FW_COMP_BANK_DISABLED); /* Bank A */
     }
 
     if (DC_COMPRESSION_REQUEST == compDecomp)
@@ -1103,6 +1325,9 @@ CpaStatus dcGetCompressCommandId(sal_compression_service_t *pService,
         case CPA_DC_LZ4S:
             *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4S_COMPRESS;
             break;
+        case CPA_DC_ZSTD:
+            *pDcCmdId = ICP_QAT_FW_COMP_51_CMD_ZSTD_COMPRESS;
+            break;
         default:
             LAC_LOG_ERROR("Algorithm not supported for compression\n");
             status = CPA_STATUS_UNSUPPORTED;
@@ -1150,6 +1375,9 @@ CpaStatus dcGetDecompressCommandId(sal_compression_service_t *pService,
                 break;
             case CPA_DC_LZ4:
                 *pDcCmdId = ICP_QAT_FW_COMP_20_CMD_LZ4_DECOMPRESS;
+                break;
+            case CPA_DC_ZSTD:
+                *pDcCmdId = ICP_QAT_FW_COMP_51_CMD_ZSTD_DECOMPRESS;
                 break;
             default:
                 LAC_ENSURE(CPA_FALSE, "Algo not supported for decompression\n");
@@ -1453,29 +1681,8 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
 
     /* Alter auto select best setting depending on the hardware version */
     /* Configure CRC parameters based on the hardware version */
-    if (DC_CAPS_GEN4_HW != pDcCapabilities->deviceData.hw_gen)
     {
-        /* Gen 2 hardware devices */
-        if (CPA_DC_ASB_ENABLED == pSessionDesc->autoSelectBestHuffmanTree)
-        {
-            /* Select best compression ratio optimization setting */
-            pSessionDesc->autoSelectBestHuffmanTree =
-                CPA_DC_ASB_UNCOMP_STATIC_DYNAMIC_WITH_STORED_HDRS;
-        }
-
-        /* Gen2 hardcoded CRC parameters */
-        pSessionDesc->crcConfig.crcParam.crcPoly = DC_CRC_POLY_DEFAULT;
-        pSessionDesc->crcConfig.crcParam.iCrc32Cpr = DC_DEFAULT_CRC;
-        pSessionDesc->crcConfig.crcParam.oCrc32Cpr = DC_DEFAULT_CRC;
-        pSessionDesc->crcConfig.crcParam.iCrc32Xlt = DC_DEFAULT_CRC;
-        pSessionDesc->crcConfig.crcParam.oCrc32Xlt = DC_DEFAULT_CRC;
-        pSessionDesc->crcConfig.crcParam.xorFlags = DC_XOR_FLAGS_DEFAULT;
-        pSessionDesc->crcConfig.crcParam.xorOut = DC_XOR_OUT_DEFAULT;
-        pSessionDesc->crcConfig.crcParam.deflateBlockType = DC_STATIC_TYPE;
-    }
-    else
-    {
-        /* Gen 4 hardware devices */
+        /* Gen 4 and Gen 6 hardware devices */
         switch (pSessionDesc->autoSelectBestHuffmanTree)
         {
             case CPA_DC_ASB_STATIC_DYNAMIC: /* Fall through */
@@ -1490,7 +1697,12 @@ CpaStatus dcInitSession(CpaInstanceHandle dcInstance,
                 /* Keep setting from session setup data */
                 break;
         }
-            /* Gen4 hardcoded CRC parameters */
+        if ((DC_CAPS_GEN6_HW == pDcCapabilities->deviceData.hw_gen) &&
+            (CPA_DC_ASB_ENABLED == pSessionDesc->autoSelectBestHuffmanTree))
+        {
+            pSessionDesc->asb_max_block_size = DC_ASB_MAX_BLOCK_SIZE;
+        }
+        /* Gen4 and Gen6 hardcoded CRC parameters */
         pSessionDesc->crcConfig.crcParam.crc64Poly = DC_CRC64_POLY_DEFAULT;
         pSessionDesc->crcConfig.crcParam.iCrc64Cpr = DC_DEFAULT_CRC;
         pSessionDesc->crcConfig.crcParam.oCrc64Cpr = DC_DEFAULT_CRC;

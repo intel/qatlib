@@ -46,6 +46,12 @@ CpaBoolean timeStampInLoop = CPA_FALSE;
 EXPORT_SYMBOL(timeStampTime_g);
 long cyPollingThreadsInterval_g = 0;
 EXPORT_SYMBOL(cyPollingThreadsInterval_g);
+Cpa32U gcmAadLenInBytes_g = 0;
+EXPORT_SYMBOL(gcmAadLenInBytes_g);
+Cpa32U ccmAadLenInBytes_g = 0;
+EXPORT_SYMBOL(ccmAadLenInBytes_g);
+Cpa32U chachaPolyAadLenInBytes_g = 0;
+EXPORT_SYMBOL(chachaPolyAadLenInBytes_g);
 
 #define NUM_BITS_IN_MEGABIT (1000000)
 #define LOWEST_EVEN_NUMBER (2)
@@ -869,6 +875,66 @@ CpaStatus setCyPollInterval(Cpa32U interval)
 }
 EXPORT_SYMBOL(setCyPollInterval);
 
+CpaStatus setGcmAadLen(Cpa32U aadLenInBytes)
+{
+    if (aadLenInBytes > AES_CCM_MIN_AAD_ALLOC_LENGTH)
+    {
+        PRINT_ERR("GCM AAD length %u exceeds max alloc %d\n",
+                  aadLenInBytes,
+                  AES_CCM_MIN_AAD_ALLOC_LENGTH);
+        return CPA_STATUS_INVALID_PARAM;
+    }
+    gcmAadLenInBytes_g = aadLenInBytes;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setGcmAadLen);
+
+CpaStatus setCcmAadLen(Cpa32U aadLenInBytes)
+{
+    if (aadLenInBytes > AES_CCM_MIN_AAD_ALLOC_LENGTH)
+    {
+        PRINT_ERR("CCM AAD length %u exceeds max alloc %d\n",
+                  aadLenInBytes,
+                  AES_CCM_MIN_AAD_ALLOC_LENGTH);
+        return CPA_STATUS_INVALID_PARAM;
+    }
+    ccmAadLenInBytes_g = aadLenInBytes;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCcmAadLen);
+
+Cpa32U getGcmAadLen(void)
+{
+    return gcmAadLenInBytes_g;
+}
+EXPORT_SYMBOL(getGcmAadLen);
+
+Cpa32U getCcmAadLen(void)
+{
+    return ccmAadLenInBytes_g;
+}
+EXPORT_SYMBOL(getCcmAadLen);
+
+CpaStatus setChachaPolyAadLen(Cpa32U aadLenInBytes)
+{
+    if (aadLenInBytes > AES_CCM_MIN_AAD_ALLOC_LENGTH)
+    {
+        PRINT_ERR("ChaChaPoly AAD length %u exceeds max alloc %d\n",
+                  aadLenInBytes,
+                  AES_CCM_MIN_AAD_ALLOC_LENGTH);
+        return CPA_STATUS_INVALID_PARAM;
+    }
+    chachaPolyAadLenInBytes_g = aadLenInBytes;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setChachaPolyAadLen);
+
+Cpa32U getChachaPolyAadLen(void)
+{
+    return chachaPolyAadLenInBytes_g;
+}
+EXPORT_SYMBOL(getChachaPolyAadLen);
+
 static void sampleCodePoll(CpaInstanceHandle instanceHandle_in)
 {
     CpaStatus status = CPA_STATUS_FAIL;
@@ -898,7 +964,7 @@ static void sampleCodePoll(CpaInstanceHandle instanceHandle_in)
 }
 
 /*start crypto acceleration service if its not already started*/
-CpaStatus startCyServices(void)
+CpaStatus startCryptoServices(CpaAccelerationServiceType serviceType)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     Cpa32U i = 0;
@@ -907,7 +973,7 @@ CpaStatus startCyServices(void)
     if (cy_service_started_g == CPA_FALSE)
     {
         /*start all crypto instances*/
-        status = cpaCyGetNumInstances(&numInstances_g);
+        status = cpaGetNumInstances(serviceType, &numInstances_g);
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR("cpaCyGetNumInstances failed with status: %d\n", status);
@@ -922,7 +988,8 @@ CpaStatus startCyServices(void)
                 PRINT_ERR("Failed to allocate memory for instances\n");
                 return CPA_STATUS_FAIL;
             }
-            status = cpaCyGetInstances(numInstances_g, cyInstances_g);
+            status =
+                cpaGetInstances(serviceType, numInstances_g, cyInstances_g);
             if (CPA_STATUS_SUCCESS != status)
             {
                 PRINT_ERR("cpaCyGetInstances failed with status: %d\n", status);
@@ -972,6 +1039,21 @@ CpaStatus startCyServices(void)
     }
     /*status should be success if we get to here*/
     return status;
+}
+
+CpaStatus startCyServices(void)
+{
+    return startCryptoServices(CPA_ACC_SVC_TYPE_CRYPTO);
+}
+
+CpaStatus startSymServices(void)
+{
+    return startCryptoServices(CPA_ACC_SVC_TYPE_CRYPTO_SYM);
+}
+
+CpaStatus startAsymServices(void)
+{
+    return startCryptoServices(CPA_ACC_SVC_TYPE_CRYPTO_ASYM);
 }
 
 /*stop all crypto services*/
@@ -2937,31 +3019,11 @@ CpaStatus waitForResponses(perf_data_t *perfData,
     return status;
 }
 
-static CpaStatus trySetupLegacyEventPoll(CpaInstanceHandle instanceHandle,
-                                         performance_func_t *pollFn)
-{
 #if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    int fd = -1;
+#endif /* USER_SPACE && !SC_EPOLL_DISABLED */
 
-    status = icp_sal_CyGetFileDescriptor(instanceHandle, &fd);
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        *pollFn = sampleCodeCyEventPoll;
-        icp_sal_CyPutFileDescriptor(instanceHandle, fd);
-        return CPA_STATUS_SUCCESS;
-    }
-    else if (CPA_STATUS_FAIL == status)
-    {
-        return CPA_STATUS_FAIL;
-    }
-    /* else feature is unsupported */
-    return CPA_STATUS_UNSUPPORTED;
-#else
-    /* Event-based polling not applicable in this configuration */
-    return CPA_STATUS_UNSUPPORTED;
-#endif
-}
+#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
+#endif /* USER_SPACE && !SC_EPOLL_DISABLED */
 
 CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
 {
@@ -3008,16 +3070,25 @@ CpaStatus cyCreatePollingThreadsIfPollingIsEnabled(void)
             if (CPA_TRUE == instanceInfo2[i].isPolled)
             {
                 numPolledInstances_g++;
-                status = trySetupLegacyEventPoll(cyInstances_g[i], &pollFnArr[i]);
-                if (CPA_STATUS_FAIL == status)
+#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
                 {
-                    PRINT_ERR("Error getting file descriptor for Event based "
-                              "instance #%d\n",
-                              i);
-                    qaeMemFree((void **)&instanceInfo2);
-                    qaeMemFree((void **)&pollFnArr);
-                    return CPA_STATUS_FAIL;
+                    status = trySetupCyLegacyEventPoll(cyInstances_g[i],
+                                                       &pollFnArr[i]);
+                    if (CPA_STATUS_FAIL == status)
+                    {
+                        PRINT_ERR(
+                            "Error getting file descriptor for Event based "
+                            "instance #%d\n",
+                            i);
+                        qaeMemFree((void **)&instanceInfo2);
+                        qaeMemFree((void **)&pollFnArr);
+                        return CPA_STATUS_FAIL;
+                    }
                 }
+#endif /* USER_SPACE && !defined(SC_EPOLL_DISABLED) */
+#if !defined(USER_SPACE)
+                setCyPollWaitFn(1, 0);
+#endif
                 if (NULL == pollFnArr[i])
                 {
                     pollFnArr[i] = sampleCodePoll;
@@ -3181,16 +3252,25 @@ CpaStatus asymCreatePollingThreadsIfPollingIsEnabled(void)
             if (CPA_TRUE == instanceInfo2[i].isPolled)
             {
                 numAsymPolledInstances_g++;
-                status = trySetupLegacyEventPoll(asymInstances_g[i], &pollFnArr[i]);
-                if (CPA_STATUS_FAIL == status)
+#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
                 {
-                    PRINT_ERR("Error getting file descriptor for Event based "
-                              "instance #%d\n",
-                              i);
-                    qaeMemFree((void **)&instanceInfo2);
-                    qaeMemFree((void **)&pollFnArr);
-                    return CPA_STATUS_FAIL;
+                    status = trySetupCyLegacyEventPoll(asymInstances_g[i],
+                                                       &pollFnArr[i]);
+                    if (CPA_STATUS_FAIL == status)
+                    {
+                        PRINT_ERR(
+                            "Error getting file descriptor for Event based "
+                            "instance #%d\n",
+                            i);
+                        qaeMemFree((void **)&instanceInfo2);
+                        qaeMemFree((void **)&pollFnArr);
+                        return CPA_STATUS_FAIL;
+                    }
                 }
+#endif /* USER_SPACE && !defined(SC_EPOLL_DISABLED) */
+#if !defined(USER_SPACE)
+                setCyPollWaitFn(1, 0);
+#endif
                 if (NULL == pollFnArr[i])
                 {
                     pollFnArr[i] = sampleCodePoll;
@@ -3280,7 +3360,6 @@ CpaStatus asymCreatePollingThreadsIfPollingIsEnabled(void)
 }
 EXPORT_SYMBOL(asymCreatePollingThreadsIfPollingIsEnabled);
 #endif
-
 
 CpaBoolean cyCheckAllInstancesArePolled(void)
 {
@@ -4058,8 +4137,11 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                                       symTestSetup->setupData.cipherSetupData
                                           .cipherAlgorithm)) == CPA_FALSE))
             {
-                PRINT("\nUnsupported Cipher ");
-                printCipherAlg(symTestSetup->setupData.cipherSetupData);
+                if (verboseOutput)
+                {
+                    PRINT("\nUnsupported Cipher ");
+                    printCipherAlg(symTestSetup->setupData.cipherSetupData);
+                }
                 return CPA_FALSE;
             }
             break;
@@ -4070,8 +4152,11 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                      symTestSetup->setupData.hashSetupData.hashAlgorithm)) ==
                  CPA_FALSE))
             {
-                PRINT("\nUnsupported Hash ");
-                printHashAlg(symTestSetup->setupData.hashSetupData);
+                if (verboseOutput)
+                {
+                    PRINT("\nUnsupported Hash ");
+                    printHashAlg(symTestSetup->setupData.hashSetupData);
+                }
                 return CPA_FALSE;
             }
             break;
@@ -4081,8 +4166,11 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                                       symTestSetup->setupData.cipherSetupData
                                           .cipherAlgorithm)) == CPA_FALSE))
             {
-                PRINT("\nUnsupported AlgChain ");
-                printCipherAlg(symTestSetup->setupData.cipherSetupData);
+                if (verboseOutput)
+                {
+                    PRINT("\nUnsupported AlgChain ");
+                    printCipherAlg(symTestSetup->setupData.cipherSetupData);
+                }
                 return CPA_FALSE;
             }
             if (symTestSetup->setupData.hashSetupData.hashAlgorithm &&
@@ -4091,8 +4179,11 @@ CpaBoolean checkCapability(CpaInstanceHandle *cyInstanceHandle,
                      symTestSetup->setupData.hashSetupData.hashAlgorithm)) ==
                  CPA_FALSE))
             {
-                PRINT("\nUnsupported AlgChain ");
-                printHashAlg(symTestSetup->setupData.hashSetupData);
+                if (verboseOutput)
+                {
+                    PRINT("\nUnsupported AlgChain ");
+                    printHashAlg(symTestSetup->setupData.hashSetupData);
+                }
                 return CPA_FALSE;
             }
             break;
@@ -4410,3 +4501,812 @@ CpaStatus checkForChachapolySupport(void)
     }
     return status;
 }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+/**< Global mask to track which instances should use which response mode (up to
+ * 64 instances) */
+static Cpa64U cyInstanceResponseModeMask_g = 0;
+/**< Response mode to apply when explicitly configured */
+static CpaInstanceResponseMode cyConfiguredResponseMode_g =
+    CPA_INST_RX_NOTIFY_NONE;
+/**< Flag to track if response mode has been explicitly configured */
+static CpaBoolean cyResponseModeConfigured_g = CPA_FALSE;
+/**< Response mode iteration support for testing */
+static Cpa32U cyResponseModeIterationCount_g = 1;
+
+/**
+ *****************************************************************************
+ * @ingroup sampleCryptoUtils
+ *
+ * @description
+ * Map user-provided response mode value to enum
+ *****************************************************************************/
+static CpaInstanceResponseMode mapUserResponseModeToEnum(Cpa32U userMode)
+{
+    switch (userMode)
+    {
+        case 0:
+            return CPA_INST_RX_NOTIFY_NONE;
+        case 1:
+            return CPA_INST_RX_NOTIFY_BY_EVENT;
+        default:
+            return CPA_INST_RX_NOTIFY_NONE;
+    }
+}
+
+CpaStatus setCyInstanceResponseMode(CpaInstanceResponseMode responseMode)
+{
+    cyConfiguredResponseMode_g = responseMode;
+    cyResponseModeConfigured_g = CPA_TRUE;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceResponseMode);
+
+CpaStatus setCyInstanceResponseModeWithMask(Cpa32U userMode, Cpa64U mask)
+{
+    CpaInstanceResponseMode responseMode = mapUserResponseModeToEnum(userMode);
+    cyConfiguredResponseMode_g = responseMode;
+    cyInstanceResponseModeMask_g = mask;
+    cyResponseModeConfigured_g = CPA_TRUE;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceResponseModeWithMask);
+
+CpaStatus setCyInstanceResponseModeForRange(Cpa32U userMode,
+                                            Cpa16U startInst,
+                                            Cpa16U endInst)
+{
+    Cpa64U mask = 0;
+    Cpa16U i = 0;
+    CpaInstanceResponseMode responseMode = mapUserResponseModeToEnum(userMode);
+
+    if (startInst > endInst || endInst >= 64)
+    {
+        PRINT_ERR(
+            "Invalid instance range: start=%u, end=%u\n", startInst, endInst);
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    for (i = startInst; i <= endInst; i++)
+    {
+        mask |= (1ULL << i);
+    }
+
+    cyConfiguredResponseMode_g = responseMode;
+    cyInstanceResponseModeMask_g = mask;
+    cyResponseModeConfigured_g = CPA_TRUE;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceResponseModeForRange);
+
+CpaInstanceResponseMode getCyInstanceResponseMode(void)
+{
+    return cyConfiguredResponseMode_g;
+}
+EXPORT_SYMBOL(getCyInstanceResponseMode);
+
+void setCyInstanceResponseModeMask(Cpa64U mask)
+{
+    cyInstanceResponseModeMask_g = mask;
+}
+EXPORT_SYMBOL(setCyInstanceResponseModeMask);
+
+Cpa64U getCyInstanceResponseModeMask(void)
+{
+    return cyInstanceResponseModeMask_g;
+}
+EXPORT_SYMBOL(getCyInstanceResponseModeMask);
+
+CpaStatus configureCyInstanceResponseModeForAll(
+    CpaInstanceResponseMode responseMode)
+{
+    Cpa16U numInstances = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    /* Get the number of CY instances */
+    status = cpaCyGetNumInstances(&numInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get Cy instances count for response mode "
+                  "configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+    if (numInstances == 0)
+    {
+        /* No CY instances in the active config (e.g. a DC-only section).
+         * Nothing to configure; not a fatal condition. */
+        PRINT("No CY instances available - skipping CY response mode "
+              "configuration\n");
+        return CPA_STATUS_SUCCESS;
+    }
+    {
+        /* Set mask for all instances (up to 64 instances supported) */
+        Cpa64U allInstancesMask;
+
+        if (numInstances >= 64)
+        {
+            allInstancesMask = 0xFFFFFFFFFFFFFFFFULL; /* All 64 bits set */
+        }
+        else
+        {
+            allInstancesMask =
+                (1ULL << numInstances) - 1; /* Set bits 0 to numInstances-1 */
+        }
+
+        setCyInstanceResponseMode(responseMode);
+        setCyInstanceResponseModeMask(allInstancesMask);
+
+        PRINT("Explicitly configured response mode %d for %d Cy instances "
+              "(mask: 0x%llx)\n",
+              responseMode,
+              numInstances,
+              (unsigned long long)allInstancesMask);
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(configureCyInstanceResponseModeForAll);
+
+CpaStatus configureCyInstanceResponseModeForHalf(
+    CpaInstanceResponseMode responseMode)
+{
+    Cpa16U numInstances = 0;
+    Cpa16U half_numInstances = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    /* Get the number of CY instances */
+    status = cpaCyGetNumInstances(&numInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get CY instances count for response mode "
+                  "configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+    if (numInstances == 0)
+    {
+        /* No CY instances in the active config (e.g. a DC-only section).
+         * Nothing to configure; not a fatal condition. */
+        PRINT("No CY instances available - skipping CY response mode "
+              "configuration\n");
+        return CPA_STATUS_SUCCESS;
+    }
+    half_numInstances = numInstances / 2;
+    {
+        /* Set mask for half the instances (up to 64 instances supported) */
+        Cpa64U halfInstancesMask;
+
+        if (half_numInstances >= 64)
+        {
+            halfInstancesMask = 0xFFFFFFFFFFFFFFFFULL; /* All 64 bits set */
+        }
+        else
+        {
+            halfInstancesMask = (1ULL << half_numInstances) -
+                                1; /* Set bits 0 to half_numInstances-1 */
+        }
+
+        setCyInstanceResponseMode(responseMode);
+        setCyInstanceResponseModeMask(halfInstancesMask);
+
+        PRINT("Explicitly configured response mode %d for HALF (%d of %d) CY "
+              "instances (mask: 0x%llx)\n",
+              responseMode,
+              half_numInstances,
+              numInstances,
+              (unsigned long long)halfInstancesMask);
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(configureCyInstanceResponseModeForHalf);
+
+CpaStatus setCyInstanceResponseModeByValue(Cpa32U userMode)
+{
+    CpaInstanceResponseMode enumMode = mapUserResponseModeToEnum(userMode);
+    configureCyInstanceResponseModeForAll(enumMode);
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceResponseModeByValue);
+
+CpaBoolean isCyInstanceResponseModeConfigured(void)
+{
+    return cyResponseModeConfigured_g;
+}
+EXPORT_SYMBOL(isCyInstanceResponseModeConfigured);
+
+CpaStatus clearCyInstanceResponseModeConfiguration(void)
+{
+    cyResponseModeConfigured_g = CPA_FALSE;
+    /* Reset to a neutral value - actual library default will be queried
+     * per-thread */
+    cyConfiguredResponseMode_g = CPA_INST_RX_NOTIFY_NONE;
+    cyInstanceResponseModeMask_g = 0;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(clearCyInstanceResponseModeConfiguration);
+
+CpaStatus applyCyInstanceResponseModeConfiguration(void)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa16U numInstances = 0;
+    CpaInstanceHandle *cyInstances = NULL;
+    Cpa64U instanceMask = 0;
+    CpaBoolean applyToAllInstances = CPA_FALSE;
+    Cpa16U i = 0;
+    CpaInstanceInfo2 instanceInfo = { 0 };
+    CpaInstanceResponseMode responseMode;
+    CpaInstanceResponseMode testMode = CPA_INST_RX_NOTIFY_NONE;
+    CpaAccelerationServiceType verifyServiceType;
+
+    if (!isCyInstanceResponseModeConfigured())
+    {
+        /* No explicit configuration - nothing to apply */
+        return CPA_STATUS_SUCCESS;
+    }
+
+    instanceMask = getCyInstanceResponseModeMask();
+
+    /* Get all CY instances (combined + pure SYM + pure ASYM) */
+    status = cpaCyGetNumInstances(&numInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get number of CY instances: %d\n", status);
+        return status;
+    }
+
+    if (numInstances == 0)
+    {
+        /* No CY instances in the active config (e.g. a DC-only section).
+         * Nothing to apply; not a fatal condition. */
+        PRINT("No CY instances available - skipping CY response mode "
+              "configuration\n");
+        return CPA_STATUS_SUCCESS;
+    }
+
+    /* Allocate and get all crypto instances */
+    cyInstances = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInstances);
+    if (NULL == cyInstances)
+    {
+        PRINT_ERR("Failed to allocate memory for instance handles\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCyGetInstances(numInstances, cyInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get CY instances\n");
+        qaeMemFree((void **)&cyInstances);
+        return status;
+    }
+
+    responseMode = getCyInstanceResponseMode();
+
+    /* Process each instance individually based on its actual type */
+    for (i = 0; i < numInstances && i < 64; i++)
+    {
+        /* Check if we should apply to this instance */
+        if (!applyToAllInstances && !(instanceMask & (1ULL << i)))
+        {
+            /* Skip this instance if not in mask */
+            continue;
+        }
+
+        status = cpaCyInstanceGetInfo2(cyInstances[i], &instanceInfo);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Failed to get info for instance %d\n", i);
+            continue;
+        }
+        /* Set response mode using the actual service type from instanceInfo */
+        status = cpaInstanceSetResponseMode(
+            cyInstances[i], instanceInfo.accelerationServiceType, responseMode);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR(
+                "Failed to set response mode for instance %d: %d\n", i, status);
+            continue;
+        }
+
+        /* Verify response mode - use appropriate service type for verification
+         */
+        if (instanceInfo.accelerationServiceType == CPA_ACC_SVC_TYPE_CRYPTO)
+        {
+            /* Combined instance - verify with SYM service type */
+            verifyServiceType = CPA_ACC_SVC_TYPE_CRYPTO_SYM;
+        }
+        else
+        {
+            /* Pure SYM or ASYM instance - use its actual type */
+            verifyServiceType = instanceInfo.accelerationServiceType;
+        }
+
+        status = cpaInstanceGetResponseMode(
+            cyInstances[i], verifyServiceType, &testMode);
+        if (CPA_STATUS_SUCCESS == status && testMode == responseMode)
+        {
+            PRINT("Verified response mode %d for instance %d\n", testMode, i);
+        }
+        else
+        {
+            PRINT_ERR("Failed to verify response mode for instance %d (verify "
+                      "type=%d)\n",
+                      i,
+                      verifyServiceType);
+        }
+    }
+
+    /* Free allocated memory */
+    qaeMemFree((void **)&cyInstances);
+
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(applyCyInstanceResponseModeConfiguration);
+
+CpaStatus setCyResponseModeIterationCount(Cpa32U count)
+{
+    cyResponseModeIterationCount_g = count;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyResponseModeIterationCount);
+
+CpaStatus getCyResponseModeIterationCount(Cpa32U *count)
+{
+    if (NULL == count)
+    {
+        PRINT_ERR("Invalid parameter: count pointer is NULL\n");
+        return CPA_STATUS_INVALID_PARAM;
+    }
+    *count = cyResponseModeIterationCount_g;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(getCyResponseModeIterationCount);
+
+CpaInstanceResponseMode getSymResponseModeWithIteration(
+    symmetric_test_params_t *testParams)
+{
+    CpaInstanceResponseMode currentMode;
+    CpaInstanceResponseMode alternateMode;
+    Cpa32U i;
+    /* If iteration count is 1 or less, return currentResponseMode (default
+     * behavior) */
+    if (cyResponseModeIterationCount_g <= 1)
+    {
+        return (testParams != NULL) ? testParams->currentResponseMode
+                                    : CPA_INST_RX_NOTIFY_NONE;
+    }
+
+    /* If testParams is NULL, cannot perform iteration */
+    if (testParams == NULL)
+    {
+        PRINT_ERR(
+            "Cannot perform response mode iteration without test parameters\n");
+        return CPA_INST_RX_NOTIFY_NONE;
+    }
+    /* Use currentResponseMode from test parameters as the starting point */
+    currentMode = testParams->currentResponseMode;
+
+    /* Determine alternate mode - opposite of current mode */
+    if (currentMode == CPA_INST_RX_NOTIFY_NONE)
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    }
+    else
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_NONE;
+    }
+
+    /* Perform iterations with alternation starting from currentResponseMode */
+    for (i = 0; i < cyResponseModeIterationCount_g; i++)
+    {
+        if (i % 2 == 0)
+        {
+            /* Even iterations (0, 2, 4...): use initial mode from test params
+             */
+            currentMode = testParams->currentResponseMode;
+        }
+        else
+        {
+            /* Odd iterations (1, 3, 5...): use alternate mode */
+            currentMode = alternateMode;
+        }
+    }
+    return currentMode;
+}
+EXPORT_SYMBOL(getSymResponseModeWithIteration);
+
+CpaStatus enableCyResponseModeIteration(Cpa32U count)
+{
+    CpaStatus status;
+    if (count < 1)
+    {
+        PRINT_ERR("Invalid iteration count %d, using default (1)\n", count);
+        count = 1;
+    }
+    status = setCyResponseModeIterationCount(count);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to set Cy response mode iteration count\n");
+        return CPA_STATUS_FAIL;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(enableCyResponseModeIteration);
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_INT_COALESCING_TIMER) &&     \
+    defined(STV_TEST_CODE)
+/**< Global mask to track which CY instances should have the coalescing timer
+ * applied (up to 64 instances). Covers symmetric, asymmetric, and combined
+ * CRYPTO instances. */
+static Cpa64U cyInstanceCoalescingTimerMask_g = 0;
+/**< Coalescing timer value (in nanoseconds) to apply when explicitly
+ * configured */
+static Cpa32U cyConfiguredCoalescingTimerNs_g = 0;
+/**< Flag to track if the coalescing timer has been explicitly configured */
+static CpaBoolean cyCoalescingTimerConfigured_g = CPA_FALSE;
+
+CpaStatus setCyInstanceCoalescingTimer(Cpa32U coalescingTimerInNs)
+{
+    cyConfiguredCoalescingTimerNs_g = coalescingTimerInNs;
+    cyCoalescingTimerConfigured_g = CPA_TRUE;
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceCoalescingTimer);
+
+Cpa32U getCyInstanceCoalescingTimer(void)
+{
+    return cyConfiguredCoalescingTimerNs_g;
+}
+EXPORT_SYMBOL(getCyInstanceCoalescingTimer);
+
+void setCyInstanceCoalescingTimerMask(Cpa64U mask)
+{
+    cyInstanceCoalescingTimerMask_g = mask;
+}
+EXPORT_SYMBOL(setCyInstanceCoalescingTimerMask);
+
+Cpa64U getCyInstanceCoalescingTimerMask(void)
+{
+    return cyInstanceCoalescingTimerMask_g;
+}
+EXPORT_SYMBOL(getCyInstanceCoalescingTimerMask);
+
+CpaBoolean isCyInstanceCoalescingTimerConfigured(void)
+{
+    return cyCoalescingTimerConfigured_g;
+}
+EXPORT_SYMBOL(isCyInstanceCoalescingTimerConfigured);
+
+CpaStatus clearCyInstanceCoalescingTimerConfiguration(void)
+{
+    cyCoalescingTimerConfigured_g = CPA_FALSE;
+    cyConfiguredCoalescingTimerNs_g = 0;
+    cyInstanceCoalescingTimerMask_g = 0;
+
+    PRINT("Cleared CY instance coalescing timer configuration\n");
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(clearCyInstanceCoalescingTimerConfiguration);
+
+CpaStatus setCyInstanceCoalescingTimerWithMask(Cpa32U coalescingTimerInNs,
+                                               Cpa64U mask)
+{
+    setCyInstanceCoalescingTimer(coalescingTimerInNs);
+    setCyInstanceCoalescingTimerMask(mask);
+
+    PRINT("Set CY coalescing timer %u ns for instances with mask 0x%llx\n",
+          coalescingTimerInNs,
+          (unsigned long long)mask);
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceCoalescingTimerWithMask);
+
+CpaStatus setCyInstanceCoalescingTimerForRange(Cpa32U coalescingTimerInNs,
+                                               Cpa16U startInst,
+                                               Cpa16U endInst)
+{
+    Cpa64U mask = 0;
+    Cpa16U i;
+
+    if (startInst > endInst || endInst >= 64)
+    {
+        PRINT_ERR("Invalid instance range %d-%d (must be 0-63)\n",
+                  startInst,
+                  endInst);
+        return CPA_STATUS_FAIL;
+    }
+
+    for (i = startInst; i <= endInst; i++)
+    {
+        mask |= (1ULL << i);
+    }
+
+    setCyInstanceCoalescingTimerWithMask(coalescingTimerInNs, mask);
+    PRINT("Configured CY instances %d-%d with coalescing timer %u ns\n",
+          startInst,
+          endInst,
+          coalescingTimerInNs);
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(setCyInstanceCoalescingTimerForRange);
+
+CpaStatus configureCyInstanceCoalescingTimerForAll(Cpa32U coalescingTimerInNs)
+{
+    Cpa16U numInstances = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    status = cpaCyGetNumInstances(&numInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get CY instances count for coalescing timer "
+                  "configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+    if (numInstances == 0)
+    {
+        /* No CY instances in the active config (e.g. a DC-only section).
+         * Nothing to configure; not a fatal condition. */
+        PRINT("No CY instances available - skipping CY coalescing timer "
+              "configuration\n");
+        return CPA_STATUS_SUCCESS;
+    }
+    {
+        Cpa64U allInstancesMask;
+
+        if (numInstances >= 64)
+        {
+            allInstancesMask = 0xFFFFFFFFFFFFFFFFULL;
+        }
+        else
+        {
+            allInstancesMask = (1ULL << numInstances) - 1;
+        }
+
+        setCyInstanceCoalescingTimer(coalescingTimerInNs);
+        setCyInstanceCoalescingTimerMask(allInstancesMask);
+
+        PRINT("Explicitly configured coalescing timer %u ns for %d CY "
+              "instances (mask: 0x%llx)\n",
+              coalescingTimerInNs,
+              numInstances,
+              (unsigned long long)allInstancesMask);
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(configureCyInstanceCoalescingTimerForAll);
+
+CpaStatus configureCyInstanceCoalescingTimerForHalf(Cpa32U coalescingTimerInNs)
+{
+    Cpa16U numInstances = 0;
+    Cpa16U half_numInstances = 0;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    status = cpaCyGetNumInstances(&numInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get CY instances count for coalescing timer "
+                  "configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+    if (numInstances == 0)
+    {
+        PRINT("No CY instances available - skipping CY coalescing timer "
+              "configuration\n");
+        return CPA_STATUS_SUCCESS;
+    }
+    half_numInstances = numInstances / 2;
+    {
+        Cpa64U halfInstancesMask;
+
+        if (half_numInstances >= 64)
+        {
+            halfInstancesMask = 0xFFFFFFFFFFFFFFFFULL;
+        }
+        else
+        {
+            halfInstancesMask = (1ULL << half_numInstances) - 1;
+        }
+
+        setCyInstanceCoalescingTimer(coalescingTimerInNs);
+        setCyInstanceCoalescingTimerMask(halfInstancesMask);
+
+        PRINT("Explicitly configured coalescing timer %u ns for HALF (%d of "
+              "%d) CY instances (mask: 0x%llx)\n",
+              coalescingTimerInNs,
+              half_numInstances,
+              numInstances,
+              (unsigned long long)halfInstancesMask);
+    }
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(configureCyInstanceCoalescingTimerForHalf);
+
+CpaStatus getCyInstanceRxInterruptMetaData(
+    CpaInstanceHandle instanceHandle,
+    CpaRxInterruptMetaData *pInterruptData)
+{
+    CpaInstanceInfo2 instanceInfo = { 0 };
+    CpaAccelerationServiceType svcType;
+    CpaStatus status;
+
+    if (NULL == pInterruptData)
+    {
+        PRINT_ERR("Invalid parameter: pInterruptData is NULL\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCyInstanceGetInfo2(instanceHandle, &instanceInfo);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get CY instance info: %d\n", status);
+        return status;
+    }
+
+    /* Combined CRYPTO instances are queried via the SYM service type. */
+    svcType = (instanceInfo.accelerationServiceType == CPA_ACC_SVC_TYPE_CRYPTO)
+                  ? CPA_ACC_SVC_TYPE_CRYPTO_SYM
+                  : instanceInfo.accelerationServiceType;
+
+    return cpaInstanceGetRxInterruptMetaData(
+        instanceHandle, svcType, pInterruptData);
+}
+EXPORT_SYMBOL(getCyInstanceRxInterruptMetaData);
+
+CpaStatus applyCyInstanceCoalescingTimerConfiguration(void)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa16U numInstances = 0;
+    CpaInstanceHandle *cyInstances = NULL;
+    CpaInstanceInfo2 instanceInfo = { 0 };
+    CpaRxInterruptMetaData interruptData = { 0 };
+    Cpa64U instanceMask = 0;
+    Cpa32U coalescingTimerInNs = 0;
+    Cpa16U i = 0;
+    Cpa16U applied = 0;
+    CpaAccelerationServiceType svcType;
+
+    if (!isCyInstanceCoalescingTimerConfigured())
+    {
+        /* No explicit configuration - nothing to apply */
+        return CPA_STATUS_SUCCESS;
+    }
+
+    instanceMask = getCyInstanceCoalescingTimerMask();
+    if (instanceMask == 0)
+    {
+        /* Empty mask - nothing to apply */
+        return CPA_STATUS_SUCCESS;
+    }
+
+    coalescingTimerInNs = getCyInstanceCoalescingTimer();
+
+    status = cpaCyGetNumInstances(&numInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get number of CY instances: %d\n", status);
+        return status;
+    }
+
+    if (numInstances == 0)
+    {
+        PRINT_ERR("No CY instances available to apply coalescing timer\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    cyInstances = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInstances);
+    if (NULL == cyInstances)
+    {
+        PRINT_ERR("Unable to allocate memory for CY instances\n");
+        return CPA_STATUS_FAIL;
+    }
+
+    status = cpaCyGetInstances(numInstances, cyInstances);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Unable to get CY instances: %d\n", status);
+        qaeMemFree((void **)&cyInstances);
+        return status;
+    }
+
+    for (i = 0; i < numInstances && i < 64; i++)
+    {
+        if (!(instanceMask & (1ULL << i)))
+        {
+            continue;
+        }
+
+        status = cpaCyInstanceGetInfo2(cyInstances[i], &instanceInfo);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Failed to get info for CY instance %d: %d\n", i, status);
+            continue;
+        }
+
+        /* cpaCyInstanceGetInfo2 may report
+         * the legacy generic CRYPTO type even on SYM-only configurations,
+         * so when that happens fall back to CRYPTO_SYM. Pure SYM / ASYM
+         * instances use their reported type. */
+        svcType =
+            (instanceInfo.accelerationServiceType == CPA_ACC_SVC_TYPE_CRYPTO)
+                ? CPA_ACC_SVC_TYPE_CRYPTO_SYM
+                : instanceInfo.accelerationServiceType;
+
+        status = cpaInstanceSetIntCoalescingTimer(
+            cyInstances[i], svcType, coalescingTimerInNs);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Failed to set coalescing timer %u ns for CY "
+                      "instance %d (Type=%d): %d\n",
+                      coalescingTimerInNs,
+                      i,
+                      svcType,
+                      status);
+            continue;
+        }
+
+        memset(&interruptData, 0, sizeof(interruptData));
+        status = cpaInstanceGetRxInterruptMetaData(
+            cyInstances[i], svcType, &interruptData);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Failed to verify coalescing timer for CY "
+                      "instance %d: %d\n",
+                      i,
+                      status);
+            qaeMemFree((void **)&cyInstances);
+            return status;
+        }
+
+        if (interruptData.coalescingTimerInNs == coalescingTimerInNs)
+        {
+            PRINT("Verified coalescing timer %u ns for CY instance %d "
+                  "(max %u ns, granularity %u ns)\n",
+                  interruptData.coalescingTimerInNs,
+                  i,
+                  interruptData.coalescingTimerMaxInNs,
+                  interruptData.coalescingTimerGranularityInNs);
+            applied++;
+        }
+        else
+        {
+            /* Hardware may round to nearest supported granularity.
+             * Treat differences within one granularity step as success. */
+            Cpa32U granularity = interruptData.coalescingTimerGranularityInNs;
+            Cpa32U diff =
+                (interruptData.coalescingTimerInNs > coalescingTimerInNs)
+                    ? (interruptData.coalescingTimerInNs - coalescingTimerInNs)
+                    : (coalescingTimerInNs - interruptData.coalescingTimerInNs);
+
+            if (granularity > 0 && diff <= granularity)
+            {
+                PRINT("Coalescing timer for CY instance %d rounded: "
+                      "requested %u ns, actual %u ns (granularity %u ns)\n",
+                      i,
+                      coalescingTimerInNs,
+                      interruptData.coalescingTimerInNs,
+                      granularity);
+                applied++;
+            }
+            else
+            {
+                PRINT_ERR("Mismatch verifying coalescing timer for CY "
+                          "instance %d: set %u ns, got %u ns "
+                          "(max %u ns, granularity %u ns)\n",
+                          i,
+                          coalescingTimerInNs,
+                          interruptData.coalescingTimerInNs,
+                          interruptData.coalescingTimerMaxInNs,
+                          granularity);
+                qaeMemFree((void **)&cyInstances);
+                return CPA_STATUS_FAIL;
+            }
+        }
+    }
+
+    PRINT("Coalescing timer %u ns applied to %u CY instance(s)\n",
+          coalescingTimerInNs,
+          applied);
+
+    qaeMemFree((void **)&cyInstances);
+    return CPA_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(applyCyInstanceCoalescingTimerConfiguration);
+#endif /* USER_SPACE && SUPPORTED_FEAT_INT_COALESCING_TIMER && STV_TEST_CODE   \
+        */

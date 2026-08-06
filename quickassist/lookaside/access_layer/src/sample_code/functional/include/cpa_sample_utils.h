@@ -28,6 +28,7 @@
 #include "cpa.h"
 #include "cpa_cy_im.h"
 #include "cpa_dc.h"
+#include "cpa_dc_capabilities.h"
 
 #ifdef DO_CRYPTO
 #include "cpa_cy_sym.h"
@@ -42,6 +43,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 /* Performance sample code mem utils */
 
 #include "qae_mem.h"
@@ -538,6 +544,8 @@ void symSessionWaitForInflightReq(CpaCySymSessionCtx pSessionCtx);
 
 void sampleDcGetInstance(CpaInstanceHandle *pDcInstHandle);
 
+void sampleDecompGetInstance(CpaInstanceHandle *pDecompInstHandle);
+
 void sampleDcStartPolling(CpaInstanceHandle dcInstHandle);
 
 void sampleDcStopPolling(void);
@@ -571,4 +579,22 @@ void hexLog(Cpa8U *pData, Cpa32U numBytes, const char *caption);
 CpaPhysicalAddr virtAddrToDevAddr(void *pVirtAddr,
                                   CpaInstanceHandle instance,
                                   CpaAccelerationServiceType type);
+
+typedef struct file_data_s
+{
+    Cpa8U **pSrcData;
+    Cpa32U *bufferSize;
+} file_data_t;
+
+#ifdef USER_SPACE
+#define MAX_CORPUS_FILE_PATH_LEN (100)
+#ifndef SAMPLE_CODE_CORPUS_PATH
+#define SAMPLE_CODE_CORPUS_PATH ""
+#endif
+
+CpaStatus sample_getFile(const char *filename, file_data_t *file_data);
+CpaStatus sample_freeFile(file_data_t *file_data);
+CpaStatus sample_getPath(char *filePath, char *fileName);
+#endif
+
 #endif

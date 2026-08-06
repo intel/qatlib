@@ -127,16 +127,16 @@ typedef void *CpaCySymDpSessionCtx;
  *      The physical memory to which this structure points needs to be
  *      at least 8-byte aligned.
  *
- *      All reserved fields SHOULD NOT be written or read by the
- *      calling code.
- *
  * @see
  *        cpaCySymDpEnqueueOp, cpaCySymDpEnqueueOpBatch
  ****************************************************************************/
 typedef struct
 {
     Cpa64U reserved0;
-    /**< Reserved for internal usage. */
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
     Cpa32U cryptoStartSrcOffsetInBytes;
     /**< Starting point for cipher processing, specified as number of bytes
      * from start of data in the source buffer. The result of the cipher
@@ -180,7 +180,10 @@ typedef struct
      *   The macro @ref CPA_CY_SYM_CCM_SET_NONCE may be used here.
      */
     Cpa64U reserved1;
-    /**< Reserved for internal usage. */
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
     Cpa32U hashStartSrcOffsetInBytes;
     /**< Starting point for hash processing, specified as number of bytes
      * from start of packet in source buffer.
@@ -733,8 +736,6 @@ CpaStatus cpaCySymDpRemoveSession(const CpaInstanceHandle instanceHandle,
  *
  *      - The memory MUST be aligned on an 8-byte boundary.
  *      - The structure MUST reside in physically contiguous memory.
- *      - The reserved fields of the structure SHOULD NOT be written
- *        or read by the calling code.
  *
  * @context
  *      This function will not sleep, and hence can be executed in a context
@@ -820,8 +821,6 @@ CpaStatus cpaCySymDpEnqueueOp(CpaCySymDpOpData *pOpData,
  *
  *      - The memory MUST be aligned on an 8-byte boundary.
  *      - The structure MUST reside in physically contiguous memory.
- *      - The reserved fields of the structure SHOULD NOT be
- *        written or read by the calling code.
  *
  * @context
  *      This function will not sleep, and hence can be executed in a context

@@ -20,9 +20,6 @@ extern "C" {
 
 #include "OsalOsTypes.h"
 #include "OsalTypes.h"
-#ifndef DISABLE_NUMA_ALLOCATION
-#include "OsalDevDrvCommon.h"
-#endif
 
 #define OSAL_HOST_TO_NW_16(uData) OSAL_OS_HOST_TO_NW_16(uData)
 #define OSAL_HOST_TO_NW_32(uData) OSAL_OS_HOST_TO_NW_32(uData)
@@ -1723,49 +1720,6 @@ int osalIOMMUUnmap(UINT64 iova, size_t size);
 /**
  * @ingroup Osal
  *
- * @brief  Function translates io virtual address
- *         to a physical address.
- *
- * @param  in - IO virtual address.
- *
- * @li Reentrant: no
- * @li IRQ safe:  no
- *
- * @return - host physical address
- */
-UINT64 osalIOMMUVirtToPhys(UINT64 iova);
-
-/**
- * @ingroup Osal
- *
- * @brief  Function attaches pci dev to iommu domain.
- *
- * @param  in - Device to be attached.
- *
- * @li Reentrant: no
- * @li IRQ safe:  no
- *
- * @return - OSAL_SUCCESS/OSAL_FAIL
- */
-int osalIOMMUAttachDev(void *dev);
-
-/**
- * @ingroup Osal
- *
- * @brief  Function detaches pci dev to iommu domain.
- *
- * @param  in - Device to be detached.
- *
- * @li Reentrant: no
- * @li IRQ safe:  no
- *
- * @return - void
- */
-void osalIOMMUDetachDev(void *dev);
-
-/**
- * @ingroup Osal
- *
  * @brief  Function calculates size for remapping.
  *
  * @param  in - size.
@@ -1776,34 +1730,6 @@ void osalIOMMUDetachDev(void *dev);
  * @return - Remapping size.
  */
 size_t osalIOMMUgetRemappingSize(size_t size);
-
-/**
- * @ingroup Osal
- *
- * @brief  Function creates iommu domain.
- *
- * @param  none
- *
- * @li Reentrant: no
- * @li IRQ safe:  no
- *
- * @return - OSAL_SUCCESS/OSAL_FAIL
- */
-int osalIOMMUInit(void);
-
-/**
- * @ingroup Osal
- *
- * @brief  Function removes iommu domain.
- *
- * @param  none
- *
- * @li Reentrant: no
- * @li IRQ safe:  no
- *
- * @return - void
- */
-void osalIOMMUExit(void);
 
 /**
  * @ingroup Osal

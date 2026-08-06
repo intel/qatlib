@@ -176,11 +176,14 @@ CpaStatus qatFreeFlatBuffersInList(CpaBufferList *list)
                 allocationStatus = CPA_STATUS_FAIL;
             }
         }
-        qaeMemFreeNUMA((void **)&(list->pBuffers));
         if (NULL != list->pBuffers)
         {
-            PRINT("could not free pBuffers\n");
-            allocationStatus = CPA_STATUS_FAIL;
+            qaeMemFreeNUMA((void **)&(list->pBuffers));
+            if (NULL != list->pBuffers)
+            {
+                PRINT("could not free pBuffers\n");
+                allocationStatus = CPA_STATUS_FAIL;
+            }
         }
         if (NULL != list->pPrivateMetaData)
         {

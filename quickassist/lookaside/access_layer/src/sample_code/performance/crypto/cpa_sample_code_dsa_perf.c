@@ -1783,7 +1783,7 @@ static void dsaPerformanceGen(single_thread_test_data_t *testSetup,
     dsaSetup.syncMode = params->syncMode;
     /*get the instance handles so that we can start our thread on the selected
      * instance */
-    status = cpaCyGetNumInstances(&numInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
         PRINT_ERR("Could not get any instances\n");
@@ -1807,7 +1807,7 @@ static void dsaPerformanceGen(single_thread_test_data_t *testSetup,
         dsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
-    cpaCyGetInstances(numInstances, cyInstances);
+    cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, numInstances, cyInstances);
     /* give our thread a logical crypto instance to use
      * use % to wrap around the max number of instances */
     dsaSetup.cyInstanceHandle =
@@ -1947,10 +1947,10 @@ static CpaStatus setupDsaTestGen(Cpa32U pLenInBits,
         return CPA_STATUS_FAIL;
     }
 
-    /*start crypto service if not already started */
-    if (CPA_STATUS_SUCCESS != startCyServices())
+    /*start Asym service if not already started */
+    if (CPA_STATUS_SUCCESS != startAsymServices())
     {
-        PRINT_ERR("Error starting Crypto Services\n");
+        PRINT_ERR("Error starting Asym Services\n");
         return CPA_STATUS_FAIL;
     }
     if (iaCycleCount_g)

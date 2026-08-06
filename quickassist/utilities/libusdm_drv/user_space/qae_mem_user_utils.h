@@ -27,6 +27,7 @@
 #define unlikely(x) (0 == (x))
 #endif
 
+#ifndef API_LOCAL
 #if __GNUC__ >= 4
 #define API_PUBLIC __attribute__((visibility("default")))
 #define API_LOCAL __attribute__((visibility("hidden")))
@@ -34,6 +35,7 @@
 #define API_PUBLIC
 #define API_LOCAL
 #endif
+#endif /* API_LOCAL */
 
 #ifdef ICP_DEBUG
 static inline void CMD_DEBUG(const char *format, ...)

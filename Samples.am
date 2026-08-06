@@ -179,10 +179,23 @@ dc_stateless_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/
 	$(COMMON_FLAGS)
 dc_stateless_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 
+noinst_PROGRAMS += dc_stateless_sample_dict
+dc_stateless_sample_dict_SOURCES = \
+       quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
+       quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample_dict/cpa_dc_stateless_sample_dict.c \
+       quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample_dict/cpa_dc_sample_user_dict.c
+dc_stateless_sample_dict_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+       $(COMMON_SAMPLE_INCLUDES) \
+       $(COMMON_SAMPLE_CFLAGS) \
+       $(COMMON_FLAGS) \
+       -DSAMPLE_CODE_CORPUS_PATH="\"$(datadir)/qat/\""
+dc_stateless_sample_dict_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
+
 noinst_PROGRAMS += chaining_sample
 chaining_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/dc/chaining_sample/cpa_chaining_sample_user.c \
+	quickassist/lookaside/access_layer/src/sample_code/functional/dc/chaining_sample/cpa_chaining_xstor_sample.c \
 	quickassist/lookaside/access_layer/src/sample_code/functional/dc/chaining_sample/cpa_chaining_sample.c
 chaining_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
 	$(COMMON_SAMPLE_INCLUDES) \
@@ -200,6 +213,18 @@ dc_stateless_multi_op_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_l
 	$(COMMON_SAMPLE_CFLAGS) \
 	$(COMMON_FLAGS)
 dc_stateless_multi_op_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
+
+noinst_PROGRAMS += decomp_stateless_sample
+decomp_stateless_sample_SOURCES = \
+       quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
+       quickassist/lookaside/access_layer/src/sample_code/functional/decomp/decomp_stateless_sample/cpa_decomp_sample_user.c \
+       quickassist/lookaside/access_layer/src/sample_code/functional/decomp/decomp_stateless_sample/cpa_decomp_stateless_sample.c
+decomp_stateless_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+         $(COMMON_SAMPLE_INCLUDES) \
+         $(COMMON_SAMPLE_CFLAGS) \
+         $(COMMON_FLAGS) \
+         -DSAMPLE_CODE_CORPUS_PATH="\"$(datadir)/qat/\""
+decomp_stateless_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 
 noinst_PROGRAMS += algchaining_sample
 algchaining_sample_SOURCES = \
@@ -360,16 +385,44 @@ ec_montedwds_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/
 	$(COMMON_FLAGS)
 ec_montedwds_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 
-noinst_PROGRAMS += zuc_sample
-zuc_sample_SOURCES = \
+noinst_PROGRAMS += kpt_rsa_sample
+kpt_rsa_sample_SOURCES = \
+        quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_sample_common.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_rsa_sample/kpt_rsa_sample_main.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_rsa_sample/kpt_rsa_sample_op.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_sample_common.h
+kpt_rsa_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+        -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt \
+        $(COMMON_SAMPLE_INCLUDES) \
+        $(COMMON_SAMPLE_CFLAGS) \
+        $(COMMON_FLAGS)
+kpt_rsa_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
+
+noinst_PROGRAMS += kpt_ecdsa_sample
+kpt_ecdsa_sample_SOURCES = \
+        quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_sample_common.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_ecdsa_sample/kpt_ecdsa_sample_main.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_ecdsa_sample/kpt_ecdsa_sample_op.c \
+        quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt/kpt_sample_common.h
+kpt_ecdsa_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+        -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/asym/kpt \
+        $(COMMON_SAMPLE_INCLUDES) \
+        $(COMMON_SAMPLE_CFLAGS) \
+        $(COMMON_FLAGS)
+kpt_ecdsa_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
+
+noinst_PROGRAMS += zuc128_sample
+zuc128_sample_SOURCES = \
 	quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c \
-	quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/cpa_zuc_sample.c \
-	quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/cpa_zuc_sample_user.c
-zuc_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
+	quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/zuc128_sample/cpa_zuc128_sample.c \
+	quickassist/lookaside/access_layer/src/sample_code/functional/sym/zuc_sample/zuc128_sample/cpa_zuc128_sample_user.c
+zuc128_sample_CFLAGS = -I$(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/include \
 	$(COMMON_SAMPLE_INCLUDES) \
 	$(COMMON_SAMPLE_CFLAGS) \
 	$(COMMON_FLAGS)
-zuc_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
+zuc128_sample_LDADD = $(COMMON_SAMPLE_LDFLAGS) libcpa_sample_code_s.la
 
 noinst_PROGRAMS += update_sample
 update_sample_SOURCES = \
@@ -385,14 +438,18 @@ samples: $(lib_LTLIBRARIES) cpa_sample_code dc_dp_sample dc_stateless_sample \
 	dc_stateless_multi_op_sample algchaining_sample ccm_sample \
 	cipher_sample gcm_sample hash_file_sample hash_sample ipsec_sample \
 	ssl_sample sym_dp_sample dh_sample prime_sample hkdf_sample \
-	ec_montedwds_sample eddsa_sample chaining_sample zuc_sample update_sample
+	ec_montedwds_sample kpt_rsa_sample kpt_ecdsa_sample eddsa_sample \
+	chaining_sample zuc128_sample update_sample dc_stateless_sample_dict \
+	decomp_stateless_sample
 
 samples-install: samples
 	@install -D -m 755 $(srcdir)/.libs/cpa_sample_code $(DESTDIR)$(bindir)/cpa_sample_code
 	@install -D -m 755 $(srcdir)/.libs/dc_dp_sample $(DESTDIR)$(bindir)/dc_dp_sample
 	@install -D -m 755 $(srcdir)/.libs/dc_stateless_sample $(DESTDIR)$(bindir)/dc_stateless_sample
+	@install -D -m 755 $(srcdir)/.libs/dc_stateless_sample_dict $(DESTDIR)$(bindir)/dc_stateless_sample_dict
 	@install -D -m 755 $(srcdir)/.libs/chaining_sample $(DESTDIR)$(bindir)/chaining_sample
 	@install -D -m 755 $(srcdir)/.libs/dc_stateless_multi_op_sample $(DESTDIR)$(bindir)/dc_stateless_multi_op_sample
+	@install -D -m 755 $(srcdir)/.libs/decomp_stateless_sample $(DESTDIR)$(bindir)/decomp_stateless_sample
 	@install -D -m 755 $(srcdir)/.libs/algchaining_sample $(DESTDIR)$(bindir)/algchaining_sample
 	@install -D -m 755 $(srcdir)/.libs/ccm_sample $(DESTDIR)$(bindir)/ccm_sample
 	@install -D -m 755 $(srcdir)/.libs/cipher_sample $(DESTDIR)$(bindir)/cipher_sample
@@ -407,11 +464,16 @@ samples-install: samples
 	@install -D -m 755 $(srcdir)/.libs/prime_sample $(DESTDIR)$(bindir)/prime_sample
 	@install -D -m 755 $(srcdir)/.libs/hkdf_sample $(DESTDIR)$(bindir)/hkdf_sample
 	@install -D -m 755 $(srcdir)/.libs/ec_montedwds_sample $(DESTDIR)$(bindir)/ec_montedwds_sample
-	@install -D -m 755 $(srcdir)/.libs/zuc_sample $(DESTDIR)$(bindir)/zuc_sample
+	@install -D -m 755 $(srcdir)/.libs/zuc128_sample $(DESTDIR)$(bindir)/zuc128_sample
+	@install -D -m 755 $(srcdir)/.libs/kpt_rsa_sample $(DESTDIR)$(bindir)/kpt_rsa_sample
+	@install -D -m 755 $(srcdir)/.libs/kpt_ecdsa_sample $(DESTDIR)$(bindir)/kpt_ecdsa_sample
 	@install -D -m 755 $(srcdir)/.libs/update_sample $(DESTDIR)$(bindir)/update_sample
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary $(DESTDIR)$(datadir)/qat/calgary
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/calgary32 $(DESTDIR)$(datadir)/qat/calgary32
 	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/performance/compression/canterbury $(DESTDIR)$(datadir)/qat/canterbury
+	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample_dict/paper4.dict $(DESTDIR)$(datadir)/qat/paper4.dict
+	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample_dict/paper4 $(DESTDIR)$(datadir)/qat/paper4
+	@install -D -m 644 $(srcdir)/quickassist/lookaside/access_layer/src/sample_code/functional/decomp/decomp_stateless_sample/paper4.gz $(DESTDIR)$(datadir)/qat/paper4.gz
 	@echo ""
 	@echo "*******************************************************"
 	@echo "* cpa_sample_code installed under $(DESTDIR)$(bindir) *"
@@ -422,8 +484,10 @@ samples-uninstall:
 	@rm -rf $(DESTDIR)$(bindir)/cpa_sample_code
 	@rm -rf $(DESTDIR)$(bindir)/dc_dp_sample
 	@rm -rf $(DESTDIR)$(bindir)/dc_stateless_sample
+	@rm -rf $(DESTDIR)$(bindir)/dc_stateless_sample_dict
 	@rm -rf $(DESTDIR)$(bindir)/chaining_sample
 	@rm -rf $(DESTDIR)$(bindir)/dc_stateless_multi_op_sample
+	@rm -rf $(DESTDIR)$(bindir)/decomp_stateless_sample
 	@rm -rf $(DESTDIR)$(bindir)/algchaining_sample
 	@rm -rf $(DESTDIR)$(bindir)/ccm_sample
 	@rm -rf $(DESTDIR)$(bindir)/cipher_sample
@@ -438,11 +502,16 @@ samples-uninstall:
 	@rm -rf $(DESTDIR)$(bindir)/prime_sample
 	@rm -rf $(DESTDIR)$(bindir)/hkdf_sample
 	@rm -rf $(DESTDIR)$(bindir)/ec_montedwds_sample
-	@rm -rf $(DESTDIR)$(bindir)/zuc_sample
+	@rm -rf $(DESTDIR)$(bindir)/zuc128_sample
+	@rm -rf $(DESTDIR)$(bindir)/kpt_ecdsa_sample
+	@rm -rf $(DESTDIR)$(bindir)/kpt_rsa_sample
 	@rm -rf $(DESTDIR)$(bindir)/update_sample
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary
 	@rm -rf $(DESTDIR)$(datadir)/qat/calgary32
 	@rm -rf $(DESTDIR)$(datadir)/qat/canterbury
+	@rm -rf $(DESTDIR)$(datadir)/qat/paper4.dict
+	@rm -rf $(DESTDIR)$(datadir)/qat/paper4
+	@rm -rf $(DESTDIR)$(datadir)/qat/paper4.gz
 	@if test -d $(DESTDIR)$(datadir)/qat; then rmdir --ignore-fail-on-non-empty $(DESTDIR)$(datadir)/qat; fi
 
 endif

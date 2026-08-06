@@ -264,7 +264,8 @@ void __qae_ResetControl(void)
     __qae_pUserLargeMemListTail = NULL;
 }
 
-int32_t qaeMemInit()
+API_LOCAL
+int32_t __qae_memInit()
 {
     int32_t fd_status = 0;
     int32_t status = 0;
@@ -293,6 +294,12 @@ int32_t qaeMemInit()
     return fd_status;
 }
 
+/* Deprecated public no-op stub - library self-initializes on first use */
+int32_t qaeMemInit()
+{
+    return 0;
+}
+
 API_LOCAL
 void __qae_destroyList(const int fd, dev_mem_info_t *pList)
 {
@@ -318,7 +325,8 @@ void __qae_reset_cache(const int fd)
     } while (slab != NULL);
 }
 
-void qaeMemDestroy(void)
+API_LOCAL
+void __qae_memDestroy(void)
 {
     int ret = 0;
 
@@ -356,6 +364,12 @@ void qaeMemDestroy(void)
     }
 }
 
+/* Deprecated no-op; return 0 in rax for int-declared callers. */
+void qaeMemDestroy(void)
+{
+    __asm__ __volatile__("xorl %%eax, %%eax" ::: "rax");
+}
+
 API_LOCAL
 void *__qae_alloc_addr(size_t size,
                        const int node,
@@ -367,12 +381,9 @@ void *__qae_alloc_addr(size_t size,
     enum slabType mem_type = SMALL;
 
     const size_t phys_align_unit = phys_alignment_byte / UNIT_SIZE;
-    const size_t reserved = div_round_up(sizeof(block_ctrl_t), UNIT_SIZE);
+    const size_t reserved = div_round_up(get_ctrl_size(), UNIT_SIZE);
     /* calculate units needed */
     const size_t requested_pages = div_round_up(size, UNIT_SIZE) + reserved;
-
-    if (0 != __qae_open())
-        return NULL;
 
     if (requested_pages > QAE_NUM_PAGES_PER_ALLOC * QAE_PAGE_SIZE / UNIT_SIZE ||
         phys_alignment_byte >= QAE_NUM_PAGES_PER_ALLOC * QAE_PAGE_SIZE)
@@ -409,11 +420,10 @@ void *__qae_alloc_addr(size_t size,
     if (NULL == p_ctrl_blk)
         return NULL;
 
-    store_mmap_range(&g_page_table,
-                     p_ctrl_blk->virt_addr,
-                     p_ctrl_blk->phy_addr,
-                     p_ctrl_blk->size,
-                     __qae_hugepage_enabled());
+    store_mmap_range_fptr(&g_page_table,
+                          p_ctrl_blk->virt_addr,
+                          p_ctrl_blk->phy_addr,
+                          p_ctrl_blk->size);
 
     if (LARGE == mem_type)
     {
@@ -471,22 +481,14 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
         return NULL;
     }
 
-    if (size > QAE_MAX_ALLOC_SIZE)
-    {
-        CMD_ERROR(
-            "%s:%d Size cannot exceed 64M for vfio\n", __func__, __LINE__);
-        return NULL;
-    }
-
-    if (!phys_alignment_byte || phys_alignment_byte > QAE_MAX_PHYS_ALIGN ||
+    if (!phys_alignment_byte ||
         (phys_alignment_byte & (phys_alignment_byte - 1)))
     {
-        CMD_ERROR("%s:%d Invalid alignment parameter %zu. It must be non zero, "
-                  "not more than %llu and multiple of 2 \n",
+        CMD_ERROR("%s:%d Invalid alignment %zu: must be non-zero and a "
+                  "power of 2\n",
                   __func__,
                   __LINE__,
-                  phys_alignment_byte,
-                  QAE_MAX_PHYS_ALIGN);
+                  phys_alignment_byte);
         return NULL;
     }
 
@@ -497,6 +499,34 @@ void *qaeMemAllocNUMA(size_t size, int node, size_t phys_alignment_byte)
                   __func__,
                   __LINE__,
                   strerror(ret));
+        return NULL;
+    }
+
+    /* init: opens the fd. Also handles fork transparently via
+     * is_new_process().
+     */
+    if (unlikely(__qae_open()))
+    {
+        mem_mutex_unlock(&mutex);
+        return NULL;
+    }
+
+    if (size > QAE_MAX_ALLOC_SIZE)
+    {
+        CMD_ERROR(
+            "%s:%d Size cannot exceed 64M for vfio\n", __func__, __LINE__);
+        mem_mutex_unlock(&mutex);
+        return NULL;
+    }
+
+    if (phys_alignment_byte > QAE_MAX_PHYS_ALIGN)
+    {
+        CMD_ERROR("%s:%d Invalid alignment %zu exceeds maximum %llu\n",
+                  __func__,
+                  __LINE__,
+                  phys_alignment_byte,
+                  QAE_MAX_PHYS_ALIGN);
+        mem_mutex_unlock(&mutex);
         return NULL;
     }
 

@@ -123,9 +123,6 @@ typedef struct sal_compression_service_s
     Cpa32U coreAffinity;
     Cpa32U nodeAffinity;
 
-    /* Statistics handler */
-    debug_file_info_t *debug_file;
-
     /* Chaining service */
     sal_dc_chain_service_t *pDcChainService;
 

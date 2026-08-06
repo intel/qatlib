@@ -44,7 +44,6 @@ libosal_la_SOURCES = \
 	quickassist/utilities/osal/src/linux/user_space/OsalSpinLock.c \
 	quickassist/utilities/osal/src/linux/user_space/OsalAtomic.c \
 	quickassist/utilities/osal/src/linux/user_space/OsalServices.c \
-	quickassist/utilities/osal/src/linux/user_space/OsalUsrKrnProxy.c \
 	quickassist/utilities/osal/src/linux/user_space/OsalCryptoInterface.c
 
 libosal_la_CFLAGS = -I$(srcdir)/quickassist/utilities/osal/src/linux/user_space \
@@ -116,6 +115,7 @@ lib_LTLIBRARIES = lib@LIBUSDMNAME@.la
 lib@LIBUSDMNAME@_la_SOURCES = \
 	quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_utils_vfio.c \
 	quickassist/utilities/libusdm_drv/user_space/qae_mem_utils_common.c \
+	quickassist/utilities/libusdm_drv/user_space/qae_mem_sysfs_utils.c \
 	quickassist/utilities/libusdm_drv/user_space/vfio/qae_mem_hugepage_utils_vfio.c
 if ICP_THREAD_SPECIFIC_USDM_AC
 lib@LIBUSDMNAME@_la_SOURCES += \
@@ -211,6 +211,8 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/qat/lac_sym_qat_key.c \
 	quickassist/lookaside/access_layer/src/common/crypto/sym/lac_sym_hash_sw_precomputes.c \
 	quickassist/lookaside/access_layer/src/common/crypto/kpt/provision/lac_kpt_provision.c \
+	quickassist/lookaside/access_layer/src/common/crypto/kpt/provision/lac_kpt_pro_qat_comms.c \
+	quickassist/lookaside/access_layer/src/common/crypto/kpt/crypto/lac_kpt_crypto_qat_comms.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_compression.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_compression_capabilities.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_create_services.c \
@@ -218,7 +220,7 @@ lib@LIBQATNAME@_la_SOURCES = \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_list.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_rl_stubs.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_crypto.c \
-	quickassist/lookaside/access_layer/src/common/ctrl/sal_resp_type.c \
+	quickassist/lookaside/access_layer/src/common/ctrl/sal_transport_cfg.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_dc_chain.c \
 	quickassist/lookaside/access_layer/src/common/ctrl/sal_instances.c \
 	quickassist/lookaside/access_layer/src/common/qat_comms/sal_qat_cmn_msg.c \
@@ -253,6 +255,7 @@ lib@LIBQATNAME@_la_CFLAGS = -I$(srcdir)/quickassist/utilities/libusdm_drv \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/compression/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/sym/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/asym/include \
+			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/crypto/kpt/include \
 			    -I$(srcdir)/quickassist/lookaside/firmware/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/src/common/include \
 			    -I$(srcdir)/quickassist/lookaside/access_layer/include \
@@ -343,7 +346,12 @@ if SERVICE_AC
 	fi
 endif
 
-dist_man_MANS = qat_init.sh.8 qatmgr.8 cpa_sample_code.7
+qat_sla_mgrdir = $(sbindir)
+dist_qat_sla_mgr_SCRIPTS = quickassist/utilities/apps/sla_mgr/qat_sla_mgr \
+       quickassist/utilities/apps/sla_mgr/qat_sla_rl.py
+
+dist_man_MANS = qat_init.sh.8 qatmgr.8 cpa_sample_code.7 qat_sla_mgr.8
+
 
 EXTRA_DIST = INSTALL README.md SECURITY.md LICENSE \
 	filelist \
@@ -360,6 +368,7 @@ EXTRA_DIST = INSTALL README.md SECURITY.md LICENSE \
 	quickassist/utilities/libusdm_drv/user_space \
 	quickassist/utilities/service/qat \
 	quickassist/utilities/service/99-qat-vfio.rules.in \
+	quickassist/utilities/apps/sla_mgr \
 	quickassist/lookaside/access_layer/src/sample_code
 
 DISTCHECK_CONFIGURE_FLAGS = \

@@ -22,7 +22,6 @@
 *******************************************************************************
 */
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "icp_adf_init.h"
 #include "lac_list.h"
 #include "lac_sal_types.h"

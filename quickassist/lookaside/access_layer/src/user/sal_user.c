@@ -30,7 +30,6 @@
 #include "icp_adf_user_proxy.h"
 #include "icp_adf_transport.h"
 #include "icp_adf_cfg.h"
-#include "icp_adf_debug.h"
 
 /* FW includes */
 #include "icp_qat_fw_la.h"

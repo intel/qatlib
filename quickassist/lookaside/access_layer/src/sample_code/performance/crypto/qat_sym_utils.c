@@ -253,6 +253,21 @@ CpaStatus qatSymSessionInit(symmetric_test_params_t *setup,
     {
         authModeSetupData->aadLenInBytes = KEY_SIZE_128_IN_BYTES;
     }
+    else if (CPA_CY_SYM_CIPHER_AES_GCM ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        authModeSetupData->aadLenInBytes = gcmAadLenInBytes_g;
+    }
+    else if (CPA_CY_SYM_CIPHER_AES_CCM ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        authModeSetupData->aadLenInBytes = ccmAadLenInBytes_g;
+    }
+    else if (CPA_CY_SYM_CIPHER_CHACHA ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        authModeSetupData->aadLenInBytes = chachaPolyAadLenInBytes_g;
+    }
     else
     {
         authModeSetupData->aadLenInBytes = 0;
@@ -551,9 +566,10 @@ CpaStatus qatSymOpDataSetup(symmetric_test_params_t *pSetup,
             memset(
                 pOpdata[idx].pAdditionalAuthData, 0xAA, KEY_SIZE_128_IN_BYTES);
         }
-        else if (((CPA_CY_SYM_CIPHER_AES_CCM == cipherAlgorithm) ||
-                  (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgorithm)) &&
-                 (CPA_CY_SYM_HASH_AES_GMAC != hashAlgorithm))
+        else if ((((CPA_CY_SYM_CIPHER_AES_CCM == cipherAlgorithm) ||
+                   (CPA_CY_SYM_CIPHER_AES_GCM == cipherAlgorithm)) &&
+                  (CPA_CY_SYM_HASH_AES_GMAC != hashAlgorithm)) ||
+                 (CPA_CY_SYM_CIPHER_CHACHA == cipherAlgorithm))
         {
             /* must allocate to the nearest block size required
              * (above 18 bytes) */

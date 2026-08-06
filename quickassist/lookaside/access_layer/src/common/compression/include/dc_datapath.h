@@ -414,8 +414,9 @@ CpaStatus dcCheckOpData(sal_compression_service_t *pService,
                         CpaDcOpData *pOpData,
                         CpaDcSessionDir sessDirection);
 
-CpaStatus dcCheckDictData(CpaDcDictionaryData *pDictionaryData,
-                          sal_compression_service_t *pService,
-                          dc_session_desc_t *pSessionDesc);
-
+void dcGetDictionaryParams(const CpaDcDictionaryData *pDictionaryData,
+                           const dc_capabilities_t *pDcCapabilities,
+                           const Cpa32U dictLenInBytes,
+                           Cpa32U *pDictPrefixLength,
+                           Cpa32U *pDictContentLength);
 #endif /* DC_DATAPATH_H_ */

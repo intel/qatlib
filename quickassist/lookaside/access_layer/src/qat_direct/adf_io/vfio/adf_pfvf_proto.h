@@ -20,6 +20,7 @@ struct fw_caps
     uint32_t deflate_caps;
     uint16_t lz4_caps;
     uint16_t lz4s_caps;
+    uint16_t zstd_caps;
     uint8_t is_fw_caps;
 };
 

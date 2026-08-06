@@ -1114,6 +1114,55 @@ typedef struct icp_qat_fw_cipher_cd_ctrl_hdr_s
 /**
  *****************************************************************************
  * @ingroup icp_qat_fw_la
+ *      Cipher content descriptor control block (header) for Gen6 device
+ * @description
+ *      Definition of the service-specific cipher control block header
+ *      structure. This header forms part of the content descriptor
+ *      block incorporating LWs 27-31, as defined by the common base
+ *      parameters structure.
+ *
+ *****************************************************************************/
+typedef struct icp_qat_fw_51_cipher_cd_ctrl_hdr_s
+{
+    /**< LW 27 */
+    uint8_t cipher_state_sz;
+    /**< State size in quad words of the cipher algorithm used in this session.
+     * Set to zero if the algorithm does not provide any state */
+
+    uint8_t cipher_key_sz;
+    /**< Key size in quad words of the cipher algorithm used in this session */
+
+    uint8_t cipher_cfg_offset;
+    /**< Quad word offset from the content descriptor parameters address i.e.
+     * (content_address + (cd_hdr_sz << 3)) to the parameters for the cipher
+     * processing */
+
+    uint8_t resrvd1;
+    /**< reserved */
+
+    /**< LW 28 */
+    uint8_t resrvd2;
+    /**< reserved */
+
+    uint8_t resrvd3;
+    /**< reserved */
+
+    uint8_t crc_cfg_offset;
+    /**< CRC configuration offset in quad words */
+
+    uint8_t resrvd4;
+    /**< Reserved bytes to bring the struct to the word boundary, used by
+     * authentication. MUST be set to 0 */
+
+    /**< LWs 29-31 */
+    uint32_t resrvd5[ICP_QAT_FW_NUM_LONGWORDS_3];
+    /**< Reserved bytes used by authentication. MUST be set to 0 */
+
+} icp_qat_fw_51_cipher_cd_ctrl_hdr_t;
+
+/**
+ *****************************************************************************
+ * @ingroup icp_qat_fw_la
  *      Authentication content descriptor control block (header)
  * @description
  *      Definition of the service-specific authentication control block
@@ -1672,6 +1721,9 @@ typedef struct icp_qat_fw_la_auth_req_params_s
         uint64_t aad_adr;
         /**< Address of the AAD info in DRAM. Used for the CCM and GCM
          * protocols */
+        uint64_t hmac_key_addr;
+        /**< Address of the HMAC key in DRAM */
+
     } u1;
 
     /**< LWs 24-25 */
@@ -1687,6 +1739,9 @@ typedef struct icp_qat_fw_la_auth_req_params_s
         uint8_t aad_sz;
         /**< Size in bytes of padded AAD data to prefix to the packet for CCM
          *  or GCM processing */
+        uint8_t hmac_key_sz;
+        /**< Size in bytes of HMAC key */
+
     } u2;
 
     uint8_t resrvd1;

@@ -27,7 +27,6 @@
  *
  * @note
  *     These functions implement the KPT Cryptographic API.
- *     This API is experimental and subject to change.
  *
  *****************************************************************************/
 
@@ -563,7 +562,7 @@ CpaStatus cpaCyKptQueryDeviceCredentials(
  * @param[out] pKptStatus          One of the status codes denoted in the
  *                                 enumerate type CpaCyKptKeyManagementStatus
  *                                 CPA_CY_KPT_SUCCESS:
- *                                 Key Loaded successfully
+ *                                 Key loaded successfully
  *                                 CPA_CY_KPT_LOADKEY_FAIL_QUOTA_EXCEEDED_PER_VFID:
  *                                 SWK count exceeds the configured maximum
  *                                 value per VFID

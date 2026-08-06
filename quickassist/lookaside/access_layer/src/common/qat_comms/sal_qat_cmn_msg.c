@@ -184,6 +184,27 @@ void SalQatMsg_ContentDescHdrWrite(
 }
 
 /********************************************************************
+ * @ingroup SalQatMsg_KptFlagHdrWrite
+ *
+ * @description
+ *      This function fills the flags related with KPT service in
+ *      field extended_serv_specif_flags of common PKE request header.
+ *
+ * @param[in]   pCmnReqHdr       Pointer to field extended_serv_specif_flags
+ *                               of common PKE request header.
+ *
+ * @return
+ *      none
+ *
+ *******************************************************************/
+void SalQatMsg_KptFlagHdrWrite(
+    icp_qat_fw_ext_serv_specif_flags *pExtSrvSpReqHdr)
+{
+    ICP_QAT_FW_COMN_KPT_SERVICES_SET(*pExtSrvSpReqHdr,
+                                     QAT_COMN_KPT_SERVICE_FLAG);
+}
+
+/********************************************************************
  * @ingroup SalQatMsg_CtrlBlkSetToReserved
  *
  * @description

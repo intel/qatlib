@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #define QAT_LIBRARY_VERSION_MAJOR 26
-#define QAT_LIBRARY_VERSION_MINOR 2
+#define QAT_LIBRARY_VERSION_MINOR 8
 #define QAT_LIBRARY_VERSION_PATCH 0
 
 #ifdef __cplusplus

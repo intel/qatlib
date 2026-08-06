@@ -31,6 +31,7 @@
 #include "qat_mgr.h"
 #include "qat_log.h"
 #include "qae_mem.h"
+#include "adf_platform_common.h"
 
 #define STATIC static
 
@@ -110,7 +111,7 @@ STATIC int adf_populate_accel_dev(int dev_id,
     struct qatmgr_msg_rsp rsp = { 0 };
     int device_name_len;
 
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(accel_dev, -EINVAL);
 
     memset(accel_dev, '\0', sizeof(*accel_dev));
 
@@ -133,6 +134,7 @@ STATIC int adf_populate_accel_dev(int dev_id,
         accel_dev->fw_caps.deflate_caps = rsp.device_info.fw_caps.deflate_caps;
         accel_dev->fw_caps.lz4_caps = rsp.device_info.fw_caps.lz4_caps;
         accel_dev->fw_caps.lz4s_caps = rsp.device_info.fw_caps.lz4s_caps;
+        accel_dev->fw_caps.zstd_caps = rsp.device_info.fw_caps.zstd_caps;
         accel_dev->fw_caps.is_fw_caps = 1;
     }
 
@@ -186,7 +188,7 @@ int adf_io_create_accel(icp_accel_dev_t **accel_dev, int dev_id)
     struct qatmgr_transport *t_mgr = NULL;
     int status = -1;
 
-    ICP_CHECK_FOR_NULL_PARAM(accel_dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(accel_dev, -EINVAL);
 
     t_mgr = get_transport_mgr();
 
