@@ -27,7 +27,6 @@
 #include "cpa_cy_sym_dp.h"
 #include "cpa_cy_im.h"
 
-#include "icp_adf_debug.h"
 #include "lac_sal_types.h"
 #include "icp_adf_transport.h"
 #include "lac_mem_pools.h"
@@ -60,6 +59,8 @@ typedef struct sal_crypto_service_s
     /**< Memory pool ID used for asymmetric operations */
     lac_memory_pool_id_t lac_pke_align_pool;
     /**< Memory pool ID used for asymmetric operations */
+    lac_memory_pool_id_t lac_pke_kpt_pool;
+    /**< Memory pool ID used for asymmetric KPT operations */
 
     OsalAtomic *pLacSymStatsArr;
     /**< pointer to an array of atomic stats for symmetric */
@@ -145,9 +146,6 @@ typedef struct sal_crypto_service_s
 
     lac_sym_key_tls_hkdf_sub_labels_t *pTlsHKDFSubLabel;
     /**< pointer to memory holding the 4 HKDFLabels sublabels */
-
-    debug_file_info_t *debug_file;
-    /**< Statistics handler */
 
     CpaCyCapabilitiesInfo capInfo;
     /* Cryptographic Capabilities Info */

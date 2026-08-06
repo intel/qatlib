@@ -556,6 +556,64 @@ void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
     }
 }
 
+void dcExtChainOpDataMemFree(CpaDcChainSubOpData2 *pOpdata,
+                             Cpa32U numLists,
+                             Cpa32U numSessions)
+{
+    Cpa32U k = 0;
+    Cpa32U j = numSessions;
+    CpaDcOpData2 *pDcOp = NULL;
+    CpaCySymOpData2 *pCySymOp = NULL;
+
+    for (k = 0; k < numLists; k++)
+    {
+        if (NULL != pOpdata)
+        {
+            if (pOpdata[k * j].opType == CPA_DC_CHAIN_SYMMETRIC_CRYPTO)
+            {
+                pCySymOp = pOpdata[k * j].pCySymOp2;
+                pDcOp = pOpdata[k * j + 1].pDcOp2;
+            }
+            else
+            {
+                pCySymOp = pOpdata[k * j + 1].pCySymOp2;
+                pDcOp = pOpdata[k * j].pDcOp2;
+            }
+            if (NULL != pCySymOp)
+            {
+                if (NULL != pCySymOp->symOpData.pDigestResult)
+                {
+                    qaeMemFreeNUMA(
+                        (void **)&(pCySymOp->symOpData.pDigestResult));
+                }
+                if (NULL != pCySymOp->symOpData.pIv)
+                {
+                    qaeMemFreeNUMA((void **)&(pCySymOp->symOpData.pIv));
+                }
+                if (NULL != pCySymOp->symOpData.pAdditionalAuthData)
+                {
+                    qaeMemFreeNUMA(
+                        (void **)&(pCySymOp->symOpData.pAdditionalAuthData));
+                }
+                if (NULL != pCySymOp->deriveCtxData.pContext)
+                {
+                    qaeMemFreeNUMA(
+                        (void **)&(pCySymOp->deriveCtxData.pContext));
+                }
+                qaeMemFree((void **)&pCySymOp);
+            }
+            if (NULL != pDcOp)
+            {
+                if (NULL != pDcOp->dcOpData.pCrcData)
+                {
+                    qaeMemFreeNUMA((void **)&(pDcOp->dcOpData.pCrcData));
+                }
+                qaeMemFree((void **)&pDcOp);
+            }
+        }
+    }
+}
+
 CpaStatus dcChainPerformOpDataSetup(compression_test_params_t *setup,
                                     CpaBufferList *srcBufferListArray,
                                     CpaDcChainOpData *chainOpDataArray)
@@ -1143,6 +1201,7 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
     Cpa32U node = 0;
     CpaDcInstanceCapabilities capabilities = {0};
     CpaDcStats dcStats = {0};
+    CpaBoolean capabilityStatus = CPA_FALSE;
 
     /* Get the setup pointer */
     tmpSetup = (compression_test_params_t *)(testSetup->setupPtr);
@@ -1216,40 +1275,14 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
         /*Initialize the statsPrintFunc to dcChainPrintStats */
         testSetup->statsPrintFunc = (stats_print_func_t)dcChainPrintStats;
 
-        /* Get the number of instances */
-        status = cpaDcGetNumInstances(&numInstances);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR(" Unable to get number of DC instances\n");
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-    }
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        if (0 == numInstances)
-        {
-            PRINT_ERR(" DC Instances are not present\n");
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-    }
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        instances = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInstances);
-        if (NULL == instances)
-        {
-            PRINT_ERR("Unable to allocate Memory for Instances\n");
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-    }
-    if (CPA_STATUS_SUCCESS == status)
-    {
         /* Get the instance handles so that we can start
          * our thread on the selected instance
          */
-        status = cpaDcGetInstances(numInstances, instances);
+        status = dcGetInstances(
+            CPA_ACC_SVC_TYPE_DATA_COMPRESSION, &instances, &numInstances);
         if (CPA_STATUS_SUCCESS != status)
         {
-            PRINT_ERR("Unable to get DC instances\n");
+            PRINT_ERR(" dcGetInstances failed\n");
             QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
         }
     }
@@ -1265,6 +1298,66 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
             dcSetup.dcChainReadInsHandle =
                 instances[(testSetup->logicalQaReadInstance) % numInstances];
         }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+        /* Determine the response mode for this instance */
+        {
+            Cpa16U instanceIndex =
+                (testSetup->logicalQaInstance) % numInstances;
+            CpaStatus responseStatus;
+
+            /* First get the actual default response mode from the instance */
+            responseStatus =
+                cpaInstanceGetResponseMode(dcSetup.dcInstanceHandle,
+                                           CPA_ACC_SVC_TYPE_DATA_COMPRESSION,
+                                           &dcSetup.currentResponseMode);
+            if (CPA_STATUS_SUCCESS != responseStatus)
+            {
+                /* Fallback to assumed default if query fails */
+                dcSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+                PRINT("Failed to query instance response mode, using fallback: "
+                      "%d\n",
+                      responseStatus);
+            }
+
+            /* Check if this instance has been explicitly configured with
+             * override */
+            if (isDcInstanceResponseModeConfigured())
+            {
+                Cpa64U instanceMask = getDcInstanceResponseModeMask();
+
+                /* Check if this instance is in the configured mask */
+                if ((instanceIndex < 64) &&
+                    (instanceMask & (1ULL << instanceIndex)))
+                {
+                    /* Override with explicitly configured mode */
+                    dcSetup.currentResponseMode = getDcInstanceResponseMode();
+                    PRINT("Using explicit response mode %d for instance %d\n",
+                          dcSetup.currentResponseMode,
+                          instanceIndex);
+                }
+                else
+                {
+                    PRINT("Using library default response mode %d for instance "
+                          "%d\n",
+                          dcSetup.currentResponseMode,
+                          instanceIndex);
+                }
+            }
+
+            /* Print the final response mode for this thread */
+            PRINT(
+                "Thread %u using DC instance %u with response mode: %d (%s)\n",
+                testSetup->threadID,
+                instanceIndex,
+                dcSetup.currentResponseMode,
+                (dcSetup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE)
+                    ? "polling"
+                : (dcSetup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+                    ? "event"
+                    : "unknown");
+        }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
         /* Find node that thread is running on */
         status = sampleCodeDcGetNode(dcSetup.dcInstanceHandle, &node);
         if (CPA_STATUS_SUCCESS != status)
@@ -1366,6 +1459,32 @@ void dcChainPerformance(single_thread_test_data_t *testSetup)
     }
 
     dcSetup.induceOverflow = CPA_FALSE;
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        if (CPA_DC_ASB_DISABLED == dcSetup.setupData.autoSelectBestHuffmanTree)
+        {
+            status = getDcCapabilityStatusForAlg(
+                dcSetup.dcInstanceHandle,
+                CPA_DC_CAP_BOOL_ASB_ENABLE_PREFERRED,
+                dcSetup.setupData.compType,
+                CPA_DC_DIR_COMPRESS,
+                &capabilityStatus);
+
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
+            }
+
+            if (CPA_TRUE == capabilityStatus)
+            {
+                /* Enable ASB if ASB preferred capability is set for the
+                 * algorithm */
+                dcSetup.setupData.autoSelectBestHuffmanTree =
+                    CPA_DC_ASB_ENABLED;
+            }
+        }
+    }
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -1498,6 +1617,16 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
         PRINT_ERR("Error in Starting Dc Services\n");
         return CPA_STATUS_FAIL;
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Apply any configured response mode overrides before creating polling
+     * threads */
+    if (CPA_STATUS_SUCCESS != applyDcInstanceResponseModeConfiguration())
+    {
+        PRINT_ERR("Error applying DC instance response mode configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     if (!poll_inline_g)
     {
         /* start polling threads if polling is enabled in the configuration
@@ -1586,6 +1715,12 @@ CpaStatus setupDcChainTest(CpaDcChainOperations chainOperation,
         authKeyLengthInBytes;
     dcSetup->symSetupData.digestIsAppended = CPA_FALSE;
     dcSetup->symSetupData.verifyDigest = CPA_FALSE;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Initialize response mode to library default (will be queried per-thread)
+     */
+    dcSetup->currentResponseMode = CPA_INST_RX_NOTIFY_NONE; /* Fallback value */
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     return status;
 }

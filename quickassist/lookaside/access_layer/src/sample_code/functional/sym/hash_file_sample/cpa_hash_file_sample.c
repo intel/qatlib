@@ -20,6 +20,8 @@
 #include "cpa_cy_sym.h"
 #include "cpa_sample_utils.h"
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 extern int gDebugParam;
@@ -32,70 +34,6 @@ extern int gDebugParam;
 #define SAMPLE_BUFF_SIZE 4096
 
 extern char *gFileName;
-
-typedef struct file_data_s
-{
-    Cpa8U **pSrcData;
-    Cpa32U *bufferSize;
-} file_data_t;
-
-/*
- * This function copies a file to memory
- */
-CpaStatus sample_getFile(const char *filename, file_data_t *file_data)
-{
-    FILE *srcFile = NULL;
-    Cpa8U *pBuff = NULL;
-    struct stat st = { 0 };
-    long file_size = 0;
-
-    /* Get filesize */
-    if (0 != stat(filename, &st))
-    {
-        PRINT_ERR("Could not get the file %s size\n", filename);
-        return CPA_STATUS_FAIL;
-    }
-    file_size = st.st_size;
-
-    /* Allocate memory for the file */
-    pBuff = (Cpa8U *)qaeMemAlloc(file_size);
-    if (NULL == pBuff)
-    {
-        PRINT_ERR("Could not allocate memory for the file copy\n");
-        return CPA_STATUS_FAIL;
-    }
-
-    memset(pBuff, 0, file_size);
-    /* Open the file */
-    srcFile = fopen((const char *)filename, "r");
-    if (NULL == (srcFile))
-    {
-        PRINT_ERR("Could not open source file %s\n", filename);
-        qaeMemFree((void **)&pBuff);
-        return CPA_STATUS_FAIL;
-    }
-
-    /* Read the file */
-    *(file_data->bufferSize) = fread(pBuff, 1, file_size, srcFile);
-    if (*(file_data->bufferSize) != file_size)
-    {
-        PRINT_ERR("Filesize doesn't match\n");
-        qaeMemFree((void **)&pBuff);
-        fclose(srcFile);
-        return CPA_STATUS_FAIL;
-    }
-
-    fclose(srcFile);
-    *(file_data->pSrcData) = pBuff;
-    return CPA_STATUS_SUCCESS;
-}
-
-/* Free the memory after getting the file and copying the data */
-CpaStatus sample_freeFile(file_data_t *file_data)
-{
-    qaeMemFree((void **)(file_data->pSrcData));
-    return CPA_STATUS_SUCCESS;
-}
 
 /* Forward declaration */
 CpaStatus hashFileSample(void);
@@ -156,6 +94,8 @@ static CpaStatus hashPerformOp(CpaInstanceHandle cyInstHandle,
     CpaCySymCapabilitiesInfo symCapInfo = { 0 };
     file_data_t inputData = { 0 };
     CpaFlatBuffer inputBuffer = { 0 };
+    struct stat st = { 0 };
+    int fd = -1;
 
     /* The following variables are allocated on the stack because we block
      * until the callback comes back. If a non-blocking approach was to be
@@ -192,16 +132,42 @@ static CpaStatus hashPerformOp(CpaInstanceHandle cyInstHandle,
         PRINT_DBG(
             "Partial packets are not supported, using full packets instead.\n");
 
+        fd = fileno(srcFile);
+        if (fd < 0 || fstat(fd, &st) != 0)
+        {
+            PRINT_ERR("Could not get file size\n");
+            fclose(srcFile);
+            return CPA_STATUS_FAIL;
+        }
+        /* Validate file size is non-negative */
+        if (st.st_size <= 0)
+        {
+            PRINT_ERR("Invalid file size\n");
+            fclose(srcFile);
+            return CPA_STATUS_FAIL;
+        }
+        /* Allocate memory for the entire file */
+        inputBuffer.pData = (Cpa8U *)qaeMemAlloc(st.st_size);
+        if (NULL == inputBuffer.pData)
+        {
+            PRINT_ERR("Could not allocate memory for the file copy\n");
+            fclose(srcFile);
+            return CPA_STATUS_FAIL;
+        }
+
+        /* Read the entire file using the already-opened handle */
+        inputBuffer.dataLenInBytes =
+            fread(inputBuffer.pData, 1, st.st_size, srcFile);
+        if (inputBuffer.dataLenInBytes != st.st_size)
+        {
+            PRINT_ERR("Failed to read complete file\n");
+            qaeMemFree((void **)&inputBuffer.pData);
+            fclose(srcFile);
+            return CPA_STATUS_FAIL;
+        }
+
         inputData.bufferSize = &inputBuffer.dataLenInBytes;
         inputData.pSrcData = &inputBuffer.pData;
-        status = sample_getFile(gFileName, &inputData);
-
-        if (status != CPA_STATUS_SUCCESS)
-        {
-            PRINT_ERR("sample_getFile failed\n");
-            fclose(srcFile);
-            return status;
-        }
         bufferSize = inputBuffer.dataLenInBytes;
     }
 

@@ -39,6 +39,7 @@
 #include "qae_mem_utils_common.h"
 
 load_addr_fptr_t load_addr_fptr = load_addr;
+store_mmap_range_fptr_t store_mmap_range_fptr = store_mmap_range;
 
 const uint64_t __qae_bitmask[65] = {
     0x0000000000000000ULL, 0x0000000000000001ULL, 0x0000000000000003ULL,
@@ -72,7 +73,7 @@ const uint64_t __qae_bitmask[65] = {
  * returns the 64-bit window from the BITMAP_LENx64 bitmap.
  * Each bit represents a 1k block in the 2 Meg buffer
  */
-STATIC uint64_t bitmap_read(uint64_t *map, size_t window_pos)
+STATIC uint64_t bitmap_read(uint64_t *map, size_t window_pos, size_t map_len)
 {
     uint64_t quad_word_window = 0ULL;
     uint64_t next_quad_word = 0ULL;
@@ -81,7 +82,7 @@ STATIC uint64_t bitmap_read(uint64_t *map, size_t window_pos)
 
     quad_word_pos = window_pos / QWORD_WIDTH;
 
-    if (quad_word_pos >= BITMAP_LEN)
+    if (quad_word_pos >= map_len)
     {
         return QWORD_ALL_ONE;
     }
@@ -141,7 +142,7 @@ void *__qae_mem_alloc(block_ctrl_t *block_ctrl, size_t size, size_t align)
 
     bitmap = block_ctrl->bitmap;
 
-    blocks_required = div_round_up(size, UNIT_SIZE);
+    blocks_required = div_round_up(size, block_ctrl->unit_size);
 
     window_pos = 0;
     first_block = window_pos;
@@ -149,7 +150,8 @@ void *__qae_mem_alloc(block_ctrl_t *block_ctrl, size_t size, size_t align)
     do
     {
         /* read 64-bit bitmap window from window_pos (0-BITMAP_LEN*64) */
-        bitmap_window = bitmap_read(bitmap, window_pos);
+        bitmap_window =
+            bitmap_read(bitmap, window_pos, block_ctrl->max_num_bitmaps);
         /* find number of contiguous 0s from right */
         width = mem_ctzll(bitmap_window);
 
@@ -161,21 +163,22 @@ void *__qae_mem_alloc(block_ctrl_t *block_ctrl, size_t size, size_t align)
         {
             /* calculate return address from virtual address and
                first block number */
-            retval = (uint8_t *)(block_ctrl) + first_block * UNIT_SIZE;
-            if (first_block + blocks_required > BITMAP_LEN * QWORD_WIDTH)
+            retval =
+                (uint8_t *)(block_ctrl) + first_block * block_ctrl->unit_size;
+            if (first_block + blocks_required > block_ctrl->max_num_blocks)
             {
                 CMD_ERROR("%s:%d Allocation error - Required blocks exceeds "
                           "bitmap window. Block index = %zu, Blocks required"
-                          " = %zu and Bitmap window = %ld \n",
+                          " = %zu and Bitmap window = %zu \n",
                           __func__,
                           __LINE__,
                           first_block,
                           blocks_required,
-                          (BITMAP_LEN * QWORD_WIDTH));
+                          block_ctrl->max_num_blocks);
                 return NULL;
             }
             /* save length in the reserved area right after the bitmap  */
-            block_ctrl->sizes[first_block] = (uint16_t)blocks_required;
+            block_ctrl->sizes[first_block] = (uint32_t)blocks_required;
             /* set bit maps from bit position (0<->BITMAP_LEN*64 -1) =
              * first_block(0<->BITMAP_LEN*64-1)
              * with blocks_required length in bitmap
@@ -214,7 +217,7 @@ void *__qae_mem_alloc(block_ctrl_t *block_ctrl, size_t size, size_t align)
                 window_pos += width;
             }
         }
-    } while (window_pos < BITMAP_LEN * QWORD_WIDTH);
+    } while (window_pos < block_ctrl->max_num_blocks);
     return retval;
 }
 
@@ -246,13 +249,14 @@ bool __qae_mem_free(block_ctrl_t *block_ctrl, void *block, bool secure_free)
         return false;
     }
 
-    if ((uintptr_t)block % UNIT_SIZE)
+    if ((uintptr_t)block % block_ctrl->unit_size)
     {
-        CMD_ERROR("%s:%d Block address(%p) must be multiple of Unit size(%d)\n",
-                  __func__,
-                  __LINE__,
-                  block,
-                  UNIT_SIZE);
+        CMD_ERROR(
+            "%s:%d Block address(%p) must be multiple of Unit size(%zu)\n",
+            __func__,
+            __LINE__,
+            block,
+            block_ctrl->unit_size);
         return false;
     }
 
@@ -262,8 +266,8 @@ bool __qae_mem_free(block_ctrl_t *block_ctrl, void *block, bool secure_free)
      * buffer and block retrieve first_block and length of block from integer
      * at the start of block
      */
-    first_block =
-        ((uintptr_t)start_of_block - (uintptr_t)block_ctrl) / UNIT_SIZE;
+    first_block = ((uintptr_t)start_of_block - (uintptr_t)block_ctrl) /
+                  block_ctrl->unit_size;
     length = block_ctrl->sizes[first_block];
 
     if (!length)
@@ -278,7 +282,7 @@ bool __qae_mem_free(block_ctrl_t *block_ctrl, void *block, bool secure_free)
         return false;
     }
 
-    if (length + first_block > BITMAP_LEN * QWORD_WIDTH)
+    if (length + first_block > block_ctrl->max_num_blocks)
     {
         CMD_ERROR("%s:%d Invalid block address provided - "
                   "block length exceeds bitmap window. block index = %zu "

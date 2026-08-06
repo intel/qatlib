@@ -25,7 +25,6 @@
 #include "cpa.h"
 #include "lac_list.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "lac_sal_types.h"
 #include "sal_service_state.h"
 

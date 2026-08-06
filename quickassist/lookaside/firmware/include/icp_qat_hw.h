@@ -542,25 +542,15 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_SHA3_STATEFUL_STATE1_SZ 200
 /** <@ingroup icp_cpm_hw_defs
  * State1 block size for stateful SHA3 processing*/
-#define ICP_QAT_HW_ZUC_256_MAC_32_STATE1_SZ 16
+#define ICP_QAT_HW_ZUC_256_MAC_32_STATE1_SZ 8
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for ZUC-256 with 32-bit MAC */
-#define ICP_QAT_HW_ZUC_256_MAC_64_STATE1_SZ 16
+#define ICP_QAT_HW_ZUC_256_MAC_64_STATE1_SZ 8
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for ZUC-256 with 64-bit MAC */
 #define ICP_QAT_HW_ZUC_256_MAC_128_STATE1_SZ 16
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for ZUC-256 with 128-bit MAC */
-#define ICP_QAT_HW_ZUC_256_MAC_32_UPDATE_STATE1_SZ 8
-/**< @ingroup icp_cpm_hw_defs
- * State1 block size for updated ZUC-256 with 32-bit MAC (Gen6).
- * This macro is added for Gen6 and marked as _UPDATE_ since
- * its value differs from the one maintained for older devices */
-#define ICP_QAT_HW_ZUC_256_MAC_64_UPDATE_STATE1_SZ 8
-/**< @ingroup icp_cpm_hw_defs
- * State1 block size for updated ZUC-256 with 64-bit MAC (Gen6).
- * This macro is added for Gen6 and marked as _UPDATE_ since
- * its value differs from the one maintained for older devices */
 #define ICP_QAT_HW_AES_CMAC_STATE1_SZ 16
 /**< @ingroup icp_cpm_hw_defs
  * State1 block size for AES-128/192/256 CMAC */
@@ -646,7 +636,7 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_SM3_STATE2_SZ 32
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for SM3 */
-#define ICP_QAT_HW_ZUC_256_STATE2_SZ 56
+#define ICP_QAT_HW_ZUC_256_STATE2_SZ 48
 /**< @ingroup icp_qat_hw_defs
  * State2 block size for ZUC-256 with 32/64/128 bit MAC */
 #define ICP_QAT_HW_AES_128_CMAC_STATE2_SZ 16
@@ -661,9 +651,6 @@ typedef struct icp_qat_hw_auth_setup_s
 #define ICP_QAT_HW_NIAX_STATE2_SZ 48
 /**< @ingroup icp_cpm_hw_defs
  * State2 block size for NIAx (SNOW5G, AES-256, ZUC-256) */
-#define ICP_QAT_HW_ZUC_256_UPDATE_STATE2_SZ 48
-/**< @ingroup icp_cpm_hw_defs
- * State2 block size for updated ZUC-256 MAC-32/64/128 (Gen6) */
 
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -1153,9 +1140,10 @@ typedef enum {
 #define ICP_QAT_HW_ZUC_256_KEY_SZ 32
 /**< @ingroup icp_cpm_hw_defs
  * Define the key size for ZUC-256 */
-#define ICP_QAT_HW_ZUC_256_IV_SZ 24
+#define ICP_QAT_HW_ZUC_256_IV_SZ 16
 /**< @ingroup icp_cpm_hw_defs
- * Define the iv size for ZUC-256 */
+ * Define the iv size for ZUC-256 (CPM5.1w)
+ */
 /* SNOW5G */
 #define ICP_QAT_HW_SNOW_5G_KEY_SZ 32
 /**< @ingroup icp_cpm_hw_defs
@@ -1164,9 +1152,6 @@ typedef enum {
 #define ICP_QAT_HW_SNOW_5G_IV_SZ 16
 /**< @ingroup icp_cpm_hw_defs
  * Define the iv size for SNOW_5G */
-#define ICP_QAT_HW_ZUC_256_UPDATE_IV_SZ 16
-/**< @ingroup icp_cpm_hw_defs
- * Define the iv size for updated ZUC-256 (Gen6) */
 
 /*
  * SHRAM constants definitions

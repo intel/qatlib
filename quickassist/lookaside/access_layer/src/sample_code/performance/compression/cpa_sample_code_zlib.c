@@ -24,6 +24,9 @@
 #include "cpa_sample_code_dc_utils.h"
 #ifdef USER_SPACE
 #include "zlib.h"
+#if !defined(USE_ZLIB)
+#define USE_ZLIB
+#endif // USE_ZLIB
 #else
 #include <linux/zlib.h>
 #include <linux/vmalloc.h>

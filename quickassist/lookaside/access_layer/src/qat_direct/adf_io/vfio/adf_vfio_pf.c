@@ -72,7 +72,7 @@ Cpa32S adf_vfio_init_pfs_info(icp_accel_pf_info_t *pf_info, size_t pf_info_len)
 {
     unsigned domain, bus, dev, func;
     struct dirent **namelist = NULL;
-    int32_t i, j, number_of_pfs = 0, total_no_pfs = 0;
+    int32_t i, j, num_pfs_per_type = 0, total_num_pfs = 0;
     int status = CPA_STATUS_FAIL;
     char dev_path[QATMGR_MAX_STRLEN] = { '\0' };
     char *device_name = NULL;
@@ -86,45 +86,49 @@ Cpa32S adf_vfio_init_pfs_info(icp_accel_pf_info_t *pf_info, size_t pf_info_len)
         {
             snprintf(
                 dev_path, sizeof(dev_path), "%s/%s", DEVVFIO_DIR, device_name);
-            number_of_pfs =
+            num_pfs_per_type =
                 scandir(dev_path, &namelist, &filter_pf_in_use, alphasort);
             /* This shows scandir dir failed. */
-            if (number_of_pfs < 0)
+            if (num_pfs_per_type < 0)
             {
                 ADF_ERROR("Failed to scan directory %s\n", DEVVFIO_DIR);
                 return CPA_STATUS_FAIL;
             }
-            total_no_pfs += number_of_pfs;
-            if (pf_info_len < total_no_pfs)
+            /* Check before adding to prevent overflow */
+            if (num_pfs_per_type > (int32_t)pf_info_len - total_num_pfs)
             {
-                ADF_ERROR("Given pf info array length is too small for %d "
-                          "number of PFs\n",
-                          number_of_pfs);
-                for (i = 0; i < number_of_pfs; i++)
+                ADF_ERROR("Remaining pf info array length %d is too small"
+                          " for %d PFs\n",
+                          (int32_t)pf_info_len - total_num_pfs,
+                          num_pfs_per_type);
+                for (i = 0; i < num_pfs_per_type; i++)
                 {
                     free(namelist[i]);
                 }
                 free(namelist);
                 return CPA_STATUS_INVALID_PARAM;
             }
-            for (i = 0; i < number_of_pfs; i++)
+            for (i = 0; i < num_pfs_per_type; i++)
             {
+                int pf_info_idx = total_num_pfs + i;
                 sscanf(namelist[i]->d_name,
                        "%x:%x:%x.%x",
                        &domain,
                        &bus,
                        &dev,
                        &func);
-                pf_info[i].pkg_id = i;
-                pf_info[i].domain = domain;
-                pf_info[i].bdf =
+                pf_info[pf_info_idx].pkg_id = pf_info_idx;
+                pf_info[pf_info_idx].domain = domain;
+                pf_info[pf_info_idx].bdf =
                     ((0xFF & bus) << 8) + ((0x1F & dev) << 3) + (0x07 & func);
-                strncpy(
-                    pf_info[i].device_gen, device_name, ADF_DEVICE_TYPE_LENGTH);
+                strncpy(pf_info[pf_info_idx].device_gen,
+                        device_name,
+                        ADF_DEVICE_TYPE_LENGTH);
                 free(namelist[i]);
             }
+            total_num_pfs += num_pfs_per_type;
             free(namelist);
         }
     }
-    return total_no_pfs;
+    return total_num_pfs;
 }

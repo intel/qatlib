@@ -78,7 +78,12 @@ static CpaStatus qatDcGetDestBufferAdditionalSize(
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(additionalSize, status);
 
     *additionalSize = 0;
-
+    if (setup->setupData.sessDirection == CPA_DC_DIR_DECOMPRESS &&
+        setup->setupData.compType != CPA_DC_LZ4 && setup->useDecompService)
+    {
+        setup->dcDestBufferSize = setup->bufferSize;
+        return CPA_STATUS_SUCCESS;
+    }
     status = qatGetCompressBoundDestinationBufferSize(
         setup, setup->bufferSize, &compDestBufferSize);
 
@@ -138,7 +143,6 @@ CpaStatus qatFreeCompressionLists(compression_test_params_t *setup,
     return retStatus;
 }
 
-#ifdef SC_CHAINING_ENABLED
 /*free the array of chaining source and destination CpaBufferLists
  * free the array of chaining results*/
 CpaStatus qatFreeDcChainLists(void **chainResultArray, void **chainOpDataArray)
@@ -164,7 +168,9 @@ CpaStatus qatFreeDcChainLists(void **chainResultArray, void **chainOpDataArray)
     }
     return retStatus;
 }
-#endif
+
+/*allocate the array of source , destination, CpaBufferList and dectionary
+ * allocate the array of results*/
 
 /*allocate the array of source and destination CpaBufferLists
  * allocate the array of results*/
@@ -232,7 +238,6 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
     return status;
 }
 
-#ifdef SC_CHAINING_ENABLED
 /*allocate the array of source and destination dc chain Lists
  * allocate the array of results*/
 CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
@@ -281,7 +286,6 @@ CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
     }
     return status;
 }
-#endif
 
 /*free the CpaFlatBuffers and privateMetaData in the CpaBufferLists array
  * for both source and destination lists*/
@@ -328,6 +332,56 @@ CpaStatus qatFreeCompressionFlatBuffer(compression_test_params_t *setup,
         status = CPA_STATUS_FAIL;
     }
 
+    return status;
+}
+/*allocate the CpaFlatBuffers and privateMetaData in the CpaBufferLists array
+ * for source, destination, compare and dictionary lists. Used by the
+ * dictionary-based performance test path.
+ *
+ * Notes:
+ *   - The src buffer-list meta size is queried with
+ *     cpaDcGetMetaSizeForSrcBuffWithDict() because the src list will be
+ *     submitted along with a dictionary list.
+ *   - The dictionary buffer-list itself uses the standard
+ *     cpaDcBufferListGetMetaSize() and is allocated with
+ *     BYTE_ALIGNMENT_16 since the dictionary buffer addresses must be
+ *     16-byte aligned (see cpaDcCompressDataWithDict() docs).
+ *   - additionalSize is 0 for the dictionary buffer (no overflow padding).
+ */
+
+static CpaStatus qatAllocateCompressionFlatBuffer(
+    compression_test_params_t *setup,
+    CpaBufferList *bufferList,
+    Cpa32U numBuffersInList,    /*affects the metaSize of CpaBufferList*/
+    Cpa32U sizeOfBuffersInList) /*size of CpaFlatBuffers to  allocate*/
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U metaSize = 0;
+    /*shared common buffer allocation with crypto means we need to declare this
+    but its not used in compression*/
+    Cpa32U bufferSize = sizeOfBuffersInList;
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        // getDcMetaSize required for the list
+        status = cpaDcBufferListGetMetaSize(
+            setup->dcInstanceHandle, numBuffersInList, &metaSize);
+    }
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        status = qatAllocateFlatBuffersInList(bufferList,
+                                              setup->node,
+                                              metaSize,
+                                              numBuffersInList,
+                                              bufferSize,
+                                              BYTE_ALIGNMENT_64);
+    }
+    // not able to allocate all memory, so free any that was allocated
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        // an error has occurred allocating memory so we need to free
+        qatFreeFlatBuffersInList(bufferList);
+    }
     return status;
 }
 /*allocate the CpaFlatBuffers and privateMetaData in the CpaBufferLists array
@@ -434,44 +488,7 @@ CpaStatus qatAllocateCompressionFlatBuffers(
     return status;
 }
 
-static CpaStatus qatAllocateCompressionFlatBuffer(
-    compression_test_params_t *setup,
-    CpaBufferList *bufferList,
-    Cpa32U numBuffersInList,    /*affects the metaSize of CpaBufferList*/
-    Cpa32U sizeOfBuffersInList) /*size of CpaFlatBuffers to  allocate*/
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    Cpa32U metaSize = 0;
-    /*shared common buffer allocation with crypto means we need to declare this
-    but its not used in compression*/
-    Cpa32U bufferSize = sizeOfBuffersInList;
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        // getDcMetaSize required for the list
-        status = cpaDcBufferListGetMetaSize(
-            setup->dcInstanceHandle, numBuffersInList, &metaSize);
-    }
-
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        status = qatAllocateFlatBuffersInList(bufferList,
-                                              setup->node,
-                                              metaSize,
-                                              numBuffersInList,
-                                              bufferSize,
-                                              BYTE_ALIGNMENT_64);
-    }
-    // not able to allocate all memory, so free any that was allocated
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        // an error has occurred allocating memory so we need to free
-        qatFreeFlatBuffersInList(bufferList);
-    }
-    return status;
-}
-
 #ifdef USER_SPACE
-#ifdef SC_CHAINING_ENABLED
 /*allocate a compression session and initialize it for a Chaining thread*/
 CpaStatus qatDcChainSessionInit(compression_test_params_t *setup,
                                 CpaDcSessionHandle *pSessionHandle,
@@ -589,7 +606,6 @@ CpaStatus qatDcChainSessionTeardown(
     return retStatus;
 }
 #endif
-#endif
 
 /*allocate a compression session and initialize it for a compression thread*/
 CpaStatus qatCompressionSessionInit(
@@ -624,7 +640,7 @@ CpaStatus qatCompressionSessionInit(
 
         case CPA_DC_DIR_DECOMPRESS:
             decompressionSessionInitialize = 1;
-            if (!reliability_g)
+            if (!reliability_g && numDecompInstances_g == 0)
                 compressionSessionInitialize = 1;
             break;
 
@@ -686,6 +702,11 @@ CpaStatus qatCompressionSessionInit(
         if (CPA_STATUS_SUCCESS == status)
         {
             tempSetupData.sessDirection = CPA_DC_DIR_DECOMPRESS;
+            if (CPA_DC_LZ4 == tempSetupData.compType &&
+                setup->bufferSize == BUFFER_SIZE_65536)
+            {
+                tempSetupData.lz4BlockMaxSize = CPA_DC_LZ4_MAX_BLOCK_SIZE_256K;
+            }
             status = cpaDcInitSession(setup->dcInstanceHandle,
                                       *pDecompressSessionHandle,
                                       &(tempSetupData),
@@ -719,6 +740,7 @@ CpaStatus qatCompressionSessionInit(
         if (CPA_STATUS_SUCCESS == status)
         {
             tempSetupData.sessDirection = CPA_DC_DIR_COMPRESS;
+            tempSetupData.lz4BlockMaxSize = setup->setupData.lz4BlockMaxSize;
             status = cpaDcInitSession(setup->dcInstanceHandle,
                                       *pSessionHandle,
                                       &(tempSetupData),
@@ -1070,8 +1092,9 @@ CpaStatus qatCheckAndHandleUnconsumedData(compression_test_params_t *setup,
     Cpa64S offset = 0;
     CpaStatus status = CPA_STATUS_FAIL;
 
-    remainder = arrayOfDestBufferLists[listNum].pBuffers->dataLenInBytes -
-                arrayOfResults[listNum].consumed;
+    remainder =
+        (Cpa64S)arrayOfDestBufferLists[listNum].pBuffers->dataLenInBytes -
+        (Cpa64S)arrayOfResults[listNum].consumed; // signed arithmetic
     offset =
         arrayOfDestBufferLists[listNum].pBuffers->dataLenInBytes - remainder;
 
@@ -1422,7 +1445,19 @@ static CpaStatus qatSwZlibDecompress(compression_test_params_t *setup,
             inflate_destroy(&stream);
             break;
         }
-        cmpBuffListArray[j].pBuffers[0].dataLenInBytes = stream.avail_out;
+        if (stream.avail_out > cmpBuffListArray[j].pBuffers[0].dataLenInBytes)
+        {
+            PRINT_ERR("avail_out(%u) > dataLenInBytes(%u) for list %u\n",
+                      stream.avail_out,
+                      cmpBuffListArray[j].pBuffers[0].dataLenInBytes,
+                      j);
+            qatCompressDumpToFile(
+                setup, destBuffListArray, "destBuffer", "destBuffSize", 0);
+            inflate_destroy(&stream);
+            status = CPA_STATUS_FAIL;
+            break;
+        }
+        cmpBuffListArray[j].pBuffers[0].dataLenInBytes -= stream.avail_out;
         /*the results passed in contain the uncompressed consumed data
          * and the compressed produced data, so now we swap them, so that
          * consumed contains the compressed data consumed by zlib and the
@@ -1521,17 +1556,35 @@ CpaStatus qatSwChainDecompress(compression_test_params_t *setup,
                     inflate_destroy(&stream);
                     break;
                 }
-                cmpBufferListArray[j].pBuffers[0].dataLenInBytes =
+                if (stream.avail_out >
+                    cmpBufferListArray[j].pBuffers[0].dataLenInBytes)
+                {
+                    PRINT_ERR(
+                        "avail_out(%u) > dataLenInBytes(%u) for list %u\n",
+                        stream.avail_out,
+                        cmpBufferListArray[j].pBuffers[0].dataLenInBytes,
+                        j);
+                    qatCompressDumpToFile(setup,
+                                          destBuffListArray,
+                                          "destBuffer",
+                                          "destBuffSize",
+                                          0);
+                    inflate_destroy(&stream);
+                    status = CPA_STATUS_FAIL;
+                    break;
+                }
+                cmpBufferListArray[j].pBuffers[0].dataLenInBytes -=
                     stream.avail_out;
-                /*the results passed in contain the uncompressed consumed data
-                 * and the compressed produced data, so now we swap them, so
-                 * that consumed contains the compressed data consumed by zlib
-                 * and the decompressed data produced by zlib*/
+                /*the results passed in contain the uncompressed consumed
+                 * data and the compressed produced data, so now we swap
+                 * them, so that consumed contains the compressed data
+                 * consumed by zlib and the decompressed data produced by
+                 * zlib*/
                 cmpResults[j].consumed = cmpResults[j].produced;
                 cmpResults[j].produced =
                     cmpBufferListArray[j].pBuffers->dataLenInBytes;
-                /* Destroy the stream every time for stateless but only in the
-                 * end for stateful.
+                /* Destroy the stream every time for stateless but only in
+                 * the end for stateful.
                  */
                 if (setup->setupData.sessState != CPA_DC_STATEFUL ||
                     j == (setup->numLists - 1))
@@ -1662,10 +1715,12 @@ void qatCompressionResponseStatusCheck(compression_test_params_t *setup,
     }
 }
 
-CpaStatus populateCorpusAndStartDcService(Cpa32U testBufferSize,
+CpaStatus populateCorpusAndStartDcService(CpaDcSessionDir direction,
+                                          Cpa32U testBufferSize,
                                           corpus_type_t corpusType)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaBoolean useDecompService = CPA_FALSE;
     /* Populate Corpus: copy from file on disk into memory*/
     /* this method limits to compressing 1 corpus at any point in time */
     status = populateCorpus(testBufferSize, corpusType);
@@ -1678,7 +1733,21 @@ CpaStatus populateCorpusAndStartDcService(Cpa32U testBufferSize,
     }
 
     /*Start DC Services */
-    status = startDcServices(DYNAMIC_BUFFER_AREA, TEMP_NUM_BUFFS);
+    getDecompNumInstances();
+    useDecompService =
+        (direction == CPA_DC_DIR_DECOMPRESS && numDecompInstances_g > 0)
+            ? CPA_TRUE
+            : CPA_FALSE;
+    if (useDecompService)
+    {
+        status = startServices(CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION,
+                               DYNAMIC_BUFFER_AREA,
+                               TEMP_NUM_BUFFS);
+    }
+    else
+    {
+        status = startDcServices(DYNAMIC_BUFFER_AREA, TEMP_NUM_BUFFS);
+    }
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Error in Starting Dc Services\n");
@@ -1775,6 +1844,7 @@ CpaStatus performSleeptimeCalculation(compression_test_params_t *setup,
                                  arrayOfSrcBufferLists,
                                  arrayOfDestBufferLists,
                                  arrayOfCmpBufferLists,
+                                 NULL,
                                  resultArray);
         dcScSetBytesProducedAndConsumed(
             resultArray, setup->performanceStats, setup, dcSessDir);
@@ -1795,6 +1865,7 @@ CpaStatus performSleeptimeCalculation(compression_test_params_t *setup,
                                  arrayOfSrcBufferLists,
                                  arrayOfDestBufferLists,
                                  arrayOfCmpBufferLists,
+                                 NULL,
                                  resultArray);
         dcScSetBytesProducedAndConsumed(
             resultArray, setup->performanceStats, setup, dcSessDir);
@@ -1976,6 +2047,7 @@ CpaStatus performOffloadCalculationBusyLoop(
                                  arrayOfSrcBufferLists,
                                  arrayOfDestBufferLists,
                                  arrayOfCmpBufferLists,
+                                 NULL,
                                  resultArray);
 
         dcScSetBytesProducedAndConsumed(
@@ -1994,6 +2066,7 @@ CpaStatus performOffloadCalculationBusyLoop(
                                  arrayOfSrcBufferLists,
                                  arrayOfDestBufferLists,
                                  arrayOfCmpBufferLists,
+                                 NULL,
                                  resultArray);
 
         dcScSetBytesProducedAndConsumed(

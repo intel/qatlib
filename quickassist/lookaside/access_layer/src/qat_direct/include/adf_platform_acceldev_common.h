@@ -25,7 +25,44 @@
 
 /* Coalesced Interrupt Enable */
 #define ETR_CSR_INTR_COL_CTL_ENABLE 0x80000000
-#define ETR_CSR_INTR_COL_CTL_TIME 0x0000FFFF
+
+/*
+ * Interrupt coalescing timer hardware constants.
+ *
+ * CSR_INT_COL_CTL CSR
+ * | Bit 31 | Bits 30..16 | Bits 15..0 |
+ * | enable | reserved    | delcnt     |
+ *
+ * CSR_INT_COL_CTL DELCNT is decremented every ICP_INT_COL_CTL_CYCLES_PER_DECR
+ * clock cycles of the CPP clock. With a 1 GHz clock and 256 cycles per
+ * decrement the granularity is 256 ns and the maximum delay is 0xFFFF * 256 ns.
+ */
+#define ICP_INT_COL_CTL_CPP_FREQ_HZ (1000000000ULL) /* 1 GHz */
+#define ICP_INT_COL_CTL_CYCLES_PER_DECR (256U)
+#define ICP_INT_COL_CTL_DELCNT_MIN (0x1U)
+#define ICP_INT_COL_CTL_DELCNT_MAX (0xFFFFU)
+/* Mask for the DELCNT field in the CSR_INT_COL_CTL register (bits [15:0]). */
+#define ICP_INT_COL_CTL_DELCNT_MASK (0xFFFFU)
+#define ICP_NS_PER_SECOND (1000000000ULL)
+#define ICP_INT_COL_DEFAULT_TIMER_NS 10000
+
+/* Hardware maximum expressed in ns (~16.78 ms). */
+#define ICP_INT_COL_MAX_CSR_TIMER_NS                                           \
+    ((Cpa32U)(ICP_DELCNT_TO_NS(ICP_INT_COL_CTL_DELCNT_MAX)))
+
+/* Software cap (512 us) to avoid excessive interrupt latency. */
+#define ICP_INT_COL_MAX_CFG_TIMER_NS 512000U
+
+/* Effective maximum is the lower of the hardware limit and the software cap. */
+#define ICP_INT_COL_MAX_TIMER_NS                                               \
+    (ICP_INT_COL_MAX_CFG_TIMER_NS < ICP_INT_COL_MAX_CSR_TIMER_NS               \
+         ? ICP_INT_COL_MAX_CFG_TIMER_NS                                        \
+         : ICP_INT_COL_MAX_CSR_TIMER_NS)
+
+/* Convert a DELCNT hardware counter value to nanoseconds. */
+#define ICP_DELCNT_TO_NS(cnt)                                                  \
+    ((cnt)*ICP_INT_COL_CTL_CYCLES_PER_DECR * ICP_NS_PER_SECOND /               \
+     ICP_INT_COL_CTL_CPP_FREQ_HZ)
 
 /* Ring Csrs offsets */
 #define ICP_RING_CSR_RING_CONFIG 0x000
@@ -98,6 +135,9 @@
 #define READ_CSR_INT_EN(bank_offset)                                           \
     ICP_ADF_CSR_RD(csr_base_addr, bank_offset + ICP_RING_CSR_INT_EN)
 
+#define READ_CSR_INT_COL_CTL(bank_offset)                                      \
+    ICP_ADF_CSR_RD(csr_base_addr, bank_offset + ICP_RING_CSR_INT_COL_CTL)
+
 #define WRITE_CSR_RING_CONFIG(bank_offset, ring, value)                        \
     ICP_ADF_CSR_WR(csr_base_addr,                                              \
                    bank_offset + ICP_RING_CSR_RING_CONFIG + (ring << 2),       \
@@ -150,6 +190,11 @@ static inline Cpa64U read_base(Cpa32U *csr_base_addr,
     ICP_ADF_CSR_WR(csr_base_addr,                                              \
                    bank_offset + ICP_RING_CSR_INT_COL_CTL,                     \
                    ETR_CSR_INTR_COL_CTL_ENABLE | value)
+
+/* Disable interrupt coalescing: clears the ENABLE bit entirely so the
+ * hardware fires an interrupt immediately on each response. */
+#define WRITE_CSR_INT_COL_CTL_DISABLE(bank_offset)                             \
+    ICP_ADF_CSR_WR(csr_base_addr, bank_offset + ICP_RING_CSR_INT_COL_CTL, 0)
 
 #define WRITE_CSR_INT_FLAG_AND_COL(bank_offset, value)                         \
     ICP_ADF_CSR_WR(                                                            \

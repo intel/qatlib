@@ -105,12 +105,18 @@ CpaBoolean LacRsa_IsValidRsaSize(Cpa32U opSizeInBytes);
  * @description
  *      This function checks that the given RSA private key is valid
  *
- * @param[in] pPrivateKey   the private key to be checked
+ * @param[in] pPrivateKey   The private key to be checked
+ * @param[in] pRsaPrimeP    Pointer to RSA prime P data buffer
+ * @param[in] pRsaPrimeQ    Pointer to RSA prime Q data buffer
+ * @param[in] dpaEnabled    Flag to indicate if DPA is enabled or not
  *
  * @retval CPA_STATUS_SUCCESS
  * @retval CPA_STATUS_INVALID_PARAM
  ******************************************************************************/
-CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey);
+CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey,
+                                      const CpaFlatBuffer *pRsaPrimeP,
+                                      const CpaFlatBuffer *pRsaPrimeQ,
+                                      CpaBoolean dpaEnabled);
 
 /**
  *******************************************************************************
@@ -124,10 +130,16 @@ CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey);
  * length of p + the length of q for the type 2 keys.
  *
  * @param[in] pPrivateKey   the RSA private key - either type 1 or type 2
- *
- * @retval the size of the operation based on this private key in bytes.
+ * @param[in] pRsaPrimeP    Pointer to RSA prime P data buffer
+ * @param[in] pRsaPrimeQ    Pointer to RSA prime Q data buffer
+ * @param[in] dpaEnabled    Flag to indicate if DPA is enabled or not
+ * *
+ * @retval the size of the operation based on input parameters.
  ******************************************************************************/
-Cpa32U LacRsa_GetPrivateKeyOpSize(const CpaCyRsaPrivateKey *pPrivateKey);
+Cpa32U LacRsa_GetPrivateKeyOpSize(const CpaCyRsaPrivateKey *pPrivateKey,
+                                  const CpaFlatBuffer *pRsaPrimeP,
+                                  const CpaFlatBuffer *pRsaPrimeQ,
+                                  CpaBoolean dpaEnabled);
 
 /*
  * Performs standards based checks for type2 rsa keys

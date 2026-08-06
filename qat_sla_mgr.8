@@ -1,0 +1,202 @@
+.\"   SPDX-License-Identifier: BSD-3-Clause
+.\"   Copyright(c) 2007-2026 Intel Corporation
+.\" 
+.\"   These contents may have been developed with support from one or more
+.\"   Intel-operated generative artificial intelligence solutions.
+.\"
+.TH QAT_SLA_MGR 8 "August 2026" "Intel QAT" "System Administration Commands"
+.SH NAME
+qat_sla_mgr \- manage QAT rate limiting Service Level Agreements
+.SH SYNOPSIS
+.B qat_sla_mgr
+.I command
+.RI [ arguments ]
+.SH DESCRIPTION
+.B qat_sla_mgr
+is the command-line interface for managing rate limiting Service Level
+Agreements (SLAs) on Intel QuickAssist Technology (QAT) devices using the
+in-tree kernel driver.
+.PP
+It operates on the sysfs interface exposed by the
+.B intel_qat
+kernel module. Root access is required. All throughput values are expressed in
+Megabits per second (Mbps).
+.PP
+SLAs are managed at the Physical Function (PF) level. The VF address is only
+needed at creation time to derive the ring-pair mask. VFs passed through to a
+guest VM are not supported.
+.PP
+Both
+.B qat_sla_mgr
+and
+.B qat_sla_rl.py
+must reside in the same directory.
+.SH COMMANDS
+.TP
+.BI "create " "vf_addr cir pir service"
+Create a new SLA for the given VF address. Prints the assigned SLA ID on
+success. Use this ID with the PF address for subsequent
+.BR update " and " delete
+operations.
+.RS
+.TP
+.I vf_addr
+PCI Bus:Device.Function address of the VF (e.g. 6b:01.0 or 0000:6b:01.0).
+.TP
+.I cir
+Committed Information Rate in Mbps. Must be a positive integer.
+.TP
+.I pir
+Peak Information Rate in Mbps. Must be greater than or equal to
+.IR cir .
+.TP
+.I service
+Service type. One of:
+.BR asym ", " sym ", " dc ", " decomp ", " dcc .
+.RE
+.TP
+.BI "update " "pf_addr sla_id cir pir"
+Update an existing SLA identified by
+.IR sla_id .
+.RS
+.TP
+.I pf_addr
+PCI address of the PF.
+.TP
+.I sla_id
+SLA identifier returned by the
+.B create
+command.
+.TP
+.I cir
+New Committed Information Rate in Mbps.
+.TP
+.I pir
+New Peak Information Rate in Mbps.
+.RE
+.TP
+.BI "delete " "pf_addr sla_id"
+Delete the SLA identified by
+.IR sla_id .
+.TP
+.BI "delete_all " "pf_addr"
+Delete all SLAs on the given PF.
+.TP
+.BI "list " "pf_addr"
+List all configured SLAs on the given PF. For each SLA, prints the ID, CIR,
+PIR (in Mbps), service type, ring-pair mask, and VF address (if SR-IOV is
+enabled).
+.TP
+.BI "caps " "pf_addr"
+Print the maximum and remaining capacity (in Mbps) for every service
+configured on the device. Services are discovered at runtime via sysfs.
+.TP
+.B help
+Display a brief usage summary.
+.SH PCI ADDRESS FORMAT
+PCI addresses may be specified with or without the domain prefix:
+.RS
+.TP
+.B BB:DD.F
+Bus, Device, Function (domain defaults to 0000).
+.TP
+.B DDDD:BB:DD.F
+Domain, Bus, Device, Function.
+.RE
+.SH SERVICES
+.TP
+.B asym
+Asymmetric cryptography.
+.TP
+.B sym
+Symmetric cryptography.
+.TP
+.B dc
+Compression.
+.TP
+.B decomp
+Decompression.
+.TP
+.B dcc
+Chained compression and crypto.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Failure. An error message is printed to stdout with details; check the kernel
+log for additional information.
+.SH EXAMPLES
+Query all device capabilities:
+.RS
+.nf
+# ./qat_sla_mgr caps 0000:6b:00.0
+Remaining capacity for 'asym' is: 173750 of: 173750
+Remaining capacity for 'dc' is: 45000 of: 45000
+Remaining capacity for 'sym' is: 95000 of: 95000
+.fi
+.RE
+.PP
+Create an SLA for a VF with 5000 Mbps CIR and 9000 Mbps PIR:
+.RS
+.nf
+# ./qat_sla_mgr create 0000:6b:01.0 5000 9000 sym
+SLA ID: 0
+.fi
+.RE
+.PP
+List SLAs on a PF:
+.RS
+.nf
+# ./qat_sla_mgr list 0000:6b:00.0
+  SLA ID: 0
+  CIR: 5000
+  PIR: 9000
+  SRV: sym
+  RP: 0xf
+  VF: 0000:6b:01.0
+.fi
+.RE
+.PP
+Update SLA 0 to 8000/8000 Mbps:
+.RS
+.nf
+# ./qat_sla_mgr update 0000:6b:00.0 0 8000 8000
+.fi
+.RE
+.PP
+Delete SLA 0:
+.RS
+.nf
+# ./qat_sla_mgr delete 0000:6b:00.0 0
+.fi
+.RE
+.PP
+Delete all SLAs on a PF:
+.RS
+.nf
+# ./qat_sla_mgr delete_all 0000:6b:00.0
+.fi
+.RE
+.SH ENVIRONMENT
+.B qat_sla_mgr
+requires the
+.B intel_qat
+in-tree kernel module to be loaded. If an out-of-tree QAT driver is detected,
+an error message directs the user to the appropriate out-of-tree utility.
+.SH FILES
+.TP
+.I /sys/bus/pci/devices/<bdf>/qat_rl/
+Sysfs directory used by the kernel for rate limiting configuration.
+.TP
+.I /sys/bus/pci/devices/<bdf>/qat/rp2srv
+Sysfs file mapping ring pairs to services; used by
+.B caps
+to discover configured services.
+.SH SEE ALSO
+Kernel sysfs-driver-qat_rl documentation:
+.PP
+.I https://docs.kernel.org/ABI/testing/sysfs-driver-qat_rl
+.SH AUTHORS
+Intel Corporation.

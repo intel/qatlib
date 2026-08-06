@@ -26,6 +26,9 @@
 #define ADF_PFVF_GEN4_MSGDATA_SHIFT 8
 #define ADF_PFVF_GEN4_MSGDATA_MASK 0xFFFFFF
 
+#define ADF_PFVF_GEN4_VFINTMSKPF2VM_OFFSET 0x1004
+#define ADF_PFVF_GEN4_VFINTMSKPF2VM_INT_DISABLE 0x1
+
 #define ADF_PFVF_GEN4_PF2VF_CSR_ADDR_OFFSET 0x1008
 #define ADF_PFVF_GEN4_VF2PF_CSR_ADDR_OFFSET 0x100C
 
@@ -60,6 +63,17 @@ struct adf_pfvf_dev_data adf_init_pfvf_dev_data(void *pmiscbar_addr, int dev_id)
         dev.type_mask = ADF_PFVF_GEN4_MSGTYPE_MASK;
         dev.data_mask = ADF_PFVF_GEN4_MSGDATA_MASK;
 
+        /* Mask PF2VF interrupt source to prevent it from sharing the
+         * single MSI vector with ring interrupts. An unmasked PF2VF
+         * message can permanently block ring MSI delivery and stall
+         * epoll-based applications. PF2VF messages have always been
+         * handled by CSR polling via icp_sal_poll_device_events(),
+         * not by interrupts, so masking removes an unused interrupt
+         * source that can only cause harm. */
+        ICP_ADF_CSR_WR(pmiscbar_addr,
+                       ADF_PFVF_GEN4_VFINTMSKPF2VM_OFFSET,
+                       ADF_PFVF_GEN4_VFINTMSKPF2VM_INT_DISABLE);
+
     return dev;
 }
 
@@ -69,8 +83,8 @@ static int adf_pfvf_msg_ack_timed_out(struct adf_pfvf_dev_data *dev,
 {
     int count = 0;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
-    ICP_CHECK_FOR_NULL_PARAM(last);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(last, -EINVAL);
     for (; count < ADF_PFVF_MSG_ACK_MAX_RETRIES; ++count)
     {
         usleep(ADF_PFVF_MSG_ACK_DELAY_US);
@@ -88,7 +102,7 @@ static int adf_pfvf_gen4_send(struct adf_pfvf_dev_data *dev,
     int ret = 0;
     uint32_t raw_msg;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
     raw_msg = (msg.type << dev->type_shift) | (msg.data << dev->data_shift);
     raw_msg |= ADF_PFVF_INT | ADF_PFVF_MSGORIGIN_SYSTEM;
     ICP_ADF_CSR_WR(dev->pmiscbar_addr, dev->local_csr_offset, raw_msg);
@@ -172,8 +186,8 @@ int adf_send_vf2pf_req(struct adf_pfvf_dev_data *dev,
     int response_received = 0;
     int status = -EIO;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
-    ICP_CHECK_FOR_NULL_PARAM(resp);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(resp, -EINVAL);
     do
     {
         err = adf_send_vf2pf_msg(dev, req);
@@ -207,8 +221,8 @@ STATIC int adf_vf2pf_blkmsg_data_req(struct adf_pfvf_dev_data *dev,
     uint16_t max_payload_size;
     int err;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
-    ICP_CHECK_FOR_NULL_PARAM(data);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(data, -EINVAL);
     /* Build the block message */
     if (type <= ADF_VF2PF_MAX_SMALL_MESSAGE_TYPE)
     {
@@ -317,8 +331,6 @@ static uint8_t adf_pfvf_crc(uint8_t start_crc, uint8_t *buf, uint8_t len)
 {
     uint8_t crc = start_crc;
 
-    ICP_CHECK_FOR_NULL_PARAM(buf);
-
     while (len-- > 0)
         crc = pfvf_crc8_table[(crc ^ *buf++) & 0xff];
 
@@ -341,9 +353,9 @@ int adf_send_vf2pf_blkmsg_req(struct adf_pfvf_dev_data *dev,
     uint16_t msg_len;
     int ret;
 
-    ICP_CHECK_FOR_NULL_PARAM(dev);
-    ICP_CHECK_FOR_NULL_PARAM(buffer);
-    ICP_CHECK_FOR_NULL_PARAM(buffer_len);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(buffer, -EINVAL);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(buffer_len, -EINVAL);
 
     if (type > ADF_VF2PF_MAX_LARGE_MESSAGE_TYPE)
     {

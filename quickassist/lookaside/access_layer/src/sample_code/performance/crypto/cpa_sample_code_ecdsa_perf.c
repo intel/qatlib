@@ -1659,6 +1659,145 @@ barrier:
 }
 EXPORT_SYMBOL(ecdsaPerform);
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+/***************************************************************************
+ * @ingroup cryptoThreads
+ *
+ * @description
+ *      ECDSA performance function with response mode iteration support
+ *      Alternates between polling and event-driven modes across iterations
+ ***************************************************************************/
+static CpaStatus qatecdsaDataWithIteration(ecdsa_test_params_t *setup)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U iterationCount;
+    Cpa32U i;
+
+    CpaInstanceResponseMode originalMode;
+    CpaInstanceResponseMode currentMode;
+    CpaInstanceResponseMode alternateMode;
+
+    /* Get iteration count */
+    status = getCyResponseModeIterationCount(&iterationCount);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get Cy response mode iteration count\n");
+        return status;
+    }
+
+    /* Store original response mode */
+    originalMode = setup->currentResponseMode;
+
+    /* Determine alternate mode */
+    if (originalMode == CPA_INST_RX_NOTIFY_NONE)
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    }
+    else
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_NONE;
+    }
+
+    PRINT("Starting ECDSA response mode iteration: count=%d, initial=%d, "
+          "alternate=%d\n",
+          iterationCount,
+          originalMode,
+          alternateMode);
+
+    /* Perform iterations with alternating response modes */
+    for (i = 0; i < iterationCount && status == CPA_STATUS_SUCCESS; i++)
+    {
+        if (i % 2 == 0)
+        {
+            /* Even iterations: use original mode */
+            currentMode = originalMode;
+        }
+        else
+        {
+            /* Odd iterations: use alternate mode */
+            currentMode = alternateMode;
+        }
+
+        /* Update the test parameters with current mode */
+        setup->currentResponseMode = currentMode;
+
+        /* Get instance type to determine correct service type */
+        CpaInstanceInfo2 instInfo = { 0 };
+        CpaStatus infoStatus =
+            cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instInfo);
+        if (CPA_STATUS_SUCCESS != infoStatus)
+        {
+            PRINT_ERR("Failed to get instance info on iteration %d\n", i);
+            status = infoStatus;
+            break;
+        }
+
+        CpaStatus modeStatus =
+            cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                       instInfo.accelerationServiceType,
+                                       currentMode);
+        if (CPA_STATUS_SUCCESS != modeStatus)
+        {
+            PRINT_ERR(
+                "Failed to set response mode %d on iteration %d, status: %d\n",
+                currentMode,
+                i,
+                modeStatus);
+            /* Continue with existing mode rather than failing completely */
+        }
+
+        switch (setup->step)
+        {
+            case (ECDSA_STEP_SIGNRS):
+                status = ecdsaPerformOnlySign(setup);
+                break;
+            case (ECDSA_STEP_VERIFY):
+                status = ecdsaPerform(setup);
+                break;
+            case (ECDSA_STEP_POINT_MULTIPLY):
+                status = ecdsaPerformPointMultiply(setup);
+                break;
+            default:
+                PRINT_ERR("Function not supported for step %d\n", setup->step);
+                status = CPA_STATUS_FAIL;
+                break;
+        }
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("ECDSA performance test failed on iteration %d with "
+                      "status: %d\n",
+                      i,
+                      status);
+            break;
+        }
+    }
+
+    /* Restore original response mode */
+    CpaInstanceInfo2 restoreInfo = { 0 };
+    CpaStatus infoStatus =
+        cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &restoreInfo);
+    if (CPA_STATUS_SUCCESS == infoStatus)
+    {
+        CpaStatus restoreStatus =
+            cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                       restoreInfo.accelerationServiceType,
+                                       originalMode);
+        if (CPA_STATUS_SUCCESS != restoreStatus)
+        {
+            PRINT_ERR("Failed to restore original response mode %d after "
+                      "iterations, status: %d\n",
+                      originalMode,
+                      restoreStatus);
+        }
+    }
+
+    return status;
+}
+#endif /* defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&              \
+          defined(STV_TEST_CODE) */
+
 /***************************************************************************
  * @ingroup cryptoThreads
  *
@@ -1670,8 +1809,6 @@ static CpaStatus ecdsaPrintStats(thread_creation_data_t *data)
     ecdsa_test_params_t *params = (ecdsa_test_params_t *)data->setupPtr;
     if (ECDSA_STEP_SIGNRS == params->step)
     {
-#if CY_API_VERSION_AT_LEAST(3, 0)
-#ifdef SC_KPT2_ENABLED
         if (CPA_TRUE == params->enableKPT)
         {
             PRINT("KPT2 ECDSA SIGNRS\n");
@@ -1680,12 +1817,6 @@ static CpaStatus ecdsaPrintStats(thread_creation_data_t *data)
         {
             PRINT("ECDSA SIGNRS\n");
         }
-#else
-        PRINT("ECDSA SIGNRS\n");
-#endif
-#else
-        PRINT("ECDSA SIGNRS\n");
-#endif
     }
     else if (ECDSA_STEP_VERIFY == params->step)
     {
@@ -1749,10 +1880,10 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
     ecdsaSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
      * instance*/
-    status = cpaCyGetNumInstances(&numInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
-        PRINT_ERR("cpaCyGetNumInstances error, status:%d, numInstanaces:%d\n",
+        PRINT_ERR("cpaGetNumInstances error, status:%d, numInstances:%d\n",
                   status,
                   numInstances);
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1765,7 +1896,9 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
-    if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
+    if (cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+                        numInstances,
+                        cyInstances) != CPA_STATUS_SUCCESS)
     {
         PRINT_ERR("Failed to get instances\n");
         ecdsaSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1828,6 +1961,59 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
 
     memset(ecdsaSetup.performanceStats, 0, sizeof(perf_data_t));
     ecdsaSetup.performanceStats->packageId = instanceInfo->physInstId.packageId;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Determine the response mode for this instance */
+    Cpa16U instanceIndex = (testSetup->logicalQaInstance) % numInstances;
+    {
+        CpaStatus responseStatus;
+
+        /* First get the actual default response mode from the instance */
+        responseStatus =
+            cpaInstanceGetResponseMode(ecdsaSetup.cyInstanceHandle,
+                                       CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+                                       &ecdsaSetup.currentResponseMode);
+        if (CPA_STATUS_SUCCESS != responseStatus)
+        {
+            /* Fallback to assumed default if query fails */
+            ecdsaSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+        }
+        /* Check if this instance has been explicitly configured with override
+         */
+        if (isCyInstanceResponseModeConfigured())
+        {
+            Cpa64U instanceMask = getCyInstanceResponseModeMask();
+
+            /* Check if this instance is in the configured mask */
+            if ((instanceIndex < 64) &&
+                (instanceMask & (1ULL << instanceIndex)))
+            {
+                /* Override with explicitly configured mode */
+                ecdsaSetup.currentResponseMode = getCyInstanceResponseMode();
+                PRINT("Using explicit response mode %d for instance %d\n",
+                      ecdsaSetup.currentResponseMode,
+                      instanceIndex);
+            }
+            else
+            {
+                PRINT(
+                    "Using library default response mode %d for instance %d\n",
+                    ecdsaSetup.currentResponseMode,
+                    instanceIndex);
+            }
+        }
+    }
+    /* Print the final response mode for this thread */
+    PRINT("Thread %u using CY instance %u with response mode: %d (%s)\n",
+          testSetup->threadID,
+          instanceIndex,
+          ecdsaSetup.currentResponseMode,
+          (ecdsaSetup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE)
+              ? "polling"
+          : (ecdsaSetup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+              ? "event"
+              : "unknown");
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     ecdsaSetup.threadID = testSetup->threadID;
 
@@ -1844,6 +2030,37 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
 #endif
     /*launch function that does all the work*/
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Check if response mode iteration is enabled */
+    Cpa32U iterCount = 0;
+    status = getCyResponseModeIterationCount(&iterCount);
+    PRINT("ECDSA iterCount = %d\n", iterCount);
+
+    if (iterCount > 1)
+    {
+        status = qatecdsaDataWithIteration(&ecdsaSetup);
+    }
+    else
+    {
+        switch (params->step)
+        {
+            case (ECDSA_STEP_SIGNRS):
+                status = ecdsaPerformOnlySign(&ecdsaSetup);
+                break;
+            case (ECDSA_STEP_VERIFY):
+                status = ecdsaPerform(&ecdsaSetup);
+                break;
+            case (ECDSA_STEP_POINT_MULTIPLY):
+                status = ecdsaPerformPointMultiply(&ecdsaSetup);
+                break;
+            default:
+                PRINT_ERR("Function not supported for step %d\n", params->step);
+                status = CPA_STATUS_FAIL;
+                break;
+        }
+    }
+#else
     switch (params->step)
     {
         case (ECDSA_STEP_VERIFY):
@@ -1854,6 +2071,7 @@ void ecdsaPerformance(single_thread_test_data_t *testSetup)
             status = CPA_STATUS_FAIL;
             break;
     }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     if (CPA_STATUS_SUCCESS != status)
     {
 #if CY_API_VERSION_AT_LEAST(3, 0)
@@ -1913,9 +2131,9 @@ CpaStatus setupEcdsaTest(Cpa32U nLenInBits,
         return CPA_STATUS_FAIL;
     }
     /*start crypto service if not already started*/
-    if (CPA_STATUS_SUCCESS != startCyServices())
+    if (CPA_STATUS_SUCCESS != startAsymServices())
     {
-        PRINT_ERR("Error starting Crypto Services\n");
+        PRINT_ERR("Error starting Asym Services\n");
         return CPA_STATUS_FAIL;
     }
     if (iaCycleCount_g)
@@ -1926,6 +2144,16 @@ CpaStatus setupEcdsaTest(Cpa32U nLenInBits,
         timeStampTime_g = getTimeStampTime();
         PRINT("timeStampTime_g %llu\n", timeStampTime_g);
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Apply any configured response mode overrides before creating polling
+     * threads */
+    if (CPA_STATUS_SUCCESS != applyCyInstanceResponseModeConfiguration())
+    {
+        PRINT_ERR("Error applying Cy instance response mode configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     if (!poll_inline_g)
     {
         /* start polling threads if polling is enabled in the configuration file

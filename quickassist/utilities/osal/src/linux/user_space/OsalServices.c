@@ -298,7 +298,7 @@ void *osalMemZeroExplicit(void *ptr, UINT32 count)
     OSAL_MEM_ASSERT(ptr != NULL);
 #ifdef __STDC_LIB_EXT1__
     errno_t result =
-        memset_s(ptr, sizeof(ptr), 0, count); /* Supported on C11 standard */
+        memset_s(ptr, count, 0, count); /* Supported on C11 standard */
     OSAL_MEM_ASSERT(result == 0);
     return ptr;
 #else

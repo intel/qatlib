@@ -162,6 +162,23 @@ typedef struct lac_pke_op_cb_data_s
  * @ingroup LacAsymCommonQatComms
  *
  * @description
+ *     Contains the internal data associated with DPA
+ *
+ *****************************************************************************/
+typedef struct lac_pke_dpa_op_data_s
+{
+    const CpaFlatBuffer *pRandom;
+    /**< input random data pointer */
+    CpaBoolean createRandomData;
+    /**< true: FW creates the random data */
+    CpaBoolean dpa;
+} lac_pke_dpa_op_data_t;
+
+/**
+ *****************************************************************************
+ * @ingroup LacAsymCommonQatComms
+ *
+ * @description
  * This is the callback prototype for the non-blocking PKE operations. It
  * takes a status, pass flag, acceleration handle, and callback data pointer
  * as parameters and returns void. This function will be invoked when a
@@ -489,4 +506,66 @@ CpaStatus LacPke_SendSingleRequest(Cpa32U functionalityId,
                                    lac_pke_op_cb_data_t *pCbData,
                                    CpaInstanceHandle instanceHandle);
 
+/**
+ *******************************************************************************
+ * @ingroup LacAsymCommonQatComms
+ *      Sends a single (unchained) KPT PKE request to the QAT.
+ *
+ * @description
+ *      This function takes the parameters for a KPT service request, it creates
+ *      the request, fills in the KPT service flag and sends it to QAT device.
+ *      It does not block waiting for a response. Instead the callback function
+ *      is invoked from the response when QAT device has processed the request.
+ *
+ * @param[in] functionalityId       PKE functionality id.
+ * @param[in] pInArgSizeList        Pointer to a list of input sizes required by
+ *                                  QAT. The client-provided input flat buffers
+ *                                  greater than or equal to their corresponding
+ *                                  size will be passed to QAT. Buffers that are
+ *                                  less than the required size will be copied
+ *                                  into internal driver buffers before being
+ *                                  passed to QAT.
+ * @param[in] pOutArgSizeList       Pointer to a list of output sizes required
+ *                                  by QAT.
+ * @param[in] pInArgList            Pointer to the list of input params. This
+ *                                  should contain the client-provided flat
+ *                                  buffer pointers. Any entries in the list
+ *                                  which are not used must be set to 0.
+ * @param[in] pOutArgList           Pointer to the list of output params. This
+ *                                  should contain the client-provided flat
+ *                                  buffer pointers. Any entries in the list
+ *                                  which are not used must be set to 0.
+ * @param[in] pInternalInMemList    Pointer to a list of Booleans that indicates
+ *                                  if input data buffers passed to QAT are
+ *                                  internally or externally allocated.
+ *                                  This information needs to be tracked to
+ *                                  ensure we use the correct virt2phys function.
+ * @param[in] pInternalInMemList    Pointer to a list of Booleans that indicates
+ *                                  if output data buffers passed to QAT are
+ *                                  internally or externally allocated.
+ * @param[in] pPkeOpCbFunc          Callback function invoked when the response
+ *                                  is received from the QAT
+ * @param[in] pCbData               Callback data to be returned (by copy)
+ *                                  unchanged in the callback.
+ * @param[in] instanceHandle        Instance handle
+ *
+ * @retval CPA_STATUS_SUCCESS       No error
+ * @retval CPA_STATUS_RESOURCE      Resource error (e.g. failed memory
+ *                                  allocation)
+ * @retval CPA_STATUS_RETRY         Ring full
+ * @retval CPA_STATUS_INVALID_PARAM Invalid parameter
+ * @retval CPA_STATUS_FAIL          Failed to send the request
+ *
+ ******************************************************************************/
+CpaStatus LacPkeKpt_SendSingleRequest(
+    Cpa32U functionalityId,
+    Cpa32U *pInArgSizeList,
+    Cpa32U *pOutArgSizeList,
+    icp_qat_fw_mmp_input_param_t *pInArgList,
+    icp_qat_fw_mmp_output_param_t *pOutArgList,
+    CpaBoolean *pInternalInMemList,
+    CpaBoolean *pInternalOutMemList,
+    lac_pke_op_cb_func_t pPkeOpCbFunc,
+    lac_pke_op_cb_data_t *pCbData,
+    CpaInstanceHandle instanceHandle);
 #endif /* _LAC_PKE_QAT_COMMS_H_ */

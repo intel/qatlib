@@ -72,11 +72,11 @@ typedef struct
 extern page_table_t g_page_table;
 extern const uint64_t __qae_bitmask[65];
 extern int g_fd;
-extern uint32_t normalAllocations_g;
 
 extern free_page_table_fptr_t free_page_table_fptr;
 extern load_addr_fptr_t load_addr_fptr;
 extern load_key_fptr_t load_key_fptr;
+extern store_mmap_range_fptr_t store_mmap_range_fptr;
 
 API_LOCAL
 int __qae_open(void);
@@ -120,6 +120,45 @@ static inline size_t div_round_up(const size_t n, const size_t d)
 static inline size_t round_up(const size_t n, const size_t s)
 {
     return ((n + s - 1) / s) * s;
+}
+
+static inline size_t get_header_size(const size_t num_blocks)
+{
+    return sizeof(block_ctrl_t) +
+           (num_blocks / QWORD_WIDTH + 1) * sizeof(uint64_t) +
+           num_blocks * sizeof(uint32_t);
+}
+
+/* Compute the base pointer of the sizes[] region that lives immediately
+ * after bitmap[] in the slab. The sizes array holds the allocation length
+ * (in units) for each block index: 0 = free, >0 = number of consecutive
+ * units owned by the allocation starting at that index.
+ */
+static inline uint32_t *block_ctrl_sizes(block_ctrl_t *bc)
+{
+    return (uint32_t *)(bc->bitmap + bc->max_num_bitmaps + 1);
+}
+
+static inline void set_bitmap(uint64_t *bitmap, const size_t index, size_t len);
+
+/* Initialise the geometry fields of a freshly-allocated block_ctrl_t and
+ * set up the sizes[] pointer to reference the slab region immediately
+ * after the bitmap sentinel word. The caller is responsible for zeroing
+ * the bitmap[] and sizes[] regions before use.
+ */
+static inline void init_block_ctrl(block_ctrl_t *bc, const size_t unit_size)
+{
+    bc->unit_size = unit_size;
+    bc->max_num_blocks = bc->mem_info.size / unit_size;
+    bc->max_num_bitmaps = bc->max_num_blocks / QWORD_WIDTH;
+    bc->header_size = get_header_size(bc->max_num_blocks);
+    bc->reserved_units = div_round_up(bc->header_size, UNIT_SIZE);
+    bc->sizes = block_ctrl_sizes(bc);
+
+    /* initialise the bitmap to 1 for reserved blocks */
+    set_bitmap(bc->bitmap, 0, bc->reserved_units);
+    /* make a barrier to stop search at the end of the bitmap */
+    bc->bitmap[bc->max_num_bitmaps] = QWORD_ALL_ONE;
 }
 
 /* mem_ctzll function

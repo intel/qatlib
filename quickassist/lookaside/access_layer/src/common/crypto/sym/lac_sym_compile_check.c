@@ -24,7 +24,6 @@
 
 #include "lac_common.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "lac_sym.h"
 #include "cpa_cy_sym_dp.h"
 

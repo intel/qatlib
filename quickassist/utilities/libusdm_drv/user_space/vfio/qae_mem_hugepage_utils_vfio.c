@@ -35,6 +35,7 @@
 #include "qae_mem_user_utils.h"
 #include "qae_mem_utils_common.h"
 #include "qae_mem_utils.h"
+#include "qae_mem_sysfs_utils.h"
 #include "qae_page_table_common.h"
 #ifdef ICP_THREAD_SPECIFIC_USDM
 #include "qae_mem_multi_thread.h"
@@ -42,86 +43,35 @@
 
 static bool g_hugepages_enabled = false;
 static size_t g_num_hugepages = 0;
-static const char sys_dir_path[] = "/sys/kernel/mm/hugepages";
+/* hugepages allocated by this process */
+static size_t g_alloc_hugepages = 0;
 extern int vfio_container_fd;
 extern int g_noiommu_enabled;
 
 #define UMASK_OWNER_ONLY  0077
 #define HUGEPAGE_FILE_DIR "/dev/hugepages/qat/qat-usdm.XXXXXX"
 #define HUGEPAGE_FILE_LEN (sizeof(HUGEPAGE_FILE_DIR))
-#define HUGEPAGE_SYS_NODE "hugepages-2048kB"
-#define HUGEPAGE_SOCKET_PATH_SIZE 50
-#define HUGEPAGE_SYSFS_PATH_SIZE HUGEPAGE_SOCKET_PATH_SIZE + 32
 
 /* The pfn (page frame number) are bits 0-54 of page. */
 #define PFN_MASK 0x7fffffffffffffULL
 #define PAGEMAP_FILE "/proc/self/pagemap"
 
-/* Parse a sysfs (or other) file containing one integer value */
-static int parse_sysfs_value(const char *filename, unsigned long *val)
+static inline void reset_hp(const int limit)
 {
-    FILE *f;
-    char buf[BUFSIZ];
-    char *end = NULL;
-
-    if ((f = qae_fopen(filename, "r")) == NULL)
-    {
-        CMD_ERROR("%s(): qae_fopen failed for %s\n", __func__, filename);
-        return -1;
-    }
-
-    if (qae_fgets(buf, sizeof(buf), f) == NULL)
-    {
-        CMD_ERROR(
-            "%s(): qae_fgets failed for sysfs value %s\n", __func__, filename);
-        fclose(f);
-        return -1;
-    }
-    *val = strtoul(buf, &end, 0);
-    if ((buf[0] == '\0') || (end == NULL) || (*end != '\n'))
-    {
-        CMD_ERROR("%s(): cannot parse sysfs value %s\n", __func__, filename);
-        fclose(f);
-        return -1;
-    }
-    fclose(f);
-    return 0;
+    g_num_hugepages = limit;
+    g_alloc_hugepages = 0;
 }
 
-static int get_num_hugepages_per_system(const char *subdir)
+static inline void inc_hp(void)
 {
-    char path[HUGEPAGE_SYSFS_PATH_SIZE] = { '\0' };
-    char socketpath[HUGEPAGE_SOCKET_PATH_SIZE] = { '\0' };
-    DIR *socketdir;
-    unsigned long num_pages = 0;
-    const char nr_hp_file[] = "nr_hugepages";
+    g_num_hugepages--;
+    g_alloc_hugepages++;
+}
 
-    snprintf(socketpath, sizeof(socketpath), "%s/%s", sys_dir_path, subdir);
-
-    socketdir = qae_opendir(socketpath);
-    if (socketdir)
-    {
-        closedir(socketdir);
-    }
-    else
-    {
-        if (g_hugepages_enabled)
-            return -EIO;
-        /*
-         * HUGETLBFS is not configured in kernel.
-         * Number of hugepages should be 0
-         */
-        g_num_hugepages = 0;
-        return 0;
-    }
-
-    snprintf(path, sizeof(path), "%s/%s", socketpath, nr_hp_file);
-    if (parse_sysfs_value(path, &num_pages) < 0)
-        return -EIO;
-
-    g_num_hugepages = num_pages;
-
-    return 0;
+static inline void dec_hp(void)
+{
+    g_num_hugepages++;
+    g_alloc_hugepages--;
 }
 
 /*
@@ -198,8 +148,25 @@ API_LOCAL
 int __qae_vfio_init_hugepages()
 {
     int ret = 0;
-    if (get_num_hugepages_per_system(HUGEPAGE_SYS_NODE))
-        return -EIO;
+    /* QAT_MAX_2M_HPG_PER_PROCESS controls hugepage mode:
+     * NULL/empty/zero -> 4K; positive value -> 2M with budget.
+     *
+     * Read config *before* touching state, so a failure (e.g. sysfs check
+     * returning -EINVAL on re-init) leaves the previously-configured
+     * g_num_hugepages / g_hugepages_enabled intact.
+     */
+    int budget = __qae_hugepage_config_init();
+
+    if (budget < 0)
+    {
+        CMD_ERROR("%s:%d Hugepages are not configured on system, ret = %d\n",
+                  __func__,
+                  __LINE__,
+                  budget);
+        return budget;
+    }
+
+    reset_hp(budget);
 
     if (g_num_hugepages > 0)
     {
@@ -207,6 +174,8 @@ int __qae_vfio_init_hugepages()
         __qae_set_free_page_table_fptr(free_page_table_hpg);
         __qae_set_loadaddr_fptr(load_addr_hpg);
         __qae_set_loadkey_fptr(load_key_hpg);
+        __qae_set_storemmap_fptr(store_mmap_range_hpg);
+        CMD_DEBUG("%s:%d 2MB huge page mode enabled.\n", __func__, __LINE__);
     }
     else
     {
@@ -214,6 +183,8 @@ int __qae_vfio_init_hugepages()
         __qae_set_free_page_table_fptr(free_page_table);
         __qae_set_loadaddr_fptr(load_addr);
         __qae_set_loadkey_fptr(load_key);
+        __qae_set_storemmap_fptr(store_mmap_range);
+        CMD_DEBUG("%s:%d 4K page mode.\n", __func__, __LINE__);
     }
     return ret;
 }
@@ -298,18 +269,29 @@ dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
                                                const uint32_t alignment)
 {
     dev_mem_info_t *slab = NULL;
+    int free_hp = 0;
     int ret = 0;
     UNUSED(fd);
 
-    if (get_num_hugepages_per_system(HUGEPAGE_SYS_NODE))
-        return NULL;
-
     if (!g_num_hugepages)
     {
-        CMD_ERROR("%s:%d mmap: exceeded max huge pages allocations for this "
-                  "process.\n",
+        CMD_ERROR("%s:%d Process quota for 2M Huge pages exhausted\n",
                   __func__,
                   __LINE__);
+        return NULL;
+    }
+
+    free_hp = __qae_read_free_hugepages();
+    if (free_hp <= 0)
+    {
+        if (!g_alloc_hugepages)
+            CMD_ERROR("%s:%d 2M huge pages configured but consumed by "
+                      "other processes\n",
+                      __func__,
+                      __LINE__);
+        else
+            CMD_ERROR(
+                "%s:%d System 2M Huge pages exhausted\n", __func__, __LINE__);
         return NULL;
     }
 
@@ -322,6 +304,7 @@ dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
         return NULL;
     }
 
+    inc_hp();
     slab->nodeId = node;
     slab->size = size;
     slab->type = type;
@@ -380,8 +363,13 @@ dev_mem_info_t *__qae_vfio_hugepage_alloc_slab(const int fd,
     return slab;
 
 error:
-    if (!g_noiommu_enabled)
+    dec_hp();
+    if (!g_noiommu_enabled && slab->phy_addr)
         iova_release(slab->phy_addr, slab->size);
+
+#ifdef ICP_THREAD_SPECIFIC_USDM
+    remove_slab_from_tmp_list(slab);
+#endif
 
     qae_munmap(slab, size);
 
@@ -393,7 +381,9 @@ void __qae_vfio_hugepage_free_slab(dev_mem_info_t *memInfo)
 {
     close(memInfo->hpg_fd);
 
-    iova_release(memInfo->phy_addr, memInfo->size);
+    dec_hp();
+    if (!g_noiommu_enabled)
+        iova_release(memInfo->phy_addr, memInfo->size);
 
     if (vfio_container_fd < 0)
         return;

@@ -66,6 +66,10 @@ extern CpaBoolean cy_service_started_g;
 
 extern volatile Cpa32U numThreadsAtBarrier_g;
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+long pollingThreadsInterval_g = 1000;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 extern volatile CpaBoolean error_flag_g;
 
 Cpa32U cpu_freq_g = 0;
@@ -1215,35 +1219,466 @@ void sampleCodeCyEventPoll(CpaInstanceHandle instanceHandle)
     }
 }
 
+#if defined(USER_SPACE) && !defined(SC_EPOLL_DISABLED)
+#ifdef DO_CRYPTO
+CpaStatus trySetupCyLegacyEventPoll(CpaInstanceHandle instanceHandle,
+                                    performance_func_t *pollFn)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    int fd = -1;
+
+    status = icp_sal_CyGetFileDescriptor(instanceHandle, &fd);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        *pollFn = sampleCodeCyEventPoll;
+        icp_sal_CyPutFileDescriptor(instanceHandle, fd);
+        return CPA_STATUS_SUCCESS;
+    }
+    else if (CPA_STATUS_FAIL == status)
+    {
+        return CPA_STATUS_FAIL;
+    }
+    /* else feature is unsupported */
+    return CPA_STATUS_UNSUPPORTED;
+}
+#endif /* DO_CRYPTO */
+
+CpaStatus trySetupDcLegacyEventPoll(CpaInstanceHandle instanceHandle,
+                                    performance_func_t *pollFn)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    int fd = -1;
+
+    status = icp_sal_DcGetFileDescriptor(instanceHandle, &fd);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        *pollFn = sampleCodeDcEventPoll;
+        icp_sal_DcPutFileDescriptor(instanceHandle, fd);
+        return CPA_STATUS_SUCCESS;
+    }
+    else if (CPA_STATUS_FAIL == status)
+    {
+        return CPA_STATUS_FAIL;
+    }
+    /* else feature is unsupported */
+    return CPA_STATUS_UNSUPPORTED;
+}
+#endif /* USER_SPACE && !SC_EPOLL_DISABLED */
+
 /* Wrapper function that returns function pointer for DC dynamic polling */
-void sampleCodeDcDynamicPollWrapper(void* instanceHandle)
+void sampleCodeDcDynamicPollWrapper(void *instanceHandle)
 {
     sampleCodeDynamicPoll((CpaInstanceHandle)instanceHandle,
-                         CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
+                          CPA_ACC_SVC_TYPE_DATA_COMPRESSION);
 }
 
 /* Wrapper function that returns function pointer for CY SYM dynamic polling */
-void sampleCodeSymDynamicPollWrapper(void* instanceHandle)
+void sampleCodeSymDynamicPollWrapper(void *instanceHandle)
 {
     sampleCodeDynamicPoll((CpaInstanceHandle)instanceHandle,
-                         CPA_ACC_SVC_TYPE_CRYPTO_SYM);
+                          CPA_ACC_SVC_TYPE_CRYPTO_SYM);
 }
 
 /* Wrapper function that returns function pointer for CY ASYM dynamic polling */
-void sampleCodeAsymDynamicPollWrapper(void* instanceHandle)
+void sampleCodeAsymDynamicPollWrapper(void *instanceHandle)
 {
     sampleCodeDynamicPoll((CpaInstanceHandle)instanceHandle,
-                         CPA_ACC_SVC_TYPE_CRYPTO_ASYM);
+                          CPA_ACC_SVC_TYPE_CRYPTO_ASYM);
 }
 
 void sampleCodeDynamicPoll(CpaInstanceHandle instanceHandle,
                            CpaAccelerationServiceType serviceType)
 {
 #ifndef SC_EPOLL_DISABLED
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    int fd = -1;                       /* Service file descriptor for epoll */
+    int efd = -1;                      /* Epoll file descriptor */
+    int n = 0;                         /* Number of epoll events returned */
+    struct epoll_event event;          /* Single epoll event for setup */
+    struct epoll_event *events = NULL; /* Array of epoll events */
+    struct timespec reqTime, remTime;  /* Sleep time for polling mode */
+    CpaStatus status = CPA_STATUS_FAIL;
+    CpaInstanceResponseMode defaultResponseMode = CPA_INST_RX_NOTIFY_NONE;
+
+    CpaInstanceResponseMode responseMode = CPA_INST_RX_NOTIFY_NONE;
+    CpaInstanceResponseMode previousResponseMode =
+        CPA_INST_RX_NOTIFY_NONE; /* Track previous mode for change detection */
+    CpaBoolean needModeRestore =
+        CPA_FALSE; /* Track if we need to restore mode */
+    CpaBoolean volatile *pServiceStarted = NULL;
+    CpaInstanceInfo2
+        instanceInfo; /* Instance info to get actual service type */
+    CpaAccelerationServiceType
+        actualServiceType; /* Actual service type from instance */
+
+    /* Function pointers for service-specific operations */
+    typedef CpaStatus (*GetFileDescriptorFn)(CpaInstanceHandle, int *);
+    typedef CpaStatus (*PutFileDescriptorFn)(CpaInstanceHandle, int);
+    typedef CpaStatus (*PollInstanceFn)(CpaInstanceHandle, Cpa32U);
+    GetFileDescriptorFn getFileDescriptorFn = NULL;
+    PutFileDescriptorFn putFileDescriptorFn = NULL;
+    PollInstanceFn pollInstanceFn = NULL;
+
+    /* Query the instance to get the actual service type instead of relying on
+     * parameter */
+    memset(&instanceInfo, 0, sizeof(CpaInstanceInfo2));
+    /* Use the appropriate API based on the provided service type hint */
+    if (serviceType == CPA_ACC_SVC_TYPE_DATA_COMPRESSION ||
+        serviceType == CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION)
+    {
+        status = cpaDcInstanceGetInfo2(instanceHandle, &instanceInfo);
+    }
+#ifdef DO_CRYPTO
+    else
+    {
+        /* Default to crypto API for CRYPTO, CRYPTO_SYM, CRYPTO_ASYM types */
+        status = cpaCyInstanceGetInfo2(instanceHandle, &instanceInfo);
+    }
+#endif /* DO_CRYPTO */
+
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Warning:Failed to get instance info (status %d), using "
+                  "provided service type %d\n",
+                  status,
+                  serviceType);
+        actualServiceType = serviceType; /* Fallback to provided type */
+    }
+    else
+    {
+        actualServiceType = instanceInfo.accelerationServiceType;
+    }
+
+    /* Initialize polling sleep interval */
+    reqTime.tv_sec = 0;
+    reqTime.tv_nsec = pollingThreadsInterval_g;
+
+    /* Select service-specific functions and EPOLL mode based on ACTUAL service
+     * type from instance */
+    switch (actualServiceType)
+    {
+#ifdef DO_CRYPTO
+        case CPA_ACC_SVC_TYPE_CRYPTO:
+        case CPA_ACC_SVC_TYPE_CRYPTO_SYM:
+        case CPA_ACC_SVC_TYPE_CRYPTO_ASYM:
+            /* CRYPTO (combined), SYM and ASYM all use the same CY (crypto)
+             * infrastructure */
+            getFileDescriptorFn = icp_sal_CyGetFileDescriptor;
+            putFileDescriptorFn = icp_sal_CyPutFileDescriptor;
+            pollInstanceFn = icp_sal_CyPollInstance;
+            pServiceStarted = &cy_service_started_g;
+            break;
+#endif /* DO_CRYPTO */
+
+        case CPA_ACC_SVC_TYPE_DATA_COMPRESSION:
+        case CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION:
+            /* Both COMPRESSION and DECOMPRESSION use DC infrastructure */
+            getFileDescriptorFn = icp_sal_DcGetFileDescriptor;
+            putFileDescriptorFn = icp_sal_DcPutFileDescriptor;
+            pollInstanceFn = icp_sal_DcPollInstance;
+            pServiceStarted = &dc_service_started_g;
+            break;
+
+        default:
+            PRINT_ERR(
+                "Unsupported actual service type %d for dynamic polling\n",
+                actualServiceType);
+            return;
+    }
+
+    /* Sanity check - ensure all function pointers are initialized */
+    if (getFileDescriptorFn == NULL || putFileDescriptorFn == NULL ||
+        pollInstanceFn == NULL || pServiceStarted == NULL)
+    {
+        PRINT_ERR(
+            "Failed to initialize function pointers for service type %d\n",
+            serviceType);
+        return;
+    }
+
+    /* Get the current (default) response mode of the instance using appropriate
+     * service type for API */
+    CpaAccelerationServiceType apiServiceType;
+
+    /* Use provided serviceType for API calls when instance is CRYPTO (combined)
+     * type */
+    if (actualServiceType == CPA_ACC_SVC_TYPE_CRYPTO)
+    {
+        apiServiceType = serviceType; /* Use SYM or ASYM from wrapper */
+    }
+    else
+    {
+        apiServiceType =
+            actualServiceType; /* Use actual type for non-combined instances */
+    }
+
+    status = cpaInstanceGetResponseMode(
+        instanceHandle, apiServiceType, &defaultResponseMode);
+    if (status != CPA_STATUS_SUCCESS)
+    {
+        PRINT_ERR("Error getting instance response mode: %d\n", status);
+        error_flag_g = CPA_TRUE;
+        return;
+    }
+
+    /*
+     * If instance is not in event mode, temporarily switch to event mode
+     * to obtain file descriptor for epoll setup. We'll revert later.
+     * Use appropriate API service type to ensure compatibility with instance
+     * configuration.
+     */
+    if (defaultResponseMode != CPA_INST_RX_NOTIFY_BY_EVENT)
+    {
+        status = cpaInstanceSetResponseMode(
+            instanceHandle, actualServiceType, CPA_INST_RX_NOTIFY_BY_EVENT);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            PRINT_ERR(
+                "Error setting instance response mode to event-based: %d\n",
+                status);
+            error_flag_g = CPA_TRUE;
+            goto cleanup_and_exit;
+        }
+        needModeRestore = CPA_TRUE;
+    }
+
+    /* Get file descriptor for epoll operations */
+    if (CPA_STATUS_SUCCESS != getFileDescriptorFn(instanceHandle, &fd))
+    {
+        PRINT_ERR("Error getting file descriptor for epoll instance\n");
+        goto cleanup_and_exit;
+    }
+
+    /* Create epoll instance for event monitoring */
+    efd = epoll_create1(0);
+    if (-1 == efd)
+    {
+        PRINT_ERR("Error creating epoll file descriptor\n");
+        goto cleanup_and_exit;
+    }
+
+    /* Configure epoll event structure and add FD to epoll interest list */
+    event.data.fd = fd;
+    event.events = EPOLLIN | EPOLLET; /* Edge-triggered input events */
+    if (-1 == epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event))
+    {
+        PRINT_ERR("Error adding file descriptor to epoll (errno: %d)\n", errno);
+        goto cleanup_and_exit;
+    }
+
+    /* Allocate memory for epoll event array */
+    events = qaeMemAlloc(EPOLL_MAX_EVENTS * sizeof(event));
+    if (NULL == events)
+    {
+        PRINT_ERR("Error allocating memory for epoll events array\n");
+        goto cleanup_and_exit;
+    }
+
+    /*
+     * Restore original response mode if we changed it.
+     * This allows the main loop to dynamically switch between modes.
+     * Use actualServiceType for Set (supports CRYPTO), apiServiceType for Get
+     * (requires SYM/ASYM).
+     */
+    if (needModeRestore)
+    {
+        status = cpaInstanceSetResponseMode(
+            instanceHandle, actualServiceType, defaultResponseMode);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            PRINT_ERR("Error restoring instance response mode to default\n");
+            goto cleanup_and_exit;
+        }
+        needModeRestore = CPA_FALSE;
+        /* Note: Keep FD valid as mode may change to event during main loop */
+    }
+
+    /*
+     * Main polling loop - dynamically switches between polling modes:
+     * - CPA_INST_RX_NOTIFY_NONE: Traditional busy-wait polling with sleep
+     * - CPA_INST_RX_NOTIFY_BY_EVENT: Event-driven polling using epoll
+     */
+    previousResponseMode =
+        defaultResponseMode; /* Initialize with default mode */
+    /* Main polling loop - continue until service is stopped */
+    while (*pServiceStarted == CPA_TRUE)
+    {
+        /* Check current response mode (may change dynamically during runtime)
+         * using appropriate API service type */
+        status = cpaInstanceGetResponseMode(
+            instanceHandle, apiServiceType, &responseMode);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            PRINT_ERR("Error getting current instance response mode in polling "
+                      "loop\n");
+            error_flag_g = CPA_TRUE;
+            break;
+        }
+
+        /* Print response mode change if it differs from previous mode */
+        if (responseMode != previousResponseMode)
+        {
+            PRINT(
+                "Dynamic Poll: Response mode changed from %d (%s) to %d (%s)\n",
+                previousResponseMode,
+                (previousResponseMode == CPA_INST_RX_NOTIFY_NONE) ? "polling"
+                                                                  : "event",
+                responseMode,
+                (responseMode == CPA_INST_RX_NOTIFY_NONE) ? "polling"
+                                                          : "event");
+            previousResponseMode = responseMode;
+            if (responseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+            {
+                /* Switched to event-driven mode */
+                PRINT("Switched to event-driven polling for service type %d\n",
+                      serviceType);
+                previousResponseMode = responseMode;
+            }
+            else
+            {
+                /* Switched to polling mode */
+                PRINT("Switched to traditional polling for service type %d\n",
+                      serviceType);
+                previousResponseMode = responseMode;
+            }
+        }
+
+        /* Execute appropriate polling based on current mode */
+        if (CPA_INST_RX_NOTIFY_NONE == responseMode)
+        {
+            /*
+             * Traditional polling mode - busy wait with sleep intervals
+             * Poll with 0 timeout processes all available packets immediately
+             */
+            status = pollInstanceFn(instanceHandle, 0);
+            if (CPA_STATUS_SUCCESS == status || CPA_STATUS_RETRY == status)
+            {
+                /* Sleep for configured interval to reduce CPU usage */
+                nanosleep(&reqTime, &remTime);
+            }
+            else
+            {
+                PRINT_ERR(
+                    "Polling failed with status %d in traditional poll mode\n",
+                    status);
+                error_flag_g = CPA_TRUE;
+                break;
+            }
+        }
+        else /*CPA_INST_RX_NOTIFY_EVENT*/
+        {
+            /* Event-driven mode: Wait for EPOLL events */
+            n = epoll_wait(efd, events, EPOLL_MAX_EVENTS, EPOLL_TIMEOUT_MS);
+
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                {
+                    /* Interrupted by signal, continue */
+                    continue;
+                }
+                PRINT_ERR("epoll_wait failed with errno: %d\n", errno);
+                error_flag_g = CPA_TRUE;
+                break;
+            }
+
+            /* Poll when events occur, or periodically on timeout to catch edge
+             * cases */
+            if (n >= 0) /* Always try at least once (events or timeout) */
+            {
+                /* Keep polling until no more responses (for edge-triggered
+                 * epoll) */
+                do
+                {
+                    status = pollInstanceFn(instanceHandle, 0);
+                    if ((CPA_STATUS_SUCCESS != status) &&
+                        (CPA_STATUS_RETRY != status))
+                    {
+                        if (status !=
+                            CPA_STATUS_FAIL) /* Ignore benign failures */
+                        {
+                            PRINT_ERR(
+                                "Polling failed with status %d in event mode\n",
+                                status);
+                            error_flag_g = CPA_TRUE;
+                            break;
+                        }
+                        break; /* No more responses */
+                    }
+                } while (status == CPA_STATUS_SUCCESS);
+            }
+            /* Break outer loop if inner loop detected error */
+            if (error_flag_g == CPA_TRUE)
+            {
+                break;
+            }
+        }
+    }
+cleanup_and_exit:
+    /* Cleanup resources in reverse order of allocation */
+
+    /* Remove file descriptor from epoll interest list */
+    if (efd != -1 && fd != -1)
+    {
+        if (-1 == epoll_ctl(efd, EPOLL_CTL_DEL, fd, &event))
+        {
+            PRINT_ERR("Warning: Error removing file descriptor from epoll "
+                      "during cleanup\n");
+            error_flag_g = CPA_TRUE;
+        }
+    }
+    /* Free allocated memory for events array */
+    if (events != NULL)
+    {
+        qaeMemFree((void **)&events);
+        events = NULL;
+    }
+    /* Release file descriptor only if instance is still in event mode */
+    if (fd != -1)
+    {
+        CpaInstanceResponseMode currentMode = CPA_INST_RX_NOTIFY_NONE;
+        status = cpaInstanceGetResponseMode(
+            instanceHandle, apiServiceType, &currentMode);
+        if (status == CPA_STATUS_SUCCESS &&
+            currentMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+        {
+            if (CPA_STATUS_SUCCESS != putFileDescriptorFn(instanceHandle, fd))
+            {
+                PRINT_ERR("Warning: Failed to release epoll file descriptor "
+                          "during cleanup\n");
+                error_flag_g = CPA_TRUE;
+            }
+        }
+        /* If mode is polling, FD is already invalidated by driver - no release
+         * needed */
+    }
+    /* Close epoll file descriptor */
+    if (efd != -1)
+    {
+        close(efd);
+    }
+
+    /* Restore original response mode if we changed it and didn't restore yet -
+     * use actualServiceType for Set */
+    if (needModeRestore)
+    {
+        status = cpaInstanceSetResponseMode(
+            instanceHandle, actualServiceType, defaultResponseMode);
+        if (status != CPA_STATUS_SUCCESS)
+        {
+            PRINT_ERR("Warning: Failed to restore original response mode "
+                      "during cleanup\n");
+        }
+    }
+    return;
+
+#else /*USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     PRINT_ERR("EPOLL feature not supported - dynamic polling unavailable\n");
     error_flag_g = CPA_TRUE;
     return;
-#else  /* SC_EPOLL_DISABLED */
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+#else /* SC_EPOLL_DISABLED */
     PRINT_ERR("EPOLL disabled at compile time\n");
     error_flag_g = CPA_TRUE;
     return;

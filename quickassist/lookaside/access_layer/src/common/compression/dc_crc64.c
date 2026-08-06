@@ -237,6 +237,8 @@ CpaStatus dcGenerateLookupTable(Cpa64U crc64Polynomial,
  *                                  calculating the checksum.
  * @param[in]  pCrcLookupTable      Pointer to the CRC lookup table used for
  *                                  calculating the checksum.
+ * @param[in]  initialValue         Seed value used to start CRC calculation
+ *                                  for the given flat buffer.
  * @param[in]  pData                Pointer to data byte array to calculate CRC
  *                                  on.
  * @param[in]  computeLength        Total number of bytes to calculate CRC on.
@@ -248,6 +250,7 @@ CpaStatus dcGenerateLookupTable(Cpa64U crc64Polynomial,
  */
 STATIC CpaStatus dcBufferCalculateCrc64(const CpaCrcControlData *pCrcConfig,
                                         const Cpa64U *pCrcLookupTable,
+                                        Cpa64U initialValue,
                                         const Cpa8U *pData,
                                         Cpa64U computeLength,
                                         Cpa64U *pCurrentCrc)
@@ -263,7 +266,7 @@ STATIC CpaStatus dcBufferCalculateCrc64(const CpaCrcControlData *pCrcConfig,
     LAC_CHECK_NULL_PARAM(pCrcLookupTable);
 #endif
 
-    *pCurrentCrc = pCrcConfig->initialValue;
+    *pCurrentCrc = initialValue;
     for (i = 0; i < computeLength; i++)
     {
         nextByte = pData[i];
@@ -309,7 +312,7 @@ STATIC CpaStatus dcBufferCalculateCrc64(const CpaCrcControlData *pCrcConfig,
  * @retval CPA_STATUS_SUCCESS       Function executed successfully
  * @retval CPA_STATUS_INVALID_PARAM Invalid parameter passed in
  */
-CpaStatus dcCalculateProgCrc64(CpaCrcControlData *pCrcConfig,
+CpaStatus dcCalculateProgCrc64(const CpaCrcControlData *pCrcConfig,
                                Cpa64U *pCrcLookupTable,
                                const CpaBufferList *pBufferList,
                                Cpa32U consumedBytes,
@@ -317,9 +320,12 @@ CpaStatus dcCalculateProgCrc64(CpaCrcControlData *pCrcConfig,
 {
     Cpa64U i = 0;
     Cpa64U computeLength = 0;
+    Cpa64U runningSeed = 0;
     Cpa32U flatBufferLength = 0;
     CpaFlatBuffer *pBuffer = &pBufferList->pBuffers[0];
     CpaStatus status = CPA_STATUS_SUCCESS;
+
+    runningSeed = pCrcConfig->initialValue;
 
     for (i = 0; i < pBufferList->numBuffers; i++)
     {
@@ -338,13 +344,17 @@ CpaStatus dcCalculateProgCrc64(CpaCrcControlData *pCrcConfig,
             consumedBytes = 0;
         }
 
-        status = dcBufferCalculateCrc64(
-            pCrcConfig, pCrcLookupTable, pBuffer->pData, computeLength, pSwCrc);
+        status = dcBufferCalculateCrc64(pCrcConfig,
+                                        pCrcLookupTable,
+                                        runningSeed,
+                                        pBuffer->pData,
+                                        computeLength,
+                                        pSwCrc);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
         }
-        pCrcConfig->initialValue = *pSwCrc;
+        runningSeed = *pSwCrc;
         pBuffer++;
     }
 

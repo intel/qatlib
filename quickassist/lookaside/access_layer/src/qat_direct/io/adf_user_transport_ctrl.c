@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -54,9 +55,52 @@ extern void *adf_get_bank_base_addr(int accelId,
                                     int bankid,
                                     uint32_t *offset,
                                     uint32_t *size);
+
 adf_dev_bank_handle_t *get_banks(icp_accel_dev_t *dev)
 {
     return dev->banks;
+}
+
+/*
+ * Calculate the CSR_INT_COL_CTL DELCNT value from a nanosecond delay.
+ *
+ * Result is clamped to the valid hardware range
+ * [ICP_INT_COL_CTL_DELCNT_MIN, ICP_INT_COL_CTL_DELCNT_MAX].
+ */
+STATIC Cpa32U adf_calc_del_cnt(Cpa32U coalescingTimerInNs)
+{
+    Cpa64U delcnt; /* holds delay counter value */
+
+    delcnt = ((Cpa64U)coalescingTimerInNs * ICP_INT_COL_CTL_CPP_FREQ_HZ) /
+             ((Cpa64U)ICP_INT_COL_CTL_CYCLES_PER_DECR * ICP_NS_PER_SECOND);
+
+    if (delcnt < ICP_INT_COL_CTL_DELCNT_MIN)
+        delcnt = ICP_INT_COL_CTL_DELCNT_MIN;
+    else if (delcnt > ICP_INT_COL_CTL_DELCNT_MAX)
+        delcnt = ICP_INT_COL_CTL_DELCNT_MAX;
+
+    return (Cpa32U)delcnt;
+}
+
+/*
+ * Write the coalescing timer CSR for a ring handle.
+ * Restores the user-set timer if one was configured, otherwise writes the
+ * hardware default.  Called on ring create, mode switch, and reinit.
+ * To ensure thread-safety, ring lock must be held when this function
+ * is called.
+ */
+STATIC void adf_write_coalescing_timer(adf_dev_ring_handle_t *pRingHandle)
+{
+    uint32_t *csr_base_addr = pRingHandle->csr_addr;
+    Cpa32U timerNs = pRingHandle->coalescingTimerUserSet
+                         ? pRingHandle->coalescingTimerNs
+                         : ICP_INT_COL_DEFAULT_TIMER_NS;
+
+    if (timerNs == 0)
+        WRITE_CSR_INT_COL_CTL_DISABLE(pRingHandle->bank_offset);
+    else
+        WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset,
+                              adf_calc_del_cnt(timerNs));
 }
 
 STATIC CpaStatus init_rings_from_bank(icp_accel_dev_t *accel_dev,
@@ -93,13 +137,13 @@ CpaStatus init_bank_from_accel(icp_accel_dev_t *accel_dev,
 
     bank->csr_addr = (uint32_t *)bundle->ptr;
 
-    bank->csr_addr_shadow = (uint32_t *)ICP_MALLOC_GEN(ICP_BUNDLE_SIZE);
+    bank->csr_addr_shadow = (uint32_t *)ICP_MALLOC_GEN(ADF_RING_BUNDLE_SIZE);
     if (NULL == bank->csr_addr_shadow)
     {
         adf_io_free_bundle(bundle);
         return CPA_STATUS_FAIL;
     }
-    ICP_MEMSET(bank->csr_addr_shadow, 0, ICP_BUNDLE_SIZE);
+    ICP_MEMSET(bank->csr_addr_shadow, 0, ADF_RING_BUNDLE_SIZE);
     bank->bundle = bundle;
 
     /*  allocate ring handles for this bank  */
@@ -132,7 +176,7 @@ STATIC CpaStatus reinit_bank_from_accel(icp_accel_dev_t *accel_dev,
     }
 
     bank->csr_addr = (uint32_t *)bundle->ptr;
-    ICP_MEMSET(bank->csr_addr_shadow, 0, ICP_BUNDLE_SIZE);
+    ICP_MEMSET(bank->csr_addr_shadow, 0, ADF_RING_BUNDLE_SIZE);
     bank->bundle = bundle;
 
     /* allocate ring handles for this bank */
@@ -634,8 +678,13 @@ CpaStatus icp_adf_transCreateHandle(icp_accel_dev_t *accel_dev,
         uint32_t *csr_base_addr = pRingHandle->csr_addr;
         WRITE_CSR_INT_COL_EN(pRingHandle->bank_offset,
                              banks[pRingHandle->bank_num].interrupt_mask);
-        WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset,
-                              ETR_CSR_INTR_COL_CTL_TIME);
+    }
+    /* Restore coalescing timer in IRQ mode always, and in POLL mode when
+     * the caller previously configured a custom value (cached in the ring
+     * handle but reset to 0 by hardware on device restart). */
+    if (ICP_RESP_TYPE_IRQ == resp || pRingHandle->coalescingTimerUserSet)
+    {
+        adf_write_coalescing_timer(pRingHandle);
     }
 
     return CPA_STATUS_SUCCESS;
@@ -758,8 +807,13 @@ CpaStatus icp_adf_transReinitHandle(icp_accel_dev_t *accel_dev,
         uint32_t *csr_base_addr = pRingHandle->csr_addr;
         WRITE_CSR_INT_COL_EN(pRingHandle->bank_offset,
                              banks[pRingHandle->bank_num].interrupt_mask);
-        WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset,
-                              ETR_CSR_INTR_COL_CTL_TIME);
+    }
+    /* Restore coalescing timer in IRQ mode always, and in POLL mode when
+     * the caller previously configured a custom value (cached in the ring
+     * handle but reset to 0 by hardware on device restart). */
+    if (ICP_RESP_TYPE_IRQ == resp || pRingHandle->coalescingTimerUserSet)
+    {
+        adf_write_coalescing_timer(pRingHandle);
     }
 
     return CPA_STATUS_SUCCESS;
@@ -777,6 +831,7 @@ CpaStatus icp_adf_transSetRespMode(icp_comms_trans_handle *trans_handle,
     adf_dev_bank_handle_t *banks = NULL;
     adf_dev_bank_handle_t *bank = NULL;
     uint32_t *csr_base_addr = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
 
     ICP_CHECK_FOR_NULL_PARAM(trans_handle);
     pRingHandle = (adf_dev_ring_handle_t *)trans_handle;
@@ -795,8 +850,15 @@ CpaStatus icp_adf_transSetRespMode(icp_comms_trans_handle *trans_handle,
         return CPA_STATUS_SUCCESS;
     }
 
+    status = ICP_MUTEX_LOCK(&pRingHandle->user_lock);
+    if (status)
+    {
+        ADF_ERROR("Failed to lock ring with error %d\n", status);
+        return CPA_STATUS_FAIL;
+    }
     if (irq_enable)
     {
+        adf_user_sync_ring_head(pRingHandle);
         pRingHandle->interrupt_user_mask = 1 << pRingHandle->ring_num;
         bank->interrupt_mask |= pRingHandle->interrupt_user_mask;
     }
@@ -808,9 +870,101 @@ CpaStatus icp_adf_transSetRespMode(icp_comms_trans_handle *trans_handle,
 
     csr_base_addr = pRingHandle->csr_addr;
     WRITE_CSR_INT_COL_EN(pRingHandle->bank_offset, bank->interrupt_mask);
-    WRITE_CSR_INT_COL_CTL(pRingHandle->bank_offset, ETR_CSR_INTR_COL_CTL_TIME);
+    /* Restore coalescing timer on mode switch. */
+    adf_write_coalescing_timer(pRingHandle);
 
     pRingHandle->resp = irq_enable ? ICP_RESP_TYPE_IRQ : ICP_RESP_TYPE_POLL;
+    status = ICP_MUTEX_UNLOCK(&pRingHandle->user_lock);
+    if (status)
+    {
+        ADF_ERROR("Failed to unlock ring with error %d\n", status);
+    }
+
+    return status ? CPA_STATUS_FAIL : CPA_STATUS_SUCCESS;
+}
+
+/*
+ * Configure the Interrupt Coalescing Timer on an RX ring.
+ *
+ * The value is written to hardware immediately and cached so it survives
+ * mode switches and Stop/Start cycles.  Pass 0 to disable coalescing.
+ * Values exceeding the allowed maximum return CPA_STATUS_INVALID_PARAM.
+ */
+CpaStatus icp_adf_transSetIntCoalTimer(icp_comms_trans_handle trans_handle,
+                                       Cpa32U coalescingTimerInNs)
+{
+    adf_dev_ring_handle_t *pRingHandle = NULL;
+    Cpa32U max_timer_ns;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    ICP_CHECK_FOR_NULL_PARAM(trans_handle);
+    pRingHandle = (adf_dev_ring_handle_t *)trans_handle;
+
+    /* Reject values that exceed the effective maximum (software cap). */
+    max_timer_ns = ICP_INT_COL_MAX_TIMER_NS;
+    if (coalescingTimerInNs > max_timer_ns)
+    {
+        ADF_ERROR("coalescingTimerInNs (%u) exceeds maximum (%u)\n",
+                  coalescingTimerInNs,
+                  max_timer_ns);
+        return CPA_STATUS_INVALID_PARAM;
+    }
+
+    /*
+     * Acquire the ring lock to ensure only one thread at a time updates
+     * the cached timer fields and the COL_CTL hardware register.
+     */
+    status = ICP_MUTEX_LOCK(&pRingHandle->user_lock);
+    if (status)
+    {
+        ADF_ERROR("Failed to lock ring with error %d\n", status);
+        return CPA_STATUS_FAIL;
+    }
+    pRingHandle->coalescingTimerNs = coalescingTimerInNs;
+    pRingHandle->coalescingTimerUserSet = CPA_TRUE;
+    adf_write_coalescing_timer(pRingHandle);
+    status = ICP_MUTEX_UNLOCK(&pRingHandle->user_lock);
+    if (status)
+    {
+        ADF_ERROR("Failed to unlock ring with error %d\n", status);
+    }
+
+    return status ? CPA_STATUS_FAIL : CPA_STATUS_SUCCESS;
+}
+
+/*
+ * Return the current Interrupt Coalescing Timer configuration for an
+ * RX ring, together with the hardware maximum and granularity.
+ * The timer value is read directly from the CSR.
+ */
+CpaStatus icp_adf_transGetIntCoalTimerData(icp_comms_trans_handle trans_handle,
+                                           Cpa32U *pCoalTimerInNs,
+                                           Cpa32U *pMaxCoalTimerInNs,
+                                           Cpa32U *pGranularityInNs)
+{
+    adf_dev_ring_handle_t *pRingHandle = NULL;
+    uint32_t *csr_base_addr = NULL;
+    Cpa32U reg = 0;
+    Cpa32U delcnt = 0;
+
+    ICP_CHECK_FOR_NULL_PARAM(trans_handle);
+    ICP_CHECK_FOR_NULL_PARAM(pCoalTimerInNs);
+    ICP_CHECK_FOR_NULL_PARAM(pMaxCoalTimerInNs);
+    ICP_CHECK_FOR_NULL_PARAM(pGranularityInNs);
+
+    pRingHandle = (adf_dev_ring_handle_t *)trans_handle;
+
+    /* Read timer from CSR. */
+    csr_base_addr = pRingHandle->csr_addr;
+    reg = READ_CSR_INT_COL_CTL(pRingHandle->bank_offset);
+    delcnt = reg & ICP_INT_COL_CTL_DELCNT_MASK;
+    *pCoalTimerInNs = (Cpa32U)(ICP_DELCNT_TO_NS(delcnt));
+
+    /* Maximum: effective cap (lower of hardware limit and software cap). */
+    *pMaxCoalTimerInNs = ICP_INT_COL_MAX_TIMER_NS;
+
+    /* Granularity: 1 unit = ICP_INT_COL_CTL_CYCLES_PER_DECR clock cycles. */
+    *pGranularityInNs = (Cpa32U)(ICP_DELCNT_TO_NS(1));
 
     return CPA_STATUS_SUCCESS;
 }
@@ -1291,6 +1445,21 @@ CpaStatus icp_adf_transGetFdForHandle(icp_comms_trans_handle trans_hnd, int *fd)
 }
 
 /*
+ * Drain the eventfd event counter for a bundle. Interrupt for
+ * the instance is expected to be masked at this point. The eventfd
+ * is created with EFD_NONBLOCK so the read will not block.
+ */
+static void consume_efd_events(struct adf_io_user_bundle *bundle)
+{
+    uint64_t val;
+    ssize_t r;
+
+    r = read(bundle->efd, &val, sizeof(val));
+    if (r < 0 && errno != EAGAIN)
+        ADF_ERROR("Can't read eventfd: %s\n", strerror(errno));
+}
+
+/*
  * This function allows the user to poll the response ring. The
  * ring number to be polled is supplied by the user via the
  * trans handle for that ring. The trans_hnd is a pointer
@@ -1318,7 +1487,9 @@ CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
         return CPA_STATUS_FAIL;
     }
 
+#ifndef ICP_WITHOUT_QP_SUBMISSION_LOCK
     ICP_MUTEX_LOCK(&ring_hnd_first->user_lock);
+#endif
     csr_base_addr = (Cpa8U *)ring_hnd_first->csr_addr;
 
     for (i = 0; i < num_transHandles; i++)
@@ -1326,7 +1497,9 @@ CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
         ring_hnd = (adf_dev_ring_handle_t *)trans_hnd[i];
         if (!ring_hnd)
         {
+#ifndef ICP_WITHOUT_QP_SUBMISSION_LOCK
             ICP_MUTEX_UNLOCK(&ring_hnd_first->user_lock);
+#endif
             return CPA_STATUS_FAIL;
         }
         /* And with polling ring mask. If the
@@ -1346,13 +1519,16 @@ CpaStatus icp_adf_pollInstance(icp_comms_trans_handle *trans_hnd,
         /* Re-enable interrupts in case we are using epoll mode */
         if (ICP_RESP_TYPE_IRQ == ring_hnd->resp)
         {
+            consume_efd_events(
+                (struct adf_io_user_bundle *)ring_hnd->bank_data->bundle);
             WRITE_CSR_INT_COL_EN(ring_hnd->bank_offset,
                                  ring_hnd->bank_data->interrupt_mask);
-            WRITE_CSR_INT_COL_CTL(ring_hnd->bank_offset,
-                                  ETR_CSR_INTR_COL_CTL_TIME);
+            adf_write_coalescing_timer(ring_hnd);
         }
     }
+#ifndef ICP_WITHOUT_QP_SUBMISSION_LOCK
     ICP_MUTEX_UNLOCK(&ring_hnd_first->user_lock);
+#endif
     /* If any of the rings in the instance had data and was polled
      * return SUCCESS. */
     if (stat_total)

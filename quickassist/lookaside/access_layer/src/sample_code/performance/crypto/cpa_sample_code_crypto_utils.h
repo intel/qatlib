@@ -370,6 +370,17 @@ typedef enum ec_gen_step_s
 #define SNOW3G_UIA2_BLOCK_LENGTH_IN_BYTES (8)
 #define ZUC_EIA3_BLOCK_LENGTH_IN_BYTES (4)
 #define SHA3_256_BLOCK_LENGTH_IN_BYTES (136)
+/* Test convention: AAD buffers are initialized to this fixed pattern */
+#define AAD_INIT_PATTERN (0xAA)
+
+#define AES_128_CMAC_KEYLENGTH_IN_BYTES (128 / NUM_BITS_IN_BYTE)
+#define AES_192_CMAC_KEYLENGTH_IN_BYTES (192 / NUM_BITS_IN_BYTE)
+#define AES_256_CMAC_KEYLENGTH_IN_BYTES (256 / NUM_BITS_IN_BYTE)
+#define ZUC256_KEYLENGTH_IN_BYTES (256 / NUM_BITS_IN_BYTE)
+#define ZUC_EIA3_KEY_256_DIGEST_32_LENGTH_IN_BYTES ((256 + 32) / 8)
+#define ZUC_EIA3_KEY_256_DIGEST_64_LENGTH_IN_BYTES ((256 + 64) / 8)
+#define ZUC_EIA3_KEY_256_DIGEST_128_LENGTH_IN_BYTES ((256 + 128) / 8)
+#define ZUC256_AAD_LEN_IN_BYTES (16)
 
 #define POLY_DIGEST_LENGTH_IN_BYTES (16)
 
@@ -557,6 +568,16 @@ extern Cpa32U modSizes[];
  * up 100% CPU.*/
 
 CpaStatus setCyPollInterval(Cpa32U interval);
+
+extern Cpa32U gcmAadLenInBytes_g;
+extern Cpa32U ccmAadLenInBytes_g;
+extern Cpa32U chachaPolyAadLenInBytes_g;
+CpaStatus setGcmAadLen(Cpa32U aadLenInBytes);
+CpaStatus setCcmAadLen(Cpa32U aadLenInBytes);
+CpaStatus setChachaPolyAadLen(Cpa32U aadLenInBytes);
+Cpa32U getGcmAadLen(void);
+Cpa32U getCcmAadLen(void);
+Cpa32U getChachaPolyAadLen(void);
 /* FreeBSD scheduler is not handling "busy loops" as effective as Linux
  * especially in multi-thread environment where few polling threads
  * can be assigned to single CPU core. To avoid thread starvation
@@ -720,6 +741,10 @@ typedef struct symmetric_test_params_s
     CpaBoolean enableRoundOffPkt;
     /* Identify if the test is for SSL or TLS*/
     CpaBoolean isTLS;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 } symmetric_test_params_t;
 
 /**
@@ -760,6 +785,10 @@ typedef struct asym_test_params_s
     CpaBoolean enableKPT;
     CpaCyKptHandle kptKeyHandle;
 #endif
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 } asym_test_params_t;
 
 /**
@@ -853,6 +882,10 @@ typedef struct ecdsa_test_params_s
     CpaBoolean enableKPT;
     CpaCyKptHandle kptKeyHandle;
 #endif
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 } ecdsa_test_params_t;
 
 #ifdef SC_SM2_ENABLED
@@ -894,6 +927,10 @@ typedef struct sm2_test_params_s
     CpaFlatBuffer *x2;
     CpaFlatBuffer *y2;
     CpaCyEcsm2VerifyOpData **verifyOp;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 } sm2_test_params_t;
 
 /**
@@ -1039,6 +1076,10 @@ typedef struct hkdf_test_params_s
     Cpa32U numBuffers;
     /* number of loops to be generated */
     Cpa32U numLoops;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 } hkdf_test_params_t;
 
 /**
@@ -1107,6 +1148,10 @@ typedef struct ec_generic_test_params_s
     Cpa32U numLoops;
     /* EC Gen step */
     ec_gen_step_t step;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 } ec_generic_test_params_t;
 #endif /* CY_API_VERSION_AT_LEAST(3, 0) */
 
@@ -1194,9 +1239,29 @@ void processCallback(void *pCallbackTag);
  *      startCyServices
  *
  * @description
- *      This function starts all Crypto services available on the system
+ *      This function starts Crypto services available on the system
  *****************************************************************************/
 CpaStatus startCyServices(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      startSymServices
+ *
+ * @description
+ *      This function starts Sym services available on the system
+ *****************************************************************************/
+CpaStatus startSymServices(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      startAsymServices
+ *
+ * @description
+ *      This function starts Asym services available on the system
+ *****************************************************************************/
+CpaStatus startAsymServices(void);
 
 /**
  *****************************************************************************
@@ -2689,5 +2754,474 @@ CpaStatus dsaGenZ(CpaInstanceHandle instanceHandle,
  * CPA_CY_SYM_CIPHER_CHACHA
  ******************************************************************************/
 CpaStatus checkForChachapolySupport(void);
+
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+/* Core response mode configuration functions */
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceResponseMode
+ *
+ * @description
+ *      Sets the response mode for Crypto (CY) instances. This configures
+ *      whether instances use polling mode (CPA_INST_RX_NOTIFY_NONE) or
+ *      event-driven mode (CPA_INST_RX_NOTIFY_BY_EVENT).
+ *
+ * @param[in]  responseMode    The response mode to set for CY instances:
+ *                             CPA_INST_RX_NOTIFY_NONE - Traditional polling
+ *                             CPA_INST_RX_NOTIFY_BY_EVENT - Event-driven
+ *
+ * @retval CPA_STATUS_SUCCESS  Response mode set successfully
+ * @retval CPA_STATUS_FAIL     Failed to set response mode
+ *
+ * @pre
+ *      CY instances must be initialized
+ * @post
+ *      Response mode configuration is stored for later application
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceResponseMode(CpaInstanceResponseMode responseMode);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceResponseModeWithMask
+ *
+ * @description
+ *      Sets the response mode for specific CY instances identified by a
+ *      bitmask. Each bit in the mask corresponds to an instance index.
+ *
+ * @param[in]  userMode        User-specified mode value (0 for polling,
+ *                             1 for event-driven)
+ * @param[in]  mask            64-bit mask where each bit represents an
+ *                             instance (bit 0 = instance 0, etc.)
+ *
+ * @retval CPA_STATUS_SUCCESS  Response mode set successfully for masked
+ * instances
+ * @retval CPA_STATUS_FAIL     Failed to set response mode
+ *
+ * @pre
+ *      CY instances must be initialized
+ * @post
+ *      Response mode is configured for instances specified in mask
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceResponseModeWithMask(Cpa32U userMode, Cpa64U mask);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceResponseModeForRange
+ *
+ * @description
+ *      Sets the response mode for a contiguous range of CY instances.
+ *      Applies the mode to instances from startInst to endInst (inclusive).
+ *
+ * @param[in]  userMode        User-specified mode value (0 for polling,
+ *                             1 for event-driven)
+ * @param[in]  startInst       Starting instance index (inclusive)
+ * @param[in]  endInst         Ending instance index (inclusive)
+ *
+ * @retval CPA_STATUS_SUCCESS  Response mode set successfully for range
+ * @retval CPA_STATUS_FAIL     Failed to set response mode or invalid range
+ *
+ * @pre
+ *      CY instances must be initialized, startInst <= endInst
+ * @post
+ *      Response mode is configured for specified instance range
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceResponseModeForRange(Cpa32U userMode,
+                                            Cpa16U startInst,
+                                            Cpa16U endInst);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      getCyInstanceResponseMode
+ *
+ * @description
+ *      Retrieves the currently configured response mode for CY instances.
+ *
+ * @retval CpaInstanceResponseMode - Current response mode:
+ *                                    CPA_INST_RX_NOTIFY_NONE or
+ *                                    CPA_INST_RX_NOTIFY_BY_EVENT
+ *
+ * @pre
+ *      Response mode must have been previously configured
+ * @post
+ *      none
+ *
+ *****************************************************************************/
+CpaInstanceResponseMode getCyInstanceResponseMode(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceResponseModeMask
+ *
+ * @description
+ *      Sets the instance selection mask that determines which CY instances
+ *      will have response mode configuration applied.
+ *
+ * @param[in]  mask            64-bit mask where each bit represents an
+ *                             instance to be configured
+ *
+ * @retval
+ *     none
+ *
+ * @pre
+ *      none
+ * @post
+ *      Instance mask is updated for future configuration operations
+ *
+ *****************************************************************************/
+void setCyInstanceResponseModeMask(Cpa64U mask);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      getCyInstanceResponseModeMask
+ *
+ * @description
+ *      Retrieves the current instance selection mask that identifies which
+ *      CY instances are configured for response mode changes.
+ *
+ * @retval Cpa64U - 64-bit mask of configured instances
+ *
+ * @pre
+ *      none
+ * @post
+ *      none
+ *
+ *****************************************************************************/
+Cpa64U getCyInstanceResponseModeMask(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      configureCyInstanceResponseModeForAll
+ *
+ * @description
+ *      Configures the specified response mode for all available CY instances
+ *      in the system. This is a convenience function for system-wide
+ *      configuration.
+ *
+ * @param[in]  responseMode    The response mode to apply to all instances:
+ *                             CPA_INST_RX_NOTIFY_NONE or
+ *                             CPA_INST_RX_NOTIFY_BY_EVENT
+ *
+ * @retval CPA_STATUS_SUCCESS  Response mode configured for all instances
+ * @retval CPA_STATUS_FAIL     Failed to configure one or more instances
+ *
+ * @pre
+ *      CY instances must be initialized and started
+ * @post
+ *      All CY instances are configured with the specified response mode
+ *
+ *****************************************************************************/
+CpaStatus configureCyInstanceResponseModeForAll(
+    CpaInstanceResponseMode responseMode);
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      configureCyInstanceResponseModeForHalf
+ *
+ * @description
+ *      Configures the specified response mode for all available CY instances
+ *      in the system. This is a convenience function for system-wide
+ *      configuration.
+ *
+ * @param[in]  responseMode    The response mode to apply to all instances:
+ *                             CPA_INST_RX_NOTIFY_NONE or
+ *                             CPA_INST_RX_NOTIFY_BY_EVENT
+ *
+ * @retval CPA_STATUS_SUCCESS  Response mode configured for all instances
+ * @retval CPA_STATUS_FAIL     Failed to configure one or more instances
+ *
+ * @pre
+ *      CY instances must be initialized and started
+ * @post
+ *      Half CY instances are configured with the specified response mode
+ *
+ *****************************************************************************/
+CpaStatus configureCyInstanceResponseModeForHalf(
+    CpaInstanceResponseMode responseMode);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceResponseModeByValue
+ *
+ * @description
+ *      Sets the response mode using a numeric value instead of the
+ *      CpaInstanceResponseMode enum. Useful for command-line or
+ *      configuration file inputs.
+ *
+ * @param[in]  userMode        Numeric mode value:
+ *                             0 = CPA_INST_RX_NOTIFY_NONE (polling)
+ *                             1 = CPA_INST_RX_NOTIFY_BY_EVENT (event-driven)
+ *
+ * @retval CPA_STATUS_SUCCESS  Response mode set successfully
+ * @retval CPA_STATUS_FAIL     Failed to set response mode or invalid value
+ *
+ * @pre
+ *      CY instances must be initialized
+ * @post
+ *      Response mode configuration is updated
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceResponseModeByValue(Cpa32U userMode);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      isCyInstanceResponseModeConfigured
+ *
+ * @description
+ *      Checks whether any CY instance response mode configuration has been
+ *      set and is pending application.
+ *
+ * @retval CPA_TRUE            Response mode configuration exists
+ * @retval CPA_FALSE           No configuration has been set
+ *
+ * @pre
+ *      none
+ * @post
+ *      none
+ *
+ *****************************************************************************/
+CpaBoolean isCyInstanceResponseModeConfigured(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      clearCyInstanceResponseModeConfiguration
+ *
+ * @description
+ *      Clears all pending CY instance response mode configurations and
+ *      resets to default state. Does not affect already-applied configurations.
+ *
+ * @retval CPA_STATUS_SUCCESS  Configuration cleared successfully
+ * @retval CPA_STATUS_FAIL     Failed to clear configuration
+ *
+ * @pre
+ *      none
+ * @post
+ *      All pending response mode configurations are removed
+ *
+ *****************************************************************************/
+CpaStatus clearCyInstanceResponseModeConfiguration(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      applyCyInstanceResponseModeConfiguration
+ *
+ * @description
+ *      Applies previously configured response mode settings to all symmetric
+ *      CY instances. This commits the configuration changes to the hardware.
+ *
+ * @retval CPA_STATUS_SUCCESS  Configuration applied successfully to all
+ * instances
+ * @retval CPA_STATUS_FAIL     Failed to apply configuration to one or more
+ * instances
+ *
+ * @pre
+ *      Response mode must be configured via set functions
+ *      CY instances must be started
+ * @post
+ *      Symmetric CY instances operate in the configured response mode
+ *
+ *****************************************************************************/
+CpaStatus applyCyInstanceResponseModeConfiguration(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyResponseModeIterationCount
+ *
+ * @description
+ *      Sets the iteration count for response mode testing. This is used
+ *      in test scenarios to control how many times response mode switching
+ *      is performed during validation.
+ *
+ * @param[in]  count           Number of iterations for response mode testing
+ *
+ * @retval CPA_STATUS_SUCCESS  Iteration count set successfully
+ * @retval CPA_STATUS_FAIL     Failed to set iteration count
+ *
+ * @pre
+ *      CY instances must be initialized
+ * @post
+ *      Iteration count is updated for test execution
+ *
+ *****************************************************************************/
+CpaStatus setCyResponseModeIterationCount(Cpa32U count);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      getCyResponseModeIterationCount
+ *
+ * @description
+ *      Retrieves the current iteration count configured for response mode
+ *      testing.
+ *
+ * @param[out] count           Pointer to store the current iteration count
+ *
+ * @retval CPA_STATUS_SUCCESS  Iteration count retrieved successfully
+ * @retval CPA_STATUS_FAIL     Failed to retrieve iteration count or NULL
+ * pointer
+ *
+ * @pre
+ *      CY instances must be initialized
+ * @post
+ *      count is populated with current iteration count value
+ *
+ *****************************************************************************/
+CpaStatus getCyResponseModeIterationCount(Cpa32U *count);
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_INT_COALESCING_TIMER) &&     \
+    defined(STV_TEST_CODE)
+/* CY interrupt coalescing-timer configuration functions. These require the
+ * driver APIs cpaInstanceSetIntCoalescingTimer() and
+ * cpaInstanceGetRxInterruptMetaData(), and are only available when
+ * SUPPORTED_FEAT_INT_COALESCING_TIMER is set.
+ * Covers symmetric (CRYPTO_SYM), asymmetric (CRYPTO_ASYM), and combined
+ * (CRYPTO) instances. */
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceCoalescingTimer
+ *
+ * @description
+ *      Sets the interrupt coalescing timer value (in nanoseconds) that will
+ *      be applied to CY instances specified by the mask. Explicitly overrides
+ *      the QAT library's default coalescing timer.
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceCoalescingTimer(Cpa32U coalescingTimerInNs);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceCoalescingTimerWithMask
+ *
+ * @description
+ *      Combined function that sets both the coalescing timer value and the
+ *      instance mask in a single call.
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceCoalescingTimerWithMask(Cpa32U coalescingTimerInNs,
+                                               Cpa64U mask);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceCoalescingTimerForRange
+ *
+ * @description
+ *      Convenience function to set the coalescing timer for a range of
+ *      consecutive CY instances.
+ *
+ *****************************************************************************/
+CpaStatus setCyInstanceCoalescingTimerForRange(Cpa32U coalescingTimerInNs,
+                                               Cpa16U startInst,
+                                               Cpa16U endInst);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      getCyInstanceCoalescingTimer
+ *
+ *****************************************************************************/
+Cpa32U getCyInstanceCoalescingTimer(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      isCyInstanceCoalescingTimerConfigured
+ *
+ *****************************************************************************/
+CpaBoolean isCyInstanceCoalescingTimerConfigured(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      clearCyInstanceCoalescingTimerConfiguration
+ *
+ *****************************************************************************/
+CpaStatus clearCyInstanceCoalescingTimerConfiguration(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      setCyInstanceCoalescingTimerMask
+ *
+ *****************************************************************************/
+void setCyInstanceCoalescingTimerMask(Cpa64U mask);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      getCyInstanceCoalescingTimerMask
+ *
+ *****************************************************************************/
+Cpa64U getCyInstanceCoalescingTimerMask(void);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      configureCyInstanceCoalescingTimerForAll
+ *
+ *****************************************************************************/
+CpaStatus configureCyInstanceCoalescingTimerForAll(Cpa32U coalescingTimerInNs);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      configureCyInstanceCoalescingTimerForHalf
+ *
+ *****************************************************************************/
+CpaStatus configureCyInstanceCoalescingTimerForHalf(Cpa32U coalescingTimerInNs);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      getCyInstanceRxInterruptMetaData
+ *
+ * @description
+ *      Wrapper around cpaInstanceGetRxInterruptMetaData() for CY instances.
+ *      Resolves the correct service type for combined CRYPTO instances
+ *      (queried via the SYM service type) and pure SYM/ASYM instances.
+ *
+ *****************************************************************************/
+CpaStatus getCyInstanceRxInterruptMetaData(
+    CpaInstanceHandle instanceHandle,
+    CpaRxInterruptMetaData *pInterruptData);
+
+/**
+ *****************************************************************************
+ * @ingroup cryptoThreads
+ *      applyCyInstanceCoalescingTimerConfiguration
+ *
+ * @description
+ *      Applies the configured coalescing timer value to the actual CY
+ *      instances based on the current mask. Each instance is queried via
+ *      cpaCyInstanceGetInfo2() so that the correct accelerationServiceType
+ *      (CRYPTO / CRYPTO_SYM / CRYPTO_ASYM) is passed to the experimental API.
+ *      After setting the timer on each masked instance the value is read
+ *      back via cpaInstanceGetRxInterruptMetaData() and verified (taking the
+ *      hardware-reported granularity into account). This should be called
+ *      after CY services are started but before polling threads are created.
+ *
+ *****************************************************************************/
+CpaStatus applyCyInstanceCoalescingTimerConfiguration(void);
+#endif /* USER_SPACE && SUPPORTED_FEAT_INT_COALESCING_TIMER && STV_TEST_CODE   \
+        */
 
 #endif /*_CRYPTO_UTILS_H_*/

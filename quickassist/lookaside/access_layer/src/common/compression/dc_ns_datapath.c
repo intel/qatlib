@@ -32,6 +32,7 @@
 #include "cpa_dc_dp.h"
 
 #include "icp_qat_hw_20_comp.h"
+#include "icp_qat_hw_51_comp.h"
 
 /*
 *******************************************************************************
@@ -159,6 +160,10 @@ void dcNsCompression_ProcessCallback(void *pRespMsg)
                 break;
             case ICP_QAT_FW_COMP_20_CMD_LZ4S_COMPRESS:
                 compType = CPA_DC_LZ4S;
+                break;
+            case ICP_QAT_FW_COMP_51_CMD_ZSTD_COMPRESS:
+            case ICP_QAT_FW_COMP_51_CMD_ZSTD_DECOMPRESS:
+                compType = CPA_DC_ZSTD;
                 break;
         }
 
@@ -710,7 +715,7 @@ STATIC void dcNsCompContentDescPopulate(sal_compression_service_t *pService,
     pCompControlBlock->comp_cfg_offset = 0;
 
     /* Disable all banks */
-    pCompControlBlock->ram_bank_flags = 0;
+    ICP_QAT_FW_COMP_RAM_BANK_FLAGS(pCompControlBlock) = 0;
 
     pCompControlBlock->comp_state_addr = 0;
 
@@ -1119,6 +1124,10 @@ STATIC CpaStatus dcNsCreateRequest(dc_compression_cookie_t *pCookie,
             {
                 cnvErrorInjection =
                     pService->generic_service_info.ns_isCnvErrorInjection;
+                if (DC_CAPS_GEN6_HW == hw_gen)
+                {
+                    errorInjectionCode = ICP_QAT_FW_COMP_CNV_ERROR_CHECKSUM;
+                }
             }
             break;
         case DC_NO_CNV:
@@ -1500,6 +1509,7 @@ CpaStatus cpaDcNsCompressData(CpaInstanceHandle dcInstance,
     CpaInstanceHandle insHandle = NULL;
     Cpa64U srcBuffSize = 0;
     dc_cnv_mode_t cnvMode = DC_CNV;
+    dc_capabilities_t *pDcCapabilities = NULL;
 
     LAC_CHECK_NULL_PARAM(pOpData);
 
@@ -1540,6 +1550,9 @@ CpaStatus cpaDcNsCompressData(CpaInstanceHandle dcInstance,
 
     pService = (sal_compression_service_t *)insHandle;
 
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
 #ifdef ICP_PARAM_CHECK
     /* Ensure this is a compression instance */
     SAL_CHECK_INSTANCE_TYPE(insHandle, SAL_SERVICE_TYPE_COMPRESSION);
@@ -1579,11 +1592,16 @@ CpaStatus cpaDcNsCompressData(CpaInstanceHandle dcInstance,
     }
 
     if ((CPA_DC_LZ4 == pSetupData->compType) &&
+        (pDcCapabilities->deviceData.hw_gen < DC_CAPS_GEN6_HW) &&
         (CPA_TRUE == pOpData->integrityCrcCheck))
     {
-        LAC_INVALID_PARAM_LOG("LZ4 with integrityCrcCheck is not supported"
-                              " in the compression direction");
-        return CPA_STATUS_INVALID_PARAM;
+        if (!(pService->generic_service_info.dcExtendedFeatures &
+              DC_LZ4_E2E_COMP_CRC_EXTENDED_CAPABILITY))
+        {
+            LAC_INVALID_PARAM_LOG("LZ4 with integrityCrcCheck is not supported"
+                                  " in the compression direction");
+            return CPA_STATUS_UNSUPPORTED;
+        }
     }
 
     if (dcCheckOpData(pService, pOpData, pSetupData->sessDirection) !=

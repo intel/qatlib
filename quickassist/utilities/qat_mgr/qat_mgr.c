@@ -468,7 +468,7 @@ int main(int argc, char **argv)
 
     signal(SIGPIPE, signal_handler);
 
-    if (qat_mgr_get_vfio_dev_list(&num_devices, dev_list, list_size, 0))
+    if (qat_mgr_get_vfio_dev_list(&num_devices, dev_list, list_size))
     {
         printf("get_dev_list failed\n");
     }

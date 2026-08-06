@@ -582,6 +582,33 @@ typedef enum
 /**
  *******************************************************************************
  * @ingroup LacCommon
+ *      Checks capability for a crypto service instance and cache the status.
+ *
+ * @description
+ *      This macro checks feature capability for a symmetric/asymmetric service
+ *      instance and caches the status.
+ *
+ * @param[out] status              Status of the capability check.
+ * @param[in] instanceHandle       Instance handler of the target service
+ *                                 instance.
+ * @param[in] capa                 Capability to be checked.
+ *
+ ******************************************************************************/
+#define SAL_GET_INSTANCE_CRYPTO_CAPABILITY_STATUS(                             \
+    status, instanceHandle, capa)                                              \
+    do                                                                         \
+    {                                                                          \
+        CpaCyCapabilitiesInfo *pCyCapInfo;                                     \
+        pCyCapInfo = &((sal_crypto_service_t *)instanceHandle)->capInfo;       \
+        if (!pCyCapInfo->capa##Supported)                                      \
+            status = CPA_STATUS_UNSUPPORTED;                                   \
+        else                                                                   \
+            status = CPA_STATUS_SUCCESS;                                       \
+    } while (0)
+
+/**
+ *******************************************************************************
+ * @ingroup LacCommon
  *      This macro copies a string from one location to another
  *
  * @param[out] pDestinationBuffer   Pointer to destination buffer
@@ -1219,5 +1246,33 @@ static inline int lac_getServiceType(icp_adf_ringInfoService_t type)
     }
     return SAL_RING_TYPE_NONE;
 }
+
+/**
+ *******************************************************************************
+ * @ingroup LacCommon
+ *      This macro checks if the device is Gen6
+ *
+ * @param[in] instanceHandle        Instance Handle
+ *
+ * @return CPA_TRUE                 If device is Gen6
+ * @return CPA_FALSE                If device is not Gen6
+ *
+ ******************************************************************************/
+#define IS_GEN6_DEV(instanceHandle)                                            \
+    ((((sal_service_t *)instanceHandle)->isGen6) ? CPA_TRUE : CPA_FALSE)
+
+/**
+ *******************************************************************************
+ * @ingroup LacCommon
+ *      This macro checks if the address is 4-byte aligned
+ *
+ * @param[in] address               address
+ *
+ * @return CPA_TRUE                 If address is not 4-byte aligned
+ * @return CPA_FALSE                If address is 4-byte aligned
+ *
+ ******************************************************************************/
+#define IS_4BYTE_ALIGNED(address)                                              \
+    ((((uintptr_t)address) % 4) ? CPA_FALSE : CPA_TRUE)
 
 #endif /* LAC_COMMON_H */

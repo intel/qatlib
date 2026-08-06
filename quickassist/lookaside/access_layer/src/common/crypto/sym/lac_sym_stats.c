@@ -32,7 +32,6 @@
 #include "lac_mem_pools.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "icp_qat_fw_la.h"
 #include "lac_sym_qat.h"
 #include "lac_sal_types_crypto.h"
@@ -124,7 +123,7 @@ void LacSym_StatsShow(CpaInstanceHandle instanceHandle)
     osalLog(OSAL_LOG_LVL_USER,
             OSAL_LOG_DEV_STDOUT,
             SEPARATOR BORDER
-            "              Symmetric Stats               " BORDER
+            "                 Symmetric Stats                  " BORDER
             "\n" SEPARATOR);
 
     /* Session Info */

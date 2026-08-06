@@ -68,7 +68,7 @@
 #define MAX_PAYLOAD_SIZE                                                       \
     MAX(sizeof(struct qatmgr_msg_req), sizeof(struct qatmgr_msg_rsp))
 
-#define MAX_DEVS 512
+#define MAX_DEVS ADF_MAX_DEVICES
 
 /* Below definitions are dependent on kernel drivers for creating the same
  * mapping
@@ -80,16 +80,13 @@
 #define CFG_SERV_RING_PAIR_2_SHIFT 6
 #define CFG_SERV_RING_PAIR_3_SHIFT 9
 
-#ifndef ENABLE_DC
+/* The default map is assumed if a kernel doesn't respond to pfvfcomms
+ * queries. Early kernel drivers did not support pfvfcomms and also set a
+ * fixed service map of asym/sym/asym/sym, so this is a reasonable assumption.
+ */
 #define DEFAULT_RING_TO_SRV_MAP                                                \
     (ASYM | SYM << CFG_SERV_RING_PAIR_1_SHIFT |                                \
      ASYM << CFG_SERV_RING_PAIR_2_SHIFT | SYM << CFG_SERV_RING_PAIR_3_SHIFT)
-#else
-#define DEFAULT_RING_TO_SRV_MAP                                                \
-    (COMP | DECOMP << CFG_SERV_RING_PAIR_1_SHIFT |                             \
-     COMP << CFG_SERV_RING_PAIR_2_SHIFT |                                      \
-     DECOMP << CFG_SERV_RING_PAIR_3_SHIFT)
-#endif
 #define DC_ONLY_RING_TO_SRV_MAP                                                \
     (COMP | COMP << CFG_SERV_RING_PAIR_1_SHIFT |                               \
      COMP << CFG_SERV_RING_PAIR_2_SHIFT | COMP << CFG_SERV_RING_PAIR_3_SHIFT)
@@ -172,6 +169,7 @@ struct fw_caps_qat
     uint32_t deflate_caps;
     uint16_t lz4_caps;
     uint16_t lz4s_caps;
+    uint16_t zstd_caps;
     uint8_t is_fw_caps;
 };
 
@@ -378,13 +376,12 @@ int qatmgr_close(void);
 void qat_mgr_cleanup_cfg(void);
 int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
                               struct qatmgr_dev_data *dev_list,
-                              const unsigned list_size,
-                              int keep_fd);
+                              const unsigned list_size);
 
 int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                             const int num_devices,
                             int policy,
-                            int static_cfg);
+                            int keep_device_open);
 
 bool qat_mgr_is_vfio_dev_available(void);
 

@@ -41,7 +41,7 @@ STATIC int reopen_vfio_dev(vfio_dev_info_t *vfio_dev, int accelId, int pciDevId)
     int group_fd;
     int vfio_container_fd;
 
-    ICP_CHECK_FOR_NULL_PARAM(vfio_dev);
+    ICP_CHECK_FOR_NULL_PARAM_RET_CODE(vfio_dev, -EINVAL);
     /* Get device identifier */
     req.device_num = accelId;
     if (qatmgr_query(&req, &rsp, QATMGR_MSGTYPE_DEVICE_ID))
@@ -200,11 +200,18 @@ CpaBoolean adf_vfio_poll_proxy_event(Cpa32U *dev_id, enum adf_event *event)
     Cpa16U i;
     Cpa16U msg_type = 0xFFFF;
     vfio_dev_info_t *vfio_dev;
-    icp_accel_dev_t *accel_tb[ADF_MAX_DEVICES];
+    /*
+     * This array does not need to be static. However, it is declared this way
+     * to avoid excessive use of stack memory and potential stack-overflow in
+     * this function.
+     */
+    static icp_accel_dev_t *accel_tb[ADF_MAX_DEVICES];
     Cpa16U num_instances;
 
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(dev_id, CPA_FALSE);
     ICP_CHECK_FOR_NULL_PARAM_RET_CODE(event, CPA_FALSE);
+
+    memset(accel_tb, 0, sizeof(accel_tb));
     icp_adf_getNumInstances(&num_instances);
     icp_adf_getInstances(num_instances, &accel_tb[0]);
     for (i = 0; i < num_instances; ++i)

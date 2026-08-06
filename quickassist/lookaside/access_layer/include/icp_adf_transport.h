@@ -154,6 +154,43 @@ CpaStatus icp_adf_transSetRespMode(icp_comms_trans_handle *trans_handle,
                                 CpaBoolean irq_enable);
 
 /*
+ * icp_adf_transSetIntCoalTimer
+ *
+ * Description:
+ * Configure the Interrupt Coalescing Timer for an RX transport handle.
+ * When the ring is in ICP_RESP_TYPE_IRQ mode the CSR_INT_COL_CTL register
+ * is programmed with a DELCNT value derived from coalescingTimerInNs
+ * instead of the default ICP_INT_COL_DEFAULT_TIMER_NS value.
+ * The configured value is stored in the ring handle so it can be
+ * retrieved with icp_adf_transGetIntCoalTimerData().
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS         on success
+ *   CPA_STATUS_FAIL            on Failure
+ *   CPA_STATUS_INVALID_PARAM   invalid parameter
+ */
+CpaStatus icp_adf_transSetIntCoalTimer(icp_comms_trans_handle trans_handle,
+                                       Cpa32U coalescingTimerInNs);
+
+/*
+ * icp_adf_transGetIntCoalTimerData
+ *
+ * Description:
+ * Retrieve the Interrupt Coalescing Timer configuration for an RX
+ * transport handle. Returns the last value set via
+ * icp_adf_transSetIntCoalTimer(),  or the default if that API was not called,
+ * together with the hardware maximum and the smallest configurable granularity.
+ *
+ * Returns:
+ *   CPA_STATUS_SUCCESS         on success
+ *   CPA_STATUS_INVALID_PARAM   invalid parameter
+ */
+CpaStatus icp_adf_transGetIntCoalTimerData(icp_comms_trans_handle trans_handle,
+                                           Cpa32U *pCoalTimerInNs,
+                                           Cpa32U *pMaxCoalTimerInNs,
+                                           Cpa32U *pGranularityInNs);
+
+/*
  * icp_adf_transGetHandle
  *
  * Description:

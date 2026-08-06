@@ -61,6 +61,22 @@
 #include "sal_misc_error_stats.h"
 #define DC_COMP_MAX_BUFF_SIZE (1024 * 64)
 
+/* Reject LZ4 requests that have accumulateXXHash disabled
+ * but do not use CPA_DC_FLUSH_FINAL */
+#define DC_CHECK_LZ4_XXHASH_FLUSH(pSessionDesc, flushFlag)                     \
+    do                                                                         \
+    {                                                                          \
+        if (CPA_DC_LZ4 == (pSessionDesc)->compType &&                          \
+            CPA_FALSE == (pSessionDesc)->accumulateXXHash &&                   \
+            CPA_DC_FLUSH_FINAL != (flushFlag))                                 \
+        {                                                                      \
+            LAC_INVALID_PARAM_LOG(                                             \
+                "LZ4 requests with accumulateXXHash disabled must use"         \
+                " CPA_DC_FLUSH_FINAL");                                        \
+            return CPA_STATUS_INVALID_PARAM;                                   \
+        }                                                                      \
+    } while (0)
+
 STATIC OsalAtomic dcErrorCount[MAX_DC_ERROR_TYPE];
 
 void dcErrorLog(CpaDcReqStatus dcError)
@@ -481,6 +497,24 @@ void dcHandleIntegrityChecksums(dc_compression_cookie_t *pCookie,
     {
         /* XXHASH64, XXHASH32 and Adler share the same member */
         pDcResults->checksum = crc_external->adler32;
+    }
+}
+
+INLINE void dcGetDictionaryParams(const CpaDcDictionaryData *pDictionaryData,
+                                  const dc_capabilities_t *pDcCapabilities,
+                                  const Cpa32U dictLenInBytes,
+                                  Cpa32U *pDictPrefixLength,
+                                  Cpa32U *pDictContentLength)
+{
+    switch (pDictionaryData->dictionaryType)
+    {
+        case CPA_DC_UNCOMPRESSED_DICT:
+            *pDictPrefixLength = 0;
+            *pDictContentLength = dictLenInBytes;
+            break;
+        default:
+            LAC_INVALID_PARAM_LOG("Invalid dictionary type");
+            break;
     }
 }
 
@@ -1499,6 +1533,53 @@ inline Cpa32U dcCalcAsbRegValue(Cpa32U srcLen,
     return asbRegVal;
 }
 
+STATIC INLINE CpaStatus
+dcPopulateDictReqParams(const CpaDcDictionaryData *pDictionaryData,
+                        dc_capabilities_t *pDcCapabilities,
+                        const Cpa64U dictionaryLenInBytes,
+                        const dc_session_desc_t *pSessionDesc,
+                        icp_qat_fw_comp_req_t *pMsg)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaBoolean dictIdSupported = CPA_FALSE;
+    Cpa32U dictionaryPrefixLength = 0;
+    Cpa32U dictionaryContentLength = 0;
+
+    dcGetDictionaryParams(pDictionaryData,
+                          pDcCapabilities,
+                          (Cpa32U)dictionaryLenInBytes,
+                          &dictionaryPrefixLength,
+                          &dictionaryContentLength);
+
+    /* LW 19 Populate Dictionary Parameters */
+    switch (pDictionaryData->dictionaryType)
+    {
+        case CPA_DC_UNCOMPRESSED_DICT:
+            /* Populate the dictionary length */
+            pMsg->comp_pars.dictionary_params =
+                ICP_QAT_FW_COMP_DICTIONARY_PARAMS_BUILD(
+                    ICP_QAT_FW_COMP_DICT_TYPE_UNCOMPRESSED,
+                    dictionaryContentLength);
+            break;
+        case CPA_DC_COMPRESSED_DICT:
+        default:
+            LAC_UNSUPPORTED_PARAM_LOG("Unsupported dictionary type");
+            return CPA_STATUS_UNSUPPORTED;
+            break;
+    }
+
+    status = dcGetDictIdSupportCapabilityStatus(
+        pDcCapabilities, pSessionDesc->compType, &dictIdSupported);
+    if (CPA_STATUS_SUCCESS != status)
+        return status;
+
+    if (dictIdSupported)
+    {
+        pMsg->u3.zstd_dict_id.dictionary_id = pDictionaryData->dictId;
+    }
+    return CPA_STATUS_SUCCESS;
+}
+
 /**
  *****************************************************************************
  * @ingroup Dc_DataCompression
@@ -1577,7 +1658,6 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
     CpaBoolean asbThresholdSupported = CPA_FALSE;
     Cpa32U asbRegValue = 0;
     Cpa32U val32 = 0;
-    icp_qat_fw_comp_dict_type_t fwDictType = ICP_QAT_FW_COMP_DICT_TYPE_NONE;
     icp_qat_hw_compression_config_t *pCompConfig = NULL;
     Cpa64U dictionaryLenInBytes = 0;
     CpaBoolean zeroLengthRequestsSupported = CPA_FALSE;
@@ -1976,6 +2056,10 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
             if (CPA_TRUE == errorInjectionSupported)
             {
                 cnvErrorInjection = pSessionDesc->cnvErrorInjection;
+                if (DC_CAPS_GEN6_HW == pDcCapabilities->deviceData.hw_gen)
+                {
+                    errorInjectionCode = ICP_QAT_FW_COMP_CNV_ERROR_CHECKSUM;
+                }
             }
             break;
         case DC_NO_CNV:
@@ -2025,19 +2109,13 @@ CpaStatus dcCreateRequest(dc_compression_cookie_t *pCookie,
                           ICP_QAT_HW_COMP_20_CONFIG_CSR_SOM_CONTROL_MASK);
             pCompConfig->upper_val |= BYTE_SWAP_32(val32);
         }
-        /* LW 19 Populate Dictionary Parameters */
-        switch (pDictionaryData->dictionaryType)
-        {
-            case CPA_DC_UNCOMPRESSED_DICT:
-                fwDictType = ICP_QAT_FW_COMP_DICT_TYPE_UNCOMPRESSED;
-                break;
-            case CPA_DC_COMPRESSED_DICT:
-            default:
-                break;
-        }
-        pMsg->comp_pars.dictionary_params =
-            ICP_QAT_FW_COMP_DICTIONARY_PARAMS_BUILD(fwDictType,
-                                                    dictionaryLenInBytes);
+        status = dcPopulateDictReqParams(pDictionaryData,
+                                         pDcCapabilities,
+                                         dictionaryLenInBytes,
+                                         pSessionDesc,
+                                         pMsg);
+        if (CPA_STATUS_SUCCESS != status)
+            return status;
 
     }
 
@@ -2566,6 +2644,9 @@ CpaStatus cpaDcCompressData(CpaInstanceHandle dcInstance,
 #endif
 
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
+
+    DC_CHECK_LZ4_XXHASH_FLUSH(pSessionDesc, flushFlag);
+
 #ifdef ICP_PARAM_CHECK
     if (CPA_STATUS_SUCCESS != dcParamCheck(insHandle,
                                            pSessionHandle,
@@ -2637,6 +2718,7 @@ CpaStatus cpaDcCompressData2(CpaInstanceHandle dcInstance,
     CpaInstanceHandle insHandle = NULL;
     Cpa64U srcBuffSize = 0;
     dc_cnv_mode_t cnvMode = DC_NO_CNV;
+    dc_capabilities_t *pDcCapabilities = NULL;
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(pOpData);
@@ -2726,6 +2808,8 @@ CpaStatus cpaDcCompressData2(CpaInstanceHandle dcInstance,
 
     pSessionDesc = DC_SESSION_DESC_FROM_CTX_GET(pSessionHandle);
 
+    DC_CHECK_LZ4_XXHASH_FLUSH(pSessionDesc, pOpData->flushFlag);
+
     if (CPA_TRUE == pOpData->compressAndVerify &&
         CPA_DC_STATEFUL == pSessionDesc->sessState)
     {
@@ -2741,8 +2825,13 @@ CpaStatus cpaDcCompressData2(CpaInstanceHandle dcInstance,
         return CPA_STATUS_UNSUPPORTED;
     }
 
+    /* Retrieve capabilities */
+    pDcCapabilities = &pService->dc_capabilities;
+
+    /* Integrity CRC for LZ4 has restrictions for generation lesser than GEN6 */
     if ((CPA_DC_LZ4 == pSessionDesc->compType) &&
-        (CPA_TRUE == pOpData->integrityCrcCheck))
+        (CPA_TRUE == pOpData->integrityCrcCheck) &&
+        (pDcCapabilities->deviceData.hw_gen < DC_CAPS_GEN6_HW))
     {
         if (!(pService->generic_service_info.dcExtendedFeatures &
               DC_LZ4_E2E_COMP_CRC_EXTENDED_CAPABILITY))
@@ -2755,7 +2844,7 @@ CpaStatus cpaDcCompressData2(CpaInstanceHandle dcInstance,
         if (pSessionDesc->accumulateXXHash)
         {
             LAC_INVALID_PARAM_LOG("LZ4 with integrityCrcCheck and "
-                                  "acummulateXXHash enabled is not supported");
+                                  "accumulateXXHash enabled is not supported");
             return CPA_STATUS_UNSUPPORTED;
         }
         if (pSessionDesc->autoSelectBestHuffmanTree != CPA_DC_ASB_DISABLED)
@@ -2870,40 +2959,6 @@ CpaStatus cpaDcCompressData2(CpaInstanceHandle dcInstance,
                             CPA_TRUE,
                             cnvMode,
                             NULL);
-}
-
-CpaStatus dcCheckDictData(CpaDcDictionaryData *pDictionaryData,
-                          sal_compression_service_t *pService,
-                          dc_session_desc_t *pSessionDesc)
-{
-    CpaBoolean dictCompSupported = CPA_FALSE;
-#ifdef ICP_PARAM_CHECK
-    Cpa64U dictionaryBuffSize = 0;
-
-    LAC_CHECK_NULL_PARAM(pDictionaryData);
-    LAC_CHECK_NULL_PARAM(pDictionaryData->pDictionaryBuff);
-
-    if (LacBuffDesc_BufferListVerify(pDictionaryData->pDictionaryBuff,
-                                     &dictionaryBuffSize,
-                                     LAC_NO_ALIGNMENT_SHIFT) !=
-        CPA_STATUS_SUCCESS)
-    {
-        LAC_INVALID_PARAM_LOG("Invalid dictionary buffer list parameter");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-
-    if (CPA_DC_UNCOMPRESSED_DICT != pDictionaryData->dictionaryType)
-    {
-        LAC_INVALID_PARAM_LOG("Invalid dictionary type");
-        return CPA_STATUS_INVALID_PARAM;
-    }
-#endif
-
-    /* Check for uncompressed dictionary support */
-    return dcGetUncompDictSupportCapabilityStatus(&pService->dc_capabilities,
-                                                  pSessionDesc->compType,
-                                                  pSessionDesc->sessDirection,
-                                                  &dictCompSupported);
 }
 
 CpaStatus cpaDcDecompressData(CpaInstanceHandle dcInstance,

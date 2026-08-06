@@ -247,19 +247,19 @@ char *icp_module_name = "XEN";
 #define ADF_ERROR(format, args...)                                             \
     osalLog(OSAL_LOG_LVL_ERROR, OSAL_LOG_DEV_STDERR, "%s: %s: " format,        \
     icp_module_name, (__func__), ##args)
-#ifdef _DEBUG_
+#ifdef ICP_DEBUG
 #define ADF_DEBUG(format, args...)                                             \
     do                                                                         \
     {                                                                          \
         osalLog(OSAL_LOG_LVL_DEBUG1, OSAL_LOG_DEV_STDOUT, "%s: %s: " format,   \
         icp_module_name, (__func__), ##args);                                  \
     } while (0)
-#else /*_DEBUG_*/
+#else /*ICP_DEBUG*/
 #define ADF_DEBUG(format, args...)                                             \
     do                                                                         \
     {                                                                          \
     } while (0)
-#endif /*_DEBUG_*/
+#endif /*ICP_DEBUG*/
 
 /* memory management */
 

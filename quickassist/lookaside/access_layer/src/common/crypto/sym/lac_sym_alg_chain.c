@@ -27,7 +27,6 @@
 #include "icp_accel_devices.h"
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
-#include "icp_adf_debug.h"
 
 /*
 *******************************************************************************
@@ -791,6 +790,7 @@ static void buildCmdData(lac_session_desc_t *pSessionDesc,
                     break;
                 case CPA_CY_SYM_CIPHER_ZUC_EEA3:
                     *proto = ICP_QAT_FW_LA_ZUC_3G_PROTO;
+                    /* fall through */
                 case CPA_CY_SYM_CIPHER_AES_F8:
                     ICP_QAT_FW_USE_WCP_SLICE_SET(*laExtCmdFlags,
                                                  QAT_LA_USE_WCP_SLICE);
@@ -1016,7 +1016,7 @@ static void updateLaCmdFlags(lac_session_desc_t *pSessionDesc,
     /* Legacy FW <=> IA interface */
     else if (!extServFlagEnabled &&
              ((CPA_CY_SYM_CIPHER_ZUC_EEA3 == pSessionDesc->cipherAlgorithm) ||
-             (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)))
+              (CPA_CY_SYM_HASH_ZUC_EIA3 == pSessionDesc->hashAlgorithm)))
     {
         /* New bit position (12) for ZUC. The FW provides a specific macro
          * to use to set the ZUC proto flag. With the new FW I/F this needs
@@ -1668,7 +1668,11 @@ CpaStatus LacAlgChain_SessionInit(
             else /* CPA_CY_SYM_HASH_MODE_AUTH
                     && anything except CPA_CY_SYM_HASH_AES_CBC_MAC  */
             {
-                if (IS_HMAC_ALG(pHashData->hashAlgorithm))
+                if (IS_GEN6_DEV(instanceHandle))
+                {
+                    pSessionDesc->qatHashMode = ICP_QAT_HW_AUTH_MODE2;
+                }
+                else if (IS_HMAC_ALG(pHashData->hashAlgorithm))
                 {
                     /* SHA3 HMAC do not support precompute, force MODE2
                      * for AUTH */
@@ -1829,6 +1833,10 @@ CpaStatus LacAlgChain_SessionInit(
                                             &hwBlockOffsetInDRAM,
                                             pOptimisedHwBlockBaseInDRAM,
                                             &optimisedHwBlockOffsetInDRAM);
+                    if (IS_GEN6_DEV(instanceHandle))
+                    {
+                        hwBlockOffsetInDRAM = 0;
+                    }
                     LacAlgChain_CipherCDBuild(pCipherData,
                                               pSessionDesc,
                                               ICP_QAT_FW_SLICE_DRAM_WR,
@@ -1948,6 +1956,18 @@ CpaStatus LacAlgChain_SessionInit(
             LAC_CHECK_64_BYTE_ALIGNMENT(
                 &(pSessionDesc->hashStatePrefixBuffer[0]));
 #endif
+            /* Populate HMAC key in case of GEN6 */
+            if (IS_GEN6_DEV(instanceHandle))
+            {
+                status =
+                    LacHash_PopulateHmacKey(&(pService->generic_service_info),
+                                            pHashData,
+                                            &(pSessionDesc->reqCacheFtr),
+                                            pSessionDesc->qatHashMode,
+                                            pSessionDesc->hashStatePrefixBuffer,
+                                            pHashStateBufferInfo);
+            }
+            else
             {
                 status = LacHash_StatePrefixAadBufferInit(
                     &(pService->generic_service_info),
@@ -2200,8 +2220,12 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
 
         pCdInfo = &(pSessionDesc->contentDescInfo);
         pHwBlockBaseInDRAM = (Cpa8U *)pCdInfo->pData;
-        if (CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT ==
-            pSessionDesc->cipherDirection)
+        /* For Gen6 AES-GCM and CHACHA-POLY is handled by UCS engine as
+         * Cipher operation. Hence configuration offset in DRAM is
+         * expected at initial offset even in Decryption direction */
+        if ((CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT ==
+             pSessionDesc->cipherDirection) &&
+            !pService->generic_service_info.isGen6)
         {
             if (LAC_CIPHER_IS_GCM(cipher))
                 hwBlockOffsetInDRAM = LAC_QUADWORDS_TO_BYTES(
@@ -2691,6 +2715,10 @@ CpaStatus LacAlgChain_Perform(const CpaInstanceHandle instanceHandle,
                                     pCipher20ReqParams->spc_auth_res_sz =
                                         (Cpa8U)pSessionDesc->hashResultSize;
                                 }
+                                /* Digest truncation is not supported on GEN6
+                                 * so digest len will be ignored by the FW and
+                                 * should be set to 0.
+                                 */
                         }
                         else
                         {

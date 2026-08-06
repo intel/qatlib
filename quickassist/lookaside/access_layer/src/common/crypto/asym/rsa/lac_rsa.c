@@ -218,7 +218,10 @@ CpaStatus LacRsa_Type2StdsCheck(CpaCyRsaPrivateKeyRep2 *pPrivateKeyRep2)
     return CPA_STATUS_SUCCESS;
 }
 
-CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey)
+CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey,
+                                      const CpaFlatBuffer *pRsaPrimeP,
+                                      const CpaFlatBuffer *pRsaPrimeQ,
+                                      CpaBoolean dpaEnabled)
 {
     LAC_CHECK_NULL_PARAM(pPrivateKey);
 
@@ -234,8 +237,16 @@ CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey)
         {
             LAC_CHECK_FLAT_BUFFER_PARAM(
                 &(pPrivateKey->privateKeyRep1.privateExponentD), CHECK_NONE, 0);
-            LAC_CHECK_FLAT_BUFFER_PARAM(
-                &(pPrivateKey->privateKeyRep1.modulusN), CHECK_NONE, 0);
+            if (dpaEnabled)
+            {
+                LAC_CHECK_FLAT_BUFFER_PARAM(pRsaPrimeP, CHECK_NONE, 0);
+                LAC_CHECK_FLAT_BUFFER_PARAM(pRsaPrimeQ, CHECK_NONE, 0);
+            }
+            else
+            {
+                LAC_CHECK_FLAT_BUFFER_PARAM(
+                    &(pPrivateKey->privateKeyRep1.modulusN), CHECK_NONE, 0);
+            }
         }
         break;
 
@@ -265,7 +276,10 @@ CpaStatus LacRsa_CheckPrivateKeyParam(CpaCyRsaPrivateKey *pPrivateKey)
     return CPA_STATUS_SUCCESS;
 }
 
-Cpa32U LacRsa_GetPrivateKeyOpSize(const CpaCyRsaPrivateKey *pPrivateKey)
+Cpa32U LacRsa_GetPrivateKeyOpSize(const CpaCyRsaPrivateKey *pPrivateKey,
+                                  const CpaFlatBuffer *pRsaPrimeP,
+                                  const CpaFlatBuffer *pRsaPrimeQ,
+                                  CpaBoolean dpaEnabled)
 {
     Cpa32U sizeInBytes = 0;
     LAC_ASSERT_NOT_NULL(pPrivateKey);
@@ -274,8 +288,25 @@ Cpa32U LacRsa_GetPrivateKeyOpSize(const CpaCyRsaPrivateKey *pPrivateKey)
     {
         case CPA_CY_RSA_PRIVATE_KEY_REP_TYPE_1:
         {
-            sizeInBytes +=
-                LacPke_GetMinBytes(&(pPrivateKey->privateKeyRep1.modulusN));
+            if (dpaEnabled)
+            {
+                sizeInBytes = LacPke_GetMinBytes(pRsaPrimeP);
+                if (sizeInBytes != LacPke_GetMinBytes(pRsaPrimeQ))
+                {
+                    LAC_LOG_ERROR("pRsaPrimeP.dataLenInBytes != "
+                                  "pRsaPrimeQ.dataLenInBytes");
+                    sizeInBytes = 0;
+                }
+                else
+                {
+                    sizeInBytes = sizeInBytes << 1;
+                }
+            }
+            else
+            {
+                sizeInBytes +=
+                    LacPke_GetMinBytes(&(pPrivateKey->privateKeyRep1.modulusN));
+            }
         }
         break;
 

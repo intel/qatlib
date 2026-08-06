@@ -33,7 +33,7 @@
  * Local constants
  **************************************************************************
  */
-#define ICP_QAT_FW_PKE_INPUT_COUNT_MAX 7
+#define ICP_QAT_FW_PKE_INPUT_COUNT_MAX 8
 /**< @ingroup icp_qat_fw_pke
  * Maximum number of input parameters in all PKE request */
 #define ICP_QAT_FW_PKE_OUTPUT_COUNT_MAX 5
@@ -247,6 +247,90 @@ typedef struct icp_qat_fw_mmp_ecsm2_keyex_p2_input_s
     uint64_t xp; /**< xP = affine coordinate X of public key PB  (4 qwords)*/
     uint64_t yp; /**< yP = affine coordinate X of public key PB  (4 qwords)*/
 } icp_qat_fw_mmp_ecsm2_keyex_p2_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P384 Variable Point Multiplication [k]P with
+ *    DPA Protection , to be used when icp_qat_fw_pke_request_s::functionalityId
+ *    is PKE_DPA_EC_POINT_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_s
+{
+    uint64_t xp; /**< xP = affine coordinate X of point P  (6 qwords)*/
+    uint64_t yp; /**< yP = affine coordinate Y of point P  (6 qwords)*/
+    uint64_t k;  /**< k = scalar  (6 qwords)*/
+    uint64_t r;  /**< cryptographically secure randomness (12 qwords)*/
+} icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P384 Generator Point Multiplication [k]G with
+ *    DPA Protection , to be used when icp_qat_fw_pke_request_s::functionalityId
+ *    is PKE_DPA_EC_GENERATOR_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_input_s
+{
+    uint64_t k; /**< k = scalar  (6 qwords)*/
+    uint64_t r; /**< cryptographically secure randomness (12 qwords)*/
+} icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for ECC P384 ECDSA Sign RS with DPA Protection ,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    PKE_DPA_ECDSA_SIGN_RS_P384.
+ */
+typedef struct icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_s
+{
+    uint64_t k;   /**< k = random value, > 0 and < n (order of G for P384)  (6
+                     qwords)*/
+    uint64_t e;   /**< e = digest of the message to be signed  (6 qwords)*/
+    uint64_t d;   /**< d = private key, 1 <= d <= n-1  (6 qwords)*/
+    uint64_t rnd; /**< cryptographically secure randomness (6 qwords)*/
+} icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for RSA 3072 Decryption with DPA Protection ,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    PKE_DPA_RSA_DP1_3072.
+ */
+typedef struct icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_s
+{
+    uint64_t c; /**< cipher text representative, < (p*q) (48 qwords)*/
+    uint64_t d; /**< RSA private key (48 qwords)*/
+    uint64_t e; /**< RSA public key, must be odd, >= 3 and <= (p*q)-1, with
+                   GCD(e, p-1, q-1) = 1 (48 qwords)*/
+    uint64_t p; /**< RSA parameter, prime, 2^1535 < p < 2^1536 (24 qwords)*/
+    uint64_t q; /**< RSA parameter, prime, 2^1535 < q < 2^1536 (24 qwords)*/
+    uint64_t r; /**< cryptographically secure randomness,
+                   4608 bits (72 qwords)*/
+} icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for RSA 3072 Decryption with DPA Protection with
+ *    CRT, to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    PKE_DPA_RSA_DP2_3072.
+ */
+typedef struct icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_s
+{
+    uint64_t c;    /**< cipher text representative, < (p*q) (48 qwords)*/
+    uint64_t e;    /**< RSA public key, must be odd, >= 3 and <= (p*q)-1, with
+                      GCD(e, p-1, q-1) = 1 (48 qwords)*/
+    uint64_t p;    /**< RSA parameter, prime, 2^1535 < p < 2^1536 (24 qwords)*/
+    uint64_t q;    /**< RSA parameter, prime, 2^1535 < q < 2^1536 (24 qwords)*/
+    uint64_t dp;   /**< RSA parameter, < p-1 (24 qwords)*/
+    uint64_t dq;   /**< RSA parameter, < q-1 (24 qwords)*/
+    uint64_t qinv; /**< RSA parameter, < p (24 qwords)*/
+    uint64_t r;    /**< cryptographically secure randomness,
+                      4608 bits (72 qwords)*/
+} icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t;
 
 /**
  * @ingroup icp_qat_fw_mmp
@@ -2892,6 +2976,244 @@ typedef struct icp_qat_fw_generator_multiplication_ed448_input_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
+ *    Input parameter list for KPT ECC P521 ECDSA Sign RS,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_ECDSA_SIGN_RS_P521.
+ */
+typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_input_s
+{
+    uint64_t kpt_wrapped;          /**< (42 qwords) */
+    uint64_t kpt_wrapping_context; /**< unwrap context (8 qwords) */
+    uint64_t e;                    /**< (6 qwords) */
+} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT ECC P384 ECDSA Sign RS,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_ECDSA_SIGN_RS_P384.
+ */
+typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_input_s
+{
+    uint64_t kpt_wrapped;          /**< (42 qwords) */
+    uint64_t kpt_wrapping_context; /**< unwrap context (8 qwords) */
+    uint64_t e;                    /**< (6 qwords) */
+} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT ECC P256 ECDSA Sign RS,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_ECDSA_SIGN_RS_P256.
+ */
+typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_input_s
+{
+    uint64_t kpt_wrapped;        /**< (28 qwords) */
+    uint64_t key_unwrap_context; /**< unwrap context (8 qwords) */
+    uint64_t e;                  /**< (4 qwords) */
+} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 512 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_512.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_512_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (8 qwords) */
+    uint64_t kpt_wrapped; /**< (16 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_512_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 1024 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_1024.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_1024_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (16 qwords) */
+    uint64_t kpt_wrapped; /**< (32 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_1024_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 1536 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_1536.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_1536_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (24 qwords) */
+    uint64_t kpt_wrapped; /**< (48 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_1536_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 2048 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_2048.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_2048_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (32 qwords) */
+    uint64_t kpt_wrapped; /**< (64 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_2048_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 3072 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_3072.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_3072_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (48 qwords) */
+    uint64_t kpt_wrapped; /**< (96 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_3072_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 4096 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_4096.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_4096_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (64 qwords) */
+    uint64_t kpt_wrapped; /**< (128 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_4096_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 8192 decryption,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_8192.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_8192_input_s
+{
+    uint64_t c;           /**< cipher text representative, n (128 qwords) */
+    uint64_t kpt_wrapped; /**< (256 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_8192_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 512 decryption second form,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_512.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_512_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (8 qwords) */
+    uint64_t kpt_wrapped; /**< (28 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_512_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 1024 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_1024.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_1024_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (16 qwords) */
+    uint64_t kpt_wrapped; /**< (56 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_1024_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 1536 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_1536.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_1536_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (24 qwords) */
+    uint64_t kpt_wrapped; /**< (84 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_1536_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 2048 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_2048.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_2048_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (32 qwords) */
+    uint64_t kpt_wrapped; /**< (112 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_2048_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 3072 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_3072.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_3072_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (48 qwords) */
+    uint64_t kpt_wrapped; /**< (168 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_3072_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 4096 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_4096.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_4096_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (64 qwords) */
+    uint64_t kpt_wrapped; /**< (224 qwords) */
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_4096_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Input parameter list for KPT RSA 8192 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_request_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_8192.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_8192_input_s
+{
+    uint64_t c;           /**< cipher text representative, (p*q) (128 qwords) */
+    uint64_t kpt_wrapped; /**< (448 qwords)*/
+    uint64_t kpt_unwrap_context; /**< unwrap context (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_8192_input_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
  *    MMP input parameters
  */
 typedef union icp_qat_fw_mmp_input_param_u {
@@ -2953,6 +3275,23 @@ typedef union icp_qat_fw_mmp_input_param_u {
 
     /** ECC P256 ECDSA Sign RS  */
     icp_qat_fw_mmp_ecdsa_sign_rs_p256_input_t mmp_ecdsa_sign_rs_p256;
+
+    /** ECC P384 Variable Point Multiplication [k]P with DPA Protection  */
+    icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_input_t
+        mmp_dpa_ec_point_multiplication_p384;
+
+    /** ECC P384 Generator Point Multiplication [k]G with DPA Protection  */
+    icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_input_t
+        mmp_dpa_ec_generator_multiplication_p384;
+
+    /** ECC P384 ECDSA Sign RS with DPA Protection  */
+    icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_input_t mmp_dpa_ecdsa_sign_rs_p384;
+
+    /** RSA 3072 Decryption with DPA Protection  */
+    icp_qat_fw_mmp_dpa_rsa_dp1_3072_input_t mmp_dpa_rsa_dp1_3072;
+
+    /** RSA 3072 Decryption with DPA Protection with CRT  */
+    icp_qat_fw_mmp_dpa_rsa_dp2_3072_input_t mmp_dpa_rsa_dp2_3072;
 
     /** Diffie-Hellman Modular exponentiation base 2 for 768-bit numbers  */
     icp_qat_fw_mmp_dh_g2_768_input_t mmp_dh_g2_768;
@@ -3531,6 +3870,57 @@ typedef union icp_qat_fw_mmp_input_param_u {
     icp_qat_fw_generator_multiplication_ed448_input_t
         generator_multiplication_ed448;
 
+    /** KPT ECC P521 ECDSA Sign RS */
+    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_input_t mmp_kpt_ecdsa_sign_rs_p521;
+
+    /** KPT ECC P384 ECDSA Sign RS */
+    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_input_t mmp_kpt_ecdsa_sign_rs_p384;
+
+    /** KPT ECC 256 ECDSA Sign RS */
+    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_input_t mmp_kpt_ecdsa_sign_rs_p256;
+
+    /** KPT RSA 512 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_512_input_t mmp_kpt_rsa_dp1_512;
+
+    /** KPT RSA 1024 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_1024_input_t mmp_kpt_rsa_dp1_1024;
+
+    /** KPT RSA 1536 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_1536_input_t mmp_kpt_rsa_dp1_1536;
+
+    /** KPT RSA 2048 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_2048_input_t mmp_kpt_rsa_dp1_2048;
+
+    /** KPT RSA 3072 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_3072_input_t mmp_kpt_rsa_dp1_3072;
+
+    /** KPT RSA 4096 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_4096_input_t mmp_kpt_rsa_dp1_4096;
+
+    /** KPT RSA 8192 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_8192_input_t mmp_kpt_rsa_dp1_8192;
+
+    /** KPT RSA 512 decryption second form */
+    icp_qat_fw_mmp_kpt_rsa_dp2_512_input_t mmp_kpt_rsa_dp2_512;
+
+    /** KPT RSA 1024 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_1024_input_t mmp_kpt_rsa_dp2_1024;
+
+    /** KPT RSA 1536 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_1536_input_t mmp_kpt_rsa_dp2_1536;
+
+    /** KPT RSA 2048 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_2048_input_t mmp_kpt_rsa_dp2_2048;
+
+    /** KPT RSA 3072 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_3072_input_t mmp_kpt_rsa_dp2_3072;
+
+    /** KPT RSA 4096 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_4096_input_t mmp_kpt_rsa_dp2_4096;
+
+    /** KPT RSA 8192 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_8192_input_t mmp_kpt_rsa_dp2_8192;
+
 } icp_qat_fw_mmp_input_param_t;
 
 /**
@@ -3729,6 +4119,70 @@ typedef struct icp_qat_fw_mmp_ecsm2_keyex_p2_output_s
     uint64_t xus; /**< xus = affine coordinate X of point (xU,yU)  (4 qwords)*/
     uint64_t yus; /**< yus = affine coordinate X of point (xU,yU)  (4 qwords)*/
 } icp_qat_fw_mmp_ecsm2_keyex_p2_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P384 Variable Point Multiplication [k]P with
+ *    DPA Protection, to be used when icp_qat_fw_pke_response_s::functionalityId
+ *    is PKE_DPA_EC_POINT_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_output_s
+{
+    uint64_t xr; /**< xR = affine coordinate X of point [k]P  (6 qwords)*/
+    uint64_t yr; /**< yR = affine coordinate Y of point [k]P  (6 qwords)*/
+} icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P384 Generator Point Multiplication [k]G
+ *    with DPA Protection , to be used when
+ *    icp_qat_fw_pke_response_s::functionalityId is
+ *    PKE_DPA_EC_GENERATOR_MULTIPLICATION_P384.
+ */
+typedef struct icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_output_s
+{
+    uint64_t xr; /**< xR = affine coordinate X of point [k]G  (6 qwords)*/
+    uint64_t yr; /**< yR = affine coordinate Y of point [k]G  (6 qwords)*/
+} icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for ECC P384 ECDSA Sign RS with DPA Protection ,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    PKE_DPA_ECDSA_SIGN_RS_P384.
+ */
+typedef struct icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_output_s
+{
+    uint64_t r; /**< ECDSA signature r  (6 qwords)*/
+    uint64_t s; /**< ECDSA signature s  (6 qwords)*/
+} icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for RSA 3072 Decryption with DPA Protection ,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    PKE_DPA_RSA_DP1_3072.
+ */
+typedef struct icp_qat_fw_mmp_dpa_rsa_dp1_3072_output_s
+{
+    uint64_t m; /**< message representative, < n (48 qwords)*/
+} icp_qat_fw_mmp_dpa_rsa_dp1_3072_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for RSA 3072 Decryption with DPA Protection with
+ *    CRT, to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    PKE_DPA_RSA_DP2_3072.
+ */
+typedef struct icp_qat_fw_mmp_dpa_rsa_dp2_3072_output_s
+{
+    uint64_t m; /**< message representative, < n (48 qwords)*/
+} icp_qat_fw_mmp_dpa_rsa_dp2_3072_output_t;
 
 /**
  * @ingroup icp_qat_fw_mmp
@@ -6014,6 +6468,213 @@ typedef struct icp_qat_fw_generator_multiplication_ed448_output_s
 /**
  * @ingroup icp_qat_fw_mmp
  * @brief
+ *    Output parameter list for KPT ECC P521 ECDSA Sign RS,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_ECDSA_SIGN_RS_P521.
+ */
+typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_output_s
+{
+    uint64_t r; /**< ECDSA signature r  (6 qwords) */
+    uint64_t s; /**< ECDSA signature s  (6 qwords) */
+} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT ECC P384 ECDSA Sign RS,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_ECDSA_SIGN_RS_P384.
+ */
+typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_output_s
+{
+    uint64_t r; /**< ECDSA signature r  (6 qwords) */
+    uint64_t s; /**< ECDSA signature s  (6 qwords) */
+} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT ECC P256 ECDSA Sign RS,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_ECDSA_SIGN_RS_P256.
+ */
+typedef struct icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_output_s
+{
+    uint64_t r; /**< ECDSA signature r  (4 qwords) */
+    uint64_t s; /**< ECDSA signature s  (4 qwords) */
+} icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 512 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_512.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_512_output_s
+{
+    uint64_t m; /**< message representative, n (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_512_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 1024 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_1024.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_1024_output_s
+{
+    uint64_t m; /**< message representative, n (16 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_1024_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 1536 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_1536.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_1536_output_s
+{
+    uint64_t m; /**< message representative, n (24 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_1536_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 2048 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_2048.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_2048_output_s
+{
+    uint64_t m; /**< message representative, n (32 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_2048_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 3072 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_3072.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_3072_output_s
+{
+    uint64_t m; /**< message representative, n (48 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_3072_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 4096 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_4096.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_4096_output_s
+{
+    uint64_t m; /**< message representative, n (64 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_4096_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 8192 decryption,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP1_8192.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp1_8192_output_s
+{
+    uint64_t m; /**< message representative, n (128 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp1_8192_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 512 decryption second form,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_512.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_512_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (8 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_512_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 1024 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_1024.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_1024_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (16 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_1024_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 1536 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_1536.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_1536_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (24 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_1536_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 2048 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_2048.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_2048_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (32 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_2048_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 3072 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_3072.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_3072_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (48 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_3072_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 4096 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_4096.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_4096_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (64 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_4096_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
+ *    Output parameter list for KPT RSA 8192 decryption with CRT,
+ *    to be used when icp_qat_fw_pke_response_s::functionalityId is
+ *    #PKE_KPT_RSA_DP2_8192.
+ */
+typedef struct icp_qat_fw_mmp_kpt_rsa_dp2_8192_output_s
+{
+    uint64_t m; /**< message representative, (p*q) (128 qwords) */
+} icp_qat_fw_mmp_kpt_rsa_dp2_8192_output_t;
+
+/**
+ * @ingroup icp_qat_fw_mmp
+ * @brief
  *    MMP output parameters
  */
 typedef union icp_qat_fw_mmp_output_param_u {
@@ -6050,6 +6711,23 @@ typedef union icp_qat_fw_mmp_output_param_u {
 
     /** ECC SM2 key exchange phase2  */
     icp_qat_fw_mmp_ecsm2_keyex_p2_output_t mmp_ecsm2_keyex_p2;
+
+    /** ECC P384 Variable Point Multiplication [k]P with DPA Protection  */
+    icp_qat_fw_mmp_dpa_ec_point_multiplication_p384_output_t
+        mmp_dpa_ec_point_multiplication_p384;
+
+    /** ECC P384 Generator Point Multiplication [k]G with DPA Protection  */
+    icp_qat_fw_mmp_dpa_ec_generator_multiplication_p384_output_t
+        mmp_dpa_ec_generator_multiplication_p384;
+
+    /** ECC P384 ECDSA Sign RS with DPA Protection  */
+    icp_qat_fw_mmp_dpa_ecdsa_sign_rs_p384_output_t mmp_dpa_ecdsa_sign_rs_p384;
+
+    /** RSA 3072 Decryption with DPA Protection  */
+    icp_qat_fw_mmp_dpa_rsa_dp1_3072_output_t mmp_dpa_rsa_dp1_3072;
+
+    /** RSA 3072 Decryption with DPA Protection with CRT  */
+    icp_qat_fw_mmp_dpa_rsa_dp2_3072_output_t mmp_dpa_rsa_dp2_3072;
 
     /** Initialisation sequence  */
     icp_qat_fw_mmp_init_output_t mmp_init;
@@ -6652,6 +7330,57 @@ typedef union icp_qat_fw_mmp_output_param_u {
      * RFC8032  */
     icp_qat_fw_generator_multiplication_ed448_output_t
         generator_multiplication_ed448;
+
+    /** KPT ECC P521 ECDSA Sign RS */
+    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p521_output_t mmp_kpt_ecdsa_sign_rs_p521;
+
+    /** KPT ECC P384 ECDSA Sign RS */
+    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p384_output_t mmp_kpt_ecdsa_sign_rs_p384;
+
+    /** KPT ECC P256 ECDSA Sign RS */
+    icp_qat_fw_mmp_kpt_ecdsa_sign_rs_p256_output_t mmp_kpt_ecdsa_sign_rs_p256;
+
+    /** KPT RSA 512 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_512_output_t mmp_kpt_rsa_dp1_512;
+
+    /** KPT RSA 1024 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_1024_output_t mmp_kpt_rsa_dp1_1024;
+
+    /** KPT RSA 1536 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_1536_output_t mmp_kpt_rsa_dp1_1536;
+
+    /** KPT RSA 2048 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_2048_output_t mmp_kpt_rsa_dp1_2048;
+
+    /** KPT RSA 3072 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_3072_output_t mmp_kpt_rsa_dp1_3072;
+
+    /** KPT RSA 4096 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_4096_output_t mmp_kpt_rsa_dp1_4096;
+
+    /** KPT RSA 8192 decryption */
+    icp_qat_fw_mmp_kpt_rsa_dp1_8192_output_t mmp_kpt_rsa_dp1_8192;
+
+    /** KPT RSA 512 decryption second form */
+    icp_qat_fw_mmp_kpt_rsa_dp2_512_output_t mmp_kpt_rsa_dp2_512;
+
+    /** KPT RSA 1024 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_1024_output_t mmp_kpt_rsa_dp2_1024;
+
+    /** KPT RSA 1536 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_1536_output_t mmp_kpt_rsa_dp2_1536;
+
+    /** KPT RSA 2048 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_2048_output_t mmp_kpt_rsa_dp2_2048;
+
+    /** KPT RSA 3072 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_3072_output_t mmp_kpt_rsa_dp2_3072;
+
+    /** KPT RSA 4096 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_4096_output_t mmp_kpt_rsa_dp2_4096;
+
+    /** KPT RSA 8192 decryption with CRT */
+    icp_qat_fw_mmp_kpt_rsa_dp2_8192_output_t mmp_kpt_rsa_dp2_8192;
 
 } icp_qat_fw_mmp_output_param_t;
 

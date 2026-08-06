@@ -317,7 +317,10 @@ typedef struct
      * were performed successfully and appendCrc was requested.
      */
     CpaBoolean reserved1;
-    /**< Reserved for future use */
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
     CpaStatus chainStatus;
     /**< Status of chain command. In the event the request is invalid,
      * a value of CPA_STATUS_INVALID_PARAM or CPA_STATUS_UNSUPPORTED may

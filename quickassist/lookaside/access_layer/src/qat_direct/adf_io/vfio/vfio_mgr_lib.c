@@ -45,6 +45,11 @@ extern icp_accel_pf_info_t pf_data[ADF_MAX_PF_DEVICES];
  * we want all the equivalent device/function entries for each of the PF
  * devices together to facilitate getting devices for policy 0.
  *  3d:01.0, 3f:01.0, da:01.0, 3d:01.1 ...
+ *
+ * When multiple domains with different values are present then domain is used
+ * as the final tie-breaker to ensure deterministic ordering while keeping
+ * equivalent device/function entries grouped together as below.
+ * 0000:3d:01.0, 0001:3d:01.0, 0002:3d:01.0, 0000:3f:01.0, 0001:3f:01.0 ...
  */
 static int bdf_compare(const void *a, const void *b)
 {
@@ -63,6 +68,10 @@ static int bdf_compare(const void *a, const void *b)
         return 1;
     if (BDF_BUS(dev_a->bdf) < BDF_BUS(dev_b->bdf))
         return -1;
+    if (BDF_DOMAIN(dev_a->bdf) < BDF_DOMAIN(dev_b->bdf))
+        return -1;
+    if (BDF_DOMAIN(dev_a->bdf) > BDF_DOMAIN(dev_b->bdf))
+        return 1;
     return 0;
 }
 
@@ -77,13 +86,11 @@ static void process_and_validate_vfio_device_group(
     int num_vfio_device,
     const char *vfio_file_name,
     struct dirent *vfio_entry,
-    int vfiofile,
     struct qatmgr_dev_data *dev_list,
-    int *num_devs,
-    int keep_fd)
+    int *num_devs)
 {
     char filename[256], *bdfname;
-    int sysfile_fd, numa_node = 0, found = 0, i;
+    int sysfile_fd, numa_node = 0, i;
     unsigned device = 0, vendor = 0, domain, bus, dev, func;
     uint32_t vfio_dir_name_len, device_dir_name_len, buf_size, str_len;
     struct dirent *device_entry;
@@ -267,13 +274,9 @@ static void process_and_validate_vfio_device_group(
         numa_node = 0;
 
     dev_list[*num_devs].numa_node = numa_node;
-    found = 1;
     dev_list[*num_devs].devid = device;
 
-    if (keep_fd)
-        dev_list[*num_devs].group_fd = vfiofile;
-    else
-        dev_list[*num_devs].group_fd = -1;
+    dev_list[*num_devs].group_fd = -1;
 
     (*num_devs)++;
 
@@ -286,16 +289,11 @@ cleanup:
         }
         free(sysdevice_dir);
     }
-    if (!found && vfiofile >= 0)
-    {
-        close(vfiofile);
-    }
 }
 
 int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
                               struct qatmgr_dev_data *dev_list,
-                              const unsigned list_size,
-                              int keep_fd)
+                              const unsigned list_size)
 {
     struct dirent **devvfio_dir = NULL;
     struct dirent **sysdevice_dir = NULL;
@@ -354,11 +352,7 @@ int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
         if (vfiofile < 0)
             continue;
 
-        if (!keep_fd)
-        {
-            close(vfiofile);
-            vfiofile = -1;
-        }
+        close(vfiofile);
 
         /*
          * For noiommu, the file name has the format of noiommu-<group> in
@@ -375,10 +369,6 @@ int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
         if (buf_size <= str_len)
         {
             qat_log(LOG_LEVEL_ERROR, "Failed to copy device directory name\n");
-            if (vfiofile != -1)
-            {
-                close(vfiofile);
-            }
             continue;
         }
         snprintf(devices_dir_name,
@@ -391,10 +381,6 @@ int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
             devices_dir_name, &sysdevice_dir, filter_vfio_files, alphasort);
         if (num_vfio_device < 0)
         {
-            if (vfiofile != -1)
-            {
-                close(vfiofile);
-            }
             continue;
         }
 
@@ -403,10 +389,8 @@ int qat_mgr_get_vfio_dev_list(unsigned *num_devices,
                                                num_vfio_device,
                                                vfio_file_name,
                                                vfio_entry,
-                                               vfiofile,
                                                dev_list,
-                                               &num_devs,
-                                               keep_fd);
+                                               &num_devs);
 
         if (num_devs >= list_size)
             break;
@@ -434,7 +418,8 @@ STATIC int qat_mgr_get_device_capabilities(
     bool *compatible,
     uint32_t *ext_dc_caps,
     uint32_t *capabilities,
-    uint32_t *ring_to_svc_map)
+    uint32_t *ring_to_svc_map,
+    int keep_device_open)
 {
     int ret;
     vfio_dev_info_t vfio_dev;
@@ -518,11 +503,22 @@ STATIC int qat_mgr_get_device_capabilities(
         device_data->fw_caps.deflate_caps = vfio_dev.pfvf.fw_caps.deflate_caps;
         device_data->fw_caps.lz4_caps = vfio_dev.pfvf.fw_caps.lz4_caps;
         device_data->fw_caps.lz4s_caps = vfio_dev.pfvf.fw_caps.lz4s_caps;
+        device_data->fw_caps.zstd_caps = vfio_dev.pfvf.fw_caps.zstd_caps;
         device_data->fw_caps.is_fw_caps = 1;
     }
 
-    close_vfio_dev(&vfio_dev);
-    device_data->group_fd = -1;
+    /* In standalone mode, keep device open to maintain exclusive lock.
+     * This prevents other processes from grabbing this device.
+     * In daemon mode, close it so clients can open later. */
+    if (keep_device_open)
+    {
+        device_data->group_fd = vfio_dev.vfio_group_fd;
+    }
+    else
+    {
+        close_vfio_dev(&vfio_dev);
+        device_data->group_fd = -1;
+    }
     return 0;
 }
 
@@ -608,7 +604,7 @@ static int get_pkg_id(unsigned vf_bdf, int32_t *vf_pkg_id)
 int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                             const int num_vf_devices,
                             int policy,
-                            int static_cfg)
+                            int keep_device_open)
 {
     int i, j, k;
     struct qatmgr_section_data *section;
@@ -623,8 +619,13 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
     unsigned devid;
     char pf_str[10];
     ENTRY pf_entry = { pf_str, NULL };
-    int pfs_per_vf_group[ADF_MAX_DEVICES] = { 0 };
-    uint32_t ext_dc_caps, capabilities;
+    /*
+     * This array does not need to be static. However, it is declared this way
+     * to avoid excessive use of stack memory and potential stack-overflow in
+     * this function.
+     */
+    static int pfs_per_vf_group[ADF_MAX_DEVICES];
+    uint32_t ext_dc_caps = 0, capabilities = 0;
     uint32_t ring_to_svc_map;
     bool compatible;
     bool vm = false;
@@ -637,6 +638,8 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
     int section_num_decomp_inst = 0;
     int32_t num_pfs;
     int num_section_data = 0;
+
+    memset(pfs_per_vf_group, 0, sizeof(pfs_per_vf_group));
 
     if (!num_vf_devices)
         return -EINVAL;
@@ -676,7 +679,7 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
      * We know we have a new group when we find a PF that already exists in
      * the first group.
      */
-    if (!static_cfg)
+    if (!keep_device_open)
     {
         num_vf_groups = 1;
 
@@ -863,7 +866,6 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                 device_data->max_banks = 4;
                 device_data->max_rings_per_bank = 2;
                 device_data->arb_mask = 0x01;
-#ifndef ENABLE_DC
                 device_data->accel_capabilities =
                     ICP_ACCEL_CAPABILITIES_CRYPTO_SYMMETRIC |
                     ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC |
@@ -877,23 +879,6 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                     ICP_ACCEL_CAPABILITIES_AESGCM_SPC |
                     ICP_ACCEL_CAPABILITIES_AES_V2;
                 device_data->extended_capabilities = 0x0;
-#else
-            /* For Legacy Chaining we set the following
-             * AUTHENTICATION and Bit 21
-             * Bit 21 used to enabling the hash then compress
-             * chaining support.
-             */
-            device_data->accel_capabilities =
-                ICP_ACCEL_CAPABILITIES_COMPRESSION |
-                ICP_ACCEL_CAPABILITIES_CNV_INTEGRITY64 |
-                ICP_ACCEL_CAPABILITIES_LZ4_COMPRESSION |
-                ICP_ACCEL_CAPABILITIES_LZ4S_COMPRESSION |
-                ICP_ACCEL_CAPABILITIES_AUTHENTICATION |
-                ICP_ACCEL_CAPABILITIES_CRYPTO_SHA3 |
-                ICP_ACCEL_CAPABILITIES_SHA3_EXT;
-
-            device_data->extended_capabilities = BIT(21) | BIT(0);
-#endif
             /**
              * Send query to get capabilities from PF.
              * qat_mgr_get_device_capabilities will open device, initialize
@@ -939,6 +924,8 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                         cached_capabilities->fw_caps.lz4_caps;
                     device_data->fw_caps.lz4s_caps =
                         cached_capabilities->fw_caps.lz4s_caps;
+                    device_data->fw_caps.zstd_caps =
+                        cached_capabilities->fw_caps.zstd_caps;
                     device_data->fw_caps.is_fw_caps =
                         cached_capabilities->fw_caps.is_fw_caps;
                 }
@@ -946,35 +933,112 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
             }
             else if (adf_vf2pf_available())
             {
-                ret = qat_mgr_get_device_capabilities(device_data,
-                                                      devid,
-                                                      &compatible,
-                                                      &ext_dc_caps,
-                                                      &capabilities,
-                                                      &ring_to_svc_map);
-                if (0 == ret)
+                /* Try to acquire this device. If it's busy (another
+                 * process owns it), then try the next device in
+                 * dev_list.
+                 */
+                int retries_left = num_vf_devices - vf_idx;
+                int original_vf_idx = vf_idx;
+
+                while (retries_left > 0)
                 {
-                    /*
-                     * Override the ecEdMont capability
-                     * reported by the kernel. The reason for this is that
-                     * some kernel drivers don't report this capability
-                     * even though it is present in all devices that have asym.
-                     */
-                    if (capabilities & ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)
-                        capabilities |= ICP_ACCEL_CAPABILITIES_ECEDMONT;
-                    device_data->accel_capabilities = capabilities;
-                    device_data->extended_capabilities = ext_dc_caps;
-                }
-                else if (!compatible)
-                {
-                    qat_log(LOG_LEVEL_ERROR,
-                            "Detected not compatible PF driver\n");
-                    qat_mgr_cleanup_cfg();
-                    return ret;
+                    ret = qat_mgr_get_device_capabilities(device_data,
+                                                          devid,
+                                                          &compatible,
+                                                          &ext_dc_caps,
+                                                          &capabilities,
+                                                          &ring_to_svc_map,
+                                                          keep_device_open);
+                    if (0 == ret)
+                    {
+                        /* Device acquired successfully */
+                        break;
+                    }
+                    else if (!compatible)
+                    {
+                        qat_log(LOG_LEVEL_ERROR,
+                                "Incompatible PF driver detected\n");
+                        qat_mgr_cleanup_cfg();
+                        return ret;
+                    }
+                    else if (!adf_vf2pf_available())
+                    {
+                        /* The PF driver does not support VF2PF messaging, so
+                         * capabilities cannot be queried. This is not a busy
+                         * device, so don't cycle through the remaining VFs.
+                         * Fall back to the hardcoded default configuration.
+                         * and stop retrying.
+                         */
+                        qat_log(
+                            LOG_LEVEL_INFO,
+                            "PF-VF comms not supported by PF, using default "
+                            "configuration\n");
+                        capabilities = device_data->accel_capabilities;
+                        ext_dc_caps = device_data->extended_capabilities;
+                        ring_to_svc_map = DEFAULT_RING_TO_SRV_MAP;
+                        break;
+                    }
+                    else
+                    {
+                        /* Device busy, try next one */
+                        vf_idx++;
+                        retries_left--;
+
+                        if (retries_left == 0)
+                        {
+                            qat_log(LOG_LEVEL_ERROR,
+                                    "No available devices after trying %d "
+                                    "devices\n",
+                                    num_vf_devices - original_vf_idx);
+                            qat_mgr_cleanup_cfg();
+                            return -ENODEV;
+                        }
+
+                        /* Update device_data with next device info */
+                        device_data->group_fd = dev_list[vf_idx].group_fd;
+                        device_data->node = dev_list[vf_idx].numa_node;
+                        devid = dev_list[vf_idx].devid;
+                        /* Update pkg_id for new VF */
+                        if (get_pkg_id(dev_list[vf_idx].bdf, &vf_pkg_id))
+                        {
+                            qat_log(LOG_LEVEL_ERROR,
+                                    "Failed to find pkg_id for the device\n");
+                            qat_mgr_cleanup_cfg();
+                            return -EAGAIN;
+                        }
+                        if (vf_pkg_id == VM_PACKAGE_ID_NONE)
+                            vf_pkg_id = device_data->accelid;
+                        device_data->pkg_id = vf_pkg_id;
+                        snprintf(device_data->device_id,
+                                 sizeof(device_data->device_id),
+                                 "%04x:%02x:%02x.%01x",
+                                 BDF_DOMAIN(dev_list[vf_idx].bdf),
+                                 BDF_BUS(dev_list[vf_idx].bdf),
+                                 BDF_DEV(dev_list[vf_idx].bdf),
+                                 BDF_FUN(dev_list[vf_idx].bdf));
+                        snprintf(device_data->device_file,
+                                 sizeof(device_data->device_file),
+                                 "%.*s",
+                                 VFIO_FILE_SIZE,
+                                 dev_list[vf_idx].vfio_file);
+                    }
                 }
 
-                if (0 == ret && !vm)
+                /*
+                 * Override the ecEdMont capability
+                 * reported by the kernel. The reason for this is that
+                 * some kernel drivers don't report this capability
+                 * even though it is present in all devices that have asym.
+                 */
+                if (capabilities & ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC)
+                    capabilities |= ICP_ACCEL_CAPABILITIES_ECEDMONT;
+                device_data->accel_capabilities = capabilities;
+                device_data->extended_capabilities = ext_dc_caps;
+
+                if (!vm)
                 {
+                    /* Recalculate PF if retry loop switched to different VF */
+                    pf = PF(dev_list[vf_idx].bdf);
                     cached_capabilities =
                         calloc(1, sizeof(struct pf_capabilities));
                     if (!cached_capabilities)
@@ -1000,6 +1064,8 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
                             device_data->fw_caps.lz4_caps;
                         cached_capabilities->fw_caps.lz4s_caps =
                             device_data->fw_caps.lz4s_caps;
+                        cached_capabilities->fw_caps.zstd_caps =
+                            device_data->fw_caps.zstd_caps;
                         cached_capabilities->fw_caps.is_fw_caps = 1;
                     }
                     add_pf_capabilities(cached_capabilities);
@@ -1013,6 +1079,10 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
             if (IS_QAT_GEN4_2(qat_device_type(devid)))
                 device_data->accel_capabilities &=
                     ~ICP_ACCEL_CAPABILITIES_ZUC_256;
+
+            /* Populate service configuration for a device and
+             * determine the number of instances per device
+             */
             snprintf(device_data->name,
                      sizeof(device_data->name),
                      "%s",
@@ -1020,9 +1090,6 @@ int qat_mgr_vfio_build_data(const struct qatmgr_dev_data dev_list[],
             device_data->device_type = qat_device_type(devid);
             device_data->pci_id = devid;
 
-            /* Populate service configuration for a device and
-             * determine the number of instances per device
-             */
             ret = get_num_instances(
                 device_data, devid, ring_to_svc_map, INSTANCES_PER_DEVICE);
             if (ret)

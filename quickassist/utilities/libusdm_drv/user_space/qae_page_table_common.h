@@ -35,6 +35,9 @@ void __qae_set_loadaddr_fptr(load_addr_fptr_t fp);
 API_LOCAL
 void __qae_set_loadkey_fptr(load_key_fptr_t fp);
 
+API_LOCAL
+void __qae_set_storemmap_fptr(store_mmap_range_fptr_t fp);
+
 static inline void *qae_memzero(void *const ptr, const size_t count)
 {
     uint32_t lim = 0;
@@ -59,7 +62,7 @@ static inline void *qae_memzero_explicit(void *const ptr, const size_t count)
     }
 #ifdef __STDC_LIB_EXT1__
     errno_t result =
-        memset_s(ptr, sizeof(ptr), 0, count); /* Supported on C11 standard */
+        memset_s(ptr, count, 0, count); /* Supported on C11 standard */
     if (result != 0)
     {
         return NULL;
@@ -145,6 +148,52 @@ static inline void store_addr(page_table_t *level,
     level->next[id.pg_entry.idxl0].pa = phys;
 }
 
+/* 1GB hugepage store: stop one level earlier (L2) and write base
+ * physical address
+ */
+static inline void store_addr_gpg(page_table_t *level,
+                                  uintptr_t virt,
+                                  uint64_t phys)
+{
+    page_index_t id;
+
+    id.addr = virt;
+
+    level = next_level(&level->next[id.gpg_entry.idxl4].pt);
+    if (NULL == level)
+        return;
+
+    level = next_level(&level->next[id.gpg_entry.idxl3].pt);
+    if (NULL == level)
+        return;
+
+    level->next[id.gpg_entry.idxl2].pa = phys;
+}
+
+static inline uint64_t get_key(const uint64_t phys)
+{
+    /* Derive a 12-bit key from the physical address.
+     *  - For 1GB use bits 30..41
+     *  - For other cases use bits 20..31
+     * The key is always 12 bits and is stored in the lower 12 bits of
+     * the encoded physical address (compatible with load_key* functions).
+     */
+    return (phys >> 30 ^ phys >> 20) & ~QAE_PAGE_MASK;
+}
+
+static inline void store_mmap_range_gpg(page_table_t *p_level,
+                                        void *p_virt,
+                                        uint64_t p_phys,
+                                        size_t p_size)
+{
+    size_t offset;
+    const uintptr_t virt = (uintptr_t)p_virt;
+
+    p_phys = (p_phys & HUGEPAGE_1G_MASK) | get_key(p_phys);
+    for (offset = 0; offset < p_size; offset += HUGEPAGE_1G_SIZE)
+        store_addr_gpg(p_level, virt + offset, p_phys + offset);
+}
+
 static inline void store_addr_hpg(page_table_t *level,
                                   uintptr_t virt,
                                   uint64_t phys)
@@ -168,44 +217,30 @@ static inline void store_addr_hpg(page_table_t *level,
     level->next[id.hpg_entry.idxl1].pa = phys;
 }
 
-static inline uint64_t get_key(const uint64_t phys)
+static inline void store_mmap_range_hpg(page_table_t *p_level,
+                                        void *p_virt,
+                                        uint64_t p_phys,
+                                        size_t p_size)
 {
-    /* For 4KB page: use bits 20-31 of a physical address as a hash key.
-     * It provides a good distribution for 1Mb/2Mb slabs and a moderate
-     * distribution for 128Kb/256Kb/512Kbslabs.
-     */
-    return (phys >> 20) & ~QAE_PAGE_MASK;
+    size_t offset;
+    const uintptr_t virt = (uintptr_t)p_virt;
+
+    p_phys = (p_phys & HUGEPAGE_MASK) | get_key(p_phys);
+    for (offset = 0; offset < p_size; offset += HUGEPAGE_SIZE)
+        store_addr_hpg(p_level, virt + offset, p_phys + offset);
 }
 
 static inline void store_mmap_range(page_table_t *p_level,
                                     void *p_virt,
                                     uint64_t p_phys,
-                                    size_t p_size,
-                                    int hp_en)
+                                    size_t p_size)
 {
     size_t offset;
-    size_t page_size = PAGE_SIZE;
-    uint64_t page_mask = QAE_PAGE_MASK;
-    store_addr_fptr_t store_addr_ptr = store_addr;
     const uintptr_t virt = (uintptr_t)p_virt;
 
-    if (hp_en)
-    {
-        page_size = HUGEPAGE_SIZE;
-        page_mask = HUGEPAGE_MASK;
-        store_addr_ptr = store_addr_hpg;
-    }
-    /* Store the key into the physical address itself,
-     * for 4KB pages: 12 lower bits are always 0 (physical page addresses
-     * are 4KB-aligned).
-     * for 2MB pages: 21 lower bits are always 0 (physical page addresses
-     * are 2MB-aligned)
-     */
-    p_phys = (p_phys & page_mask) | get_key(p_phys);
-    for (offset = 0; offset < p_size; offset += page_size)
-    {
-        store_addr_ptr(p_level, virt + offset, p_phys + offset);
-    }
+    p_phys = (p_phys & QAE_PAGE_MASK) | get_key(p_phys);
+    for (offset = 0; offset < p_size; offset += PAGE_SIZE)
+        store_addr(p_level, virt + offset, p_phys + offset);
 }
 
 static inline uint64_t load_addr(page_table_t *level, void *virt)
@@ -235,6 +270,28 @@ static inline uint64_t load_addr(page_table_t *level, void *virt)
     if (0 == phy_addr)
         return 0;
     return (phy_addr & QAE_PAGE_MASK) | id.pg_entry.offset;
+}
+
+/* 1GB hugepage load: base physical address at L2, 30-bit offset */
+static inline uint64_t load_addr_gpg(page_table_t *level, void *virt)
+{
+    page_index_t id;
+    uint64_t phy_addr;
+
+    id.addr = (uintptr_t)virt;
+
+    level = level->next[id.gpg_entry.idxl4].pt;
+    if (NULL == level)
+        return 0;
+
+    level = level->next[id.gpg_entry.idxl3].pt;
+    if (NULL == level)
+        return 0;
+
+    phy_addr = level->next[id.gpg_entry.idxl2].pa;
+    if (0 == phy_addr)
+        return 0;
+    return (phy_addr & HUGEPAGE_1G_MASK) | id.gpg_entry.offset;
 }
 
 static inline uint64_t load_addr_hpg(page_table_t *level, void *virt)
@@ -319,6 +376,36 @@ static inline void free_page_table_hpg(page_table_t *const table)
     free_page_level(table, 3);
     /* Reset global root table. */
     memset(table, 0, sizeof(page_table_t));
+}
+
+/* Free page table for 1GB hugepages: 1+2 levels (L4->L3->L2).
+ * Root holds L4 entries; two allocated sub-levels use L3 and L2 (PA) indices.
+ * free_page_level(table, 2) frees the two sub-levels; root is only zeroed.
+ */
+static inline void free_page_table_gpg(page_table_t *const table)
+{
+    free_page_level(table, 2);
+    memset(table, 0, sizeof(page_table_t));
+}
+
+/* Hash key load for 1GB hugepages: reads key from L2 level */
+static inline uint64_t load_key_gpg(page_table_t *level, void *virt)
+{
+    page_index_t id;
+    uint64_t phy_addr;
+
+    id.addr = (uintptr_t)virt;
+
+    level = level->next[id.gpg_entry.idxl4].pt;
+    if (NULL == level)
+        return 0;
+
+    level = level->next[id.gpg_entry.idxl3].pt;
+    if (NULL == level)
+        return 0;
+
+    phy_addr = level->next[id.gpg_entry.idxl2].pa;
+    return phy_addr & ~QAE_PAGE_MASK;
 }
 
 #endif /* QAE_PAGE_TABLE_COMMON_H */

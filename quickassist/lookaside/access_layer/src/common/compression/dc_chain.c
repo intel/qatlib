@@ -55,6 +55,24 @@
 #include "dc_session.h"
 #include "dc_crc64.h"
 
+#ifdef QAT_LEGACY_ALGORITHMS
+#define CHAIN_HASH_ALGO_CHECK(algo)                                            \
+    (algo == CPA_CY_SYM_HASH_SHA1 || algo == CPA_CY_SYM_HASH_SHA224 ||         \
+     algo == CPA_CY_SYM_HASH_SHA256 || algo == CPA_CY_SYM_HASH_SHA384 ||       \
+     algo == CPA_CY_SYM_HASH_SHA512 || algo == CPA_CY_SYM_HASH_SHA3_224 ||     \
+     algo == CPA_CY_SYM_HASH_SHA3_256 || algo == CPA_CY_SYM_HASH_SHA3_384 ||   \
+     algo == CPA_CY_SYM_HASH_SHA3_512)
+#else
+#define CHAIN_HASH_ALGO_CHECK(algo)                                            \
+    (algo == CPA_CY_SYM_HASH_SHA256 || algo == CPA_CY_SYM_HASH_SHA384 ||       \
+     algo == CPA_CY_SYM_HASH_SHA512 || algo == CPA_CY_SYM_HASH_SHA3_256 ||     \
+     algo == CPA_CY_SYM_HASH_SHA3_384 || algo == CPA_CY_SYM_HASH_SHA3_512)
+#endif
+
+#define GENERIC_CHAINING_CIPHER_ALGO(ALGO)                                     \
+    (ALGO != CPA_CY_SYM_CIPHER_AES_CTR && ALGO != CPA_CY_SYM_CIPHER_AES_GCM && \
+     ALGO != CPA_CY_SYM_CIPHER_AES_XTS)
+
 #define DC_CHAIN_COMPUTE_KEY(huffType, dcDir, sessType)                        \
     ((huffType << 8) | (dcDir << 4) | sessType)
 #define CY_CHAIN_COMPUTE_KEY(cyOpType, cyDir, sessType)                        \
@@ -93,10 +111,75 @@ static const dc_chain_cmd_tbl_t dc_chain_cmd_table[] = {
       0x0,
       ICP_QAT_FW_NO_CHAINING,
       ICP_QAT_FW_CHAINING_20_CMD_DECRYPT_DECOMPRESS },
+    /* link0: additional=2(dynamic)|dir=0(compression)|type=0(comp)
+     * link1: additional=1(cipher)|dir=1(encrypt)|type=1(crypto)
+     */
+    { 0x200,
+      0x111,
+      0x0,
+      ICP_QAT_FW_NO_CHAINING,
+      ICP_QAT_FW_CHAINING_20_CMD_COMPRESS_ENCRYPT },
+    /* link0: additional=1(cipher)|dir=2()|type=1(crypto)
+     * link1: additional=0(rsvd)|dir=1(decomp)|type=0(comp)
+     */
+    { 0x121,
+      0x10,
+      0x0,
+      ICP_QAT_FW_NO_CHAINING,
+      ICP_QAT_FW_CHAINING_20_CMD_DECRYPT_DECOMPRESS },
 };
 
 #ifdef ICP_PARAM_CHECK
 #define NUM_OF_SESSION_SUPPORT 2
+
+/**
+ *****************************************************************************
+ * @ingroup Dc_Chaining
+ *      Check that chaining CY setup data is valid
+ *
+ * @description
+ *      Check that chaining CY setup data in the CpaCySymSessionSetupData is
+ *      valid
+ *
+ * @param[in]    pDcSetupData        Pointer to a CpaCySymSessionSetupData
+ *                                   structure.
+ * @param[in]    operation           Chaining operation type
+ *
+ * @retval CPA_STATUS_SUCCESS        Function executed successfully
+ * @retval CPA_STATUS_INVALID_PARAM  Invalid parameter passed in
+ *
+ *****************************************************************************/
+STATIC CpaStatus
+dcChainSession_CheckCySetupData(const CpaCySymSessionSetupData *pCySetupData,
+                                CpaDcChainOperations operation)
+{
+    CpaCySymCipherSetupData const *pCipherSetupData = NULL;
+
+    pCipherSetupData = &(pCySetupData->cipherSetupData);
+    LAC_CHECK_NULL_PARAM(pCipherSetupData);
+
+    LAC_CHECK_STATEMENT_LOG(
+        GENERIC_CHAINING_CIPHER_ALGO(pCipherSetupData->cipherAlgorithm),
+        "Invalid CY cipherAlgorithm=0x%x for "
+        "COMPRESS_THEN_AEAD chaining",
+        pCipherSetupData->cipherAlgorithm);
+
+    LAC_CHECK_STATEMENT_LOG((operation == CPA_DC_CHAIN_COMPRESS_THEN_AEAD) &&
+                                (pCipherSetupData->cipherDirection !=
+                                 CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT),
+                            "Invalid CY cipherDirection=0x%x for "
+                            "COMPRESS_THEN_AEAD chaining",
+                            pCipherSetupData->cipherDirection);
+
+    LAC_CHECK_STATEMENT_LOG((operation == CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS) &&
+                                (pCipherSetupData->cipherDirection !=
+                                 CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT),
+                            "Invalid CY cipherDirection=0x%x for "
+                            "AEAD_THEN_DECOMPRESS chaining",
+                            pCipherSetupData->cipherDirection);
+
+    return CPA_STATUS_SUCCESS;
+}
 
 /**
  *****************************************************************************
@@ -123,6 +206,23 @@ dcChainSession_CheckHashSetupData(const CpaCySymHashSetupData *pHashSetupData,
 {
     LAC_CHECK_NULL_PARAM(pHashSetupData);
 
+    if (DC_CAPS_GEN6_HW == hw_gen)
+    {
+        if (!CHAIN_HASH_ALGO_CHECK(pHashSetupData->hashAlgorithm))
+        {
+            LAC_INVALID_PARAM_LOG2(
+                "Invalid Hash algorithm=0x%x for %d chaining operation",
+                pHashSetupData->hashAlgorithm,
+                operation);
+            return CPA_STATUS_INVALID_PARAM;
+        }
+        LAC_CHECK_STATEMENT_LOG(
+            ((CPA_CY_SYM_HASH_MODE_PLAIN != pHashSetupData->hashMode) &&
+             (CPA_CY_SYM_HASH_MODE_AUTH != pHashSetupData->hashMode)),
+            "Invalid CY hashMode=0x%x",
+            pHashSetupData->hashMode);
+    }
+    else
     {
         /* Support SHA1, SHA224 and SHA256 */
         LAC_CHECK_STATEMENT_LOG(
@@ -255,7 +355,132 @@ dcChainSession_CheckSessionData(CpaInstanceHandle dcInstance,
             LAC_CHECK_STATUS(status);
             break;
         case CPA_DC_CHAIN_COMPRESS_THEN_AEAD:
+            pDcSetupData = pSessionData[0].pDcSetupData;
+            pCySetupData = pSessionData[1].pCySetupData;
+
+            LAC_CHECK_NULL_PARAM(pDcSetupData);
+            LAC_CHECK_NULL_PARAM(pCySetupData);
+
+            /* Check for valid/supported DC Chain parameters */
+            LAC_CHECK_STATEMENT_LOG(
+                (pSessionData[0].sessType != CPA_DC_CHAIN_COMPRESS_DECOMPRESS),
+                "Invalid Chain dcSessType=0x%x for COMPRESS_THEN_AEAD chaining",
+                pSessionData[0].sessType);
+
+            LAC_CHECK_STATEMENT_LOG(
+                (pSessionData[1].sessType != CPA_DC_CHAIN_SYMMETRIC_CRYPTO),
+                "Invalid Chain cySessType=0x%x for COMPRESS_THEN_AEAD chaining",
+                pSessionData[1].sessType);
+
+            status = dcGetCompAeadChainingCapabilityStatus(
+                pDcCapabilities, pDcSetupData->compType, &capSupport);
+            LAC_CHECK_STATUS(status);
+            if (capSupport != CPA_TRUE)
+            {
+                LAC_INVALID_PARAM_LOG1("Unsupported DC compType=0x%x for "
+                                       "COMPRESS_THEN_AEAD chaining",
+                                       pDcSetupData->compType);
+                return CPA_STATUS_UNSUPPORTED;
+            }
+
+            /* Check for supported and valid DC parameters */
+            LAC_CHECK_STATEMENT_LOG(
+                (pDcSetupData->sessDirection != CPA_DC_DIR_COMPRESS),
+                "Invalid DC sessDirection=0x%x for COMPRESS_THEN_AEAD chaining",
+                pDcSetupData->sessDirection);
+
+            LAC_CHECK_STATEMENT_LOG(
+                (pDcSetupData->huffType != CPA_DC_HT_FULL_DYNAMIC),
+                "Invalid DC huffType=0x%x for COMPRESS_THEN_AEAD chaining",
+                pDcSetupData->huffType);
+
+            LAC_CHECK_STATEMENT_LOG(
+                (pCySetupData->symOperation ==
+                 CPA_CY_SYM_OP_ALGORITHM_CHAINING) &&
+                    (pCySetupData->algChainOrder !=
+                     CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH),
+                "Invalid CY algChainOrder=0x%x for COMPRESS_THEN_AEAD "
+                "chaining",
+                pCySetupData->algChainOrder);
+
+            if (pDcSetupData->sessState != CPA_DC_STATELESS)
+            {
+                LAC_INVALID_PARAM_LOG2(
+                    "Invalid DC sessState=0x%x for %d chaining operation",
+                    pDcSetupData->sessState,
+                    operation);
+                return CPA_STATUS_INVALID_PARAM;
+            }
+
+            LAC_CHECK_STATEMENT_LOG(
+                (pCySetupData->digestIsAppended == CPA_TRUE),
+                "Invalid CY digestIsAppended=0x%x for COMPRESS_THEN_AEAD "
+                "chaining",
+                pCySetupData->digestIsAppended);
+
+            status = dcChainSession_CheckCySetupData(pCySetupData, operation);
+            LAC_CHECK_STATUS(status);
+            break;
+
         case CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS:
+            pCySetupData = pSessionData[0].pCySetupData;
+            pDcSetupData = pSessionData[1].pDcSetupData;
+
+            LAC_CHECK_NULL_PARAM(pCySetupData);
+            LAC_CHECK_NULL_PARAM(pDcSetupData);
+
+            /* Check for supported and valid DC Chain parameters */
+            LAC_CHECK_STATEMENT_LOG(
+                (pSessionData[0].sessType != CPA_DC_CHAIN_SYMMETRIC_CRYPTO),
+                "Invalid Chain cySessType=0x%x for AEAD_THEN_DECOMPRESS "
+                "chaining",
+                pSessionData[0].sessType);
+
+            LAC_CHECK_STATEMENT_LOG(
+                (pSessionData[1].sessType != CPA_DC_CHAIN_COMPRESS_DECOMPRESS),
+                "Invalid Chain dcSessType=0x%x for AEAD_THEN_DECOMPRESS "
+                "chaining",
+                pSessionData[1].sessType);
+
+            status = dcGetAeadDecompChainingCapabilityStatus(
+                pDcCapabilities, pDcSetupData->compType, &capSupport);
+            LAC_CHECK_STATUS(status);
+            if (capSupport != CPA_TRUE)
+            {
+                LAC_INVALID_PARAM_LOG1("Unsupported DC compType=0x%x for "
+                                       "AEAD_THEN_DECOMPRESS chaining",
+                                       pDcSetupData->compType);
+                return CPA_STATUS_UNSUPPORTED;
+            }
+
+            LAC_CHECK_STATEMENT_LOG(
+                (pCySetupData->symOperation ==
+                 CPA_CY_SYM_OP_ALGORITHM_CHAINING) &&
+                    (pCySetupData->algChainOrder !=
+                     CPA_CY_SYM_ALG_CHAIN_ORDER_HASH_THEN_CIPHER),
+                "Invalid CY algChainOrder=0x%x for AEAD_THEN_DECOMPRESS "
+                "chaining",
+                pCySetupData->algChainOrder);
+
+            /* Check for supported and valid DC parameters */
+            LAC_CHECK_STATEMENT_LOG(
+                (pDcSetupData->sessDirection != CPA_DC_DIR_DECOMPRESS),
+                "Invalid DC sessDirection=0x%x for AEAD_THEN_DECOMPRESS "
+                "chaining",
+                pDcSetupData->sessDirection);
+
+            status = dcChainSession_CheckCySetupData(pCySetupData, operation);
+            LAC_CHECK_STATUS(status);
+
+            if (pDcSetupData->sessState != CPA_DC_STATELESS)
+            {
+                LAC_INVALID_PARAM_LOG2(
+                    "Invalid DC sessState=0x%x for %d chaining operation",
+                    pDcSetupData->sessState,
+                    operation);
+                return CPA_STATUS_INVALID_PARAM;
+            }
+            break;
         case CPA_DC_CHAIN_COMPRESS_THEN_HASH:
         case CPA_DC_CHAIN_COMPRESS_THEN_ENCRYPT:
         case CPA_DC_CHAIN_COMPRESS_THEN_HASH_ENCRYPT:
@@ -330,6 +555,61 @@ dcChainSession_CheckCySessDesc(const lac_session_desc_t *pCySessDesc,
                 "Invalid CY isAuth=0x%x for HASH_THEN_COMPRESS chaining",
                 pCySessDesc->isAuth);
 
+            break;
+        case CPA_DC_CHAIN_COMPRESS_THEN_AEAD:
+            LAC_CHECK_STATEMENT_LOG(
+                ((CPA_CY_SYM_OP_ALGORITHM_CHAINING !=
+                  pCySessDesc->symOperation) &&
+                 (CPA_CY_SYM_OP_CIPHER != pCySessDesc->symOperation)),
+                "Invalid CY symOperation=0x%x for COMPRESS_THEN_AEAD chaining",
+                pCySessDesc->symOperation);
+
+            LAC_CHECK_STATEMENT_LOG(
+                GENERIC_CHAINING_CIPHER_ALGO(pCySessDesc->cipherAlgorithm),
+                "Invalid CY cipherAlgorithm=0x%x for COMPRESS_THEN_AEAD "
+                "chaining",
+                pCySessDesc->cipherAlgorithm);
+
+            LAC_CHECK_STATEMENT_LOG((CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT !=
+                                     pCySessDesc->cipherDirection),
+                                    "Invalid CY cipherDirection=0x%x for "
+                                    "COMPRESS_THEN_AEAD chaining",
+                                    pCySessDesc->cipherDirection);
+
+            LAC_CHECK_STATEMENT_LOG(
+                (CPA_CY_SYM_HASH_AES_GCM == pCySessDesc->hashAlgorithm) &&
+                    (CPA_CY_SYM_CIPHER_AES_GCM != pCySessDesc->cipherAlgorithm),
+                "Invalid CY cipherAlgorithm=0x%x for COMPRESS_THEN_AEAD"
+                "chaining",
+                pCySessDesc->cipherAlgorithm);
+            break;
+        case CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS:
+            LAC_CHECK_STATEMENT_LOG(
+                ((CPA_CY_SYM_OP_ALGORITHM_CHAINING !=
+                  pCySessDesc->symOperation) &&
+                 (CPA_CY_SYM_OP_CIPHER != pCySessDesc->symOperation)),
+                "Invalid CY symOperation=0x%x for AEAD_THEN_DECOMPRESS "
+                "chaining",
+                pCySessDesc->symOperation);
+
+            LAC_CHECK_STATEMENT_LOG((CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT !=
+                                     pCySessDesc->cipherDirection),
+                                    "Invalid CY cipherDirection=0x%x for "
+                                    "AEAD_THEN_DECOMPRESS chaining",
+                                    pCySessDesc->cipherDirection);
+
+            LAC_CHECK_STATEMENT_LOG(
+                GENERIC_CHAINING_CIPHER_ALGO(pCySessDesc->cipherAlgorithm),
+                "Invalid CY cipherAlgorithm=0x%x for AEAD_THEN_DECOMPRESS "
+                "chaining",
+                pCySessDesc->cipherAlgorithm);
+
+            LAC_CHECK_STATEMENT_LOG(
+                (CPA_CY_SYM_HASH_AES_GCM == pCySessDesc->hashAlgorithm) &&
+                    (CPA_CY_SYM_CIPHER_AES_GCM != pCySessDesc->cipherAlgorithm),
+                "Invalid CY cipherAlgorithm=0x%x for AEAD_THEN_DECOMPRESS"
+                "chaining",
+                pCySessDesc->cipherAlgorithm);
             break;
         default:
             LAC_INVALID_PARAM_LOG1("Unsupported DC chaining operation=0x%x",
@@ -445,6 +725,33 @@ dcChainSession_CheckChainSessDesc(const dc_chain_session_head_t *pChainSessDesc,
             LAC_CHECK_STATEMENT_LOG(
                 (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_COMPRESS_DECOMPRESS),
                 "Invalid chaining dcSessType=0x%x for HASH_THEN_COMPRESS",
+                DC_CHAIN_TYPE_GET(pTemp));
+            break;
+        case CPA_DC_CHAIN_COMPRESS_THEN_AEAD:
+            LAC_CHECK_STATEMENT_LOG(
+                (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_COMPRESS_DECOMPRESS),
+                "Chain Entry[0] type = 0x%x",
+                DC_CHAIN_TYPE_GET(pTemp));
+
+            pTemp += (DC_COMP_SESSION_SIZE + sizeof(CpaDcChainSessionType));
+
+            LAC_CHECK_STATEMENT_LOG(
+                (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_SYMMETRIC_CRYPTO),
+                "COMPRESS_THEN_AEAD Chain Entry[1] type = 0x%x",
+                DC_CHAIN_TYPE_GET(pTemp));
+            break;
+
+        case CPA_DC_CHAIN_AEAD_THEN_DECOMPRESS:
+            LAC_CHECK_STATEMENT_LOG(
+                (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_SYMMETRIC_CRYPTO),
+                "Chain Entry[0] type = 0x%x",
+                DC_CHAIN_TYPE_GET(pTemp));
+
+            pTemp += (LAC_SYM_SESSION_SIZE + sizeof(CpaDcChainSessionType));
+
+            LAC_CHECK_STATEMENT_LOG(
+                (DC_CHAIN_TYPE_GET(pTemp) != CPA_DC_CHAIN_COMPRESS_DECOMPRESS),
+                "AEAD_THEN_DECOMPRESS Chain Entry[1] type = 0x%x",
                 DC_CHAIN_TYPE_GET(pTemp));
             break;
         default:
@@ -1007,6 +1314,8 @@ STATIC CpaStatus dcChainPrepare_CompRequest(CpaInstanceHandle dcInstance,
         pDcOpData->flushFlag == CPA_DC_FLUSH_NONE,
         "%s",
         "CPA_DC_FLUSH_NONE flag not supported for compression.\n");
+    if (pDcOpData->integrityCrcCheck)
+        LAC_CHECK_NULL_PARAM(pDcOpData->pCrcData);
 
     if (CPA_STATUS_SUCCESS !=
         dcChainSession_CheckDcSessDesc(pDcSessDesc, operation, pDcCapabilities))
@@ -1683,7 +1992,26 @@ CpaStatus cpaDcChainPerformOp2(CpaInstanceHandle dcInstance,
                                CpaDcChainRqVResults *pResults,
                                void *callbackTag)
 {
-    return CPA_STATUS_UNSUPPORTED;
+    dc_chain_opdata_ext_t chainOpDataExt = { 0 };
+    dc_chain_results_ext_t chainResultsExt = { 0 };
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pInterBuff);
+#endif
+    chainOpDataExt.opDataType = DC_CHAIN_OPDATA_TYPE1;
+    chainOpDataExt.pOpData = &opData;
+    chainResultsExt.resultsType = DC_CHAIN_RESULTS_TYPE1;
+    chainResultsExt.pResults = pResults;
+    return dcChainPerformOp(dcInstance,
+                            pSessionHandle,
+                            pSrcBuff,
+                            pDestBuff,
+                            pInterBuff,
+                            opData.operation,
+                            opData.numOpDatas,
+                            &chainOpDataExt,
+                            &chainResultsExt,
+                            callbackTag);
 }
 
 /**
@@ -2078,6 +2406,78 @@ void dcChainProcessResults(void *pRespMsg)
 }
 #endif
 
+STATIC CpaStatus
+dcInitChainSessionCrcControl(CpaInstanceHandle dcInstance,
+                             CpaDcSessionHandle pSessionHandle,
+                             CpaCrcControlData *pCrcControlData)
+{
+    dc_session_desc_t *pSessionDesc = NULL;
+    dc_capabilities_t *pDcCapabilities = NULL;
+    sal_compression_service_t *pService = NULL;
+    dc_chain_session_head_t *pSessHead = NULL;
+    CpaBoolean bPcrc64Supported = CPA_FALSE;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(dcInstance);
+    LAC_CHECK_NULL_PARAM(pSessionHandle);
+    LAC_CHECK_NULL_PARAM(pCrcControlData);
+
+    /* Check that the parameters defined in the pCrcControlData are valid for
+     * the device */
+    if (CPA_STATUS_SUCCESS != dcCheckSessionCrcControlData(pCrcControlData))
+    {
+        return CPA_STATUS_INVALID_PARAM;
+    }
+#endif
+
+    pSessHead = (dc_chain_session_head_t *)pSessionHandle;
+    pSessionDesc = pSessHead->pDcSessionDesc;
+
+#ifdef ICP_PARAM_CHECK
+    LAC_CHECK_NULL_PARAM(pSessionDesc);
+#endif
+    pService = (sal_compression_service_t *)dcInstance;
+    pDcCapabilities = &pService->dc_capabilities;
+    status = dcGetPcrc64CapabilityStatus(
+        pDcCapabilities, pSessionDesc->compType, &bPcrc64Supported);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to get Programmable CRC64 capability");
+        return status;
+    }
+
+    if (!bPcrc64Supported)
+    {
+        LAC_LOG_ERROR("Programmable CRC64 is unsupported");
+        return CPA_STATUS_UNSUPPORTED;
+    }
+
+    /* Generate the CRC64 lookup table for the provided polynomial */
+    status = dcGenerateLookupTable(pCrcControlData->polynomial,
+                                   &pSessionDesc->crcConfig.pCrcLookupTable);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        LAC_LOG_ERROR("Failed to generate programmable CRC64 lookup table");
+        return status;
+    }
+
+    /* Set CRC parameters provided */
+    pSessionDesc->crcConfig.crcParam.crc64Poly = pCrcControlData->polynomial;
+    pSessionDesc->crcConfig.crcParam.iCrc64Cpr = pCrcControlData->initialValue;
+    pSessionDesc->crcConfig.crcParam.oCrc64Cpr = pCrcControlData->initialValue;
+    pSessionDesc->crcConfig.crcParam.reflectIn =
+        (Cpa32U)pCrcControlData->reflectIn;
+    pSessionDesc->crcConfig.crcParam.reflectOut =
+        (Cpa32U)pCrcControlData->reflectOut;
+    pSessionDesc->crcConfig.crcParam.oCrc64Xlt = pCrcControlData->initialValue;
+    pSessionDesc->crcConfig.crcParam.xor64Out = pCrcControlData->xorOut;
+
+    pSessionDesc->crcConfig.useProgCrcSetup = CPA_TRUE;
+
+    return CPA_STATUS_SUCCESS;
+}
+
 CpaStatus cpaDcChainSetCrcControlData(CpaInstanceHandle dcInstance,
                                       CpaDcSessionHandle pSessionHandle,
                                       CpaCrcControlData *pCrcControlData)
@@ -2088,5 +2488,6 @@ CpaStatus cpaDcChainSetCrcControlData(CpaInstanceHandle dcInstance,
              (LAC_ARCH_UINT)pSessionHandle,
              (LAC_ARCH_UINT)pCrcControlData);
 #endif
-    return CPA_STATUS_UNSUPPORTED;
+    return dcInitChainSessionCrcControl(
+        dcInstance, pSessionHandle, pCrcControlData);
 }

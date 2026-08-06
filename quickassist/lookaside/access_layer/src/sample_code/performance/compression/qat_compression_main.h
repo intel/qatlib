@@ -138,7 +138,6 @@ CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
                                        CpaDcRqResults *arrayOfResults,
                                        CpaBufferList *arrayOfSrcBufferLists,
                                        Cpa32U listNum);
-#ifdef SC_CHAINING_ENABLED
 /**
  *****************************************************************************
  * @file qat_compression_main.h
@@ -162,7 +161,6 @@ CpaStatus qatCompressionVerifyOverflow(compression_test_params_t *setup,
  ****************************************************************************/
 CpaStatus qatFreeDcChainLists(void **chainResultArray, void **chainOpDataArray);
 
-#endif
 /**
  *****************************************************************************
  * @file qat_compression_main.h
@@ -192,7 +190,33 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
                                       CpaBufferList **cpmBufferListArray,
                                       CpaDcRqResults **resultArray);
 
-#ifdef SC_CHAINING_ENABLED
+/**
+ ***************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sampleCode
+ *
+ * @description
+ *         allocate the memory used to store a list of CpaBufferLists
+ *
+ * @param[in]   setup                pointer to the compression setup structure
+ * @param[in]   srcBufferListArray   array of CpaBufferLists to be allocated
+ * @param[in]   destBufferListArray  array of CpaBufferLists to be allocated
+ * @param[in]   dictionaryBufferListArray  array of CpaBufferLists to be
+ * allocated
+ * @param[in]   cpmBufferListArray   array of CpaBufferLists to be allocated
+ * @param[in]   resultArray          array of cpaDcResults  to be allocated
+ *
+ *     @pre                          none
+ *
+ *     @post                         all memory is allocated
+ *
+ *     @retval CPA_STATUS_SUCCESS    Function executed successfully
+ *
+ *     @retval CPA_STATUS_FAIL       some of the memory could not be
+ *                                   allocated
+ ***************************************************************************/
+
 /**
  *****************************************************************************
  * @file qat_compression_main.h
@@ -219,7 +243,6 @@ CpaStatus qatAllocateCompressionLists(compression_test_params_t *setup,
 CpaStatus qatAllocateDcChainLists(compression_test_params_t *setup,
                                   void **chainResultArray,
                                   void **chainOpDataArray);
-#endif
 
 /**
  *****************************************************************************
@@ -262,6 +285,49 @@ CpaStatus qatAllocateCompressionFlatBuffers(compression_test_params_t *setup,
                                             CpaBufferList *cpmBufferListArray,
                                             Cpa32U numberBuffersInCpmList,
                                             Cpa32U *sizeOfBuffersInCpmList);
+/**
+ ***************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sampleCode
+ *
+ * @description
+ *         allocate the CpaFlatBuffers and members of the CpaBufferLists
+ *
+ * @param[in]   setup                 pointer to the compression setup
+ *                                    structure
+ * @param[in]   srcBufferListArray    array of CpaBufferLists to be allocated
+ * @param[in]   numBuffersInSrcList   number of CpaFlatBuffers to be allocated
+ *                                     in srcBufferListArray
+ * @param[in]   sizeOfBuffersInSrcList  size of CpaBufferLists to be allocated
+ *                                      in srcBufferLists
+ * @param[in]   destBufferListArray     array of CpaBufferLists to be allocated
+ * @param[in]   numBuffersInDstList     number of CpaFlatBuffers to be allocated
+ *                                      in dstBufferListArray
+ * @param[in]   sizeOfBuffersInDestList size of CpaBufferLists to be allocated
+ *                                      in destBufferLists
+ * @param[in]   cpmBufferListArray      array of CpaBufferLists to be allocated
+ * @param[in]   numBuffersInCpmList     number of CpaFlatBuffers to be allocated
+ *                                     in cpmBufferListArray
+ * @param[in]   sizeOfBuffersInCpmList   size of CpaBufferLists to be allocated
+ *                                     in cpmBufferListArray
+ * @param[in]   dictionaryBufferListArray array of CpaBufferLists to be
+ * allocated
+ * @param[in]   numBuffersInDictList     number of CpaFlatBuffers to be
+ * allocated in dictionaryBufferListArray
+ * @param[in]   sizeOfBuffersInDictList   size of CpaBufferLists to be allocated
+ *                                     in dictionaryBufferListArray
+ *
+ *
+ *     @pre                             none
+ *
+ *     @post                            all memory is allocated
+ *
+ *     @retval CPA_STATUS_SUCCESS       Function executed successfully
+ *
+ *     @retval CPA_STATUS_FAIL          some of the memory could not be
+ *                                      allocated
+ ***************************************************************************/
 
 /**
  *****************************************************************************
@@ -291,6 +357,66 @@ CpaStatus qatFreeCompressionFlatBuffers(compression_test_params_t *setup,
                                         CpaBufferList *srcBufferListArray,
                                         CpaBufferList *destBufferListArray,
                                         CpaBufferList *cpmBufferListArray);
+
+/**
+ *****************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sample_code
+ *
+ * @description
+ *      Free the CpaFlatBuffers and members of the CpaBufferLists used by
+ *      the dictionary-aware allocator. Frees src/dest/cmp buffer-list
+ *      contents (via qatFreeCompressionFlatBuffers) plus the per-list
+ *      dictionary buffers.
+ ****************************************************************************/
+
+/**
+ *****************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sample_code
+ *
+ * @description
+ *      Free the array-of-CpaBufferLists allocations done by
+ *      qatAllocateCompressionListsDict() (src, dest, cmp, dictionary and
+ *      results). Each pointer is set to NULL after a successful free.
+ ****************************************************************************/
+
+/**
+ *****************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sample_code
+ *
+ * @description
+ *      Load a dictionary file from disk into a freshly allocated
+ *      heap buffer (qaeMemAlloc). On success the caller owns the
+ *      returned buffer and must free it with qaeMemFree.
+ *
+ * @param[in]   filePath        Absolute path to the dictionary file to load
+ * @param[in]   maxSize         Maximum number of bytes to read from the file
+ *                              (the buffer allocation is sized to maxSize)
+ * @param[out]  ppData          On success, set to the allocated buffer
+ * @param[out]  pActualSize     On success, set to the number of bytes
+ *                              actually read from the file (may be less
+ *                              than maxSize)
+ *
+ *     @retval CPA_STATUS_SUCCESS  Dictionary loaded successfully
+ *     @retval CPA_STATUS_FAIL     Allocation or file open/read failed
+ ****************************************************************************/
+
+/**
+ *****************************************************************************
+ * @file qat_compression_main.h
+ *
+ * @ingroup sample_code
+ *
+ * @description
+ *      Replicate dictionary data into every per-list dictionary buffer in
+ *      dictionaryBufferListArray. Each buffer's dataLenInBytes is set to
+ *      dataLen (or buffer's allocated size, whichever is smaller).
+ ****************************************************************************/
 
 /**
  *****************************************************************************
@@ -361,7 +487,6 @@ CpaStatus qatCompressionSessionTeardown(
     CpaDcSessionHandle *pDecompressSessionHandle);
 
 #ifdef USER_SPACE
-#ifdef SC_CHAINING_ENABLED
 /**
  *****************************************************************************
  * @file qat_compression_main.h
@@ -426,7 +551,6 @@ CpaStatus qatDcChainSessionTeardown(
     CpaDcSessionHandle *pSessionHandle,
     CpaDcSessionHandle *pDecompressSessionHandle);
 
-#endif
 #endif
 
 /**
@@ -925,9 +1049,9 @@ void qatDcChainResponseStatusCheck(compression_test_params_t *setup,
  * @retval CPA_STATUS_FAIL              the file could not be loaded or the
  *                                      compression service could not be started
  ****************************************************************************/
-CpaStatus populateCorpusAndStartDcService(Cpa32U testBufferSize,
+CpaStatus populateCorpusAndStartDcService(CpaDcSessionDir direction,
+                                          Cpa32U testBufferSize,
                                           corpus_type_t corpusType);
-
 /**
  *****************************************************************************
  * @file qat_compression_main.h
@@ -1410,6 +1534,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup);
  * @param[in]   arrayOfSrcBufferLists   source data to be compressed
  * @param[in]   arrayOfDestBufferLists  pointer to memory to write out results
  * @param[in]   arrayOfCpmBufferLists   pointer to memory compare results
+ * @param[in]   dictionaryBufferListArray pointer to memory for dictionary data
  * @param[in]   arrayOfResults          structure to store produced and consumed
  *                                      data
  *
@@ -1423,6 +1548,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                           CpaBufferList *arrayOfSrcBufferLists,
                           CpaBufferList *arrayOfDestBufferLists,
                           CpaBufferList *arrayOfCpmBufferLists,
+                          CpaBufferList *dictionaryBufferListArray,
                           CpaDcRqResults *arrayOfResults);
 
 #ifdef SC_CHAINING_ENABLED

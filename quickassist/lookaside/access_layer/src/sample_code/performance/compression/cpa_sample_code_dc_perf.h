@@ -27,9 +27,7 @@
 
 #include "cpa.h"
 #include "cpa_dc.h"
-#ifdef SC_CHAINING_ENABLED
 #include "cpa_dc_chain.h"
-#endif
 #include "cpa_cy_sym.h"
 #include "cpa_sample_code_framework.h"
 #include "../common/qat_perf_utils.h"
@@ -278,7 +276,6 @@ typedef struct compression_test_params_s
      * buffer.
      */
     CpaBoolean induceOverflow;
-#if defined(SC_CHAINING_ENABLED) || defined(SC_CHAINING_EXT_ENABLED)
     CpaDcChainOperations chainOperation;
     CpaBoolean legacyChainRequest;
     CpaBoolean appendCRC;
@@ -287,7 +284,6 @@ typedef struct compression_test_params_s
     Cpa32U symIvLength;
     Cpa8U numSessions;
     CpaBoolean keyDerive;
-#endif
     /*the logicalQaInstance for the cipher to use*/
     Cpa32U logicalQaInstance;
 #if defined(SC_WITH_QAT20) || defined(SC_WITH_QAT20_UPSTREAM)
@@ -321,6 +317,15 @@ typedef struct compression_test_params_s
     Cpa32U dcDestBufferSize;
     CpaBoolean isUseSGL;
     Cpa32U numFlatsPerSGL;
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /**< Current CpaInstanceResponseMode for the DC instance in use */
+    CpaInstanceResponseMode currentResponseMode;
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+    /* Per-thread flag: when CPA_TRUE this test variation must use the
+     * DATA_DECOMPRESSION service path (decomp-only instances available,
+     * no DC instances). */
+    CpaBoolean useDecompService;
 } compression_test_params_t;
 
 /**
@@ -807,6 +812,26 @@ void dcChainOpDataMemFree(CpaDcChainOpData *pOpdata,
                           Cpa32U numLists,
                           Cpa32U numSessions);
 #endif
+
+/**
+ * *****************************************************************************
+ *  @ingroup compressionThreads
+ *  free callback  Structures
+ *
+ *  @description
+ *      this API frees all the chain operation structures
+ *
+ *  @threadSafe
+ *      No
+ *
+ *  @param[in] pOpData   array of CpaDcChainOpData structure.
+ *  @param[in] numLists number of buffer list.
+ *  @param[in] numSessions number of session in chaining operation.
+ *
+ ******************************************************************************/
+void dcExtChainOpDataMemFree(CpaDcChainSubOpData2 *pOpdata,
+                             Cpa32U numLists,
+                             Cpa32U numSessions);
 
 /**
  * *****************************************************************************

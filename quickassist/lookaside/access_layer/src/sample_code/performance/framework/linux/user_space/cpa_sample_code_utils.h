@@ -79,7 +79,24 @@ typedef sem_t *sample_code_semaphore_t;
 #define DEFAULT_SIGN_OF_LIFE (0)
 #define USE_V1_CONFIG_FILE (1)
 #define USE_V2_CONFIG_FILE (2)
-#define MAX_NUMOPT (18)
+/*
+ * MAX_NUMOPT defines the maximum number of options for command-line parsing.
+ */
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_INT_COALESCING_TIMER) &&     \
+    defined(STV_TEST_CODE)
+#define _MAX_NUMOPT_COALESCING_ADD (2)
+#else
+#define _MAX_NUMOPT_COALESCING_ADD (0)
+#endif
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+#define MAX_NUMOPT (18 + _MAX_NUMOPT_COALESCING_ADD)
+#else
+#define MAX_NUMOPT (16 + _MAX_NUMOPT_COALESCING_ADD)
+#endif
+
+/*This is used to define a pointer to a function*/
+typedef void (*performance_func_t)(void *);
 
 typedef struct option_s
 {
@@ -386,7 +403,6 @@ void sample_code_wait_threads_arrived(Cpa32U sleepTimeout, Cpa32U maxRetries);
 void sampleCodeDynamicPoll(CpaInstanceHandle instanceHandle,
                            CpaAccelerationServiceType serviceType);
 
-
 /**
  *****************************************************************************
  * @ingroup sampleCode
@@ -408,7 +424,7 @@ void sampleCodeDynamicPoll(CpaInstanceHandle instanceHandle,
  *      Polling continues until DC service is stopped
  *
  *****************************************************************************/
-void sampleCodeDcDynamicPollWrapper(void* instanceHandle);
+void sampleCodeDcDynamicPollWrapper(void *instanceHandle);
 
 /**
  *****************************************************************************
@@ -431,7 +447,7 @@ void sampleCodeDcDynamicPollWrapper(void* instanceHandle);
  *      Polling continues until CY service is stopped
  *
  *****************************************************************************/
-void sampleCodeSymDynamicPollWrapper(void* instanceHandle);
+void sampleCodeSymDynamicPollWrapper(void *instanceHandle);
 
 /**
  *****************************************************************************
@@ -454,6 +470,56 @@ void sampleCodeSymDynamicPollWrapper(void* instanceHandle);
  *      Polling continues until CY service is stopped
  *
  *****************************************************************************/
-void sampleCodeAsymDynamicPollWrapper(void* instanceHandle);
+void sampleCodeAsymDynamicPollWrapper(void *instanceHandle);
+
+#ifdef DO_CRYPTO
+/**
+ *****************************************************************************
+ * @ingroup sampleCode
+ *      trySetupCyLegacyEventPoll
+ *
+ * @description
+ *      Try to set up legacy event-based polling for Crypto instances
+ *
+ * @param[in]  instanceHandle   Instance handle for crypto service
+ * @param[out] pollFn           Pointer to polling function pointer
+ *
+ * @retval CPA_STATUS_SUCCESS        Event polling successfully configured
+ * @retval CPA_STATUS_FAIL           Error occurred during setup
+ * @retval CPA_STATUS_UNSUPPORTED    Feature not supported
+ *
+ * @pre
+ *      Crypto instance must be initialized
+ * @post
+ *      Event polling configured if supported
+ *
+ *****************************************************************************/
+CpaStatus trySetupCyLegacyEventPoll(CpaInstanceHandle instanceHandle,
+                                    performance_func_t *pollFn);
+#endif /* DO_CRYPTO */
+
+/**
+ *****************************************************************************
+ * @ingroup sampleCode
+ *      trySetupDcLegacyEventPoll
+ *
+ * @description
+ *      Try to set up legacy event-based polling for Data Compression instances
+ *
+ * @param[in]  instanceHandle   Instance handle for DC service
+ * @param[out] pollFn           Pointer to polling function pointer
+ *
+ * @retval CPA_STATUS_SUCCESS        Event polling successfully configured
+ * @retval CPA_STATUS_FAIL           Error occurred during setup
+ * @retval CPA_STATUS_UNSUPPORTED    Feature not supported
+ *
+ * @pre
+ *      DC instance must be initialized
+ * @post
+ *      Event polling configured if supported
+ *
+ *****************************************************************************/
+CpaStatus trySetupDcLegacyEventPoll(CpaInstanceHandle instanceHandle,
+                                    performance_func_t *pollFn);
 
 #endif

@@ -35,7 +35,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* QAT includes */
 #include "icp_qat_fw_la.h"
@@ -52,6 +51,7 @@
 #include "lac_pke_qat_comms.h"
 #include "lac_pke_utils.h"
 #include "lac_pke_mmp.h"
+#include "lac_kpt_pro_qat_comms.h"
 #include "sal_misc_error_stats.h"
 
 /*
@@ -407,6 +407,12 @@ void LacPke_MsgCallback(void *pRespMsg)
     {
         LAC_LOG_ERROR(
             "The PCIe End Point Push/Pull or TI/RI Parity error detected.");
+    }
+
+    if (LAC_KPT_PRO_SERVICE_TYPE == pPkeRespMsg->pke_resp_hdr.response_type)
+    {
+        LacKpt_Pro_RspHandler(pRespMsg);
+        return;
     }
 
     /* extract request data pointer from the opaque data */
@@ -784,6 +790,8 @@ CpaStatus LacPke_SendRequest(lac_pke_request_handle_t *pRequestHandle,
     Cpa64U seq_num = ICP_ADF_INVALID_SEND_SEQ;
     sal_crypto_service_t *pCryptoService =
         (sal_crypto_service_t *)instanceHandle;
+    Cpa32U size = 0;
+    void *pMsg = NULL;
 
     LAC_ASSERT_NOT_NULL(pRequestHandle);
 
@@ -791,10 +799,14 @@ CpaStatus LacPke_SendRequest(lac_pke_request_handle_t *pRequestHandle,
     pHeadReqData = *pRequestHandle;
     LAC_ASSERT_NOT_NULL(pHeadReqData);
 
+    {
+        pMsg = (void *)&(pHeadReqData->u1.request);
+        size = LAC_QAT_ASYM_REQ_SZ_LW;
+    }
     /* send the request (chain) */
     status = SalQatMsg_transPutMsg(pCryptoService->trans_handle_asym_tx,
-                                   (void *)&(pHeadReqData->u1.request),
-                                   LAC_QAT_ASYM_REQ_SZ_LW,
+                                   pMsg,
+                                   size,
                                    LAC_LOG_MSG_PKE,
                                    &seq_num);
 
@@ -851,3 +863,144 @@ CpaStatus LacPke_SendSingleRequest(Cpa32U functionalityId,
     return status;
 }
 
+/**
+ *******************************************************************************
+ * @ingroup LacAsymCommonQatComms
+ *      Creates a single (unchained) KPT service request for the QAT.
+ *
+ * @description
+ *      This function invokes LacPke_CreateRequest first to create a normal
+ *      PKE request, then sets the KPT service flag in serv_specif_flags field
+ *      of PKE request header.
+ *      The request can subsequently be sent to the QAT device using
+ *      LacPke_SendSingleRequest(). In the event of an error this function will
+ *      tidy up any resources associated with the request handle and set it to
+ *      PKE_INVALID_HANDLE.
+ *
+ * @pre
+ *      The requests in the request pool have been initialised using
+ *      Lac_MemPoolInitAsymRequest().
+ *
+ * @param[in,out] pRequestHandle    Pointer to hold the handle for the request
+ *                                  created by this call. For a single request,
+ *                                  the passed in handle value must be zero.
+ *                                  (i.e. LAC_PKE_INVALID_HANDLE).
+ *
+ * @param[in] functionalityId       KPT PKE service functionality id.
+ * @param[in] pInArgSizeList        Pointer to a list of input sizes required
+ *                                  by QAT. The client-provided input flat
+ *                                  buffers greater than or equal to their
+ *                                  corresponding size will be passed to QAT.
+ *                                  Buffers that are less than the required
+ *                                  size will be copied into internal driver
+ *                                  buffers before being passed to QAT.
+ * @param[in] pOutArgSizeList       Pointer to a list of output sizes required
+ *                                  by QAT.
+ * @param[in] pInArgList            Pointer to the list of input params. This
+ *                                  should contain the client-provided flat
+ *                                  buffer pointers. Any entries in the list
+ *                                  which are not used must be set to 0.
+ * @param[in] pOutArgList           Pointer to the list of output params. This
+ *                                  should contain the client-provided flat
+ *                                  buffer pointers. Any entries in the list
+ *                                  which are not used must be set to 0.
+ * @param[in] pInternalInMemList    Pointer to a list of Booleans that
+ *                                  indicates if input data buffers passed to
+ *                                  QAT are internally or externally allocated.
+ *                                  This information needs to be tracked to
+ *                                  ensure we use the correct virt2phys
+ *                                  function.
+ * @param[in] pInternalInMemList    Pointer to a list of Booleans that indicates
+ *                                  if output data buffers passed to QAT are
+ *                                  internally or externally allocated.
+ * @param[in] pPkeOpCbFunc          Callback function invoked when the response
+ *                                  is received from the QAT
+ * @param[in] pCbData               Callback data to be returned (by copy)
+ *                                  unchanged in the callback.
+ * @param[in] instanceHandle        Instance handle
+ *
+ * @retval CPA_STATUS_SUCCESS       No error
+ * @retval CPA_STATUS_RESOURCE      Resource error (e.g. failed memory
+ *                                  allocation)
+ * @retval CPA_STATUS_INVALID_PARAM Invalid parameter
+ *
+ ******************************************************************************/
+STATIC
+CpaStatus LacPkeKpt_CreateSingleRequest(
+    lac_pke_request_handle_t *pRequestHandle,
+    Cpa32U functionalityId,
+    Cpa32U *pInArgSizeList,
+    Cpa32U *pOutArgSizeList,
+    icp_qat_fw_mmp_input_param_t *pInArgList,
+    icp_qat_fw_mmp_output_param_t *pOutArgList,
+    CpaBoolean *pInternalInMemList,
+    CpaBoolean *pInternalOutMemList,
+    lac_pke_op_cb_func_t pPkeOpCbFunc,
+    lac_pke_op_cb_data_t *pCbData,
+    CpaInstanceHandle instanceHandle)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+
+    status = LacPke_CreateRequest(pRequestHandle,
+                                  functionalityId,
+                                  pInArgSizeList,
+                                  pOutArgSizeList,
+                                  pInArgList,
+                                  pOutArgList,
+                                  pInternalInMemList,
+                                  pInternalOutMemList,
+                                  pPkeOpCbFunc,
+                                  pCbData,
+                                  instanceHandle);
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        lac_pke_qat_req_data_t *pReqData = *pRequestHandle;
+        SalQatMsg_KptFlagHdrWrite(
+            &(pReqData->u1.request.pke_hdr.extended_serv_specif_flags));
+    }
+
+    return status;
+}
+
+/**
+ ***************************************************************************
+ * @ingroup LacAsymCommonQatComms
+ *      KPT PKE request create and send to QAT
+ ***************************************************************************/
+CpaStatus LacPkeKpt_SendSingleRequest(
+    Cpa32U functionalityId,
+    Cpa32U *pInArgSizeList,
+    Cpa32U *pOutArgSizeList,
+    icp_qat_fw_mmp_input_param_t *pInArgList,
+    icp_qat_fw_mmp_output_param_t *pOutArgList,
+    CpaBoolean *pInMemBool,
+    CpaBoolean *pOutMemBool,
+    lac_pke_op_cb_func_t pPkeOpCbFunc,
+    lac_pke_op_cb_data_t *pCbData,
+    CpaInstanceHandle instanceHandle)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    lac_pke_request_handle_t requestHandle = LAC_PKE_INVALID_HANDLE;
+
+    /* prepare the request */
+    status = LacPkeKpt_CreateSingleRequest(&requestHandle,
+                                           functionalityId,
+                                           pInArgSizeList,
+                                           pOutArgSizeList,
+                                           pInArgList,
+                                           pOutArgList,
+                                           pInMemBool,
+                                           pOutMemBool,
+                                           pPkeOpCbFunc,
+                                           pCbData,
+                                           instanceHandle);
+
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* send the request */
+        status = LacPke_SendRequest(&requestHandle, instanceHandle);
+    }
+
+    return status;
+}

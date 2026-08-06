@@ -28,7 +28,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 #include "icp_qat_fw_la.h"
 
@@ -91,11 +90,18 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
         case CPA_CY_SYM_CIPHER_AES_XTS:
         case CPA_CY_SYM_CIPHER_SM4_CBC:
         case CPA_CY_SYM_CIPHER_SM4_CTR:
+        case CPA_CY_SYM_CIPHER_ZUC_EEA3:
         {
 #ifdef ICP_PARAM_CHECK
             ivLenInBytes = LacSymQat_CipherIvSizeBytesGet(algorithm);
             LAC_CHECK_NULL_PARAM(pOpData->pIv);
-            if (pOpData->ivLenInBytes != ivLenInBytes)
+            if (pService->isGen6 && isGcm &&
+                pOpData->ivLenInBytes != LAC_CIPHER_IV_SIZE_GCM_12)
+            {
+                LAC_INVALID_PARAM_LOG("Invalid GCM single pass IV size");
+                return CPA_STATUS_INVALID_PARAM;
+            }
+            else if (pOpData->ivLenInBytes != ivLenInBytes)
             {
                 /* GCM with 12 byte IV is supported */
                 if (!((isGcm &&
@@ -221,20 +227,6 @@ CpaStatus LacCipher_PerformIvCheck(sal_service_t *pService,
             }
         }
         break;
-        case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-        {
-#ifdef ICP_PARAM_CHECK
-            LAC_CHECK_NULL_PARAM(pOpData->pIv);
-            if ((pOpData->ivLenInBytes != ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ) &&
-                (pOpData->ivLenInBytes != ICP_QAT_HW_ZUC_256_IV_SZ))
-            {
-                LAC_INVALID_PARAM_LOG("invalid cipher IV size");
-                return CPA_STATUS_INVALID_PARAM;
-            }
-#endif
-            *ppIvBuffer = pOpData->pIv;
-        }
-        break;
         default:
             *ppIvBuffer = NULL;
     }
@@ -355,13 +347,10 @@ CpaStatus LacCipher_SessionSetupDataCheck(
                 }
                 break;
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-                /* ZUC EEA3 */
-                if ((pCipherSetupData->cipherKeyLenInBytes !=
-                     ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ) &&
-                    (pCipherSetupData->cipherKeyLenInBytes !=
-                     ICP_QAT_HW_ZUC_256_KEY_SZ))
+                if (pCipherSetupData->cipherKeyLenInBytes !=
+                    ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
                 {
-                    LAC_INVALID_PARAM_LOG("Invalid ZUC cipher key length");
+                    LAC_INVALID_PARAM_LOG("Invalid ZUC-128 cipher key length");
                     return CPA_STATUS_INVALID_PARAM;
                 }
                 break;
@@ -475,6 +464,11 @@ Cpa32U LacCipher_GetCipherSliceType(sal_service_t *pService,
 {
     Cpa32U sliceType = ICP_QAT_FW_LA_USE_LEGACY_SLICE_TYPE;
     Cpa32U capabilitiesMask = pService->capabilitiesMask;
+
+    if (pService->isGen6)
+    {
+            return ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE;
+    }
 
     switch (cipherAlgorithm)
     {

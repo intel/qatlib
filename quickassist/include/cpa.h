@@ -96,7 +96,7 @@ extern "C" {
  *      when minor changes to the API have occurred.
  *
  *****************************************************************************/
-#define CPA_API_VERSION_NUM_MINOR (8)
+#define CPA_API_VERSION_NUM_MINOR (9)
 
 /**
  *****************************************************************************
@@ -287,7 +287,10 @@ typedef struct
      * the length is always unchanged.
      */
     Cpa32U reserved;
-    /**< Reserved for alignment */
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
     CpaPhysicalAddr bufferPhysAddr;
     /**< The physical address at which the data resides.  The data pointed
      * to is required to be in contiguous physical memory.
@@ -311,11 +314,17 @@ typedef struct
 typedef struct
 {
     Cpa64U reserved0;
-    /**< Reserved for internal usage */
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
     Cpa32U numBuffers;
     /**< Number of buffers in the list */
     Cpa32U reserved1;
-    /**< Reserved for alignment */
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
     CpaPhysFlatBuffer flatBuffers[];
     /**< Array of flat buffer structures, of size numBuffers */
 } CpaPhysBufferList;
@@ -1133,6 +1142,152 @@ CpaStatus cpaAllocInstance(const CpaAccelerationServiceType serviceType,
  *
  *****************************************************************************/
 CpaStatus cpaFreeInstance(CpaInstanceHandle instanceHandle);
+
+/**
+ *****************************************************************************
+ * @ingroup cpa_BaseDataTypes
+ *      Meta data relating to the interrupt used for collecting responses.
+ *
+ * @description
+ *      This struct holds data which is useful when configuring the interrupt
+ *      used to notify users that a service instance has responses ready.
+ *****************************************************************************/
+typedef struct
+{
+    Cpa32U coalescingTimerInNs;
+    /**< The value of the Interrupt Coalescing Timer in nanoseconds */
+    Cpa32U coalescingTimerMaxInNs;
+    /**< The maximum value to which the Interrupt Coalescing Timer can be set
+     * This may vary for different libraries or devices.
+     */
+    Cpa32U coalescingTimerGranularityInNs;
+    /**< It may not be possible to configure the hardware to a granularity of
+     * 1ns, so this indicates the increments which can be differentiated when
+     * setting the Interrupt Coalescing Timer.
+     */
+    Cpa32U reserved1;
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
+    Cpa64U reserved2;
+    /**< Reserved. On passing this struct to the library this field should be
+     * set to 0. On reading this struct from the library this field should be
+     * ignored.
+     */
+} CpaRxInterruptMetaData;
+
+/**
+ *****************************************************************************
+ * @ingroup cpa
+ *      Read the Interrupt data for an instance
+ *
+ * @description
+ *      Read the currently configured value of the Interrupt Coalescing Timer
+ *      for the instance and metadata useful for re-configuring it.
+ *
+ * @context
+ *      This is a synchronous function and it cannot sleep. It can be
+ *      executed in a context that does not permit sleeping. It may be called
+ *      regardless of the CpaInstanceResponseMode configured on the instance,
+ *      though the timer is only used when the mode is set to
+ *      CPA_INST_RX_NOTIFY_BY_EVENT.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      No
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle           Instance handle.
+ * @param[in] accelerationServiceType  This must match the acceleration service
+ *                                     supported by the instance, except for
+ *                                     CPA_ACC_SVC_TYPE_CRYPTO. In this case
+ *                                     the instance supports two services, so
+ *                                     this parameter must be set to either
+ *                                     CPA_ACC_SVC_TYPE_CRYPTO_ASYM or
+ *                                     CPA_ACC_SVC_TYPE_CRYPTO_SYM.
+ * @param[out] pInterruptData          Pointer to the location where the
+ *                                     interrupt data will be stored.
+ *
+ * @retval CPA_STATUS_SUCCESS          Values read successfully.
+ * @retval CPA_STATUS_FAIL             Configuration failed.
+ * @retval CPA_STATUS_INVALID_PARAM    Invalid parameter.
+ * @retval CPA_STATUS_UNSUPPORTED      Not supported.
+ *
+ * @see
+ *      cpaInstanceSetIntCoalescingTimer()
+ *      cpaInstanceSetResponseMode()
+ *      cpaInstanceGetResponseMode()
+ *****************************************************************************/
+CpaStatus cpaInstanceGetRxInterruptMetaData(
+    const CpaInstanceHandle instanceHandle,
+    const CpaAccelerationServiceType accelerationServiceType,
+    CpaRxInterruptMetaData *pInterruptData);
+
+/**
+ *****************************************************************************
+ * @ingroup cpa
+ *      Set the Interrupt Coalescing Timer for an instance
+ *
+ * @description
+ *      This function configures the Interrupt Coalescing Timer value in
+ *      nanoseconds for a service instance. When the response mode for the
+ *      service is set to CPA_INST_RX_NOTIFY_BY_EVENT, interrupts will be
+ *      coalesced until this timer expires.
+ *      It is recommended to call cpaInstanceGetRxInterruptMetaData to read the
+ *      associated metadata before calling this set API. This set API may be
+ *      passed any value between 0 and coalescingTimerMaxInNs. However the
+ *      actual value configured on the instance may be rounded by
+ *      +/- coalescingTimerGranularityInNs, so it is recommended to
+ *      make changes to the configuration in intervals larger than that.
+ *      Setting it to 0 will effectively disable interrupt coalescing.
+ *
+ * @context
+ *      This function MUST NOT be called from an interrupt context as it MAY
+ *      sleep. It may be called regardless of the CpaInstanceResponseMode
+ *      configured on the instance, though the timer is only used when the
+ *      mode is set to CPA_INST_RX_NOTIFY_BY_EVENT.
+ * @assumptions
+ *      None
+ * @sideEffects
+ *      None
+ * @blocking
+ *      This function is synchronous and blocking.
+ * @reentrant
+ *      No
+ * @threadSafe
+ *      Yes
+ *
+ * @param[in] instanceHandle          Instance handle
+ * @param[in] accelerationServiceType This must match the acceleration service
+ *                                    supported by the instance, except for
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO. In this case
+ *                                    the instance supports two services, and
+ *                                    the timer can be set independently on each
+ *                                    so this parameter must be set to either
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO_ASYM or
+ *                                    CPA_ACC_SVC_TYPE_CRYPTO_SYM.
+ * @param[in] coalescingTimerInNs     The timer value to be configured.
+ *
+ * @retval CPA_STATUS_SUCCESS         Function executed successfully.
+ * @retval CPA_STATUS_FAIL            Function failed.
+ * @retval CPA_STATUS_INVALID_PARAM   Invalid parameter passed in.
+ * @retval CPA_STATUS_UNSUPPORTED     Function is not supported.
+ *
+ * @see
+ *      cpaInstanceSetResponseMode
+ *      cpaInstanceGetRxInterruptMetaData
+ *
+ *****************************************************************************/
+CpaStatus cpaInstanceSetIntCoalescingTimer(
+    const CpaInstanceHandle instanceHandle,
+    const CpaAccelerationServiceType accelerationServiceType,
+    const Cpa32U coalescingTimerInNs);
 
 #ifdef __cplusplus
 } /* close the extern "C" { */

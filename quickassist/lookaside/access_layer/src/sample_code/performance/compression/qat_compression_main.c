@@ -26,6 +26,13 @@ extern CpaStatus createStartandWaitForCompletion(Cpa32U instType);
 
 #define COUNT_RESPONSES dcPerformCallback(setup, status)
 
+/* Resolve to the per-thread dictionary buffer list array when the test
+ * was configured for dictionary-based (de)compression, NULL otherwise.
+ * The useDictionary field of compression_test_params_t only exists in
+ * STV_TEST_CODE builds, so on stripped builds this collapses to NULL
+ * unconditionally. */
+#define QAT_DC_DICT_LIST(setup, arr) (NULL)
+
 #define RESET_PERF_STATS(perfStats, numLists, numLoops)                        \
     do                                                                         \
     {                                                                          \
@@ -64,6 +71,7 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
                              CpaBufferList *arrayOfSrcBufferLists,
                              CpaBufferList *arrayOfDestBufferLists,
                              CpaBufferList *arrayOfCmpBufferLists,
+                             CpaBufferList *dictionaryBufferListArray,
                              Cpa32U listNum,
                              CpaDcRqResults *arrayOfResults);
 
@@ -226,7 +234,21 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     }
 
     /*Start DC Services */
-    status = startDcServices(testBufferSize, TEMP_NUM_BUFFS);
+    getDecompNumInstances();
+    dcSetup->useDecompService =
+        (direction == CPA_DC_DIR_DECOMPRESS && numDecompInstances_g > 0)
+            ? CPA_TRUE
+            : CPA_FALSE;
+    if (dcSetup->useDecompService)
+    {
+        status = startServices(CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION,
+                               testBufferSize,
+                               TEMP_NUM_BUFFS);
+    }
+    else
+    {
+        status = startDcServices(testBufferSize, TEMP_NUM_BUFFS);
+    }
     if (CPA_STATUS_SUCCESS != status)
     {
         PRINT_ERR("Error in Starting Dc Services\n");
@@ -239,6 +261,17 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
 #endif
     }
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Apply any configured response mode overrides before creating polling
+     * threads */
+    if (CPA_STATUS_SUCCESS != applyDcInstanceResponseModeConfiguration())
+    {
+        PRINT_ERR("Error applying DC instance response mode configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+
     if (!poll_inline_g)
     {
         /* start polling threads if polling is enabled in the configuration
@@ -247,6 +280,14 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
         {
             PRINT_ERR("Error creating polling threads\n");
             return CPA_STATUS_FAIL;
+        }
+        if (dcSetup->useDecompService)
+        {
+            if (CPA_STATUS_SUCCESS != dcCreateDecompPollingThreads())
+            {
+                PRINT_ERR("Error creating DECOMP polling threads\n");
+                return CPA_STATUS_FAIL;
+            }
         }
     }
 
@@ -294,6 +335,9 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     dcSetup->corpusFileIndex = corpusFileIndex;
     dcSetup->bufferSize = testBufferSize;
     dcSetup->dcSessDir = direction;
+    /* Disable reliability checks for decompression-only runs. The framework
+     * still SW-compresses.
+     */
     dcSetup->syncFlag = syncFlag;
     dcSetup->numLoops = numLoops;
     dcSetup->isDpApi = CPA_FALSE;
@@ -301,6 +345,13 @@ static CpaStatus setupDcCommonTest(compression_test_params_t *dcSetup,
     dcSetup->setupData.autoSelectBestHuffmanTree = gAutoSelectBestMode;
     dcSetup->setupData.checksum = gChecksum;
     dcSetup->passCriteria = getPassCriteria();
+
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Initialize response mode to library default (will be queried per-thread)
+     */
+    dcSetup->currentResponseMode = CPA_INST_RX_NOTIFY_NONE; /* Fallback value */
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     return status;
 }
@@ -317,6 +368,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     CpaInstanceHandle *instances = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     CpaDcInstanceCapabilities capabilities = {0};
+    CpaBoolean bCapabilityStatus = CPA_FALSE;
 
     /* Get the setup pointer */
     tmpSetup = (compression_test_params_t *)(testSetup->setupPtr);
@@ -338,6 +390,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     dcSetup.syncFlag = tmpSetup->syncFlag;
     dcSetup.numLoops = tmpSetup->numLoops;
     dcSetup.setupData.checksum = tmpSetup->setupData.checksum;
+    dcSetup.useDecompService = tmpSetup->useDecompService;
     dcSetup.setNsRequest = tmpSetup->setNsRequest;
     dcSetup.useE2E = tmpSetup->useE2E;
     dcSetup.useE2EVerify = tmpSetup->useE2EVerify;
@@ -374,39 +427,19 @@ void dcPerformance(single_thread_test_data_t *testSetup)
          */
         testSetup->statsPrintFunc = NULL;
 
-        /* Get the number of instances */
-        status = cpaDcGetNumInstances(&numInstances);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            PRINT_ERR(" Unable to get number of DC instances\n");
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-    }
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        if (0 == numInstances)
-        {
-            PRINT_ERR(" DC Instances are not present\n");
-            status = CPA_STATUS_FAIL;
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-    }
-    if (CPA_STATUS_SUCCESS == status)
-    {
-        instances = qaeMemAlloc(sizeof(CpaInstanceHandle) * numInstances);
-        if (NULL == instances)
-        {
-            PRINT_ERR("Unable to allocate Memory for Instances\n");
-            status = CPA_STATUS_FAIL;
-            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-        }
-    }
-    if (CPA_STATUS_SUCCESS == status)
-    {
         /*get the instance handles so that we can start
          * our thread on the selected instance
          */
-        status = cpaDcGetInstances(numInstances, instances);
+        if (dcSetup.useDecompService)
+        {
+            status = dcGetInstances(
+                CPA_ACC_SVC_TYPE_DATA_DECOMPRESSION, &instances, &numInstances);
+        }
+        else
+        {
+            status = dcGetInstances(
+                CPA_ACC_SVC_TYPE_DATA_COMPRESSION, &instances, &numInstances);
+        }
         if (CPA_STATUS_SUCCESS != status)
         {
             PRINT_ERR(" Unable to get DC instances\n");
@@ -419,6 +452,65 @@ void dcPerformance(single_thread_test_data_t *testSetup)
          * use % to wrap around the max number of instances*/
         dcSetup.dcInstanceHandle =
             instances[(testSetup->logicalQaInstance) % numInstances];
+
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+        /* Determine the response mode for this instance */
+        Cpa16U instanceIndex = (testSetup->logicalQaInstance) % numInstances;
+        {
+            CpaStatus responseStatus;
+
+            /* First get the actual default response mode from the instance */
+            responseStatus =
+                cpaInstanceGetResponseMode(dcSetup.dcInstanceHandle,
+                                           CPA_ACC_SVC_TYPE_DATA_COMPRESSION,
+                                           &dcSetup.currentResponseMode);
+            if (CPA_STATUS_SUCCESS != responseStatus)
+            {
+                /* Fallback to assumed default if query fails */
+                dcSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+                PRINT("Failed to query instance response mode, using fallback: "
+                      "%d\n",
+                      responseStatus);
+            }
+
+            /* Check if this instance has been explicitly configured with
+             * override */
+            if (isDcInstanceResponseModeConfigured())
+            {
+                Cpa64U instanceMask = getDcInstanceResponseModeMask();
+
+                /* Check if this instance is in the configured mask */
+                if ((instanceIndex < 64) &&
+                    (instanceMask & (1ULL << instanceIndex)))
+                {
+                    /* Override with explicitly configured mode */
+                    dcSetup.currentResponseMode = getDcInstanceResponseMode();
+                    PRINT("Using explicit response mode %d for instance %d\n",
+                          dcSetup.currentResponseMode,
+                          instanceIndex);
+                }
+                else
+                {
+                    PRINT("Using library default response mode %d for instance "
+                          "%d\n",
+                          dcSetup.currentResponseMode,
+                          instanceIndex);
+                }
+            }
+        }
+
+        /* Print the final response mode for this thread */
+        PRINT("Thread %u using DC instance %u with response mode: %d (%s)\n",
+              testSetup->threadID,
+              instanceIndex,
+              dcSetup.currentResponseMode,
+              (dcSetup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE)
+                  ? "polling"
+              : (dcSetup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+                  ? "event"
+                  : "unknown");
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
         // find node that thread is running on
         status = sampleCodeDcGetNode(dcSetup.dcInstanceHandle, &dcSetup.node);
@@ -460,7 +552,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
 #if DC_API_VERSION_AT_LEAST(3, 1)
     if ((CPA_DC_STATELESS == tmpSetup->setupData.sessState) &&
         (CPA_DC_LZ4 == tmpSetup->setupData.compType) &&
-        ((CPA_FALSE == capabilities.statelessLZ4Compression) ||
+        ((CPA_FALSE == capabilities.statelessLZ4Compression) &&
          (CPA_FALSE == capabilities.statelessLZ4Decompression)))
     {
         PRINT("LZ4 is not supported on logical instance %d\n",
@@ -471,7 +563,7 @@ void dcPerformance(single_thread_test_data_t *testSetup)
     }
     if ((CPA_DC_STATELESS == tmpSetup->setupData.sessState) &&
         (CPA_DC_LZ4S == tmpSetup->setupData.compType) &&
-        ((CPA_FALSE == capabilities.statelessLZ4Compression) ||
+        ((CPA_FALSE == capabilities.statelessLZ4Compression) &&
          (CPA_FALSE == capabilities.statelessLZ4Decompression)))
     {
         PRINT("LZ4s is not supported on logical instance %d\n",
@@ -504,10 +596,6 @@ void dcPerformance(single_thread_test_data_t *testSetup)
                     CPA_STATUS_UNSUPPORTED;
                 status = CPA_STATUS_UNSUPPORTED;
                 QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
-                qaeMemFree((void **)&instances);
-                qaeMemFree((void **)&dcSetup.numberOfBuffers);
-                qaeMemFree((void **)&dcSetup.packetSizeInBytesArray);
-                sampleCodeThreadExit();
             }
         }
     }
@@ -523,6 +611,28 @@ void dcPerformance(single_thread_test_data_t *testSetup)
 
     dcSetup.induceOverflow = CPA_FALSE;
     dcSetup.threadID = testSetup->threadID;
+
+    if (CPA_DC_ASB_DISABLED == dcSetup.setupData.autoSelectBestHuffmanTree)
+    {
+        status =
+            getDcCapabilityStatusForAlg(dcSetup.dcInstanceHandle,
+                                        CPA_DC_CAP_BOOL_ASB_ENABLE_PREFERRED,
+                                        dcSetup.setupData.compType,
+                                        CPA_DC_DIR_COMPRESS,
+                                        &bCapabilityStatus);
+
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            QAT_PERF_FAIL_WAIT_AND_GOTO_LABEL(testSetup, err);
+        }
+
+        if (CPA_TRUE == bCapabilityStatus)
+        {
+            /* Enable ASB if ASB preferred capability is set for the algorithm
+             */
+            dcSetup.setupData.autoSelectBestHuffmanTree = CPA_DC_ASB_ENABLED;
+        }
+    }
 
     if (CPA_STATUS_SUCCESS == status)
     {
@@ -601,6 +711,7 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
     Cpa32U *testBufferSize = setup->packetSizeInBytesArray;
     Cpa32U numberOfBuffersPerList = dc_bufferCount_g;
     CpaBufferList *srcBufferListArray = NULL;
+    CpaBufferList *dictionaryBufferListArray = NULL;
     CpaBufferList *destBufferListArray = NULL;
     CpaBufferList *cmpBufferListArray = NULL;
     CpaDcRqResults *resultArray = NULL;
@@ -618,28 +729,29 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
              (Cpa64U)setup->numLists * (Cpa64U)setup->numLoops);
 
     // allocate memory for source & destination bufferLists and results
-    status = qatAllocateCompressionLists(setup,
-                                         &srcBufferListArray,
-                                         &destBufferListArray,
-                                         &cmpBufferListArray,
-                                         &resultArray);
-
-    // Allocate the CpaFlatBuffers in each list
-    if (CPA_STATUS_SUCCESS == status)
     {
-        status = qatAllocateCompressionFlatBuffers(setup,
-                                                   srcBufferListArray,
-                                                   numberOfBuffersPerList,
-                                                   testBufferSize,
-                                                   destBufferListArray,
-                                                   numberOfBuffersPerList,
-                                                   testBufferSize,
-                                                   cmpBufferListArray,
-                                                   numberOfBuffersPerList,
-                                                   testBufferSize);
-        if (CPA_STATUS_SUCCESS != status)
+        status = qatAllocateCompressionLists(setup,
+                                             &srcBufferListArray,
+                                             &destBufferListArray,
+                                             &cmpBufferListArray,
+                                             &resultArray);
+        if (CPA_STATUS_SUCCESS == status)
         {
-            PRINT_ERR("could not allocate all flat buffers for compression\n");
+            status = qatAllocateCompressionFlatBuffers(setup,
+                                                       srcBufferListArray,
+                                                       numberOfBuffersPerList,
+                                                       testBufferSize,
+                                                       destBufferListArray,
+                                                       numberOfBuffersPerList,
+                                                       testBufferSize,
+                                                       cmpBufferListArray,
+                                                       numberOfBuffersPerList,
+                                                       testBufferSize);
+            if (CPA_STATUS_SUCCESS != status)
+            {
+                PRINT_ERR(
+                    "could not allocate all flat buffers for compression\n");
+            }
         }
     }
 
@@ -653,6 +765,10 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             fileArray[setup->corpusFileIndex].corpusBinaryDataLen,
             testBufferSize);
     }
+
+    // copy corpus data into allocated buffers (dictionary buffers populated
+    // above)
+
     if (CPA_FALSE == setup->setNsRequest)
     {
         // Initialize the compression session to use
@@ -687,14 +803,58 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
                  reliability_g == CPA_FALSE)
         {
 
-            /* When STV_TEST_CODE with USER_SPACE and SUPPORTED_FEAT_EPOLL is not defined, always use default behavior */
-            status = qatCompressData(setup,
-                                    pSessionHandle,
-                                    CPA_DC_DIR_COMPRESS,
-                                    srcBufferListArray,
-                                    destBufferListArray,
-                                    cmpBufferListArray,
-                                    resultArray);
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+            /* Check if response mode iteration is enabled */
+            {
+                Cpa32U iterCount = 0;
+                status = getDcResponseModeIterationCount(&iterCount);
+                if (CPA_STATUS_SUCCESS != status)
+                {
+                    PRINT_ERR("Failed to get DC response mode iteration count "
+                              "in qatDcPerform\n");
+                    return status;
+                }
+
+                if (iterCount > 1)
+                {
+                    status = qatCompressDataWithIteration(
+                        setup,
+                        pSessionHandle,
+                        CPA_DC_DIR_COMPRESS,
+                        srcBufferListArray,
+                        destBufferListArray,
+                        cmpBufferListArray,
+                        QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                        resultArray);
+                }
+                else
+                {
+                    /* Default behavior - single execution */
+                    status = qatCompressData(
+                        setup,
+                        pSessionHandle,
+                        CPA_DC_DIR_COMPRESS,
+                        srcBufferListArray,
+                        destBufferListArray,
+                        cmpBufferListArray,
+                        QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                        resultArray);
+                }
+            }
+#else
+            /* When STV_TEST_CODE with USER_SPACE and SUPPORTED_FEAT_EPOLL is
+             * not defined, always use default behavior */
+            status = qatCompressData(
+                setup,
+                pSessionHandle,
+                CPA_DC_DIR_COMPRESS,
+                srcBufferListArray,
+                destBufferListArray,
+                cmpBufferListArray,
+                QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                resultArray);
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
             qatDcUpdateProducedBufferLength(
                 setup, destBufferListArray, resultArray);
@@ -717,14 +877,28 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
              */
             latency_enable = 0;
             coo_deinit(setup->performanceStats);
-
-            status = qatCompressData(setup,
-                                     pSessionHandle,
-                                     CPA_DC_DIR_COMPRESS,
-                                     srcBufferListArray,
-                                     destBufferListArray,
-                                     cmpBufferListArray,
-                                     resultArray);
+            if (pSessionHandle == NULL && setup->useDecompService)
+            {
+                /* Generate the compressed test data
+                 * via the SW (zlib / lz4 / zstd) helper instead. */
+                PRINT("Decomp-only instance: pre-compressing corpus in SW\n");
+                status = qatSwCompress(setup,
+                                       srcBufferListArray,
+                                       destBufferListArray,
+                                       resultArray);
+            }
+            else
+            {
+                status = qatCompressData(
+                    setup,
+                    pSessionHandle,
+                    CPA_DC_DIR_COMPRESS,
+                    srcBufferListArray,
+                    destBufferListArray,
+                    cmpBufferListArray,
+                    QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                    resultArray);
+            }
 
             /* Restore latency and COO measurement */
             latency_enable = latency_enable_flag;
@@ -744,13 +918,15 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
                 }
                 RESET_PERF_STATS(
                     setup->performanceStats, setup->numLists, setup->numLoops);
-                status = qatCompressData(setup,
-                                         pDecompressSessionHandle,
-                                         CPA_DC_DIR_DECOMPRESS,
-                                         srcBufferListArray,
-                                         destBufferListArray,
-                                         cmpBufferListArray,
-                                         resultArray);
+                status = qatCompressData(
+                    setup,
+                    pDecompressSessionHandle,
+                    CPA_DC_DIR_DECOMPRESS,
+                    srcBufferListArray,
+                    destBufferListArray,
+                    cmpBufferListArray,
+                    QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                    resultArray);
                 dcScSetBytesProducedAndConsumed(resultArray,
                                                 setup->performanceStats,
                                                 setup,
@@ -768,13 +944,15 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
             setup->numLoops = 1;
             for (i = 0; i < numLoops; i++)
             {
-                status = qatCompressData(setup,
-                                         pSessionHandle,
-                                         CPA_DC_DIR_COMPRESS,
-                                         srcBufferListArray,
-                                         destBufferListArray,
-                                         cmpBufferListArray,
-                                         resultArray);
+                status = qatCompressData(
+                    setup,
+                    pSessionHandle,
+                    CPA_DC_DIR_COMPRESS,
+                    srcBufferListArray,
+                    destBufferListArray,
+                    cmpBufferListArray,
+                    QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                    resultArray);
                 qatDcUpdateProducedBufferLength(
                     setup, destBufferListArray, resultArray);
                 dcScSetBytesProducedAndConsumed(resultArray,
@@ -838,66 +1016,57 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
         else if (setup->dcSessDir == CPA_DC_DIR_DECOMPRESS &&
                  reliability_g == CPA_TRUE)
         {
-            /*copy numLoops, set setup->numLoops to 1 to do repeated
-             * swcompress-decompress for numLoops times*/
-            numLoops = setup->numLoops;
-            setup->numLoops = 1;
-            for (i = 0; i < numLoops; i++)
+            /* Generate the compressed payload once via SW compress, then
+             * let qatCompressData() iterate the HW decompress. */
+
+            /* Disable latency/COO measurement during the one-time SW
+             * compress used only to produce decompress input data. */
+            latency_enable = 0;
+            coo_deinit(setup->performanceStats);
+
+            status = qatSwCompress(
+                setup, srcBufferListArray, destBufferListArray, resultArray);
+            qatDcUpdateProducedBufferLength(
+                setup, destBufferListArray, resultArray);
+
+            /* Restore latency and COO measurement for the decompress
+             * performance run. */
+            latency_enable = latency_enable_flag;
+            coo_init(setup->performanceStats,
+                     (Cpa64U)setup->numLists * (Cpa64U)setup->numLoops);
+
+            if (CPA_STATUS_SUCCESS == status)
             {
-                status = qatSwCompress(setup,
-                                       srcBufferListArray,
-                                       destBufferListArray,
-                                       resultArray);
-                qatDcUpdateProducedBufferLength(
-                    setup, destBufferListArray, resultArray);
-                if (CPA_STATUS_SUCCESS == status)
+                if (setup->e2e)
                 {
-                    status = qatCompressData(setup,
-                                             pDecompressSessionHandle,
-                                             CPA_DC_DIR_DECOMPRESS,
-                                             srcBufferListArray,
-                                             destBufferListArray,
-                                             cmpBufferListArray,
-                                             resultArray);
-                    qatDcUpdateProducedBufferLength(
-                        setup, cmpBufferListArray, resultArray);
-                    dcScSetBytesProducedAndConsumed(resultArray,
-                                                    setup->performanceStats,
-                                                    setup,
-                                                    setup->dcSessDir);
-                    if (CPA_STATUS_SUCCESS == status)
-                    {
-                        status = qatCmpBuffers(
-                            setup, srcBufferListArray, cmpBufferListArray);
-                        QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS(
-                            "qatCmpBuffers", status);
-                    }
-                    if (CPA_STATUS_SUCCESS == status)
-                    {
-                        /*reset destination buffer*/
-                        status = qatCompressResetBufferList(setup,
-                                                            destBufferListArray,
-                                                            testBufferSize,
-                                                            CPA_FALSE);
-                        QAT_PERF_PRINT_ERR_FOR_NON_SUCCESS_STATUS(
-                            "qatCompressResetBufferList", status);
-                    }
+                    setup->e2e->swInputChecksum = 0x0;
+                    setup->e2e->swOutputChecksum = 0x0;
                 }
+                RESET_PERF_STATS(
+                    setup->performanceStats, setup->numLists, setup->numLoops);
+
+                status = qatCompressData(setup,
+                                         pDecompressSessionHandle,
+                                         CPA_DC_DIR_DECOMPRESS,
+                                         srcBufferListArray,
+                                         destBufferListArray,
+                                         cmpBufferListArray,
+                                         dictionaryBufferListArray,
+                                         resultArray);
+                qatDcUpdateProducedBufferLength(
+                    setup, cmpBufferListArray, resultArray);
+                dcScSetBytesProducedAndConsumed(resultArray,
+                                                setup->performanceStats,
+                                                setup,
+                                                setup->dcSessDir);
                 if (CPA_STATUS_SUCCESS != status)
                 {
                     PRINT_ERR("qatCompressData returned status %d\n", status);
-                    break;
                 }
-                if (CPA_TRUE == stopTestsIsEnabled_g)
-                {
-                    /* Check if terminated by global flag.
-                     * stop issuing new requests
-                     */
-                    if (CPA_TRUE == exitLoopFlag_g)
-                    {
-                        break;
-                    }
-                }
+            }
+            else
+            {
+                PRINT_ERR("qatSwCompress returned status %d\n", status);
             }
         }
         if (CPA_STATUS_SUCCESS != status)
@@ -938,22 +1107,22 @@ CpaStatus qatDcPerform(compression_test_params_t *setup)
         }
     }
     /*free CpaFlatBuffers and privateMetaData in CpaBufferLists*/
-    if ((CPA_STATUS_SUCCESS !=
-         qatFreeCompressionFlatBuffers(setup,
-                                       srcBufferListArray,
-                                       destBufferListArray,
-                                       cmpBufferListArray)) &&
-        (CPA_STATUS_SUCCESS != qatFreeFlatBuffersInList(&contextBuffer)))
+        if ((CPA_STATUS_SUCCESS !=
+             qatFreeCompressionFlatBuffers(setup,
+                                           srcBufferListArray,
+                                           destBufferListArray,
+                                           cmpBufferListArray)) &&
+            (CPA_STATUS_SUCCESS != qatFreeFlatBuffersInList(&contextBuffer)))
     {
         PRINT_ERR("freeCompressionFlatBuffers error\n");
         status = CPA_STATUS_FAIL;
     }
     // free CpaBufferLists
-    if (CPA_STATUS_SUCCESS != qatFreeCompressionLists(setup,
-                                                      &srcBufferListArray,
-                                                      &destBufferListArray,
-                                                      &cmpBufferListArray,
-                                                      &resultArray))
+        if (CPA_STATUS_SUCCESS != qatFreeCompressionLists(setup,
+                                                          &srcBufferListArray,
+                                                          &destBufferListArray,
+                                                          &cmpBufferListArray,
+                                                          &resultArray))
     {
         PRINT_ERR("freeCompressionLists error\n");
         status = CPA_STATUS_FAIL;
@@ -969,12 +1138,14 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
                              CpaBufferList *arrayOfSrcBufferLists,
                              CpaBufferList *arrayOfDestBufferLists,
                              CpaBufferList *arrayOfCmpBufferLists,
+                             CpaBufferList *dictionaryBufferListArray,
                              Cpa32U listNum,
                              CpaDcRqResults *arrayOfResults)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     static Cpa32U staticAssign = 0;
     CpaDcCallbackFn dcCbFn = NULL;
+    (void)dictionaryBufferListArray;
 
     if (setup->requestOps.flushFlag != setup->flushFlag)
     {
@@ -1017,14 +1188,16 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
                 }
                 else
                 {
-                    status =
-                        cpaDcCompressData2(setup->dcInstanceHandle,
-                                           pSessionHandle,
-                                           &arrayOfSrcBufferLists[listNum],
-                                           &arrayOfDestBufferLists[listNum],
-                                           &(setup->requestOps),
-                                           &arrayOfResults[listNum],
-                                           (void *)setup);
+                    {
+                        status =
+                            cpaDcCompressData2(setup->dcInstanceHandle,
+                                               pSessionHandle,
+                                               &arrayOfSrcBufferLists[listNum],
+                                               &arrayOfDestBufferLists[listNum],
+                                               &(setup->requestOps),
+                                               &arrayOfResults[listNum],
+                                               (void *)setup);
+                    }
                 }
                 coo_req_stop(setup->performanceStats, status);
             }
@@ -1039,7 +1212,15 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
             if (CPA_TRUE == setup->setNsRequest)
             {
                 setup->setupData.sessDirection = CPA_DC_DIR_DECOMPRESS;
-
+                CpaDcCompLZ4BlockMaxSize savedBlockMaxSize =
+                    setup->setupData.lz4BlockMaxSize;
+                if (CPA_DC_LZ4 == setup->setupData.compType &&
+                    CPA_DC_LZ4_MAX_BLOCK_SIZE_64K ==
+                        setup->setupData.lz4BlockMaxSize)
+                {
+                    setup->setupData.lz4BlockMaxSize =
+                        CPA_DC_LZ4_MAX_BLOCK_SIZE_256K;
+                }
                 if (ASYNC == setup->syncFlag)
                 {
                     dcCbFn = dcPerformCallback;
@@ -1053,16 +1234,20 @@ CpaStatus qatDcSubmitRequest(compression_test_params_t *setup,
                                                &arrayOfResults[listNum],
                                                dcCbFn,
                                                (void *)setup);
+                setup->setupData.lz4BlockMaxSize = savedBlockMaxSize;
             }
             else
             {
-                status = cpaDcDecompressData2(setup->dcInstanceHandle,
-                                              pSessionHandle,
-                                              &arrayOfDestBufferLists[listNum],
-                                              &arrayOfCmpBufferLists[listNum],
-                                              &(setup->requestOps),
-                                              &arrayOfResults[listNum],
-                                              (void *)setup);
+                {
+                    status =
+                        cpaDcDecompressData2(setup->dcInstanceHandle,
+                                             pSessionHandle,
+                                             &arrayOfDestBufferLists[listNum],
+                                             &arrayOfCmpBufferLists[listNum],
+                                             &(setup->requestOps),
+                                             &arrayOfResults[listNum],
+                                             (void *)setup);
+                }
             }
             coo_req_stop(setup->performanceStats, status);
         }
@@ -1090,12 +1275,14 @@ EXPORT_SYMBOL(qatDcSubmitRequest);
 
 /*performance measurement function to compress a file for 'n' number of loops
  * */
+// Remove default argument, use plain pointer for C compatibility
 CpaStatus qatCompressData(compression_test_params_t *setup,
                           CpaDcSessionHandle pSessionHandle,
                           CpaDcSessionDir compressDirection,
                           CpaBufferList *arrayOfSrcBufferLists,
                           CpaBufferList *arrayOfDestBufferLists,
                           CpaBufferList *arrayOfCmpBufferLists,
+                          CpaBufferList *dictionaryBufferListArray,
                           CpaDcRqResults *arrayOfResults)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -1134,6 +1321,7 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(arrayOfCmpBufferLists,
                                                   status);
     QAT_PERF_CHECK_NULL_POINTER_AND_UPDATE_STATUS(arrayOfResults, status);
+    (void)dictionaryBufferListArray;
     if (CPA_STATUS_SUCCESS == status)
     {
         status = qatCompressionE2EInit(setup);
@@ -1201,15 +1389,17 @@ CpaStatus qatCompressData(compression_test_params_t *setup,
                  */
                 arrayOfResults[listNum].checksum = previousChecksum;
                 /*submit request*/
-                status = qatDcSubmitRequest(setup,
-                                            instanceInfo2,
-                                            compressDirection,
-                                            pSessionHandle,
-                                            arrayOfSrcBufferLists,
-                                            arrayOfDestBufferLists,
-                                            arrayOfCmpBufferLists,
-                                            listNum,
-                                            arrayOfResults);
+                status = qatDcSubmitRequest(
+                    setup,
+                    instanceInfo2,
+                    compressDirection,
+                    pSessionHandle,
+                    arrayOfSrcBufferLists,
+                    arrayOfDestBufferLists,
+                    arrayOfCmpBufferLists,
+                    QAT_DC_DICT_LIST(setup, dictionaryBufferListArray),
+                    listNum,
+                    arrayOfResults);
                 /* Check submit status and update thread status*/
                 if (CPA_STATUS_SUCCESS != status)
                 {
@@ -1537,6 +1727,7 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
                                  srcBufferListArray,
                                  destBufferListArray,
                                  cmpBufferListArray,
+                                 NULL,
                                  resultArray);
         if (status != CPA_STATUS_SUCCESS)
         {
@@ -1560,20 +1751,35 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
                     goto err;
                 }
                 numListOverflowed++;
-
-                /* Find the amount of data unconsumed */
-                srcBufferListArray[i].pBuffers[0].dataLenInBytes -=
-                    resultArray[i].consumed;
-                srcBufferListArray[i].pBuffers[0].pData +=
-                    resultArray[i].consumed;
-                /* Update Output buffers for the amount of bytes produced.
-                 * From the amount of memory actually allocated for the buffer,
-                 * reduced the amount taken up by produced data.
-                 */
-                destBufferListArray[i].pBuffers[0].dataLenInBytes =
-                    destBufferMemSize[i] - resultArray[i].produced;
-                destBufferListArray[i].pBuffers[0].pData +=
-                    resultArray[i].produced;
+                if (resultArray[i].consumed <
+                    srcBufferListArray[i].pBuffers[0].dataLenInBytes)
+                {
+                    /* Find the amount of data unconsumed */
+                    srcBufferListArray[i].pBuffers[0].dataLenInBytes -=
+                        resultArray[i].consumed;
+                    srcBufferListArray[i].pBuffers[0].pData +=
+                        resultArray[i].consumed;
+                    /* Update Output buffers for the amount of bytes produced.
+                     * From the amount of memory actually allocated for the
+                     * buffer, reduced the amount taken up by produced data.
+                     */
+                    destBufferListArray[i].pBuffers[0].dataLenInBytes =
+                        destBufferMemSize[i] - resultArray[i].produced;
+                    destBufferListArray[i].pBuffers[0].pData +=
+                        resultArray[i].produced;
+                }
+                else
+                {
+                    /* All source data was consumed but overflow still
+                     * reported (dynamic Huffman translator overflow).
+                     * Re-compress the entire source with full dest buffer
+                     * on the second pass.
+                     */
+                    destBufferListArray[i].pBuffers[0].dataLenInBytes =
+                        destBufferMemSize[i];
+                    resultArray[i].produced = 0;
+                    resultArray[i].consumed = 0;
+                }
             }
             else
             {
@@ -1601,6 +1807,7 @@ static CpaStatus qatInduceOverflow(compression_test_params_t *setup,
                                  srcBufferListArray,
                                  destBufferListArray,
                                  cmpBufferListArray,
+                                 NULL,
                                  overflowResArray);
         if (status != CPA_STATUS_SUCCESS)
         {

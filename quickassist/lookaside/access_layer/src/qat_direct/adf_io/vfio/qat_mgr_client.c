@@ -24,6 +24,8 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/file.h>
+#include <fcntl.h>
 #include <errno.h>
 #include "icp_platform.h"
 #include "qat_log.h"
@@ -89,11 +91,11 @@ static int qatmgr_socket_open(struct qatmgr_transport *t_mgr)
 
 int adf_vfio_build_sconfig(void)
 {
-    int ret;
+    int ret, lock_fd;
     char *env;
     long long devs = -1;
     unsigned n;
-    int i, j;
+    int i;
     char *fin;
 
     env = getenv(QAT_ENV_POLICY);
@@ -105,46 +107,78 @@ int adf_vfio_build_sconfig(void)
             qat_log(LOG_LEVEL_ERROR, "Invalid environment value \"%s\"\n", env);
             return -EINVAL;
         }
+        if (devs == 0)
+        {
+            qat_log(LOG_LEVEL_ERROR,
+                    "QAT_POLICY=0 is not supported in standalone mode. "
+                    "Use QAT_POLICY >= 1 or unset QAT_POLICY\n");
+            return -EINVAL;
+        }
+    }
+
+    /* Acquire exclusive lock on /dev/vfio to serialize enumeration */
+    lock_fd = open("/dev/vfio", O_RDONLY | O_DIRECTORY);
+    if (lock_fd < 0)
+    {
+        qat_log(LOG_LEVEL_ERROR,
+                "Failed to open /dev/vfio for locking: errno=%d\n",
+                errno);
+        return -errno;
+    }
+
+    if (flock(lock_fd, LOCK_EX) < 0)
+    {
+        qat_log(LOG_LEVEL_ERROR,
+                "Failed to acquire /dev/vfio lock: errno=%d\n",
+                errno);
+        close(lock_fd);
+        return -errno;
     }
 
     /* If QAT_POLICY is not set, reserve all devices but then use only
      * the first MAX_DEVS_NO_POLICY
-     * If QAT_POLICY is set to 0, enumerate all devices without reserving
-     * them (qat_mgr_build_data might fail when devices are opened)
      * if QAT_POLICY is set to >0, reserve the first n devices */
     if (devs < 0)
-        ret = qat_mgr_get_vfio_dev_list(&n, dev_list, MAX_DEVS, 1);
-    else if (devs == 0)
-        ret = qat_mgr_get_vfio_dev_list(&n, dev_list, MAX_DEVS, 0);
+        ret = qat_mgr_get_vfio_dev_list(&n, dev_list, MAX_DEVS);
     else
-        ret = qat_mgr_get_vfio_dev_list(&n, dev_list, devs, 1);
+        ret = qat_mgr_get_vfio_dev_list(&n, dev_list, devs);
 
     if (ret)
+    {
+        flock(lock_fd, LOCK_UN);
+        close(lock_fd);
         return ret;
+    }
 
     /* If no device is found return an error */
     if (n == 0)
     {
         qat_log(LOG_LEVEL_ERROR, "No device found\n");
+        flock(lock_fd, LOCK_UN);
+        close(lock_fd);
         return -ENODEV;
     }
 
-    /* Avoid using all devices if policy is not set */
-    if (n > MAX_DEVS_NO_POLICY && devs < 0)
+    /* Check if sufficient devices are available for the requested policy */
+    if (devs > 0 && n < devs)
     {
-        for (i = 0, j = 0; i < n; i++)
-        {
-            if (dev_list[i].group_fd > 0 && j < MAX_DEVS_NO_POLICY)
-            {
-                j++;
-            }
-            else if (dev_list[i].group_fd > 0)
-            {
-                close(dev_list[i].group_fd);
-                dev_list[i].group_fd = -1;
-            }
-        }
-        devs = j;
+        qat_log(LOG_LEVEL_ERROR,
+                "Insufficient devices: requested %lld devices via QAT_POLICY, "
+                "but only %u devices available\n",
+                devs,
+                n);
+        flock(lock_fd, LOCK_UN);
+        close(lock_fd);
+        return -ENODEV;
+    }
+
+    /* Set device count when no policy is specified */
+    if (devs < 0)
+    {
+        if (n > MAX_DEVS_NO_POLICY)
+            devs = MAX_DEVS_NO_POLICY;
+        else
+            devs = n;
     }
 
     for (i = 0; i < n; i++)
@@ -159,12 +193,12 @@ int adf_vfio_build_sconfig(void)
                 BDF_FUN(dev_list[i].bdf));
     }
 
-    if (devs < 0)
-        devs = n;
-    if ((ret = qat_mgr_vfio_build_data(dev_list, n, devs, 1)))
-        return ret;
+    ret = qat_mgr_vfio_build_data(dev_list, n, devs, 1);
 
-    return 0;
+    /* Release lock */
+    flock(lock_fd, LOCK_UN);
+    close(lock_fd);
+    return ret;
 }
 
 int qatmgr_open(void)

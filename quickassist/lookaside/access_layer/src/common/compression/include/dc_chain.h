@@ -43,6 +43,8 @@ typedef enum dc_chain_opdata_type_e
 {
     DC_CHAIN_OPDATA_TYPE0 = 0,
 /**< Refer to the API definition for CpaDcChainOpData format */
+    DC_CHAIN_OPDATA_TYPE1
+/**< Refer to the API definition for CpaDcChainOpData2 format */
 } dc_chain_opdata_type_t;
 
 typedef struct dc_chain_opdata_ext_s
@@ -60,6 +62,8 @@ typedef enum dc_chain_results_type_e
 {
     DC_CHAIN_RESULTS_TYPE0 = 0,
 /**< Refer to the API definition for CpaDcChainRqResults format */
+    DC_CHAIN_RESULTS_TYPE1
+/**< Refer to the API definition for CpaDcChainRqVResults format */
 } dc_chain_results_type_t;
 
 typedef struct dc_chain_results_ext_s

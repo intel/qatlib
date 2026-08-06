@@ -30,7 +30,6 @@
 #include "icp_adf_init.h"
 #include "icp_qat_fw_la.h"
 #include "icp_adf_transport.h"
-#include "icp_adf_debug.h"
 
 #include "lac_sym.h"
 #include "lac_sym_cipher.h"

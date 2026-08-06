@@ -157,6 +157,10 @@ typedef enum
  * @ingroup icp_qat_hw_defs
  * @description
  *      Enumeration of possible LBMS field values
+ *      Note, this enum is reflected on the QuickAssist API and the library
+ *      depends on both having the same values. So the existing values must
+ *      never change and if this enum is extended then CpaDcCompLZ4BlockMaxSize
+ *      and icp_qat_hw_comp_51_bms_t must also be extended.
  *****************************************************************************/
 typedef enum
 {

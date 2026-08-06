@@ -34,9 +34,10 @@
 #define ADF_CFG_MAX_KEY_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
 #define ADF_CFG_MAX_VAL_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
 #define ADF_CFG_MAX_SECTION_LEN_IN_BYTES ADF_CFG_MAX_STR_LEN
-#define ADF_MAX_DEVICES (32 * 32)
 /* Max PFs = num sockets x num PFs per socket */
-#define ADF_MAX_PF_DEVICES 32
+#define ADF_MAX_PF_DEVICES 256
+/* Max devices is max PFs * num VFs per PF */
+#define ADF_MAX_DEVICES (ADF_MAX_PF_DEVICES * 16)
 
 enum dev_sku_info
 {
@@ -164,24 +165,12 @@ typedef enum device_type_e
     DEVICE_4XXXVF,
     DEVICE_420XX,
     DEVICE_420XXVF,
+    DEVICE_6XXX,
+    DEVICE_6XXXVF,
 } device_type_t;
 
 #define QAT_GEN4_STR "4xxx"
 
-/*
- * Macro for checking if given device_type_t enum value
- * belongs to QAT_GEN2 generation.
- */
-#ifdef IS_QAT_GEN2
-#undef IS_QAT_GEN2
-#endif
-#define IS_QAT_GEN2(dev_type)                                                  \
-    ({                                                                         \
-        int _dt = dev_type;                                                    \
-        _dt == DEVICE_C62X || _dt == DEVICE_C62XVF || _dt == DEVICE_C3XXX ||   \
-            _dt == DEVICE_C3XXXVF || _dt == DEVICE_D15XX ||                    \
-            _dt == DEVICE_D15XXVF;                                             \
-    })
 /*
  * Macro for checking if given device_type_t enum value
  * belongs to QAT 4 generation.
@@ -206,6 +195,19 @@ typedef enum device_type_e
     })
 
 /*
+ * Macro for checking if given device_type_t enum value
+ * belongs to QAT 6 generation.
+ */
+#ifdef IS_QAT_6XXX
+#undef IS_QAT_6XXX
+#endif
+#define IS_QAT_6XXX(dev_type)                                                  \
+    ({                                                                         \
+        int _dt = dev_type;                                                    \
+        _dt == DEVICE_6XXX || _dt == DEVICE_6XXXVF;                            \
+    })
+
+/*
  * Enumeration on Service Type
  */
 typedef enum adf_service_type_s
@@ -222,6 +224,7 @@ struct fw_caps_accel
     uint32_t deflate_caps;
     uint16_t lz4_caps;
     uint16_t lz4s_caps;
+    uint16_t zstd_caps;
     uint8_t is_fw_caps;
 };
 

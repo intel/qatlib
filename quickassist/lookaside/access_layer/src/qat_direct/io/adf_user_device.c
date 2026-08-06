@@ -318,6 +318,17 @@ STATIC CpaStatus subsystem_notify(Cpa32U accelId, Cpa32U event)
             adf_io_vf2pf_notify_restarting_complete(accel_dev);
             break;
         case ADF_EVENT_RESTARTED:
+            /* RESTARTED may be delivered more than once per reset (the VF
+             * proxy synthesizes one on vfio reopen and also reads the real
+             * PF2VF RESTARTED). accel_dev_restarting_state is cleared by the
+             * first RESTARTED; ignore any replay to avoid re-running the
+             * restart flow on an already-running instance. */
+            if (accel_dev_restarting_state[accel_dev->accelId] == 0)
+            {
+                ADF_DEBUG("accelID %d duplicate RESTARTED event ignored\n",
+                          accel_dev->accelId);
+                break;
+            }
             accel_dev_restarting_state[accel_dev->accelId] = 0;
             stat_restart = adf_proxy_restart_device(accelId);
             if (CPA_STATUS_SUCCESS == stat_restart)

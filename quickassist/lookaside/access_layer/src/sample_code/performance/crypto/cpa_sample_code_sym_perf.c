@@ -255,6 +255,24 @@ static CpaStatus symmetricSetupSession(CpaCySymCbFunc pSymCb,
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
             KEY_SIZE_128_IN_BYTES;
     }
+    else if (CPA_CY_SYM_CIPHER_AES_GCM ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            gcmAadLenInBytes_g;
+    }
+    else if (CPA_CY_SYM_CIPHER_AES_CCM ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            ccmAadLenInBytes_g;
+    }
+    else if (CPA_CY_SYM_CIPHER_CHACHA ==
+             setup->setupData.cipherSetupData.cipherAlgorithm)
+    {
+        setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes =
+            chachaPolyAadLenInBytes_g;
+    }
     else
     {
         setup->setupData.hashSetupData.authModeSetupData.aadLenInBytes = 0;
@@ -432,15 +450,17 @@ static CpaStatus symmetricPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
                 return CPA_STATUS_FAIL;
             }
             memset(pOpdata[createCount]->pAdditionalAuthData,
-                   0xAA,
+                   AAD_INIT_PATTERN,
                    KEY_SIZE_128_IN_BYTES);
         }
-        else if (((setup->setupData.cipherSetupData.cipherAlgorithm ==
-                   CPA_CY_SYM_CIPHER_AES_CCM) ||
-                  (setup->setupData.cipherSetupData.cipherAlgorithm ==
-                   CPA_CY_SYM_CIPHER_AES_GCM)) &&
-                 (setup->setupData.hashSetupData.hashAlgorithm !=
-                  CPA_CY_SYM_HASH_AES_GMAC))
+        else if ((((setup->setupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_AES_CCM) ||
+                   (setup->setupData.cipherSetupData.cipherAlgorithm ==
+                    CPA_CY_SYM_CIPHER_AES_GCM)) &&
+                  (setup->setupData.hashSetupData.hashAlgorithm !=
+                   CPA_CY_SYM_HASH_AES_GMAC)) ||
+                 (setup->setupData.cipherSetupData.cipherAlgorithm ==
+                  CPA_CY_SYM_CIPHER_CHACHA))
         {
             /*must allocate to the nearest block size required
               (above 18 bytes)*/
@@ -471,20 +491,10 @@ static CpaStatus symmetricPerformOpDataSetup(CpaCySymSessionCtx pSessionCtx,
 #endif
             case CPA_CY_SYM_CIPHER_SM4_ECB:
             case CPA_CY_SYM_CIPHER_SM4_CBC:
+
             case CPA_CY_SYM_CIPHER_SM4_CTR:
-                if (setup->setupData.cipherSetupData.cipherAlgorithm ==
-                        CPA_CY_SYM_CIPHER_ZUC_EEA3 &&
-                    setup->setupData.cipherSetupData.cipherKeyLenInBytes ==
-                        KEY_SIZE_256_IN_BYTES)
-                {
-                    pOpdata[createCount]->ivLenInBytes =
-                        IV_LEN_FOR_24_BYTE_BLOCK_CIPHER;
-                }
-                else
-                {
-                    pOpdata[createCount]->ivLenInBytes =
-                        IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
-                }
+                pOpdata[createCount]->ivLenInBytes =
+                    IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
                 /* If 0 use default else use value passed. */
                 if (0 != setup->ivLength)
                 {
@@ -1280,6 +1290,110 @@ exit:
     return status;
 }
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+static CpaStatus qatsymDataWithIteration(symmetric_test_params_t *setup)
+{
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    Cpa32U iterationCount;
+    Cpa32U i;
+
+    CpaInstanceResponseMode originalMode;
+    CpaInstanceResponseMode currentMode;
+    CpaInstanceResponseMode alternateMode;
+    /* Get iteration count */
+    status = getCyResponseModeIterationCount(&iterationCount);
+    if (CPA_STATUS_SUCCESS != status)
+    {
+        PRINT_ERR("Failed to get Cy response mode iteration count\n");
+        return status;
+    }
+    /* Store original response mode */
+    originalMode = setup->currentResponseMode;
+    /* Determine alternate mode */
+    if (originalMode == CPA_INST_RX_NOTIFY_NONE)
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_BY_EVENT;
+    }
+    else
+    {
+        alternateMode = CPA_INST_RX_NOTIFY_NONE;
+    }
+    PRINT("Starting response mode iteration: count=%d, initial=%d, "
+          "alternate=%d\n",
+          iterationCount,
+          originalMode,
+          alternateMode);
+    /* Perform iterations with alternating response modes */
+    for (i = 0; i < iterationCount && status == CPA_STATUS_SUCCESS; i++)
+    {
+        if (i % 2 == 0)
+        {
+            /* Even iterations: use original mode */
+            currentMode = originalMode;
+        }
+        else
+        {
+            /* Odd iterations: use alternate mode */
+            currentMode = alternateMode;
+        }
+        /* Update the test parameters with current mode */
+        setup->currentResponseMode = currentMode;
+        /* Get instance type to determine correct service type */
+        CpaInstanceInfo2 instInfo = { 0 };
+        CpaStatus infoStatus =
+            cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &instInfo);
+        if (CPA_STATUS_SUCCESS != infoStatus)
+        {
+            PRINT_ERR("Failed to get instance info on iteration %d\n", i);
+            status = infoStatus;
+            break;
+        }
+        CpaStatus modeStatus =
+            cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                       instInfo.accelerationServiceType,
+                                       currentMode);
+        if (CPA_STATUS_SUCCESS != modeStatus)
+        {
+            PRINT_ERR(
+                "Failed to set response mode %d on iteration %d, status: %d\n",
+                currentMode,
+                i,
+                modeStatus);
+            /* Continue with existing mode rather than failing completely */
+        }
+        status = sampleSymmetricPerform(setup);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            PRINT_ERR("Symmetric performance test failed on iteration %d with "
+                      "status: %d\n",
+                      i,
+                      status);
+            break;
+        }
+    }
+    /* Restore original response mode */
+    CpaInstanceInfo2 restoreInfo = { 0 };
+    CpaStatus infoStatus =
+        cpaCyInstanceGetInfo2(setup->cyInstanceHandle, &restoreInfo);
+    if (CPA_STATUS_SUCCESS == infoStatus)
+    {
+        CpaStatus restoreStatus =
+            cpaInstanceSetResponseMode(setup->cyInstanceHandle,
+                                       restoreInfo.accelerationServiceType,
+                                       originalMode);
+        if (CPA_STATUS_SUCCESS != restoreStatus)
+        {
+            PRINT_ERR("Failed to restore original response mode %d after "
+                      "iterations, status: %d\n",
+                      originalMode,
+                      restoreStatus);
+        }
+    }
+    return status;
+}
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+
 /**
  *****************************************************************************
  * @ingroup sampleSymmetricPerf
@@ -1328,10 +1442,10 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     symTestSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
      * instance*/
-    status = cpaCyGetNumInstances(&numInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM, &numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
-        PRINT_ERR("cpaCyGetNumInstances error, status:%d, numInstanaces:%d\n",
+        PRINT_ERR("cpaGetNumInstances error, status:%d, numInstances:%d\n",
                   status,
                   numInstances);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1344,17 +1458,11 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         return;
     }
-    if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
+    if (cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_SYM,
+                        numInstances,
+                        cyInstances) != CPA_STATUS_SUCCESS)
     {
         PRINT_ERR("Failed to get instances\n");
-        symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
-        goto exit;
-    }
-    if (testSetup->logicalQaInstance > numInstances)
-    {
-        PRINT_ERR("%u is Invalid Logical QA Instance, max is: %u\n",
-                  testSetup->logicalQaInstance,
-                  numInstances);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         goto exit;
     }
@@ -1397,6 +1505,61 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     {
         packageIdCount_g = instanceInfo->physInstId.packageId;
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Determine the response mode for this instance */
+    Cpa16U instanceIndex = (testSetup->logicalQaInstance) % numInstances;
+    {
+        CpaStatus responseStatus;
+
+        /* First get the actual default response mode from the instance */
+        responseStatus =
+            cpaInstanceGetResponseMode(symTestSetup.cyInstanceHandle,
+                                       CPA_ACC_SVC_TYPE_CRYPTO_SYM,
+                                       &symTestSetup.currentResponseMode);
+        if (CPA_STATUS_SUCCESS != responseStatus)
+        {
+            /* Fallback to assumed default if query fails */
+            symTestSetup.currentResponseMode = CPA_INST_RX_NOTIFY_NONE;
+        }
+
+        /* Check if this instance has been explicitly configured with override
+         */
+        if (isCyInstanceResponseModeConfigured())
+        {
+            Cpa64U instanceMask = getCyInstanceResponseModeMask();
+
+            /* Check if this instance is in the configured mask */
+            if ((instanceIndex < 64) &&
+                (instanceMask & (1ULL << instanceIndex)))
+            {
+                /* Override with explicitly configured mode */
+                symTestSetup.currentResponseMode = getCyInstanceResponseMode();
+                PRINT("Using explicit response mode %d for instance %d\n",
+                      symTestSetup.currentResponseMode,
+                      instanceIndex);
+            }
+            else
+            {
+                PRINT(
+                    "Using library default response mode %d for instance %d\n",
+                    symTestSetup.currentResponseMode,
+                    instanceIndex);
+            }
+        }
+    }
+
+    /* Print the final response mode for this thread */
+    PRINT("Thread %u using CY instance %u with response mode: %d (%s)\n",
+          testSetup->threadID,
+          instanceIndex,
+          symTestSetup.currentResponseMode,
+          (symTestSetup.currentResponseMode == CPA_INST_RX_NOTIFY_NONE)
+              ? "polling"
+          : (symTestSetup.currentResponseMode == CPA_INST_RX_NOTIFY_BY_EVENT)
+              ? "event"
+              : "unknown");
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     pPacketSize = qaeMemAlloc(sizeof(Cpa32U) * pSetup->numBuffLists);
     if (NULL == pPacketSize)
@@ -1476,9 +1639,12 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
     if (CPA_TRUE != checkCapability(cyInstances[testSetup->logicalQaInstance],
                                     &symTestSetup))
     {
-        PRINT("\nThread %u Invalid test.Capability check failed for the "
-              "requested algorithm on the configured instance\n",
-              testSetup->threadID);
+        if (verboseOutput)
+        {
+            PRINT("\nThread %u Invalid test.Capability check failed for the "
+                  "requested algorithm on the configured instance\n",
+                  testSetup->threadID);
+        }
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
         symTestSetup.performanceStats->threadReturnStatus =
@@ -1488,6 +1654,24 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
         goto exit;
     }
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Check if response mode iteration is enabled */
+    Cpa32U iterCount = 0;
+    status = getCyResponseModeIterationCount(&iterCount);
+    PRINT("iterCount = %d\n", iterCount);
+    if (iterCount > 1)
+    {
+        status = qatsymDataWithIteration(&symTestSetup);
+        if (CPA_STATUS_SUCCESS != status)
+        {
+            printSymTestType(&symTestSetup);
+            PRINT("Test %u FAILED\n", testSetup->threadID);
+            symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
+        }
+    }
+    else
+    {
         status = sampleSymmetricPerform(&symTestSetup);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1495,6 +1679,8 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
             PRINT("Test %u FAILED\n", testSetup->threadID);
             symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         }
+    }
+#else
     /*launch function that does all the work*/
     status = sampleSymmetricPerform(&symTestSetup);
     if (CPA_STATUS_SUCCESS != status)
@@ -1503,15 +1689,16 @@ void sampleSymmetricPerformance(single_thread_test_data_t *testSetup)
         PRINT("Test %u FAILED\n", testSetup->threadID);
         symTestSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
     }
-    else
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
+    if (CPA_STATUS_SUCCESS == status &&
+        symTestSetup.performanceStats->threadReturnStatus != CPA_STATUS_FAIL)
     {
         /*set the print function that can be used to print stats at the end of
          * the test*/
         testSetup->statsPrintFunc =
             (stats_print_func_t)printSymmetricPerfDataAndStopCyService;
     }
-    if ((CPA_STATUS_SUCCESS != status) ||
-        (symTestSetup.performanceStats->threadReturnStatus == CPA_STATUS_FAIL))
+    else
     {
         /* Stop Cy Service function should be called after all threads
          * complete their execution. This function will be called from
@@ -1590,7 +1777,7 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
     }
 
     /*start crypto service if not already started*/
-    if (CPA_STATUS_SUCCESS != startCyServices())
+    if (CPA_STATUS_SUCCESS != startSymServices())
     {
         PRINT_ERR("Failed to start Crypto services\n");
         return CPA_STATUS_FAIL;
@@ -1601,6 +1788,16 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
         enablePollInline();
 #endif
     }
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Apply any configured response mode overrides before creating polling
+     * threads */
+    if (CPA_STATUS_SUCCESS != applyCyInstanceResponseModeConfiguration())
+    {
+        PRINT_ERR("Error applying Cy instance response mode configuration\n");
+        return CPA_STATUS_FAIL;
+    }
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
 
     if (!poll_inline_g)
     {
@@ -1669,6 +1866,11 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
                 symmetricSetup->ivLength = CPA_CIPHER_SPC_IV_SIZE;
             }
         }
+    }
+    if ((CPA_CY_SYM_CIPHER_ZUC_EEA3 == cipherAlg) &&
+        (KEY_SIZE_256_IN_BYTES == cipherKeyLengthInBytes))
+    {
+        symmetricSetup->ivLength = IV_LEN_FOR_16_BYTE_BLOCK_CIPHER;
     }
 
     // check which kind of hash mode is selected
@@ -1761,6 +1963,13 @@ CpaStatus setupSymmetricTest(CpaCySymOp opType,
     }
     symmetricSetup->digestAppend = digestAppend;
 
+#if defined(USER_SPACE) && defined(SUPPORTED_FEAT_EPOLL) &&                    \
+    defined(STV_TEST_CODE)
+    /* Initialize response mode to library default (will be queried per-thread)
+     */
+    symmetricSetup->currentResponseMode =
+        CPA_INST_RX_NOTIFY_NONE; /* Fallback value */
+#endif /* USER_SPACE && SUPPORTED_FEAT_EPOLL && STV_TEST_CODE */
     return CPA_STATUS_SUCCESS;
 }
 

@@ -33,7 +33,6 @@
 #include "icp_adf_cfg.h"
 #include "icp_adf_accel_mgr.h"
 #include "icp_adf_poll.h"
-#include "icp_adf_debug.h"
 #include "icp_qat_hw.h"
 
 /* SAL includes */
@@ -66,65 +65,6 @@
 #endif
 
 #define MAX_BANK_NUM 1024
-
-/*
- * Prints statistics for a compression instance
- */
-STATIC int SalCtrl_CompresionDebug(void *private_data,
-                                   char *data,
-                                   int size,
-                                   int offset)
-{
-    sal_compression_service_t *pCompressionService =
-        (sal_compression_service_t *)private_data;
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    CpaDcStats dcStats = {0};
-    Cpa32S len = 0;
-
-    status = cpaDcGetStats(pCompressionService, &dcStats);
-    if (status != CPA_STATUS_SUCCESS)
-    {
-        LAC_LOG_ERROR("cpaDcGetStats returned error\n");
-        return (-1);
-    }
-
-    /* Engine Info */
-    if (NULL != pCompressionService->debug_file)
-    {
-        len += snprintf(data + len,
-                        size - len,
-                        SEPARATOR BORDER
-                        " Statistics for Instance %24s | \n" SEPARATOR,
-                        pCompressionService->debug_file->name);
-    }
-
-    /* Perform Info */
-    len += snprintf(
-        data + len,
-        size - len,
-        BORDER " DC comp Requests:               %16llu " BORDER "\n" BORDER
-               " DC comp Request Errors:         %16llu " BORDER "\n" BORDER
-               " DC comp Completed:              %16llu " BORDER "\n" BORDER
-               " DC comp Completed Errors:       %16llu " BORDER "\n" SEPARATOR,
-        (long long unsigned int)dcStats.numCompRequests,
-        (long long unsigned int)dcStats.numCompRequestsErrors,
-        (long long unsigned int)dcStats.numCompCompleted,
-        (long long unsigned int)dcStats.numCompCompletedErrors);
-
-    /* Perform Info */
-    snprintf(data + len,
-             size - len,
-             BORDER
-             " DC decomp Requests:             %16llu " BORDER "\n" BORDER
-             " DC decomp Request Errors:       %16llu " BORDER "\n" BORDER
-             " DC decomp Completed:            %16llu " BORDER "\n" BORDER
-             " DC decomp Completed Errors:     %16llu " BORDER "\n" SEPARATOR,
-             (long long unsigned int)dcStats.numDecompRequests,
-             (long long unsigned int)dcStats.numDecompRequestsErrors,
-             (long long unsigned int)dcStats.numDecompCompleted,
-             (long long unsigned int)dcStats.numDecompCompletedErrors);
-    return 0;
-}
 
 /* Disabling memory pool when the device is in error state */
 STATIC void SalCtrl_DcMemPoolDisable(sal_service_t *service)
@@ -326,102 +266,22 @@ STATIC CpaStatus SalCtr_DcInstInit(icp_accel_dev_t *device,
     return status;
 }
 
-STATIC void SalCtrl_DcDebugCleanup(icp_accel_dev_t *device,
-                                   sal_service_t *service)
-{
-    sal_compression_service_t *pCompressionService =
-        (sal_compression_service_t *)service;
-    sal_statistics_collection_t *pStatsCollection =
-        (sal_statistics_collection_t *)device->pQatStats;
-
-    if (CPA_TRUE == pStatsCollection->bStatsEnabled)
-    {
-        /* Clean stats */
-        if (NULL != pCompressionService->debug_file)
-        {
-            LAC_OS_FREE(pCompressionService->debug_file->name);
-            LAC_OS_FREE(pCompressionService->debug_file);
-            pCompressionService->debug_file = NULL;
-        }
-    }
-}
-
-STATIC void SalCtrl_DcDebugShutdown(icp_accel_dev_t *device,
+STATIC void SalCtrl_DcStatsShutdown(icp_accel_dev_t *device,
                                     sal_service_t *service)
 {
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
-    SalCtrl_DcDebugCleanup(device, service);
     pCompressionService->generic_service_info.stats = NULL;
 }
 
-STATIC void SalCtrl_DcDebugRestarting(icp_accel_dev_t *device,
-                                      sal_service_t *service)
+STATIC void SalCtrl_DcStatsInit(icp_accel_dev_t *device, sal_service_t *service)
 {
-    SalCtrl_DcDebugCleanup(device, service);
-}
-
-STATIC CpaStatus SalCtrl_DcDebugInit(icp_accel_dev_t *device,
-                                     sal_service_t *service,
-                                     char *serviceName)
-{
-    char adfGetParam[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-    char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-    char *instance_name = NULL;
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
     sal_statistics_collection_t *pStatsCollection =
         (sal_statistics_collection_t *)device->pQatStats;
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    char *section = icpGetProcessName();
 
-    if (CPA_TRUE == pStatsCollection->bStatsEnabled)
-    {
-        /* Get instance name for stats */
-        status = LAC_OS_MALLOC(&instance_name, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
-        LAC_CHECK_STATUS(status);
-
-        status = Sal_StringParsing(
-            serviceName,
-            pCompressionService->generic_service_info.instance,
-            SAL_CFG_NAME,
-            temp_string);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            LAC_OS_FREE(instance_name);
-            return status;
-        }
-
-        status =
-            icp_adf_cfgGetParamValue(device, section, temp_string, adfGetParam);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            LAC_LOG_STRING_ERROR1("Failed to get %s from configuration file",
-                                  temp_string);
-            LAC_OS_FREE(instance_name);
-            return status;
-        }
-        snprintf(
-            instance_name, ADF_CFG_MAX_VAL_LEN_IN_BYTES, "%s", adfGetParam);
-
-        status = LAC_OS_MALLOC(&pCompressionService->debug_file,
-                               sizeof(debug_file_info_t));
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            LAC_OS_FREE(instance_name);
-            return status;
-        }
-        osalMemSet(
-            pCompressionService->debug_file, 0, sizeof(debug_file_info_t));
-        pCompressionService->debug_file->name = instance_name;
-        pCompressionService->debug_file->seq_read = SalCtrl_CompresionDebug;
-        pCompressionService->debug_file->private_data = pCompressionService;
-        pCompressionService->debug_file->parent =
-            pCompressionService->generic_service_info.debug_parent_dir;
-    }
     pCompressionService->generic_service_info.stats = pStatsCollection;
-
-    return status;
 }
 
 STATIC CpaStatus
@@ -511,7 +371,6 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
     pCompressionService->trans_handle_compression_rx = NULL;
     pCompressionService->trans_handle_decompression_tx = NULL;
     pCompressionService->trans_handle_decompression_rx = NULL;
-    pCompressionService->debug_file = NULL;
 
     /* Initialise device specific compression data */
     status = SalCtrl_SetDCCaps(&pCompressionService->dc_capabilities,
@@ -672,12 +531,7 @@ CpaStatus SalCtrl_CompressionInit(icp_accel_dev_t *device,
     /* Initialize Data Compression/Decompression Cookies */
     Lac_MemPoolInitDcCookies(*poolID);
 
-    status = SalCtrl_DcDebugInit(device, service, serviceName);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR1("Failed to initialize %s debugfs\n", serviceName);
-        goto cleanup;
-    }
+    SalCtrl_DcStatsInit(device, service);
 
     pCompressionService->pDcChainService = NULL;
 
@@ -725,7 +579,7 @@ cleanup:
 
     dcStatsFree(pCompressionService);
 
-    SalCtrl_DcDebugShutdown(device, service);
+    SalCtrl_DcStatsShutdown(device, service);
 
 #ifndef ICP_DC_ONLY
     if (NULL != pChainService)
@@ -785,8 +639,6 @@ CpaStatus SalCtrl_CompressionShutdown(icp_accel_dev_t *device,
 
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
-    sal_statistics_collection_t *pStatsCollection =
-        (sal_statistics_collection_t *)device->pQatStats;
 
     if ((SAL_SERVICE_STATE_INITIALIZED !=
          pCompressionService->generic_service_info.state) &&
@@ -828,16 +680,6 @@ CpaStatus SalCtrl_CompressionShutdown(icp_accel_dev_t *device,
         LAC_CHECK_STATUS(status);
     }
 
-    if (CPA_TRUE == pStatsCollection->bDcStatsEnabled)
-    {
-        if (NULL != pCompressionService->debug_file)
-        {
-            /* Clean stats */
-            LAC_OS_FREE(pCompressionService->debug_file->name);
-            LAC_OS_FREE(pCompressionService->debug_file);
-            pCompressionService->debug_file = NULL;
-        }
-    }
     pCompressionService->generic_service_info.stats = NULL;
     dcStatsFree(pCompressionService);
 #ifndef ICP_DC_ONLY
@@ -848,7 +690,7 @@ CpaStatus SalCtrl_CompressionShutdown(icp_accel_dev_t *device,
         LAC_OS_FREE(pCompressionService->pDcChainService);
     }
 #endif
-    SalCtrl_DcDebugShutdown(device, service);
+    SalCtrl_DcStatsShutdown(device, service);
 
     pCompressionService->generic_service_info.state =
         SAL_SERVICE_STATE_SHUTDOWN;
@@ -861,8 +703,6 @@ CpaStatus SalCtrl_CompressionRestarting(icp_accel_dev_t *device,
     sal_compression_service_t *pCompressionService =
         (sal_compression_service_t *)service;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    sal_statistics_collection_t *pStatsCollection =
-        (sal_statistics_collection_t *)device->pQatStats;
 
     if ((SAL_SERVICE_STATE_RUNNING !=
          pCompressionService->generic_service_info.state) &&
@@ -894,13 +734,6 @@ CpaStatus SalCtrl_CompressionRestarting(icp_accel_dev_t *device,
         LAC_CHECK_STATUS(status);
     }
 
-    if (CPA_TRUE == pStatsCollection->bDcStatsEnabled)
-    {
-        /* Free debug file */
-        LAC_OS_FREE(pCompressionService->debug_file->name);
-        LAC_OS_FREE(pCompressionService->debug_file);
-        pCompressionService->debug_file = NULL;
-    }
 #ifndef ICP_DC_ONLY
     if (NULL != pCompressionService->pDcChainService)
     {
@@ -909,7 +742,6 @@ CpaStatus SalCtrl_CompressionRestarting(icp_accel_dev_t *device,
         LAC_OS_FREE(pCompressionService->pDcChainService);
     }
 #endif
-    SalCtrl_DcDebugRestarting(device, service);
 
     pCompressionService->generic_service_info.state =
         SAL_SERVICE_STATE_RESTARTING;
@@ -949,7 +781,6 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
                                 coreAffinity, nodeAffinity and response mode */
 
     pCompressionService->acceleratorNum = 0;
-    pCompressionService->debug_file = NULL;
 
     /* Initialise device specific compression data */
     status = SalCtrl_SetDCCaps(&pCompressionService->dc_capabilities,
@@ -1071,12 +902,7 @@ CpaStatus SalCtrl_CompressionRestarted(icp_accel_dev_t *device,
     /* Enabling memory pool for generating dummy response */
     Lac_MemPoolEnable(poolID);
 
-    status = SalCtrl_DcDebugInit(device, service, serviceName);
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR1("Failed to initialize %s debugfs\n", serviceName);
-        goto cleanup;
-    }
+    SalCtrl_DcStatsInit(device, service);
 
     pCompressionService->pDcChainService = NULL;
 
@@ -1236,6 +1062,9 @@ CpaStatus cpaDcGetNumIntermediateBuffers(CpaInstanceHandle dcInstance,
 
 #ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
     LAC_CHECK_NULL_PARAM(pNumBuffers);
 #endif
 
@@ -1535,7 +1364,12 @@ CpaStatus cpaDcStopInstance(CpaInstanceHandle instanceHandle)
         insHandle = instanceHandle;
     }
 
+#ifdef ICP_PARAM_CHECK
     LAC_CHECK_NULL_PARAM(insHandle);
+    SAL_CHECK_INSTANCE_TYPE(
+        insHandle,
+        (SAL_SERVICE_TYPE_COMPRESSION | SAL_SERVICE_TYPE_DECOMPRESSION));
+#endif
     pService = (sal_compression_service_t *)insHandle;
 
     dev = icp_adf_getAccelDevByAccelId(pService->acceleratorNum);

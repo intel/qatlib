@@ -36,7 +36,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_adf_transport_dp.h"
-#include "icp_adf_debug.h"
 #include "icp_sal_poll.h"
 
 #include "lac_mem.h"
@@ -180,10 +179,18 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
             case CPA_CY_SYM_CIPHER_AES_F8:
             case CPA_CY_SYM_CIPHER_SM4_CTR:
             case CPA_CY_SYM_CIPHER_SM4_CBC:
+            case CPA_CY_SYM_CIPHER_ZUC_EEA3:
             {
                 Cpa32U ivLenInBytes = LacSymQat_CipherIvSizeBytesGet(
                     pSessionDesc->cipherAlgorithm);
-                if (pRequest->ivLenInBytes != ivLenInBytes)
+                if (IS_GEN6_DEV(pRequest->instanceHandle) &&
+                    LAC_CIPHER_IS_GCM(pSessionDesc->cipherAlgorithm) &&
+                    pRequest->ivLenInBytes != LAC_CIPHER_IV_SIZE_GCM_12)
+                {
+                    LAC_INVALID_PARAM_LOG("Invalid GCM single pass IV size");
+                    return CPA_STATUS_INVALID_PARAM;
+                }
+                else if (pRequest->ivLenInBytes != ivLenInBytes)
                 {
                     if (!(/* GCM with 12 byte IV is OK */
                           (LAC_CIPHER_IS_GCM(pSessionDesc->cipherAlgorithm) &&
@@ -219,28 +226,6 @@ STATIC CpaStatus LacDp_EnqueueParamCheck(const CpaCySymDpOpData *pRequest)
             case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
             {
                 if (ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ != pRequest->ivLenInBytes)
-                {
-                    LAC_INVALID_PARAM_LOG("invalid cipher IV size");
-                    return CPA_STATUS_INVALID_PARAM;
-                }
-                if (0 == pRequest->iv)
-                {
-                    LAC_INVALID_PARAM_LOG("invalid iv of 0");
-                    return CPA_STATUS_INVALID_PARAM;
-                }
-            }
-            break;
-            case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-            {
-                if ((ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ != pRequest->ivLenInBytes) &&
-                    (ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ ==
-                     pSessionDesc->cipherKeyLenInBytes))
-                {
-                    LAC_INVALID_PARAM_LOG("invalid cipher IV size");
-                    return CPA_STATUS_INVALID_PARAM;
-                }
-                if ((ICP_QAT_HW_ZUC_256_IV_SZ != pRequest->ivLenInBytes) &&
-                    (ICP_QAT_HW_ZUC_256_KEY_SZ == pSessionDesc->cipherKeyLenInBytes))
                 {
                     LAC_INVALID_PARAM_LOG("invalid cipher IV size");
                     return CPA_STATUS_INVALID_PARAM;
@@ -560,6 +545,16 @@ void LacDp_WriteRingMsgOpt(CpaCySymDpOpData *pRequest,
                 LAC_QUADWORDS_TO_BYTES(
                     pHashStateBufferInfo->stateStorageSzQuadWords);
         }
+        /* For Gen6, pRequest->additionalAuthData is reused for Hmac key, since
+         * the offset of Hmac key and additionalAuthData are the same in request
+         * descriptor.
+         */
+        if (IS_GEN6_DEV(pSessionDesc->pInstance) &&
+            pSessionDesc->qatHashMode == ICP_QAT_HW_AUTH_MODE2)
+        {
+            pRequest->additionalAuthData =
+                (pSessionDesc->hashStateBufferInfo.pDataPhys);
+        }
         /* The first 24 bytes in icp_qat_fw_la_auth_req_params_t can be
          * copied directly from the op request data because they share a
          * corresponding layout.  The remaining 4 bytes are taken
@@ -624,6 +619,8 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
                                   ->generic_service_info.capabilitiesMask;
     CpaBoolean isGen4 = ((sal_crypto_service_t *)pRequest->instanceHandle)
                             ->generic_service_info.isGen4;
+    CpaBoolean isGen6 = ((sal_crypto_service_t *)pRequest->instanceHandle)
+                            ->generic_service_info.isGen6;
 
     CpaBoolean isSpGcm = LAC_CIPHER_IS_SPC_GCM(cipher, hash, capabilitiesMask);
     CpaBoolean isSpCcp = LAC_CIPHER_IS_SPC_CCP(cipher, hash, capabilitiesMask);
@@ -668,7 +665,8 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
         pCdInfo = &(pSessionDesc->contentDescInfo);
         pHwBlockBaseInDRAM = (Cpa8U *)pCdInfo->pData;
         if (CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT ==
-            pSessionDesc->cipherDirection)
+                pSessionDesc->cipherDirection &&
+            !isGen6)
         {
             if (LAC_CIPHER_IS_GCM(cipher))
                 hwBlockOffsetInDRAM = LAC_QUADWORDS_TO_BYTES(
@@ -873,6 +871,10 @@ void LacDp_WriteRingMsgFull(CpaCySymDpOpData *pRequest,
                     pCipher20ReqParams->spc_auth_res_sz =
                         (Cpa8U)pSessionDesc->hashResultSize;
                 }
+               /* Digest truncation is not supported on GEN6
+                * so digest len will be ignored by the FW and
+                * should be set to 0.
+                */
             /* Pad the AAD buffer to a blocklen multiple.
              * For ChaChaPoly and AES-GCM there is an AAD buffer if
              * aadLenInBytes is nonzero. For CCM there is always an AAD

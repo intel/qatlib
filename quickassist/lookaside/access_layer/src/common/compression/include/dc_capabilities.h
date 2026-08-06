@@ -121,6 +121,7 @@ extern "C" {
 #define DC_CAPS_DEFLATE_SUPPORTED (0x1)
 #define DC_CAPS_LZ4_SUPPORTED (0x4)
 #define DC_CAPS_LZ4S_SUPPORTED (0x8)
+#define DC_CAPS_ZSTD_SUPPORTED (0x64)
 #define DC_CAPS_PCRC (0x4)
 #define DC_CAPS_DYNAMIC_HUFF_BUFF_REQ (0x400)
 #define DC_CAPS_XXHASH32_OFFSET (1)
@@ -131,7 +132,11 @@ extern "C" {
 #define DC_CAPS_ADLER32_OFFSET (1)
 #define DC_CAPS_PCRC_OFFSET (2)
 #define DC_CAPS_LZ4S_OFFSET (3)
+#define DC_CAPS_ZSTD_OFFSET (6)
 #define DC_CAPS_CNVNR_EXTENDED_OFFSET (8)
+
+#define DC_CAPS_DICT_ID (0x8)
+#define DC_CAPS_DICT_ID_OFFSET (3)
 
 /* Restriction on the source buffer size for compression due to the firmware
  * processing */
@@ -147,6 +152,17 @@ extern "C" {
  */
 #define DC_DEST_BUFFER_STA_MIN_SIZE_GEN4 (1026)
 
+/* Minimum destination buffer size for dynamic deflate
+ * For 6xxx, there is no skid pad. Min buffer size
+ * is calculated using deflate compressBound formula
+ * with 1 as input buffer size
+ */
+#define DC_DEST_BUFFER_DYN_MIN_SIZE_GEN6 (6)
+
+/* Minimum destination buffer size for Gen6 is
+ * 2 bytes
+ */
+#define DC_DEST_BUFFER_MIN_SIZE_GEN6 (2)
 /* Size of the history window.
  * Base 2 logarithm of maximum window size minus 8. Each bit represents a
  * possible window size. Note: In compression direction only one windows size
@@ -605,8 +621,12 @@ typedef struct dc_capabilities_zstd_s
      * (FALSE) */
     Cpa8U dictCompSupported : DC_BITFIELD_SIZE_1;
 
-    /**< Dictionary type, see \ref CpaDcDictType */
-    Cpa8U dictCap : DC_BITFIELD_SIZE_2;
+    /**< True if the algorithm supports AEAD_THEN_DECOMPRESS
+     * chaining operation */
+    Cpa8U aeadThenDecompressSupported : DC_BITFIELD_SIZE_1;
+
+    /**< True if the HW supports dictionary ID */
+    Cpa8U dictId : DC_BITFIELD_SIZE_1;
 
     /**< Session direction, see \ref CpaDcDir */
     Cpa8U dirMask : DC_BITFIELD_SIZE_2;
@@ -642,12 +662,8 @@ typedef struct dc_capabilities_zstd_s
      * chaining operation */
     Cpa8U compressThenAeadSupported : DC_BITFIELD_SIZE_1;
 
-    /**< True if the algorithm supports AEAD_THEN_DECOMPRESS
-     * chaining operation */
-    Cpa8U aeadThenDecompressSupported : DC_BITFIELD_SIZE_1;
-
-    /**< True if the HW supports dictionary ID */
-    Cpa8U dictId : DC_BITFIELD_SIZE_1;
+    /**< Dictionary type, see \ref CpaDcDictType */
+    Cpa8U dictCap : DC_BITFIELD_SIZE_2;
 
     Cpa8U zstdReserved : DC_BITFIELD_SIZE_5;
 
@@ -660,13 +676,14 @@ typedef struct dc_capabilities_zstd_s
  * @ingroup dc_capabilities
  *      Supported HW device generations.
  * @description
- *      - QAT supported device generations ranging between Gen2 and Gen4.
+ *      - QAT supported device generations ranging between Gen2, Gen4 and Gen6.
  *****************************************************************************/
 typedef enum dc_hw_gen_types
 {
     DC_CAPS_GEN2_HW = 2,
     DC_CAPS_GEN4_HW,
     DC_CAPS_GEN5_HW,
+    DC_CAPS_GEN6_HW,
 
 } dc_hw_gen_types_t;
 
@@ -755,8 +772,36 @@ typedef struct dc_hw_device_capabilities_s /* sal_compression_device_data */
  *****************************************************************************/
 typedef struct dc_capabilities_s
 {
+    /**< Populate the compression hardware block for QAT */
+    void (*dcCompHwBlockPopulate)(void *pService,
+                                  void *pSessionDesc,
+                                  CpaDcNsSetupData *pSetupData,
+                                  icp_qat_hw_compression_config_t *pCompConfig,
+                                  void *compDecomp,
+                                  CpaBoolean bNsOp);
+    void (*dcNsCompHwBlockPopulate)(
+        void *pService,
+        void *pSessionDesc,
+        CpaDcNsSetupData *pSetupData,
+        icp_qat_hw_compression_config_t *pCompConfig,
+        void *compDecomp,
+        CpaBoolean bNsOp);
+    /**< Compress bound API's to calculate destination buffer size */
+    CpaStatus (*dcDeflateBound)(CpaDcHuffType huffType,
+                                Cpa32U inputSize,
+                                Cpa32U *outputSize);
+    CpaStatus (*dcLZ4Bound)(Cpa32U inputSize, Cpa32U *outputSize);
+    CpaStatus (*dcLZ4SBound)(Cpa32U inputSize, Cpa32U *outputSize);
+    CpaStatus (*dcZstdBound)(Cpa32U inputSize, Cpa32U *outputSize);
+    void (*dcGetMetaSizeForSrcBuffWithDict)(Cpa32U numDictBuffers,
+                                            Cpa32U numSourceBuffers,
+                                            Cpa32U *pSizeInBytes);
+
     /**< Device specific data, see \ref sal_compression_device_data_t */
     dc_hw_device_capabilities_t deviceData;
+
+    /**< Number of intermediate buffers */
+    Cpa16U numInterBuffs;
 
     /**< CRC integrity */
     dc_capabilities_crc_integrity_t crcIntegrity;
@@ -767,17 +812,8 @@ typedef struct dc_capabilities_s
     /**< CnV */
     dc_capabilities_cnv_t cnv;
 
-    /**< Algorithms related content, see \ref CpaDcCompType */
-    dc_capabilities_deflate_t deflate;
-    dc_capabilities_lz4_t lz4;
-    dc_capabilities_lz4s_t lz4s;
-    dc_capabilities_zstd_t zstd;
-
     /**< Generic data not related to device and not related
      * to the type of algorithm */
-
-    /**< Number of intermediate buffers */
-    Cpa16U numInterBuffs;
 
     /**< Session state, see \ref CpaDcState */
     Cpa8U sessState : DC_BITFIELD_SIZE_2;
@@ -817,29 +853,10 @@ typedef struct dc_capabilities_s
 
     Cpa8U genericReserve : DC_BITFIELD_SIZE_1;
 
-    /**< Populate the compression hardware block for QAT */
-    void (*dcCompHwBlockPopulate)(
-        void *pService,
-        void *pSessionDesc,
-        CpaDcNsSetupData *pSetupData,
-        icp_qat_hw_compression_config_t *pCompConfig,
-        void *compDecomp,
-        CpaBoolean bNsOp);
-    void (*dcNsCompHwBlockPopulate)(
-        void *pService,
-        void *pSessionDesc,
-        CpaDcNsSetupData *pSetupData,
-        icp_qat_hw_compression_config_t *pCompConfig,
-        void *compDecomp,
-        CpaBoolean bNsOp);
-    /**< Compress bound API's to calculate destination buffer size */
-    CpaStatus (*dcDeflateBound)(void *pService,
-                                CpaDcHuffType huffType,
-                                Cpa32U inputSize,
-                                Cpa32U *outputSize);
-    CpaStatus (*dcLZ4Bound)(Cpa32U inputSize, Cpa32U *outputSize);
-    CpaStatus (*dcLZ4SBound)(Cpa32U inputSize, Cpa32U *outputSize);
-    CpaStatus (*dcZstdBound)(Cpa32U inputSize, Cpa32U *outputSize);
+    dc_capabilities_deflate_t deflate;
+    dc_capabilities_lz4_t lz4;
+    dc_capabilities_lz4s_t lz4s;
+    dc_capabilities_zstd_t zstd;
 } dc_capabilities_t;
 
 /* Type to access extended features bit fields */
@@ -875,6 +892,7 @@ typedef struct fw_caps_s
     Cpa32U deflate_caps;
     Cpa16U lz4_caps;
     Cpa16U lz4s_caps;
+    Cpa16U zstd_caps;
     Cpa8U is_fw_caps;
 } fw_caps_t;
 
@@ -892,12 +910,6 @@ typedef struct fw_caps_s
 CpaStatus dcGetAsbAlgoSupportCapabilityStatus(
     dc_capabilities_t *pDcCapabilities,
     Cpa32U algo,
-    CpaBoolean *pCapStatus);
-
-CpaStatus dcGetUncompDictSupportCapabilityStatus(
-    dc_capabilities_t *pDcCapabilities,
-    Cpa32U algo,
-    Cpa32U dirMask,
     CpaBoolean *pCapStatus);
 
 CpaStatus dcGetZeroLengthReqCapabilityStatus(dc_capabilities_t *pDcCapabilities,
@@ -928,6 +940,10 @@ CpaStatus dcGetAeadDecompChainingCapabilityStatus(
     CpaBoolean *pCapStatus);
 
 CpaStatus dcGetAsbEnablePrefCapabilityStatus(dc_capabilities_t *pDcCapabilities,
+                                             Cpa32U algo,
+                                             CpaBoolean *pCapStatus);
+
+CpaStatus dcGetDictIdSupportCapabilityStatus(dc_capabilities_t *pDcCapabilities,
                                              Cpa32U algo,
                                              CpaBoolean *pCapStatus);
 

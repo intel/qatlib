@@ -302,14 +302,15 @@ static CpaStatus getDcCapabilities(CpaDcInstanceCapabilities *capabilities)
     Cpa16U numInstances = 0;
 
     /* Get the number of instances */
-    status = cpaDcGetNumInstances(&numInstances);
+    status =
+        cpaGetNumInstances(CPA_ACC_SVC_TYPE_DATA_COMPRESSION, &numInstances);
     if (CPA_STATUS_SUCCESS != status)
         return CPA_STATUS_FAIL;
 
     if (numInstances == 0)
         return CPA_STATUS_FAIL;
 
-    status = cpaDcGetInstances(1, &instHandle);
+    status = cpaGetInstances(CPA_ACC_SVC_TYPE_DATA_COMPRESSION, 1, &instHandle);
     if (status != CPA_STATUS_SUCCESS)
         return CPA_STATUS_FAIL;
 

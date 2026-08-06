@@ -79,6 +79,7 @@
 #define COMPRESSION (2)
 #define SYM (3)
 #define ASYM (4)
+#define DECOMPRESSION (5)
 #define MAX_RETRY (10)
 #define SLEEP_ONE_SEC (1)
 #define SLEEP_ONE_HUNDRED_MILLISEC (100)
@@ -174,12 +175,17 @@ extern volatile CpaBoolean hwVerify_g;
 extern volatile CpaBoolean swWrite_g;
 extern volatile CpaBoolean keyCorrupt_g;
 extern volatile CpaBoolean enableReadInstance_g;
+extern Cpa16U numDecompInstances_g;
+extern Cpa16U numDcInstances_g;
 CpaStatus setReliability(CpaBoolean val);
 CpaStatus setUnalignedBuffer(CpaBoolean val);
 CpaStatus setUseStaticPrime(int val);
 
 CpaStatus setDcNsFlag(CpaBoolean val);
 extern volatile CpaBoolean isNsRequest_g;
+CpaStatus setDecompServiceRequest(CpaBoolean val);
+extern volatile CpaBoolean decompServiceRequest_g;
+
 CpaStatus setDataIntegrity(CpaBoolean val);
 CpaStatus setDataIntegrityVerify(CpaBoolean val);
 CpaStatus printReliability(void);
@@ -676,6 +682,8 @@ extern CpaInstanceHandle *cyInst_g;
 extern CpaInstanceHandle *symCyInst_g;
 extern CpaInstanceHandle *asymCyInst_g;
 extern CpaInstanceHandle *dcInst_g;
+extern CpaInstanceHandle *decompInst_g;
+extern Cpa32U *decompInstMap_g;
 extern Cpa32U *cyInstMap_g;
 extern Cpa32U *symCyInstMap_g;
 extern Cpa32U *asymCyInstMap_g;

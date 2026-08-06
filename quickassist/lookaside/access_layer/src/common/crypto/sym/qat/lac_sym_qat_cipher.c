@@ -27,7 +27,6 @@
 
 #include "cpa.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "lac_sym_qat.h"
 #include "lac_sym_qat_cipher.h"
 #include "lac_mem.h"
@@ -224,42 +223,7 @@ static const uint8_t key_size_f8[] = {
     0,
     ICP_QAT_HW_CIPHER_ALGO_AES256 /* ICP_QAT_HW_AES_256_F8_KEY_SZ */
 };
-/* LAC_CIPHER_IS_ZUC_EEA3 */
-static const uint8_t key_size_zuc_eea3[] = {
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    ICP_QAT_HW_CIPHER_ALGO_ZUC_3G_128_EEA3, /* ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ */
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    ICP_QAT_HW_CIPHER_ALGO_ZUC_256 /* ICP_QAT_HW_ZUC_256_KEY_SZ */
-};
+
 /* This array must be kept aligned with CpaCySymCipherAlgorithm enum but
  * offset by -1 as that enum starts at 1. LacSymQat_CipherGetCfgData()
  * below relies on that alignment and uses that enum -1 to index into this
@@ -465,8 +429,8 @@ static const icp_qat_hw_cipher_info icp_qat_alg_info[] = {
         ICP_QAT_HW_CIPHER_ECB_MODE,
         { ICP_QAT_HW_CIPHER_KEY_CONVERT, ICP_QAT_HW_CIPHER_KEY_CONVERT },
         { ICP_QAT_HW_CIPHER_ENCRYPT, ICP_QAT_HW_CIPHER_DECRYPT },
-        IS_KEY_DEP_YES,
-        key_size_zuc_eea3,
+        IS_KEY_DEP_NO,
+        NULL,
     },
     /* CPA_CY_SYM_CIPHER_CHACHA */
     {
@@ -556,9 +520,9 @@ void LacSymQat_CipherCtrlBlockWrite(lac_session_desc_t *pSessionDesc,
                 LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_KASUMI_F8_KEY_SZ);
             cd_ctrl->cipher_padding_sz = ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR;
             break;
-        /* For Snow3G UEA2 content descriptor key size is
-           key size plus iv size */
         case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
+            /* For Snow3G UEA2 content descriptor key size is
+               key size plus iv size */
             cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
                 ICP_QAT_HW_SNOW_3G_UEA2_KEY_SZ + ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
             break;
@@ -568,22 +532,25 @@ void LacSymQat_CipherCtrlBlockWrite(lac_session_desc_t *pSessionDesc,
             cd_ctrl->cipher_padding_sz =
                 (2 * ICP_QAT_HW_MODE_F8_NUM_REG_TO_CLEAR);
             break;
-        /* For ZUC EEA3 content descriptor key size is
-           key size plus iv size */
         case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-            /* For ZUC-128 EEA3 and ZUC-256, the content descriptor
-             key size is key size plus iv size */
-            if (ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ == targetKeyLenInBytes)
             {
+                /* For ZUC-128 EEA3 the content descriptor key size is key size
+                   plus iv size */
                 cd_ctrl->cipher_key_sz =
                     LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ +
                                            ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ);
             }
-            /* ICP_QAT_HW_ZUC_256_KEY_SZ assumed */
+            break;
+        case CPA_CY_SYM_CIPHER_AES_XTS:
+            if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE == sliceType)
+            {
+                cd_ctrl->cipher_key_sz =
+                    LAC_BYTES_TO_QUADWORDS(targetKeyLenInBytes >> 1);
+            }
             else
             {
-                cd_ctrl->cipher_key_sz = LAC_BYTES_TO_QUADWORDS(
-                    ICP_QAT_HW_ZUC_256_KEY_SZ + ICP_QAT_HW_ZUC_256_IV_SZ);
+                cd_ctrl->cipher_key_sz =
+                    LAC_BYTES_TO_QUADWORDS(targetKeyLenInBytes);
             }
             break;
         default:
@@ -595,13 +562,6 @@ void LacSymQat_CipherCtrlBlockWrite(lac_session_desc_t *pSessionDesc,
         LAC_BYTES_TO_QUADWORDS(LacSymQat_CipherIvSizeBytesGet(cipherAlgorithm));
 
     cd_ctrl->cipher_cfg_offset = cipherCfgOffsetInQuadWord;
-
-    /* Amend obtained IV size for ZUC-256 */
-    if (LAC_CIPHER_IS_ZUC_256(cipherAlgorithm, targetKeyLenInBytes))
-    {
-        cd_ctrl->cipher_state_sz =
-            LAC_BYTES_TO_QUADWORDS(ICP_QAT_HW_ZUC_256_IV_SZ);
-    }
 
     if (ICP_QAT_FW_LA_USE_UCS_SLICE_TYPE != sliceType)
     {
@@ -695,7 +655,8 @@ void LacSymQat_CipherHwBlockPopulateCfgData(lac_session_desc_t *pSession,
     LacSymQat_CipherGetCfgData(pSession, &algorithm, &mode, &dir, &key_convert);
 
     /* Build the cipher config into the hardware setup block */
-    if (SPC_YES == pSession->singlePassState)
+    if (SPC_YES == pSession->singlePassState &&
+        !IS_GEN6_DEV(pSession->pInstance))
     {
         aed_hash_cmp_length = pSession->hashResultSize;
         reserved =
@@ -843,17 +804,15 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
             }
             break;
             case CPA_CY_SYM_CIPHER_SNOW3G_UEA2:
-            {
-                /* For Snow3G zero area after the key for FW */
-                LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
-                             ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
+                {
+                    /* For Snow3G zero area after the key for FW */
+                    LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
+                                 ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ);
 
-                *pSizeInBytes += ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
-            }
-            break;
+                    *pSizeInBytes += ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
+                }
+                break;
             case CPA_CY_SYM_CIPHER_ZUC_EEA3:
-            {
-                if (targetKeyLenInBytes == ICP_QAT_HW_ZUC_3G_EEA3_KEY_SZ)
                 {
                     /* For ZUC zero area after the key for FW */
                     LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
@@ -861,16 +820,7 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
 
                     *pSizeInBytes += ICP_QAT_HW_ZUC_3G_EEA3_IV_SZ;
                 }
-                else if (targetKeyLenInBytes == ICP_QAT_HW_ZUC_256_KEY_SZ)
-                {
-                    /* For ZUC zero area after the key for FW */
-                    LAC_OS_BZERO(pCipherKey + targetKeyLenInBytes,
-                                 ICP_QAT_HW_ZUC_256_IV_SZ);
-
-                    *pSizeInBytes += ICP_QAT_HW_ZUC_256_IV_SZ;
-                }
-            }
-            break;
+                break;
             case CPA_CY_SYM_CIPHER_AES_XTS:
             {
                 /* For AES in XTS mode Cipher Key is concatenated with
@@ -907,6 +857,9 @@ void LacSymQat_CipherHwBlockPopulateKeySetup(
                                     key_len);
                     }
                 }
+                if (IS_GEN6_DEV(pSessionDesc->pInstance))
+                    *pSizeInBytes += (targetKeyLenInBytes >> 1);
+                else
                     *pSizeInBytes += targetKeyLenInBytes;
             }
             break;

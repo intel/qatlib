@@ -54,6 +54,24 @@ typedef enum
 
 } icp_qat_fw_comp_cmd_id_t;
 
+/**
+*****************************************************************************
+* @ingroup icp_qat_fw_comp
+*        Definition of the additional QAT5.1 Compression command types
+* @description
+*        Enumeration which is used to indicate the ids of functions
+*        that are exposed by the Compression QAT FW service
+*
+*****************************************************************************/
+typedef enum
+{
+    ICP_QAT_FW_COMP_51_CMD_ZSTD_COMPRESS = 10,
+    /*!< ZSTD Compress Request */
+
+    ICP_QAT_FW_COMP_51_CMD_ZSTD_DECOMPRESS = 11,
+    /*!< ZSTD Decompress Request */
+} icp_qat_fw_comp_51_cmd_id_t;
+
 /*
  *  REQUEST FLAGS IN COMMON COMPRESSION
  *  In common message it is named as SERVICE SPECIFIC FLAGS.
@@ -178,7 +196,6 @@ typedef enum
 /**< @ingroup icp_qat_fw_comp
  * Three Least Significant Bytes mask for the dictionary length in the
    dictionary parameters received in the compression request parameters.  */
-
 /**
  ******************************************************************************
  * @ingroup icp_qat_fw_comp
@@ -987,6 +1004,8 @@ typedef struct icp_qat_fw_comp_cd_hdr_s
 
 } icp_qat_fw_comp_cd_hdr_t;
 
+#define ICP_QAT_FW_COMP_RAM_BANK_FLAGS(p) ((p)->ram_bank_flags)
+
 #define COMP_CPR_INITIAL_CRC 0
 #define COMP_CPR_INITIAL_ADLER 1
 
@@ -1092,6 +1111,15 @@ typedef struct icp_qat_fw_comp_req_s
 
         } asb_threshold;
 
+        struct
+        {
+           uint32_t reserved;
+           /**< LW 22 \n Reserved - not used */
+   
+           uint32_t dictionary_id;
+           /**< LW 23 \n Dictionary ID value for config_qword8 HI */
+   
+        } zstd_dict_id;
     } u3;
 
     /**< LWs 24-29 */
@@ -1194,7 +1222,6 @@ typedef enum
 
     ICP_QAT_FW_COMP_DICT_TYPE_COMPRESSED = 2,
     /*!< Compressed Dictionary */
-
     ICP_QAT_FW_COMP_DICT_TYPE_DELIMITER
     /**< Delimiter type */
 

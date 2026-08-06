@@ -49,7 +49,6 @@
 #include "icp_adf_cfg.h"
 #include "icp_adf_accel_mgr.h"
 #include "icp_adf_poll.h"
-#include "icp_adf_debug.h"
 
 /* SAL includes */
 #include "lac_log.h"
@@ -72,6 +71,7 @@
 #include "lac_sal_types_crypto.h"
 #include "lac_sal.h"
 #include "lac_sal_ctrl.h"
+#include "lac_kpt_crypto_qat_comms.h"
 #include "sal_string_parse.h"
 #include "sal_service_state.h"
 #include "icp_sal_poll.h"
@@ -501,6 +501,11 @@ STATIC CpaStatus SalCtrl_AsymFreeResources(sal_crypto_service_t *pCryptoService)
     Lac_MemPoolDestroy(pCryptoService->lac_pke_req_pool);
     Lac_MemPoolDestroy(pCryptoService->lac_ec_pool);
     Lac_MemPoolDestroy(pCryptoService->lac_prime_pool);
+    SAL_GET_INSTANCE_CRYPTO_CAPABILITY_STATUS(status, pCryptoService, kpt);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        Lac_MemPoolDestroy(pCryptoService->lac_pke_kpt_pool);
+    }
 
     /* Free the statistics */
     LacDh_StatsFree(pCryptoService);
@@ -667,7 +672,9 @@ STATIC CpaStatus SalCtrl_AsymCreateTransHandle(icp_accel_dev_t *device,
     /* Need to free resources in case not _SUCCESS from here */
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
-    msgSize = LAC_QAT_ASYM_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES;
+    {
+        msgSize = LAC_QAT_ASYM_REQ_SZ_IN_BYTES;
+    }
     status = icp_adf_transCreateHandle(
         device,
         ICP_TRANS_TYPE_ETR,
@@ -733,7 +740,10 @@ STATIC CpaStatus SalCtrl_AsymReinitTransHandle(icp_accel_dev_t *device,
     /* Need to free resources in case not _SUCCESS from here */
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
-    msgSize = LAC_QAT_ASYM_REQ_SZ_LW * LAC_LONG_WORD_IN_BYTES;
+    {
+        msgSize = LAC_QAT_ASYM_REQ_SZ_IN_BYTES;
+    }
+
     status = icp_adf_transReinitHandle(
         device,
         ICP_TRANS_TYPE_ETR,
@@ -910,681 +920,6 @@ STATIC CpaStatus SalCtrl_SymReinitTransHandle(icp_accel_dev_t *device,
     return status;
 }
 
-STATIC int SalCtrl_CryptoDebug(void *private_data,
-                               char *data,
-                               int size,
-                               int offset)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    Cpa32U len = 0;
-    sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)private_data;
-
-    switch (offset)
-    {
-        case SAL_STATS_SYM:
-        {
-            CpaCySymStats64 symStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bSymStatsEnabled)
-            {
-                break;
-            }
-            status = cpaCySymQueryStats64(pCryptoService, &symStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCySymQueryStats64 returned error\n");
-                return 0;
-            }
-
-            /* Engine Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " Statistics for Instance %24s |\n" BORDER
-                " Symmetric Stats                                  " BORDER
-                "\n" SEPARATOR,
-                pCryptoService->debug_file->name);
-
-            /* Session Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " Sessions Initialized:           %16llu " BORDER "\n" BORDER
-                " Sessions Removed:               %16llu " BORDER "\n" BORDER
-                " Session Errors:                 %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)symStats.numSessionsInitialized,
-                (long long unsigned int)symStats.numSessionsRemoved,
-                (long long unsigned int)symStats.numSessionErrors);
-
-            /* Session info */
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " Symmetric Requests:             %16llu " BORDER "\n" BORDER
-                " Symmetric Request Errors:       %16llu " BORDER "\n" BORDER
-                " Symmetric Completed:            %16llu " BORDER "\n" BORDER
-                " Symmetric Completed Errors:     %16llu " BORDER "\n" BORDER
-                " Symmetric Verify Failures:      %16llu " BORDER "\n",
-                (long long unsigned int)symStats.numSymOpRequests,
-                (long long unsigned int)symStats.numSymOpRequestErrors,
-                (long long unsigned int)symStats.numSymOpCompleted,
-                (long long unsigned int)symStats.numSymOpCompletedErrors,
-                (long long unsigned int)symStats.numSymOpVerifyFailures);
-            break;
-        }
-        case SAL_STATS_DSA:
-        {
-            CpaCyDsaStats64 dsaStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bDsaStatsEnabled)
-            {
-                ++offset;
-                break;
-            }
-
-            status = cpaCyDsaQueryStats64(pCryptoService, &dsaStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyDsaQueryStats4 returned error\n");
-                return 0;
-            }
-            /* engine info */
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " DSA Stats                                        " BORDER
-                "\n" SEPARATOR);
-
-            /* p parameter generation requests */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA P Param Gen Requests-Succ:  %16llu " BORDER "\n" BORDER
-                " DSA P Param Gen Requests-Err:   %16llu " BORDER "\n" BORDER
-                " DSA P Param Gen Completed-Succ: %16llu " BORDER "\n" BORDER
-                " DSA P Param Gen Completed-Err:  %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dsaStats.numDsaPParamGenRequests,
-                (long long unsigned int)dsaStats.numDsaPParamGenRequestErrors,
-                (long long unsigned int)dsaStats.numDsaPParamGenCompleted,
-                (long long unsigned int)
-                    dsaStats.numDsaPParamGenCompletedErrors);
-
-            /* g parameter generation requests */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA G Param Gen Requests-Succ:  %16llu " BORDER "\n" BORDER
-                " DSA G Param Gen Requests-Err:   %16llu " BORDER "\n" BORDER
-                " DSA G Param Gen Completed-Succ: %16llu " BORDER "\n" BORDER
-                " DSA G Param Gen Completed-Err:  %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dsaStats.numDsaGParamGenRequests,
-                (long long unsigned int)dsaStats.numDsaGParamGenRequestErrors,
-                (long long unsigned int)dsaStats.numDsaGParamGenCompleted,
-                (long long unsigned int)
-                    dsaStats.numDsaGParamGenCompletedErrors);
-
-            /* y parameter generation requests */
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA Y Param Gen Requests-Succ:  %16llu " BORDER "\n" BORDER
-                " DSA Y Param Gen Requests-Err:   %16llu " BORDER "\n" BORDER
-                " DSA Y Param Gen Completed-Succ: %16llu " BORDER "\n" BORDER
-                " DSA Y Param Gen Completed-Err:  %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dsaStats.numDsaYParamGenRequests,
-                (long long unsigned int)dsaStats.numDsaYParamGenRequestErrors,
-                (long long unsigned int)dsaStats.numDsaYParamGenCompleted,
-                (long long unsigned int)
-                    dsaStats.numDsaYParamGenCompletedErrors);
-            break;
-        }
-        case SAL_STATS_DSA2:
-        {
-            CpaCyDsaStats64 dsaStats = {0};
-            status = cpaCyDsaQueryStats64(pCryptoService, &dsaStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyDsaQueryStats4 returned error\n");
-                return 0;
-            }
-            /* r sign requests */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA R Sign Requests-Succ:       %16llu " BORDER "\n" BORDER
-                " DSA R Sign Request-Err:         %16llu " BORDER "\n" BORDER
-                " DSA R Sign Completed-Succ:      %16llu " BORDER "\n" BORDER
-                " DSA R Sign Completed-Err:       %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dsaStats.numDsaRSignRequests,
-                (long long unsigned int)dsaStats.numDsaRSignRequestErrors,
-                (long long unsigned int)dsaStats.numDsaRSignCompleted,
-                (long long unsigned int)dsaStats.numDsaRSignCompletedErrors);
-
-            /* s sign requests */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA S Sign Requests-Succ:       %16llu " BORDER "\n" BORDER
-                " DSA S Sign Request-Err:         %16llu " BORDER "\n" BORDER
-                " DSA S Sign Completed-Succ:      %16llu " BORDER "\n" BORDER
-                " DSA S Sign Completed-Err:       %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dsaStats.numDsaSSignRequests,
-                (long long unsigned int)dsaStats.numDsaSSignRequestErrors,
-                (long long unsigned int)dsaStats.numDsaSSignCompleted,
-                (long long unsigned int)dsaStats.numDsaSSignCompletedErrors);
-
-            /* rs sign requests */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA RS Sign Requests-Succ:      %16llu " BORDER "\n" BORDER
-                " DSA RS Sign Request-Err:        %16llu " BORDER "\n" BORDER
-                " DSA RS Sign Completed-Succ:     %16llu " BORDER "\n" BORDER
-                " DSA RS Sign Completed-Err:      %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dsaStats.numDsaRSSignRequests,
-                (long long unsigned int)dsaStats.numDsaRSSignRequestErrors,
-                (long long unsigned int)dsaStats.numDsaRSSignCompleted,
-                (long long unsigned int)dsaStats.numDsaRSSignCompletedErrors);
-
-            /* verify requests */
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DSA Verify Requests-Succ:       %16llu " BORDER "\n" BORDER
-                " DSA Verify Request-Err:         %16llu " BORDER "\n" BORDER
-                " DSA Verify Completed-Succ:      %16llu " BORDER "\n" BORDER
-                " DSA Verify Completed-Err:       %16llu " BORDER "\n" BORDER
-                " DSA Verify Completed-Failure:   %16llu " BORDER "\n",
-                (long long unsigned int)dsaStats.numDsaVerifyRequests,
-                (long long unsigned int)dsaStats.numDsaVerifyRequestErrors,
-                (long long unsigned int)dsaStats.numDsaVerifyCompleted,
-                (long long unsigned int)dsaStats.numDsaVerifyCompletedErrors,
-                (long long unsigned int)dsaStats.numDsaVerifyFailures);
-            break;
-        }
-        case SAL_STATS_RSA:
-        {
-            CpaCyRsaStats64 rsaStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bRsaStatsEnabled)
-            {
-                break;
-            }
-
-            status = cpaCyRsaQueryStats64(pCryptoService, &rsaStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyRsaQueryStats64 returned error\n");
-                return 0;
-            }
-
-            /* Engine Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " RSA Stats                                        " BORDER
-                "\n" SEPARATOR);
-
-            /* rsa keygen Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " RSA Key Gen Requests:           %16llu " BORDER "\n" BORDER
-                " RSA Key Gen Request Errors      %16llu " BORDER "\n" BORDER
-                " RSA Key Gen Completed:          %16llu " BORDER "\n" BORDER
-                " RSA Key Gen Completed Errors:   %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)rsaStats.numRsaKeyGenRequests,
-                (long long unsigned int)rsaStats.numRsaKeyGenRequestErrors,
-                (long long unsigned int)rsaStats.numRsaKeyGenCompleted,
-                (long long unsigned int)rsaStats.numRsaKeyGenCompletedErrors);
-
-            /* rsa enc Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " RSA Encrypt Requests:           %16llu " BORDER "\n" BORDER
-                " RSA Encrypt Request Errors:     %16llu " BORDER "\n" BORDER
-                " RSA Encrypt Completed:          %16llu " BORDER "\n" BORDER
-                " RSA Encrypt Completed Errors:   %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)rsaStats.numRsaEncryptRequests,
-                (long long unsigned int)rsaStats.numRsaEncryptRequestErrors,
-                (long long unsigned int)rsaStats.numRsaEncryptCompleted,
-                (long long unsigned int)rsaStats.numRsaEncryptCompletedErrors);
-
-            /* rsa dec Info */
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " RSA Decrypt Requests:           %16llu " BORDER "\n" BORDER
-                " RSA Decrypt Request Errors:     %16llu " BORDER "\n" BORDER
-                " RSA Decrypt Completed:          %16llu " BORDER "\n" BORDER
-                " RSA Decrypt Completed Errors:   %16llu " BORDER "\n",
-                (long long unsigned int)rsaStats.numRsaDecryptRequests,
-                (long long unsigned int)rsaStats.numRsaDecryptRequestErrors,
-                (long long unsigned int)rsaStats.numRsaDecryptCompleted,
-                (long long unsigned int)rsaStats.numRsaDecryptCompletedErrors);
-            break;
-        }
-        case SAL_STATS_DH:
-        {
-            CpaCyDhStats64 dhStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bDhStatsEnabled)
-            {
-                break;
-            }
-            status = cpaCyDhQueryStats64(pCryptoService, &dhStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyDhQueryStats returned error\n");
-                return 0;
-            }
-
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " Diffie Hellman Stats                             " BORDER
-                "\n" SEPARATOR);
-
-            /* perform Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DH Phase1 Key Gen Requests:     %16llu " BORDER "\n" BORDER
-                " DH Phase1 Key Gen Request Err:  %16llu " BORDER "\n" BORDER
-                " DH Phase1 Key Gen Completed:    %16llu " BORDER "\n" BORDER
-                " DH Phase1 Key Gen Completed Err:%16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)dhStats.numDhPhase1KeyGenRequests,
-                (long long unsigned int)dhStats.numDhPhase1KeyGenRequestErrors,
-                (long long unsigned int)dhStats.numDhPhase1KeyGenCompleted,
-                (long long unsigned int)
-                    dhStats.numDhPhase1KeyGenCompletedErrors);
-
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " DH Phase2 Key Gen Requests:     %16llu " BORDER "\n" BORDER
-                " DH Phase2 Key Gen Request Err:  %16llu " BORDER "\n" BORDER
-                " DH Phase2 Key Gen Completed:    %16llu " BORDER "\n" BORDER
-                " DH Phase2 Key Gen Completed Err:%16llu " BORDER "\n",
-                (long long unsigned int)dhStats.numDhPhase2KeyGenRequests,
-                (long long unsigned int)dhStats.numDhPhase2KeyGenRequestErrors,
-                (long long unsigned int)dhStats.numDhPhase2KeyGenCompleted,
-                (long long unsigned int)
-                    dhStats.numDhPhase2KeyGenCompletedErrors);
-            break;
-        }
-        case SAL_STATS_KEYGEN:
-        {
-            CpaCyKeyGenStats64 keyStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bKeyGenStatsEnabled)
-            {
-                break;
-            }
-            status = cpaCyKeyGenQueryStats64(pCryptoService, &keyStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyKeyGenQueryStats64 returned error\n");
-                return 0;
-            }
-
-            /* Key Gen stats */
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " Key Stats                                        " BORDER
-                "\n" SEPARATOR);
-
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " SSL Key Requests:               %16llu " BORDER "\n" BORDER
-                " SSL Key Request Errors:         %16llu " BORDER "\n" BORDER
-                " SSL Key Completed               %16llu " BORDER "\n" BORDER
-                " SSL Key Complete Errors:        %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)keyStats.numSslKeyGenRequests,
-                (long long unsigned int)keyStats.numSslKeyGenRequestErrors,
-                (long long unsigned int)keyStats.numSslKeyGenCompleted,
-                (long long unsigned int)keyStats.numSslKeyGenCompletedErrors);
-
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " TLS Key Requests:               %16llu " BORDER "\n" BORDER
-                " TLS Key Request Errors:         %16llu " BORDER "\n" BORDER
-                " TLS Key Completed               %16llu " BORDER "\n" BORDER
-                " TLS Key Complete Errors:        %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)keyStats.numTlsKeyGenRequests,
-                (long long unsigned int)keyStats.numTlsKeyGenRequestErrors,
-                (long long unsigned int)keyStats.numTlsKeyGenCompleted,
-                (long long unsigned int)keyStats.numTlsKeyGenCompletedErrors);
-
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " MGF Key Requests:               %16llu " BORDER "\n" BORDER
-                " MGF Key Request Errors:         %16llu " BORDER "\n" BORDER
-                " MGF Key Completed               %16llu " BORDER "\n" BORDER
-                " MGF Key Complete Errors:        %16llu " BORDER "\n",
-                (long long unsigned int)keyStats.numMgfKeyGenRequests,
-                (long long unsigned int)keyStats.numMgfKeyGenRequestErrors,
-                (long long unsigned int)keyStats.numMgfKeyGenCompleted,
-                (long long unsigned int)keyStats.numMgfKeyGenCompletedErrors);
-            break;
-        }
-        case SAL_STATS_LN:
-        {
-            CpaCyLnStats64 lnStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bLnStatsEnabled)
-            {
-                break;
-            }
-            status = cpaCyLnStatsQuery64(pCryptoService, &lnStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyLnStatsQuery64 returned error\n");
-                return 0;
-            }
-
-            /* Engine Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " LN ModExp/ModInv Stats                           " BORDER
-                "\n" SEPARATOR);
-
-            /* Large Number Modular Exponentationstats operations stats */
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " LN ModEXP successful requests:  %16llu " BORDER "\n" BORDER
-                " LN ModEXP requests with error:  %16llu " BORDER "\n" BORDER
-                " LN ModEXP completed operations: %16llu " BORDER "\n" BORDER
-                " LN ModEXP not completed-errors: %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)lnStats.numLnModExpRequests,
-                (long long unsigned int)lnStats.numLnModExpRequestErrors,
-                (long long unsigned int)lnStats.numLnModExpCompleted,
-                (long long unsigned int)lnStats.numLnModExpCompletedErrors);
-
-            /*  Large Number Modular Inversion operations stats */
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " LN ModINV successful requests:  %16llu " BORDER "\n" BORDER
-                " LN ModINV requests with error:  %16llu " BORDER "\n" BORDER
-                " LN ModINV completed operations: %16llu " BORDER "\n" BORDER
-                " LN ModINV not completed-errors: %16llu " BORDER "\n",
-                (long long unsigned int)lnStats.numLnModInvRequests,
-                (long long unsigned int)lnStats.numLnModInvRequestErrors,
-                (long long unsigned int)lnStats.numLnModInvCompleted,
-                (long long unsigned int)lnStats.numLnModInvCompletedErrors);
-
-            break;
-        }
-        case SAL_STATS_PRIME:
-        {
-            CpaCyPrimeStats64 primeStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bPrimeStatsEnabled)
-            {
-                break;
-            }
-            status = cpaCyPrimeQueryStats64(pCryptoService, &primeStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyPrimeQueryStats64 returned error\n");
-                return 0;
-            }
-
-            /* Engine Info */
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " PRIME Stats                                      " BORDER
-                "\n" SEPARATOR);
-
-            /* Parameter generation requests - PRIME stats */
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " PRIME successful requests:      %16llu " BORDER "\n" BORDER
-                " PRIME failed requests:          %16llu " BORDER "\n" BORDER
-                " PRIME successfully completed:   %16llu " BORDER "\n" BORDER
-                " PRIME failed completion:        %16llu " BORDER "\n" BORDER
-                " PRIME completed - not a prime:  %16llu " BORDER "\n",
-                (long long unsigned int)primeStats.numPrimeTestRequests,
-                (long long unsigned int)primeStats.numPrimeTestRequestErrors,
-                (long long unsigned int)primeStats.numPrimeTestCompleted,
-                (long long unsigned int)primeStats.numPrimeTestCompletedErrors,
-                (long long unsigned int)primeStats.numPrimeTestFailures);
-            break;
-        }
-        case SAL_STATS_ECC:
-        {
-            CpaCyEcStats64 ecStats = {0};
-            if (CPA_TRUE !=
-                pCryptoService->generic_service_info.stats->bEccStatsEnabled)
-            {
-                offset += DOUBLE_INCR;
-                break;
-            }
-            status = cpaCyEcQueryStats64(pCryptoService, &ecStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyEcQueryStats64 returned error\n");
-                return 0;
-            }
-
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " EC Stats                                         " BORDER
-                "\n" SEPARATOR);
-
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " EC Pt Multiply Requests-Succ:   %16llu " BORDER "\n" BORDER
-                " EC Pt Multiply Request-Err:     %16llu " BORDER "\n" BORDER
-                " EC Pt Multiply Completed-Succ:  %16llu " BORDER "\n" BORDER
-                " EC Pt Multiply Completed-Err:   %16llu " BORDER "\n" BORDER
-                " EC Pt Multiply Output Invalid:  %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)ecStats.numEcPointMultiplyRequests,
-                (long long unsigned int)ecStats.numEcPointMultiplyRequestErrors,
-                (long long unsigned int)ecStats.numEcPointMultiplyCompleted,
-                (long long unsigned int)
-                    ecStats.numEcPointMultiplyCompletedError,
-                (long long unsigned int)
-                    ecStats.numEcPointMultiplyCompletedOutputInvalid);
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " EC Pt Verify Requests-Succ:     %16llu " BORDER "\n" BORDER
-                " EC Pt Verify Request-Err:       %16llu " BORDER "\n" BORDER
-                " EC Pt Verify Completed-Succ:    %16llu " BORDER "\n" BORDER
-                " EC Pt Verify Completed-Err:     %16llu " BORDER "\n" BORDER
-                " EC Pt Verify Output Invalid:    %16llu " BORDER "\n",
-                (long long unsigned int)ecStats.numEcPointVerifyRequests,
-                (long long unsigned int)ecStats.numEcPointVerifyRequestErrors,
-                (long long unsigned int)ecStats.numEcPointVerifyCompleted,
-                (long long unsigned int)ecStats.numEcPointVerifyCompletedErrors,
-                (long long unsigned int)
-                    ecStats.numEcPointVerifyCompletedOutputInvalid);
-            break;
-        }
-        case SAL_STATS_ECDH:
-        {
-            CpaCyEcdhStats64 ecdhStats = {0};
-            status = cpaCyEcdhQueryStats64(pCryptoService, &ecdhStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyEcdhQueryStats64 returned error\n");
-                return 0;
-            }
-
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " ECDH Stats                                       " BORDER
-                "\n" SEPARATOR);
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " ECDH Pt Multiply Requests-Succ: %16llu " BORDER "\n" BORDER
-                " ECDH Pt Multiply Request-Err:   %16llu " BORDER "\n" BORDER
-                " ECDH Pt Multiply Completed-Succ:%16llu " BORDER "\n" BORDER
-                " ECDH Pt Multiply Completed-Err: %16llu " BORDER "\n" BORDER
-                " ECDH Output Invalid:            %16llu " BORDER "\n",
-                (long long unsigned int)ecdhStats.numEcdhPointMultiplyRequests,
-                (long long unsigned int)
-                    ecdhStats.numEcdhPointMultiplyRequestErrors,
-                (long long unsigned int)ecdhStats.numEcdhPointMultiplyCompleted,
-                (long long unsigned int)
-                    ecdhStats.numEcdhPointMultiplyCompletedError,
-                (long long unsigned int)
-                    ecdhStats.numEcdhRequestCompletedOutputInvalid);
-            break;
-        }
-        case SAL_STATS_ECDSA:
-        {
-            CpaCyEcdsaStats64 ecdsaStats = {0};
-            status = cpaCyEcdsaQueryStats64(pCryptoService, &ecdsaStats);
-            if (status != CPA_STATUS_SUCCESS)
-            {
-                LAC_LOG_ERROR("cpaCyEcdsaQueryStats64 returned error\n");
-                return 0;
-            }
-
-            len += snprintf(
-                data + len,
-                size - len,
-                SEPARATOR BORDER
-                " ECDSA Stats                                      " BORDER
-                "\n" SEPARATOR);
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " ECDSA Sign R Requests-Succ:     %16llu " BORDER "\n" BORDER
-                " ECDSA Sign R Request-Err:       %16llu " BORDER "\n" BORDER
-                " ECDSA Sign R Completed-Succ:    %16llu " BORDER "\n" BORDER
-                " ECDSA Sign R Completed-Err:     %16llu " BORDER "\n" BORDER
-                " ECDSA Sign R Output Invalid:    %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRRequests,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRRequestErrors,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRCompleted,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRCompletedErrors,
-                (long long unsigned int)
-                    ecdsaStats.numEcdsaSignRCompletedOutputInvalid);
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " ECDSA Sign S Requests-Succ:     %16llu " BORDER "\n" BORDER
-                " ECDSA Sign S Request-Err:       %16llu " BORDER "\n" BORDER
-                " ECDSA Sign S Completed-Succ:    %16llu " BORDER "\n" BORDER
-                " ECDSA Sign S Completed-Err:     %16llu " BORDER "\n" BORDER
-                " ECDSA Sign S Output Invalid:    %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)ecdsaStats.numEcdsaSignSRequests,
-                (long long unsigned int)ecdsaStats.numEcdsaSignSRequestErrors,
-                (long long unsigned int)ecdsaStats.numEcdsaSignSCompleted,
-                (long long unsigned int)ecdsaStats.numEcdsaSignSCompletedErrors,
-                (long long unsigned int)
-                    ecdsaStats.numEcdsaSignSCompletedOutputInvalid);
-            len += snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " ECDSA Sign RS Requests-Succ:    %16llu " BORDER "\n" BORDER
-                " ECDSA Sign RS Request-Err:      %16llu " BORDER "\n" BORDER
-                " ECDSA Sign RS Completed-Succ:   %16llu " BORDER "\n" BORDER
-                " ECDSA Sign RS Completed-Err:    %16llu " BORDER "\n" BORDER
-                " ECDSA Sign RS Output Invalid:   %16llu " BORDER
-                "\n" SEPARATOR,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRSRequests,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRSRequestErrors,
-                (long long unsigned int)ecdsaStats.numEcdsaSignRSCompleted,
-                (long long unsigned int)
-                    ecdsaStats.numEcdsaSignRSCompletedErrors,
-                (long long unsigned int)
-                    ecdsaStats.numEcdsaSignRSCompletedOutputInvalid);
-            snprintf(
-                data + len,
-                size - len,
-                BORDER
-                " ECDSA Verify Requests-Succ:     %16llu " BORDER "\n" BORDER
-                " ECDSA Verify Request-Err:       %16llu " BORDER "\n" BORDER
-                " ECDSA Verify Completed-Succ:    %16llu " BORDER "\n" BORDER
-                " ECDSA Verify Completed-Err:     %16llu " BORDER "\n" BORDER
-                " ECDSA Verify Output Invalid:    %16llu " BORDER "\n",
-                (long long unsigned int)ecdsaStats.numEcdsaVerifyRequests,
-                (long long unsigned int)ecdsaStats.numEcdsaVerifyRequestErrors,
-                (long long unsigned int)ecdsaStats.numEcdsaVerifyCompleted,
-                (long long unsigned int)
-                    ecdsaStats.numEcdsaVerifyCompletedErrors,
-                (long long unsigned int)
-                    ecdsaStats.numEcdsaVerifyCompletedOutputInvalid);
-            break;
-        }
-        default:
-        {
-            snprintf(data + len, size - len, SEPARATOR);
-            return 0;
-        }
-    }
-    return ++offset;
-}
-
 STATIC CpaStatus
 SalCtrl_GetCyConcurrentReqNum(char *string1,
                               char *section,
@@ -1723,6 +1058,28 @@ STATIC CpaStatus SalCtrl_AsymInit(icp_accel_dev_t *device,
                           pCryptoService->nodeAffinity);
     LAC_CHECK_STATUS_ASYM_INIT(status);
 
+    SAL_GET_INSTANCE_CRYPTO_CAPABILITY_STATUS(status, service, kpt);
+    if (CPA_STATUS_SUCCESS == status)
+    {
+        /* Allocate KPT asymmetric service memory pool */
+        pCryptoService->lac_pke_kpt_pool = LAC_MEM_POOL_INIT_POOL_ID;
+        status =
+            Sal_StringParsing(SAL_CFG_CY,
+                              pCryptoService->generic_service_info.instance,
+                              SAL_CFG_ASYM_KPT_UNWRAP_CTX_MEM_POOL,
+                              temp_string);
+        LAC_CHECK_STATUS_ASYM_INIT(status);
+        status = Lac_MemPoolCreate(
+            &pCryptoService->lac_pke_kpt_pool,
+            temp_string,
+            numAsymConcurrentReq + 1,
+            (LAC_KPT_UNWRAP_CTX_SIZE_IN_BYTES + sizeof(CpaFlatBuffer)),
+            LAC_64BYTE_ALIGNMENT,
+            CPA_FALSE,
+            pCryptoService->nodeAffinity);
+        LAC_CHECK_STATUS_ASYM_INIT(status);
+    }
+
     /* Clear Key stats and allocate memory of SSL and TLS labels
         These labels are initialised to standard values */
 
@@ -1819,8 +1176,11 @@ STATIC CpaStatus SalCtrl_SymInit(icp_accel_dev_t *device,
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
     char *section = icpGetProcessName();
 
-    /* Set default value of HMAC mode */
-    pCryptoService->qatHmacMode = ICP_QAT_HW_AUTH_MODE1;
+    /* Gen6 supports only AUTH_MODE2 for HMAC */
+    if (pCryptoService->generic_service_info.isGen6)
+        pCryptoService->qatHmacMode = ICP_QAT_HW_AUTH_MODE2;
+    else
+        pCryptoService->qatHmacMode = ICP_QAT_HW_AUTH_MODE1;
 
     /* Register callbacks for the symmetric services
      * (Hash, Cipher, Algorithm-Chaining) (returns void)*/
@@ -1942,96 +1302,20 @@ STATIC CpaStatus SalCtrl_SymReinit(icp_accel_dev_t *device,
     return status;
 }
 
-STATIC void SalCtrl_DebugCleanup(icp_accel_dev_t *device,
-                                 sal_service_t *service)
-{
-    sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
-    sal_statistics_collection_t *pStatsCollection =
-        (sal_statistics_collection_t *)device->pQatStats;
-
-    if (CPA_TRUE == pStatsCollection->bStatsEnabled)
-    {
-        /* Clean stats */
-        if (NULL != pCryptoService->debug_file)
-        {
-            LAC_OS_FREE(pCryptoService->debug_file->name);
-            LAC_OS_FREE(pCryptoService->debug_file);
-            pCryptoService->debug_file = NULL;
-        }
-    }
-}
-
-STATIC void SalCtrl_DebugShutdown(icp_accel_dev_t *device,
+STATIC void SalCtrl_StatsShutdown(icp_accel_dev_t *device,
                                   sal_service_t *service)
 {
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
-    SalCtrl_DebugCleanup(device, service);
     pCryptoService->generic_service_info.stats = NULL;
 }
 
-STATIC void SalCtrl_DebugRestarting(icp_accel_dev_t *device,
-                                    sal_service_t *service)
+STATIC void SalCtrl_StatsInit(icp_accel_dev_t *device, sal_service_t *service)
 {
-    SalCtrl_DebugCleanup(device, service);
-}
-
-STATIC CpaStatus SalCtrl_DebugInit(icp_accel_dev_t *device,
-                                   sal_service_t *service)
-{
-    char adfGetParam[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-    char temp_string[SAL_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-    char *instance_name = NULL;
     sal_crypto_service_t *pCryptoService = (sal_crypto_service_t *)service;
     sal_statistics_collection_t *pStatsCollection =
         (sal_statistics_collection_t *)device->pQatStats;
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    char *section = icpGetProcessName();
 
-    if (CPA_TRUE == pStatsCollection->bStatsEnabled)
-    {
-        /* Get instance name for stats */
-        status = LAC_OS_MALLOC(&instance_name, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
-        LAC_CHECK_STATUS(status);
-
-        status =
-            Sal_StringParsing(SAL_CFG_CY,
-                              pCryptoService->generic_service_info.instance,
-                              SAL_CFG_NAME,
-                              temp_string);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            LAC_OS_FREE(instance_name);
-            return status;
-        }
-        status =
-            icp_adf_cfgGetParamValue(device, section, temp_string, adfGetParam);
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            LAC_LOG_STRING_ERROR1("Failed to get %s from configuration file",
-                                  temp_string);
-            LAC_OS_FREE(instance_name);
-            return status;
-        }
-        snprintf(
-            instance_name, ADF_CFG_MAX_VAL_LEN_IN_BYTES, "%s", adfGetParam);
-
-        status = LAC_OS_MALLOC(&pCryptoService->debug_file,
-                               sizeof(debug_file_info_t));
-        if (CPA_STATUS_SUCCESS != status)
-        {
-            LAC_OS_FREE(instance_name);
-            return status;
-        }
-        osalMemSet(pCryptoService->debug_file, 0, sizeof(debug_file_info_t));
-        pCryptoService->debug_file->name = instance_name;
-        pCryptoService->debug_file->seq_read = SalCtrl_CryptoDebug;
-        pCryptoService->debug_file->private_data = pCryptoService;
-        pCryptoService->debug_file->parent =
-            pCryptoService->generic_service_info.debug_parent_dir;
-    }
     pCryptoService->generic_service_info.stats = pStatsCollection;
-
-    return status;
 }
 
 STATIC CpaStatus SalCtrl_GetBankNum(icp_accel_dev_t *device,
@@ -2219,9 +1503,7 @@ CpaStatus SalCtrl_CryptoInit(icp_accel_dev_t *device, sal_service_t *service)
 
     SalCtrl_CyQueryCapabilities(service, &pCryptoService->capInfo);
 
-    /* Create debug directory for service */
-    status = SalCtrl_DebugInit(device, service);
-    LAC_CHECK_STATUS(status);
+    SalCtrl_StatsInit(device, service);
 
     switch (svc_type)
     {
@@ -2230,7 +1512,7 @@ CpaStatus SalCtrl_CryptoInit(icp_accel_dev_t *device, sal_service_t *service)
             status = SalCtrl_AsymInit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
                 return status;
             }
             break;
@@ -2239,7 +1521,7 @@ CpaStatus SalCtrl_CryptoInit(icp_accel_dev_t *device, sal_service_t *service)
             status = SalCtrl_SymInit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
                 return status;
             }
             break;
@@ -2248,14 +1530,14 @@ CpaStatus SalCtrl_CryptoInit(icp_accel_dev_t *device, sal_service_t *service)
             status = SalCtrl_AsymInit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
                 return status;
             }
 #endif
             status = SalCtrl_SymInit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
 #ifndef ASYM_NOT_SUPPORTED
                 SalCtrl_AsymFreeResources(pCryptoService);
 #endif
@@ -2361,7 +1643,7 @@ CpaStatus SalCtrl_CryptoShutdown(icp_accel_dev_t *device,
             break;
     }
 
-    SalCtrl_DebugShutdown(device, service);
+    SalCtrl_StatsShutdown(device, service);
 
     pCryptoService->generic_service_info.state = SAL_SERVICE_STATE_SHUTDOWN;
 
@@ -2452,8 +1734,6 @@ CpaStatus SalCtrl_CryptoRestarting(icp_accel_dev_t *device,
             break;
     }
 
-    SalCtrl_DebugRestarting(device, service);
-
     pCryptoService->generic_service_info.state = SAL_SERVICE_STATE_RESTARTING;
 
     return status;
@@ -2477,9 +1757,7 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
 
     SalCtrl_CyQueryCapabilities(service, &pCryptoService->capInfo);
 
-    /* Create debug directory for service */
-    status = SalCtrl_DebugInit(device, service);
-    LAC_CHECK_STATUS(status);
+    SalCtrl_StatsInit(device, service);
 
     switch (svc_type)
     {
@@ -2488,7 +1766,7 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
             status = SalCtrl_AsymReinit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
                 return status;
             }
             break;
@@ -2497,7 +1775,7 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
             status = SalCtrl_SymReinit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
                 return status;
             }
             break;
@@ -2506,14 +1784,14 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
             status = SalCtrl_AsymReinit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
                 return status;
             }
 #endif
             status = SalCtrl_SymReinit(device, service);
             if (CPA_STATUS_SUCCESS != status)
             {
-                SalCtrl_DebugShutdown(device, service);
+                SalCtrl_StatsShutdown(device, service);
 #ifndef ASYM_NOT_SUPPORTED
                 SalCtrl_AsymFreeResources(pCryptoService);
 #endif
@@ -2521,7 +1799,7 @@ CpaStatus SalCtrl_CryptoRestarted(icp_accel_dev_t *device,
             }
             break;
         default:
-            SalCtrl_DebugShutdown(device, service);
+            SalCtrl_StatsShutdown(device, service);
             LAC_LOG_ERROR("Invalid service type\n");
             status = CPA_STATUS_FAIL;
             break;
@@ -2730,6 +2008,33 @@ CpaStatus SalCtrl_CySymQueryCapabilities(sal_service_t *pGenericService,
         CPA_BITMAP_BIT_SET(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SNOW3G_UEA2);
         CPA_BITMAP_BIT_SET(pCapInfo->hashes, CPA_CY_SYM_HASH_SNOW3G_UIA2);
     }
+
+    /* Enable only supported algorithm list for Cipher and Hash for Gen6 device
+     */
+    if (pGenericService->isGen6)
+    {
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CBC);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_CCM);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_AES_ECB);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_GMAC);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CCM);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_XCBC);
+        if (!(pGenericService->capabilitiesMask &
+              ICP_ACCEL_CAPABILITIES_WIRELESS_CRYPTO_EXT))
+        {
+            CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CMAC);
+            CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_SNOW3G_UIA2);
+            CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_NULL);
+        }
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_AES_CBC_MAC);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_KASUMI_F9);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->hashes, CPA_CY_SYM_HASH_SM3);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_ECB);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_CBC);
+        CPA_BITMAP_BIT_CLEAR(pCapInfo->ciphers, CPA_CY_SYM_CIPHER_SM4_CTR);
+        pCapInfo->partialPacketSupported = CPA_FALSE;
+    }
+
     return CPA_STATUS_SUCCESS;
 }
 
@@ -3633,7 +2938,7 @@ CpaInstanceHandle Lac_GetFirstHandle(sal_service_type_t svc_type)
             cyInst = Lac_GetFirstCyHandle(adfInsts, num_cy_dev);
             break;
         default:
-            LAC_LOG_ERROR("Invalid service type!\n");
+            /* All other types are rejected by the first switch above */
             break;
     }
     if (NULL == cyInst)

@@ -887,6 +887,16 @@ typedef struct icp_qat_fw_comn_resp_s
  * Constant value indicating Src&Dst Buffer Pointer type is SGL type
  * If Batch and Pack mode is enabled, only applies to Destination buffer.*/
 
+#define QAT_COMN_KPT_SERVICES_BITPOS 1
+/**< @ingroup icp_qat_fw_comn
+ * Common Request Flags - Starting bit position indicating
+ * the control bits for KPT services. */
+
+#define QAT_COMN_KPT_SERVICES_MASK 0x1
+/**< @ingroup icp_qat_fw_comn
+ * Common Request Flags - Bit mask for the width of the control bit for
+ * KPT services.*/
+
 /* ========================================================================= */
 /*                                       CD Field Flag definitions           */
 /* ========================================================================= */
@@ -897,6 +907,13 @@ typedef struct icp_qat_fw_comn_resp_s
 #define QAT_COMN_CD_FLD_TYPE_16BYTE_DATA 0x1
 /**< @ingroup icp_qat_fw_comn
  * Constant value indicating CD Field contains 16 bytes of setup data */
+
+/* ========================================================================= */
+/*                       KPT Services Definitions                            */
+/* ========================================================================= */
+#define QAT_COMN_KPT_SERVICE_FLAG 0x1
+/**< @ingroup icp_qat_fw_comn
+ * Constant value to indicate KPT services is enabled for this request. */
 
 /**
 ******************************************************************************
@@ -1148,6 +1165,21 @@ typedef struct icp_qat_fw_comn_resp_s
     QAT_FIELD_GET(status,                                                      \
                   QAT_COMN_RESP_CRYPTO_STATUS_BITPOS,                          \
                   QAT_COMN_RESP_CRYPTO_STATUS_MASK)
+
+/**
+******************************************************************************
+* @ingroup icp_qat_fw_comn
+*
+* @description
+*      Macro for setting KPT service flag in the target field.
+*
+* @param flags      Flags in which at services bits will be set
+* @param val        Value of the at services bits to be set in flags
+*
+*****************************************************************************/
+#define ICP_QAT_FW_COMN_KPT_SERVICES_SET(flags, val)                           \
+    QAT_FIELD_SET(                                                             \
+        flags, val, QAT_COMN_KPT_SERVICES_BITPOS, QAT_COMN_KPT_SERVICES_MASK)
 
 /**
  ******************************************************************************

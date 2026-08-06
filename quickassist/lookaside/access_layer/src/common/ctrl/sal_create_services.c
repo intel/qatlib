@@ -29,7 +29,6 @@
 #include "lac_list.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 #include "icp_qat_fw_la.h"
 #include "lac_sym_qat.h"

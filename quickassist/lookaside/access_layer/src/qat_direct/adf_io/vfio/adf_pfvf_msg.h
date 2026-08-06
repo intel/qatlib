@@ -312,7 +312,7 @@ struct capabilities_v4
     u32 deflate_caps;
     u16 lz4_caps;
     u16 lz4s_caps;
-    u16 resrvd;
+    u16 zstd_caps;
 } __packed;
 
 /* PF/VF Ring to service mapping values */

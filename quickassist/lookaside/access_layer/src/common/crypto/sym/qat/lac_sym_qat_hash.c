@@ -26,7 +26,6 @@
 #include "cpa.h"
 #include "cpa_cy_sym.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 #include "lac_mem.h"
 #include "lac_sym.h"
 #include "lac_common.h"
@@ -197,6 +196,32 @@ void LacSymQat_HashContentDescInit(
 
     /* setup the offset in QuadWords into the HW block */
     cd_ctrl->hash_cfg_offset = (Cpa8U)hwBlockOffsetInQuadWords;
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        /* Hmac in mode 2. Rest all hash flags are reserved for Gen6 */
+        if (IS_HASH_MODE_2(qatHashMode))
+        {
+            ICP_QAT_FW_HASH_FLAG_MODE2_SET(cd_ctrl->hash_flags,
+                                           QAT_FW_LA_MODE2);
+        }
+        /* Content Descriptor size for hash only request has been
+         * strictly restricted to 1 QW by FW
+         */
+        *pHashBlkSizeInBytes = sizeof(icp_qat_hw_auth_config_t);
+
+        if (!useSymConstantsTable)
+        {
+            LacSymQat_HashSetupBlockInit(pHashSetupData,
+                                         cd_ctrl,
+                                         pHwBlockBase,
+                                         qatHashMode,
+                                         pPrecompute,
+                                         pHashDefs,
+                                         pOuterHashDefs,
+                                         instanceHandle);
+        }
+        return;
+    }
     ICP_QAT_FW_COMN_NEXT_ID_SET(cd_ctrl, nextSlice);
     ICP_QAT_FW_COMN_CURR_ID_SET(cd_ctrl, ICP_QAT_FW_SLICE_AUTH);
 
@@ -311,13 +336,18 @@ void LacSymQat_HashContentDescInit(
         cd_ctrl->outer_res_sz = 0;
     }
 
-    if (CPA_CY_SYM_HASH_SNOW3G_UIA2 == pHashSetupData->hashAlgorithm)
+    switch (pHashSetupData->hashAlgorithm)
     {
-        /* add the size for the cipher config word, the key and the IV*/
-        hashSetupBlkSize +=
-            sizeof(icp_qat_hw_cipher_config_t) +
-            pHashSetupData->authModeSetupData.authKeyLenInBytes +
-            ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
+        case CPA_CY_SYM_HASH_SNOW3G_UIA2:
+            /* Add the size for the cipher config word, the key and the IV */
+            hashSetupBlkSize +=
+                sizeof(icp_qat_hw_cipher_config_t) +
+                pHashSetupData->authModeSetupData.authKeyLenInBytes +
+                ICP_QAT_HW_SNOW_3G_UEA2_IV_SZ;
+            break;
+
+        default:
+            break;
     }
     *pHashBlkSizeInBytes = hashSetupBlkSize;
 
@@ -387,6 +417,16 @@ void LacSymQat_HashSetupReqParamsMetaData(
                                 digestResultLenInBytes);
 
     LAC_ENSURE_NOT_NULL(pHashDefs);
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        /* Hmac in mode 2 */
+        if (IS_HASH_MODE_2(qatHashMode))
+        {
+            pHashReqParams->u2.hmac_key_sz =
+                (Cpa8U)pHashDefs->algInfo->blockLength;
+        }
+        return;
+    }
     /* Hmac in mode 2 TLS */
     if (IS_HASH_MODE_2(qatHashMode))
     {
@@ -527,6 +567,21 @@ STATIC void LacSymQat_HashSetupBlockInit(
     lac_hash_blk_ptrs_t hashBlkPtrs = {0};
     Cpa32U aedHashCmpLength = 0;
     Cpa32U innerConfig = 0;
+    if (IS_GEN6_DEV(instanceHandle))
+    {
+        hashBlkPtrs.pInHashSetup =
+            (icp_qat_hw_auth_setup_t *)((Cpa8U *)pHwBlockBase);
+        /* Hash compare length is reserved for Gen6 device */
+        innerConfig = ICP_QAT_HW_AUTH_CONFIG_BUILD(
+            qatHashMode, pHashDefs->qatInfo->algoEnc, 0);
+        hashBlkPtrs.pInHashSetup->auth_config.config = innerConfig;
+        hashBlkPtrs.pInHashSetup->auth_config.reserved = 0;
+        /* Gen6 supports HMAC only in auth mode 2. Hence set
+         * zero for auth_counter. */
+        hashBlkPtrs.pInHashSetup->auth_counter.counter = 0;
+        hashBlkPtrs.pInHashSetup->auth_counter.reserved = 0;
+        return;
+    }
     LacSymQat_HashHwBlockPtrsInit(
         pHashControlBlock, pHwBlockBase, &hashBlkPtrs);
 
@@ -923,6 +978,17 @@ inline CpaStatus LacSymQat_HashRequestParamsPopulate(
             return CPA_STATUS_FAIL;
         }
     }
+    if (IS_GEN6_DEV(pService))
+    {
+        pHashReqParams->auth_off = authOffsetInBytes;
+        pHashReqParams->auth_len = authLenInBytes;
+        /* For a full packet we need to set the auth result field */
+        pHashReqParams->auth_res_addr = authResultPhys;
+        /* Populate the hmac key address */
+        pHashReqParams->u1.hmac_key_addr = (pHashStateBuf->pDataPhys);
+        /* Remaining authentication request parameters are reserved for Gen6 */
+        return CPA_STATUS_SUCCESS;
+    }
     pHashReqParams->auth_off = authOffsetInBytes;
     pHashReqParams->auth_len = authLenInBytes;
 
@@ -944,15 +1010,10 @@ inline CpaStatus LacSymQat_HashRequestParamsPopulate(
      * field */
     pHashReqParams->auth_res_addr = authResultPhys;
 
-    if (CPA_TRUE == digestVerify)
     {
-        /* auth result size in bytes to be read in for a verify
-         *  operation */
-        pHashReqParams->auth_res_sz = (Cpa8U)hashResultSize;
-    }
-    else
-    {
-        pHashReqParams->auth_res_sz = 0;
+        /* For non-Gen6 FW, auth_res_sz is only used for verify operations
+         */
+        pHashReqParams->auth_res_sz = digestVerify ? (Cpa8U)hashResultSize : 0;
     }
 
     /* If there is a hash state prefix buffer */

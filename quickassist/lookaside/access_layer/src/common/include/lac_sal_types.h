@@ -25,7 +25,6 @@
 #include "lac_list.h"
 #include "icp_accel_devices.h"
 #include "sal_statistics.h"
-#include "icp_adf_debug.h"
 
 #define SAL_CFG_BASE_DEC 10
 #define SAL_CFG_BASE_HEX 16
@@ -132,9 +131,6 @@ typedef struct sal_service_s
     sal_statistics_collection_t *stats;
     /**< Pointer to device statistics configuration */
 
-    void *debug_parent_dir;
-    /**< Pointer to parent proc dir entry */
-
     Cpa32U capabilitiesMask;
     /**< Capabilities mask of the device */
 
@@ -145,10 +141,13 @@ typedef struct sal_service_s
     /**< True if user called StartInstance on this instance */
 
     CpaBoolean isGen4;
-    /* True if the device is qat_4xxx or qat_4xxxvf */
+    /* True if the device is a Gen4 device (qat_4xxx/qat_4xxxvf or
+     * qat_420xx/qat_420xxvf) */
 
-    CpaBoolean isGen4_2;
-    /* True if the device is qat_420xx or qat_420xxvf */
+    CpaBoolean isGen6;
+    /* True if the device is qat_6xxxvf or qat_6xxx */
+    CpaBoolean dpaSupport;
+    /* True if the device has DPA support */
     CpaBoolean optimisedCurveSupport;
     /* True if optimised curves are supported */
 
@@ -180,34 +179,7 @@ typedef struct sal_s
     /**< Container of sal_compression_service_t */
     sal_list_t *decompression_services;
     /**< Container of sal_compression_service_t for decomp only service */
-    debug_dir_info_t *cy_dir;
-    /**< Container for crypto proc debug */
-    debug_dir_info_t *asym_dir;
-    /**< Container for asym proc debug */
-    debug_dir_info_t *sym_dir;
-    /**< Container for sym proc debug */
-    debug_dir_info_t *dc_dir;
-    /**< Container for data compression proc debug */
-    debug_dir_info_t *decomp_dir;
-    /**< Container for decompression only proc debug */
-    debug_file_info_t *ver_file;
-    /**< Container for version debug file */
 } sal_t;
-
-/**
- *****************************************************************************
- * @ingroup SalCtrl
- *      SAL debug structure
- *
- * @description
- *      Service debug handler
- *
- *****************************************************************************/
-typedef struct sal_service_debug_s
-{
-    icp_accel_dev_t *accel_dev;
-    debug_file_info_t debug_file;
-} sal_service_debug_t;
 
 /**
  *******************************************************************************

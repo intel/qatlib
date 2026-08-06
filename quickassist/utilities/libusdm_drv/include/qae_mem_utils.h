@@ -166,20 +166,53 @@ BITMAP_LEN is a macro the represents the number of 64-bit quad words
 that make up the bitmap
 with 512 pages of 4k page and 1k units this value is 32
  */
-#define CHUNK_SIZE (UNIT_SIZE * QWORD_WIDTH)
+#define BLOCK_SIZES (QAE_NUM_PAGES_PER_ALLOC * QAE_PAGE_SIZE / UNIT_SIZE)
 
-#define BITMAP_LEN (QAE_NUM_PAGES_PER_ALLOC * QAE_PAGE_SIZE / CHUNK_SIZE)
+#define BITMAP_LEN (BLOCK_SIZES / QWORD_WIDTH)
 
-#define BLOCK_SIZES (BITMAP_LEN * QWORD_WIDTH)
-
-/*block control structure */
+/*
+ * block_ctrl_t: slab control block.
+ *
+ * bitmap[] is a Flexible Array Member (FAM) and the sizes[] region lives
+ * in slab memory immediately after the sentinel bitmap word. The sizes
+ * pointer is set by init_block_ctrl() and must not be used before then.
+ *
+ * Memory layout (base = slab virtual address):
+ *   [fixed header][bitmap[max_num_bitmaps + 1]][sizes[max_num_blocks]]
+ *
+ * The first max_num_blocks uint32_t words after the sentinel bitmap word
+ * hold the allocation length (in units) for each block index: 0 when free,
+ * >0 when in use.
+ */
 typedef struct block_ctrl_s
 {
-    dev_mem_info_t mem_info; /* memory device info type */
-    /* adding an extra element at the end to make a barrier */
-    uint64_t bitmap[BITMAP_LEN + 1]; /* bitmap each bit represents a 1k block */
-    uint16_t sizes[BLOCK_SIZES]; /* Holds the size of each allocated block */
+    dev_mem_info_t mem_info; /* memory device info type - must stay first */
+    size_t header_size;      /* total control region bytes (hdr + bitmap +
+                              * sizes) */
+    size_t unit_size;        /* bytes per allocation unit */
+    size_t max_num_bitmaps;  /* number of uint64_t bitmap words (excl.
+                              * sentinel) */
+    size_t max_num_blocks;   /* number of allocatable block positions */
+    size_t reserved_units;   /* units pre-reserved for this header region */
+    uint32_t *sizes;         /* pointer to the sizes[] region after bitmap
+                              * sentinel */
+    uint64_t bitmap[];       /* Flexible Array Member (FAM): max_num_bitmaps +
+                              * 1 words (last = sentinel) */
 } block_ctrl_t;
+
+/* Total slab control region size in bytes: fixed header + bitmap words
+ * (including sentinel) + sizes words. Used before a block_ctrl_t is
+ * initialised (e.g. to compute the reserved unit count at allocation
+ * time). Once initialised, prefer bc->header_size.
+ */
+static inline size_t get_ctrl_size(void)
+{
+    return sizeof(block_ctrl_t) + (BITMAP_LEN + 1) * sizeof(uint64_t) +
+           BLOCK_SIZES * sizeof(uint32_t);
+}
+
+#undef BITMAP_LEN
+#undef BLOCK_SIZES
 
 /**
  *****************************************************************************
@@ -388,15 +421,26 @@ typedef struct user_mem_dev_s
 
 #define DEV_MEM_IOC_HUGEPAGE_IOMMU_UNMAP                                       \
     _IOWR(DEV_MEM_MAGIC, DEV_MEM_CMD_HUGEPAGE_IOMMU_UNMAP, user_page_info_t)
+
+#ifndef API_LOCAL
+#if __GNUC__ >= 4
+#define API_PUBLIC __attribute__((visibility("default")))
+#define API_LOCAL __attribute__((visibility("hidden")))
+#else
+#define API_PUBLIC
+#define API_LOCAL
+#endif
+#endif
 /*****************************************************************************
- * * @ingroup CommonMemoryDriver
- *       qaeMemInit
+ * @internal
+ * @ingroup CommonMemoryDriver
+ *       __qae_memInit
  *
  * @description
  *        Initialize the user-space allocator, opening the device driver
  *        used to communicate with the kernel-space.
- *
- * @param[in] path - path to the specific device
+ *        This is an internal function not intended for direct use by
+ *        applications. The library self-initializes on first allocation.
  *
  * @retval 0 if the open of the device was successful and
  *         non-zero otherwise
@@ -406,27 +450,30 @@ typedef struct user_mem_dev_s
  *       Allocator is initialized
  *
  ****************************************************************************/
-int32_t qaeMemInit(void);
+API_LOCAL int32_t __qae_memInit(void);
 
 /*****************************************************************************
- * * @ingroup CommonMemoryDriver
- *      qaeMemDestroy
+ * @internal
+ * @ingroup CommonMemoryDriver
+ *      __qae_memDestroy
  *
  * @description
  *      Release the user-space allocator. It closes the file descriptor
- *      associated with the device driver
+ *      associated with the device driver.
+ *      This is an internal function not intended for direct use by
+ *      applications. The library manages its own cleanup.
  *
  * @param[in] none
  *
  * @retval none
  *
  * @pre
- *        The user space allocator is initialized using qaeMemInit
+ *        The user space allocator is initialized using __qae_memInit
  * @post
  *        The user-space allocator is released
  *
  ****************************************************************************/
-void qaeMemDestroy(void);
+API_LOCAL void __qae_memDestroy(void);
 
 /*****************************************************************************
  * * @ingroup CommonMemoryDriver
@@ -619,7 +666,7 @@ void qaeIOMMUDetachDev(void *dev);
  * @retval none
  *
  * @pre
- *       The user space allocator is initialized using qaeMemInit
+ *       The user space allocator is initialized using __qae_memInit
  * @post
  *       memory allocation count printed
  *
@@ -652,49 +699,7 @@ void printMemAllocations(void);
 
 #if defined(__KERNEL__)
 int handle_other_ioctls(uint32_t cmd);
-#if defined(ICP_ADF_IOMMU)
-int icp_adf_iommu_map(void *iova, void *phaddr, size_t size);
-int icp_adf_iommu_unmap(void *iova, size_t size);
-size_t icp_adf_iommu_get_remapping_size(size_t size);
-static inline int icp_iommu_map(void **iova, void *vaddr, size_t size)
-{
-    void *phaddr = (void *)virt_to_phys(vaddr);
-    *iova = phaddr;
-    return icp_adf_iommu_map(*iova, phaddr, size);
-}
-static inline int icp_iommu_unmap(void *iova, size_t size)
-{
-    return icp_adf_iommu_unmap(iova, size);
-}
-static inline size_t icp_iommu_get_remapping_size(size_t size)
-{
-    return icp_adf_iommu_get_remapping_size(size);
-}
-#elif defined(ICP_OSAL_IOMMU)
-int osalIOMMUMap(uint64_t iova, uint64_t phaddr, size_t size);
-static inline int icp_iommu_map(void **iova, void *vaddr, size_t size)
-{
-    void *phaddr = (void *)virt_to_phys(vaddr);
-    *iova = phaddr;
-    return osalIOMMUMap((uintptr_t)*iova, phaddr, size);
-}
-
-int osalIOMMUUnmap(uint64_t iova, size_t size);
-static inline int icp_iommu_unmap(void *iova, size_t size)
-{
-    return osalIOMMUUnmap((uintptr_t)iova, size);
-}
-uint64_t osalIOMMUVirtToPhys(uint64_t iova);
-static inline uint64_t icp_iommu_virt_to_phys(void *iova)
-{
-    return osalIOMMUVirtToPhys((uintptr_t)iova);
-}
-size_t osalIOMMUgetRemappingSize(size_t size);
-static inline size_t icp_iommu_get_remapping_size(size_t size)
-{
-    return osalIOMMUgetRemappingSize(size);
-}
-#elif defined(ICP_QDM_IOMMU)
+#if defined(ICP_QDM_IOMMU)
 int qdm_iommu_map(void **iova, void *vaddr, size_t size);
 int qdm_iommu_unmap(void *iova, size_t size);
 int qdm_hugepage_iommu_map(void **iova, void *va_page, size_t size);

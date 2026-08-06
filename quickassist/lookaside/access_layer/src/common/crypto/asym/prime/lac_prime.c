@@ -47,7 +47,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* Include LAC files */
 #include "lac_common.h"

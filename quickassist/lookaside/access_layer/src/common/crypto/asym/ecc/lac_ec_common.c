@@ -61,7 +61,6 @@
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
 #include "icp_accel_devices.h"
-#include "icp_adf_debug.h"
 
 /* FW includes */
 #include "icp_qat_fw_la.h"
@@ -293,6 +292,21 @@ void LacEc_StatsShow(CpaInstanceHandle instanceHandle)
             ecdsaStats.numEcdsaSignRSCompleted,
             ecdsaStats.numEcdsaSignRSCompletedErrors,
             ecdsaStats.numEcdsaSignRSCompletedOutputInvalid);
+    /* KPT ECDSA Sign RS requests */
+    osalLog(OSAL_LOG_LVL_USER,
+            OSAL_LOG_DEV_STDOUT,
+            BORDER
+            " KPT ECDSA Sign RS Requests-Succ:    %16llu " BORDER "\n" BORDER
+            " KPT ECDSA Sign RS Request-Err:      %16llu " BORDER "\n" BORDER
+            " KPT ECDSA Sign RS Completed-Succ:   %16llu " BORDER "\n" BORDER
+            " KPT ECDSA Sign RS Completed-Err:    %16llu " BORDER "\n" BORDER
+            " KPT ECDSA Sign RS Output Invalid:   %16llu " BORDER
+            "\n" SEPARATOR,
+            ecdsaStats.numKptEcdsaSignRSRequests,
+            ecdsaStats.numKptEcdsaSignRSRequestErrors,
+            ecdsaStats.numKptEcdsaSignRSCompleted,
+            ecdsaStats.numKptEcdsaSignRSCompletedErrors,
+            ecdsaStats.numKptEcdsaSignRSCompletedOutputInvalid);
     /* verify requests */
     osalLog(OSAL_LOG_LVL_USER,
             OSAL_LOG_DEV_STDOUT,

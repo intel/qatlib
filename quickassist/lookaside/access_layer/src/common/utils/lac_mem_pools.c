@@ -22,7 +22,6 @@
 #include "icp_accel_devices.h"
 #include "icp_adf_init.h"
 #include "icp_adf_transport.h"
-#include "icp_adf_debug.h"
 #include "lac_log.h"
 #include "lac_lock_free_stack.h"
 #include "lac_mem_pools.h"

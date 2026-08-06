@@ -1203,10 +1203,10 @@ void dhPerformance(single_thread_test_data_t *testSetup)
     dhSetup.performanceStats = testSetup->performanceStats;
     /*get the instance handles so that we can start our thread on the selected
      * instance*/
-    status = cpaCyGetNumInstances(&numInstances);
+    status = cpaGetNumInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM, &numInstances);
     if (CPA_STATUS_SUCCESS != status || numInstances == 0)
     {
-        PRINT_ERR("cpaCyGetNumInstances error, status:%d, numInstanaces:%d\n",
+        PRINT_ERR("cpaGetNumInstances error, status:%d, numInstanaces:%d\n",
                   status,
                   numInstances);
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1219,7 +1219,9 @@ void dhPerformance(single_thread_test_data_t *testSetup)
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
         sampleCodeThreadExit();
     }
-    if (cpaCyGetInstances(numInstances, cyInstances) != CPA_STATUS_SUCCESS)
+    if (cpaGetInstances(CPA_ACC_SVC_TYPE_CRYPTO_ASYM,
+                        numInstances,
+                        cyInstances) != CPA_STATUS_SUCCESS)
     {
         PRINT_ERR("Failed to get instances\n");
         dhSetup.performanceStats->threadReturnStatus = CPA_STATUS_FAIL;
@@ -1345,7 +1347,7 @@ CpaStatus setupDhTest(Cpa32U modSizeInBits,
         return CPA_STATUS_FAIL;
     }
     /*start crypto service if not already started*/
-    if (CPA_STATUS_SUCCESS != startCyServices())
+    if (CPA_STATUS_SUCCESS != startAsymServices())
     {
         PRINT_ERR("Error starting Crypto Services\n");
         return CPA_STATUS_FAIL;

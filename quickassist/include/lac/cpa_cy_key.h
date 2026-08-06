@@ -630,6 +630,7 @@ typedef struct
  * @retval CPA_STATUS_RESOURCE           Error related to system resources.
  * @retval CPA_STATUS_RESTARTING         API implementation is restarting.
  *                                       Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED        Unsupported feature.
  *
  * @pre
  *      The component has been initialized via cpaCyStartInstance function.
@@ -708,6 +709,7 @@ CpaStatus cpaCyKeyGenSsl(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RESOURCE           Error related to system resources.
  * @retval CPA_STATUS_RESTARTING         API implementation is restarting.
  *                                       Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED        Unsupported feature.
  *
  * @pre
  *      The component has been initialized via cpaCyStartInstance function.
@@ -789,6 +791,7 @@ CpaStatus cpaCyKeyGenTls(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RESOURCE           Error related to system resources.
  * @retval CPA_STATUS_RESTARTING         API implementation is restarting.
  *                                       Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED        Unsupported feature.
  *
  * @pre
  *      The component has been initialized via cpaCyStartInstance function.
@@ -874,6 +877,7 @@ CpaStatus cpaCyKeyGenTls2(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RESOURCE           Error related to system resources.
  * @retval CPA_STATUS_RESTARTING         API implementation is restarting.
  *                                       Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED        Unsupported feature.
  *
  * @pre
  *      The component has been initialized via cpaCyStartInstance function.
@@ -953,6 +957,7 @@ CpaStatus cpaCyKeyGenTls3(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RESOURCE          Error related to system resources.
  * @retval CPA_STATUS_RESTARTING        API implementation is restarting.
  *                                      Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED       Unsupported feature.
  *
  * @pre
  *      The component has been initialized via cpaCyStartInstance function.
@@ -1027,6 +1032,7 @@ CpaStatus cpaCyKeyGenMgf(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RESOURCE          Error related to system resources.
  * @retval CPA_STATUS_RESTARTING        API implementation is restarting.
  *                                      Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED       Unsupported feature.
  *
  * @pre
  *      The component has been initialized via cpaCyStartInstance function.
@@ -1149,6 +1155,7 @@ cpaCyKeyGenQueryStats(const CpaInstanceHandle instanceHandle,
  * @retval CPA_STATUS_RESOURCE       Error related to system resources.
  * @retval CPA_STATUS_RESTARTING     API implementation is restarting.
  *                                   Resubmit the request.
+ * @retval CPA_STATUS_UNSUPPORTED    Unsupported feature.
  *
  * @pre
  *      Component has been initialized.

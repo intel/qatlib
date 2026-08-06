@@ -41,7 +41,6 @@
 #include "icp_adf_cfg.h"
 #include "icp_adf_init.h"
 #include "icp_adf_accel_mgr.h"
-#include "icp_adf_debug.h"
 
 /* SAL includes */
 #include "lac_log.h"
@@ -73,39 +72,8 @@
 #define INLINE_SERVICE "inline"
 
 static char *subsystem_name = "SAL";
-/**< Name used by ADF to identify this component. */
-#ifndef ICP_DC_ONLY
-static char *cy_dir_name = CY_SERVICE;
-static char *asym_dir_name = ASYM_SERVICE;
-static char *sym_dir_name = SYM_SERVICE;
-#endif
-static char *dc_dir_name = DC_SERVICE;
-static char *decomp_dir_name = DECOMP_SERVICE;
-/**< Stats dir names. */
-static char *ver_file_name = "version";
 
 static subservice_registation_handle_t sal_service_reg_handle;
-
-static inline const char *get_sku_info(enum dev_sku_info info)
-{
-    switch (info)
-    {
-        case DEV_SKU_1:
-            return "SKU1";
-        case DEV_SKU_2:
-            return "SKU2";
-        case DEV_SKU_3:
-            return "SKU3";
-        case DEV_SKU_4:
-            return "SKU4";
-        case DEV_SKU_VF:
-            return "SKUVF";
-        case DEV_SKU_UNKNOWN:
-        default:
-            break;
-    }
-    return "Unknown SKU";
-}
 
 /**< Data structure used by ADF to keep a reference to this component. */
 
@@ -509,13 +477,11 @@ static void SalCtrl_ServiceFreeResource(sal_list_t *services)
  *
  * @param[in] device           An icp_accel_dev_t* type
  * @param[in] services         A pointer to the container of services
- * @param[in] dbg_dir          A pointer to the debug directory
  * @param[in] svc_type         The type of the service instance
  *
  ****************************************************************************/
 STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
                                          sal_list_t **services,
-                                         debug_dir_info_t **debug_dir,
                                          sal_service_type_t svc_type)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -523,12 +489,6 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
     Sal_CleanMiscErrStats(inst);
     /* Call Shutdown function for each service instance */
     SAL_FOR_EACH(*services, sal_service_t, device, shutdown, status);
-
-    if (*debug_dir)
-    {
-        LAC_OS_FREE(*debug_dir);
-        *debug_dir = NULL;
-    }
 
     /* Free Sal services controller memory */
     SalCtrl_ServiceFreeResource(*services);
@@ -557,8 +517,6 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
  *
  * @param[in] device           An icp_accel_dev_t* type
  * @param[in] services         A pointer to the container of services
- * @param[in] dbg_dir          A pointer to the debug directory
- * @param[in] dbg_dir_name     Name of the debug directory
  * @param[in] tail_list        SAL's list of services
  * @param[in] instance_count   Number of instances
  * @param[in] svc_type         The type of the service instance
@@ -566,8 +524,6 @@ STATIC CpaStatus SalCtrl_ServiceShutdown(icp_accel_dev_t *device,
  *************************************************************************/
 STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
                                      sal_list_t **services,
-                                     debug_dir_info_t **dbg_dir,
-                                     char *dbg_dir_name,
                                      sal_list_t *tail_list,
                                      Cpa32U instance_count,
                                      sal_service_type_t svc_type)
@@ -575,18 +531,8 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_service_t *pInst = NULL;
     Cpa32U i = 0;
-    debug_dir_info_t *debug_dir = NULL;
     sal_statistics_collection_t *pStats =
         (sal_statistics_collection_t *)device->pQatStats;
-
-    status = LAC_OS_MALLOC(&debug_dir, sizeof(debug_dir_info_t));
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Failed to allocate memory for debug dir");
-        return status;
-    }
-    debug_dir->name = dbg_dir_name;
-    debug_dir->parent = NULL;
 
     for (i = 0; i < instance_count; i++)
     {
@@ -595,12 +541,14 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
         {
             break;
         }
-        pInst->debug_parent_dir = debug_dir;
         pInst->capabilitiesMask = device->accelCapabilitiesMask;
         pInst->isGen4 = IS_QAT_GEN4(device->deviceType);
-        pInst->isGen4_2 = IS_QAT_GEN4_2(device->deviceType);
+        pInst->isGen6 = IS_QAT_6XXX(device->deviceType);
+        if (pInst->isGen6)
+            pInst->dpaSupport = CPA_TRUE;
+
         pInst->ns_isCnvErrorInjection = ICP_QAT_FW_COMP_NO_CNV_DFX;
-        if (pInst->isGen4)
+        if (pInst->isGen4 || pInst->isGen6)
         {
             pInst->optimisedCurveSupport = CPA_TRUE;
         }
@@ -617,8 +565,6 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
     if (CPA_STATUS_SUCCESS != status)
     {
         LAC_LOG_ERROR("Failed to allocate all instances");
-        LAC_OS_FREE(debug_dir);
-        debug_dir = NULL;
         SalCtrl_ServiceFreeResource(*services);
         SalList_free(services);
         return status;
@@ -627,7 +573,6 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
     if (CPA_STATUS_SUCCESS != status)
     {
         LAC_LOG_ERROR("Failed to Initialize Misc Error Stats");
-        LAC_OS_FREE(debug_dir);
         SalCtrl_ServiceFreeResource(*services);
         SalList_free(services);
         return status;
@@ -643,16 +588,12 @@ STATIC CpaStatus SalCtrl_ServiceInit(icp_accel_dev_t *device,
                            device,
                            shutdown,
                            SAL_SERVICE_STATE_INITIALIZED);
-        LAC_OS_FREE(debug_dir);
-        debug_dir = NULL;
 
         Sal_CleanMiscErrStats(pInst);
         SalCtrl_ServiceFreeResource(*services);
         SalList_free(services);
         return status;
     }
-    /* initialize the debug directory for relevant service */
-    *dbg_dir = debug_dir;
 
     return status;
 }
@@ -798,22 +739,14 @@ STATIC CpaStatus SalCtrl_ServiceError(icp_accel_dev_t *device,
  *
  * @param[in] device     An icp_accel_dev_t* type
  * @param[in] services   A pointer to the container of services
- * @param[in] dbg_dir    A pointer to the debug directory
  *
  *************************************************************************/
 STATIC CpaStatus SalCtrl_ServiceRestarting(icp_accel_dev_t *device,
-                                           sal_list_t *services,
-                                           debug_dir_info_t **debug_dir)
+                                           sal_list_t *services)
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
     sal_list_t *curr_element = services;
     sal_service_t *service = NULL;
-
-    if (*debug_dir)
-    {
-        LAC_OS_FREE(*debug_dir);
-        *debug_dir = NULL;
-    }
 
     while (NULL != curr_element)
     {
@@ -852,36 +785,22 @@ STATIC CpaStatus SalCtrl_ServiceRestarting(icp_accel_dev_t *device,
  *
  * @param[in] device     An icp_accel_dev_t* type
  * @param[in] services   A pointer to the container of services
- * @param[in] dbg_dir    A pointer to the debug directory
  *
  *************************************************************************/
 STATIC CpaStatus SalCtrl_ServiceRestarted(icp_accel_dev_t *device,
                                           sal_list_t **services,
-                                          debug_dir_info_t **dbg_dir,
-                                          char *dbg_dir_name,
                                           sal_list_t *tail_list,
                                           Cpa32U instance_count,
                                           sal_service_type_t svc_type)
 
 {
     CpaStatus status = CPA_STATUS_SUCCESS;
-    debug_dir_info_t *debug_dir = NULL;
     sal_list_t *curr_element = *services;
     sal_service_t *service = NULL;
-
-    status = LAC_OS_MALLOC(&debug_dir, sizeof(debug_dir_info_t));
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        LAC_LOG_ERROR("Failed to allocate memory for debug dir");
-        return status;
-    }
-    debug_dir->name = dbg_dir_name;
-    debug_dir->parent = NULL;
 
     while (NULL != curr_element)
     {
         service = (sal_service_t *)SalList_getObject(curr_element);
-        service->debug_parent_dir = debug_dir;
 
         if (CPA_TRUE == service->isInstanceStarted)
         {
@@ -910,118 +829,8 @@ STATIC CpaStatus SalCtrl_ServiceRestarted(icp_accel_dev_t *device,
         }
         curr_element = SalList_next(curr_element);
     }
-    /* initialize the debug directory for relevant service */
-    *dbg_dir = debug_dir;
+
     return status;
-}
-
-/*
- * @ingroup SalCtrl
- * @description
- *      This function is used to print hardware and software versions in proc
- *      filesystem entry via ADF Debug interface
- *
- * @context
- *    This functions is called from proc filesystem interface
- *
- * @assumptions
- *      None
- * @sideEffects
- *      None
- * @reentrant
- *      No
- * @threadSafe
- *      Yes
- *
- * @param[in]  private_data    A pointer to a private data passed to the
- *                             function while adding a debug file.
- * @param[out] data            Pointer to a buffer where version information
- *                             needs to be printed to.
- * @param[in]  size            Size of a buffer pointed by data.
- * @param[in]  offset          Offset in a debug file
- *
- * @retval 0    This function always returns 0
- */
-STATIC int SalCtrl_VersionDebug(void *private_data,
-                                char *data,
-                                int size,
-                                int offset)
-{
-    CpaStatus status = CPA_STATUS_SUCCESS;
-    Cpa32U len = 0;
-    icp_accel_dev_t *device = (icp_accel_dev_t *)private_data;
-    char param_value[ADF_CFG_MAX_VAL_LEN_IN_BYTES] = {0};
-
-    len += snprintf(data + len,
-                    size - len,
-                    SEPARATOR BORDER
-                    " Hardware and Software versions for device %d      " BORDER
-                    "\n" SEPARATOR,
-                    device->accelId);
-
-    osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
-    status = icp_adf_cfgGetParamValue(
-        device, LAC_CFG_SECTION_GENERAL, ADF_HW_REV_ID_KEY, param_value);
-    LAC_CHECK_STATUS(status);
-
-    len += snprintf(data + len,
-                    size - len,
-                    " Hardware Version:             %s %s \n",
-                    param_value,
-                    get_sku_info(device->sku));
-
-    osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
-    status = icp_adf_cfgGetParamValue(
-        device, LAC_CFG_SECTION_GENERAL, ADF_UOF_VER_KEY, param_value);
-    LAC_CHECK_STATUS(status);
-
-    len += snprintf(data + len,
-                    size - len,
-                    " Firmware Version:             %s \n",
-                    param_value);
-#ifndef ICP_DC_ONLY
-    osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
-    status = icp_adf_cfgGetParamValue(
-        device, LAC_CFG_SECTION_GENERAL, ADF_MMP_VER_KEY, param_value);
-    LAC_CHECK_STATUS(status);
-
-    len += snprintf(data + len,
-                    size - len,
-                    " MMP Version:                  %s \n",
-                    param_value);
-#endif
-    len += snprintf(data + len,
-                    size - len,
-                    " Driver Version:               %d.%d.%d \n",
-                    QAT_LIBRARY_VERSION_MAJOR,
-                    QAT_LIBRARY_VERSION_MINOR,
-                    QAT_LIBRARY_VERSION_PATCH);
-
-    osalMemSet(param_value, 0, ADF_CFG_MAX_VAL_LEN_IN_BYTES);
-    status = icp_adf_cfgGetParamValue(device,
-                                      LAC_CFG_SECTION_GENERAL,
-                                      ICP_CFG_LO_COMPATIBLE_DRV_KEY,
-                                      param_value);
-    LAC_CHECK_STATUS(status);
-
-    len += snprintf(data + len,
-                    size - len,
-                    " Lowest Compatible Driver:     %s \n",
-                    param_value);
-
-    len += snprintf(data + len,
-                    size - len,
-                    " QuickAssist API CY Version:   %d.%d \n",
-                    CPA_CY_API_VERSION_NUM_MAJOR,
-                    CPA_CY_API_VERSION_NUM_MINOR);
-    len += snprintf(data + len,
-                    size - len,
-                    " QuickAssist API DC Version:   %d.%d \n",
-                    CPA_DC_API_VERSION_NUM_MAJOR,
-                    CPA_DC_API_VERSION_NUM_MINOR);
-
-    snprintf(data + len, size - len, SEPARATOR);
-    return 0;
 }
 
 /**************************************************************************
@@ -1064,7 +873,6 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
     {
         status = SalCtrl_ServiceShutdown(device,
                                          &service_container->crypto_services,
-                                         &service_container->cy_dir,
                                          SAL_SERVICE_TYPE_CRYPTO);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1077,7 +885,6 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
     {
         status = SalCtrl_ServiceShutdown(device,
                                          &service_container->asym_services,
-                                         &service_container->asym_dir,
                                          SAL_SERVICE_TYPE_CRYPTO_ASYM);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1089,7 +896,6 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
     {
         status = SalCtrl_ServiceShutdown(device,
                                          &service_container->sym_services,
-                                         &service_container->sym_dir,
                                          SAL_SERVICE_TYPE_CRYPTO_SYM);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1103,7 +909,6 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
         status =
             SalCtrl_ServiceShutdown(device,
                                     &service_container->compression_services,
-                                    &service_container->dc_dir,
                                     SAL_SERVICE_TYPE_COMPRESSION);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1117,7 +922,6 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
         status =
             SalCtrl_ServiceShutdown(device,
                                     &service_container->decompression_services,
-                                    &service_container->decomp_dir,
                                     SAL_SERVICE_TYPE_DECOMPRESSION);
         if (CPA_STATUS_SUCCESS != status)
         {
@@ -1137,12 +941,6 @@ STATIC CpaStatus SalCtrl_ServiceEventShutdown(icp_accel_dev_t *device,
             && !SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO))
     {
         SalList_free(&service_container->crypto_services);
-    }
-
-    if (service_container->ver_file)
-    {
-        LAC_OS_FREE(service_container->ver_file);
-        service_container->ver_file = NULL;
     }
 
     /* Free container also */
@@ -1192,6 +990,8 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         return status;
     }
 
+    LacLogMsg_SetConfig(device);
+
     service_container = osalMemAlloc(sizeof(sal_t));
     if (NULL == service_container)
     {
@@ -1205,27 +1005,6 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
     service_container->compression_services = NULL;
     service_container->decompression_services = NULL;
 
-    service_container->asym_dir = NULL;
-    service_container->sym_dir = NULL;
-    service_container->cy_dir = NULL;
-    service_container->dc_dir = NULL;
-    service_container->decomp_dir = NULL;
-    service_container->ver_file = NULL;
-
-    status =
-        LAC_OS_MALLOC(&service_container->ver_file, sizeof(debug_file_info_t));
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        osalMemFree(service_container);
-        return status;
-    }
-
-    osalMemSet(service_container->ver_file, 0, sizeof(debug_file_info_t));
-    service_container->ver_file->name = ver_file_name;
-    service_container->ver_file->seq_read = SalCtrl_VersionDebug;
-    service_container->ver_file->private_data = device;
-    service_container->ver_file->parent = NULL;
-
 #ifndef ICP_DC_ONLY
     if (SalCtrl_IsServiceEnabled(enabled_services,
                                  SAL_SERVICE_TYPE_CRYPTO_ASYM))
@@ -1238,8 +1017,6 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceInit(device,
                                      &service_container->asym_services,
-                                     &service_container->asym_dir,
-                                     asym_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -1259,8 +1036,6 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceInit(device,
                                      &service_container->sym_services,
-                                     &service_container->sym_dir,
-                                     sym_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_CRYPTO_SYM);
@@ -1280,8 +1055,6 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceInit(device,
                                      &service_container->crypto_services,
-                                     &service_container->cy_dir,
-                                     cy_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_CRYPTO);
@@ -1302,8 +1075,6 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceInit(device,
                                      &service_container->compression_services,
-                                     &service_container->dc_dir,
-                                     dc_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_COMPRESSION);
@@ -1323,8 +1094,6 @@ STATIC CpaStatus SalCtrl_ServiceEventInit(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceInit(device,
                                      &service_container->decompression_services,
-                                     &service_container->decomp_dir,
-                                     decomp_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_DECOMPRESSION);
@@ -1649,9 +1418,8 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
     if (SalCtrl_IsServiceEnabled(enabled_services,
                                  SAL_SERVICE_TYPE_CRYPTO_ASYM))
     {
-        status = SalCtrl_ServiceRestarting(device,
-                                           service_container->asym_services,
-                                           &service_container->asym_dir);
+        status =
+            SalCtrl_ServiceRestarting(device, service_container->asym_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
@@ -1660,9 +1428,8 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
 
     if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO_SYM))
     {
-        status = SalCtrl_ServiceRestarting(device,
-                                           service_container->sym_services,
-                                           &service_container->sym_dir);
+        status =
+            SalCtrl_ServiceRestarting(device, service_container->sym_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
@@ -1672,8 +1439,7 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
     if (SalCtrl_IsServiceEnabled(enabled_services, SAL_SERVICE_TYPE_CRYPTO))
     {
         status = SalCtrl_ServiceRestarting(device,
-                                           service_container->crypto_services,
-                                           &service_container->cy_dir);
+                                           service_container->crypto_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
@@ -1683,10 +1449,8 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
     if (SalCtrl_IsServiceEnabled(enabled_services,
                                  SAL_SERVICE_TYPE_COMPRESSION))
     {
-        status =
-            SalCtrl_ServiceRestarting(device,
-                                      service_container->compression_services,
-                                      &service_container->dc_dir);
+        status = SalCtrl_ServiceRestarting(
+            device, service_container->compression_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
@@ -1696,20 +1460,12 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarting(icp_accel_dev_t *device,
     if (SalCtrl_IsServiceEnabled(enabled_services,
                                  SAL_SERVICE_TYPE_DECOMPRESSION))
     {
-        status =
-            SalCtrl_ServiceRestarting(device,
-                                      service_container->decompression_services,
-                                      &service_container->decomp_dir);
+        status = SalCtrl_ServiceRestarting(
+            device, service_container->decompression_services);
         if (CPA_STATUS_SUCCESS != status)
         {
             return status;
         }
-    }
-
-    if (service_container->ver_file)
-    {
-        LAC_OS_FREE(service_container->ver_file);
-        service_container->ver_file = NULL;
     }
 
     return status;
@@ -1758,25 +1514,6 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         LAC_LOG_ERROR("Private data is NULL");
         return CPA_STATUS_FATAL;
     }
-    service_container->asym_dir = NULL;
-    service_container->sym_dir = NULL;
-    service_container->cy_dir = NULL;
-    service_container->dc_dir = NULL;
-    service_container->decomp_dir = NULL;
-    service_container->ver_file = NULL;
-
-    status =
-        LAC_OS_MALLOC(&service_container->ver_file, sizeof(debug_file_info_t));
-    if (CPA_STATUS_SUCCESS != status)
-    {
-        goto err_restarted;
-    }
-
-    osalMemSet(service_container->ver_file, 0, sizeof(debug_file_info_t));
-    service_container->ver_file->name = ver_file_name;
-    service_container->ver_file->seq_read = SalCtrl_VersionDebug;
-    service_container->ver_file->private_data = device;
-    service_container->ver_file->parent = NULL;
 
 #ifndef ICP_DC_ONLY
     if (SalCtrl_IsServiceEnabled(enabled_services,
@@ -1790,8 +1527,6 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceRestarted(device,
                                           &service_container->asym_services,
-                                          &service_container->asym_dir,
-                                          asym_dir_name,
                                           tail_list,
                                           instance_count,
                                           SAL_SERVICE_TYPE_CRYPTO_ASYM);
@@ -1811,8 +1546,6 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceRestarted(device,
                                           &service_container->sym_services,
-                                          &service_container->sym_dir,
-                                          sym_dir_name,
                                           tail_list,
                                           instance_count,
                                           SAL_SERVICE_TYPE_CRYPTO_SYM);
@@ -1832,8 +1565,6 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         }
         status = SalCtrl_ServiceRestarted(device,
                                           &service_container->crypto_services,
-                                          &service_container->cy_dir,
-                                          cy_dir_name,
                                           tail_list,
                                           instance_count,
                                           SAL_SERVICE_TYPE_CRYPTO);
@@ -1855,8 +1586,6 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         status =
             SalCtrl_ServiceRestarted(device,
                                      &service_container->compression_services,
-                                     &service_container->dc_dir,
-                                     dc_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_COMPRESSION);
@@ -1878,8 +1607,6 @@ STATIC CpaStatus SalCtrl_ServiceEventRestarted(icp_accel_dev_t *device,
         status =
             SalCtrl_ServiceRestarted(device,
                                      &service_container->decompression_services,
-                                     &service_container->decomp_dir,
-                                     decomp_dir_name,
                                      tail_list,
                                      instance_count,
                                      SAL_SERVICE_TYPE_DECOMPRESSION);

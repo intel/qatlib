@@ -169,15 +169,13 @@ static inline void *init_slab_and_alloc(block_ctrl_t *slab,
                                         const size_t phys_align_unit,
                                         qae_mem_info_t *tls_ptr)
 {
-    const size_t last = slab->mem_info.size / CHUNK_SIZE;
     dev_mem_info_t *p_ctrl_blk = &slab->mem_info;
-    const size_t reserved = div_round_up(sizeof(block_ctrl_t), UNIT_SIZE);
     void *virt_addr = NULL;
 
-    /* initialise the bitmap to 1 for reserved blocks */
-    set_bitmap(slab->bitmap, 0, reserved);
-    /* make a barrier to stop search at the end of the bitmap */
-    slab->bitmap[last] = QWORD_ALL_ONE;
+    /* Initialise geometry fields and sizes[] pointer before the bitmap
+     * is touched.
+     */
+    init_block_ctrl(slab, UNIT_SIZE);
 
     virt_addr = __qae_mem_alloc(slab, size, phys_align_unit);
     if (NULL != virt_addr)
