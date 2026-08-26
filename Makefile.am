@@ -305,6 +305,7 @@ pkginclude_HEADERS = \
 	quickassist/lookaside/access_layer/include/icp_sal_user.h \
 	quickassist/lookaside/access_layer/include/icp_sal.h \
 	quickassist/lookaside/access_layer/include/icp_sal_versions.h \
+	quickassist/lookaside/access_layer/include/qat_library_version.h \
 	quickassist/utilities/libusdm_drv/qae_mem.h
 
 pkgconfigdir = $(libdir)/pkgconfig
