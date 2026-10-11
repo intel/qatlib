@@ -9,3 +9,4 @@ Version: @VERSION@
 Libs: -L${libdir} -l@LIBQATNAME@
 Cflags: -I${includedir}
 Requires: libusdm libcrypto
+Libs.private: -lnuma @PTHREAD_LIBS@
