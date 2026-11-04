@@ -38,12 +38,7 @@
 #include <time.h>
 #include <linux/version.h>
 
-// check GLIBC version used.
-#define GLIBC_VERSION_AT_LEAST(major, minor)                                   \
-    (__GLIBC__ > major || (__GLIBC__ == major && __GLIBC_MINOR__ >= minor))
-
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)) &&                       \
-     (GLIBC_VERSION_AT_LEAST(2, 25)))
+#ifdef HAVE_SYS_RANDOM_H
 #include <sys/random.h>
 #endif
 
@@ -94,8 +89,7 @@ extern CpaStatus calcSWDigest(CpaFlatBuffer *msg,
 
 #define UPPER_HALF_OF_REGISTER (32)
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) ||                        \
-     (!GLIBC_VERSION_AT_LEAST(2, 25)))
+#if !defined(HAVE_GETRANDOM)
 static __inline__ Cpa64U sampleCoderdtsc(void)
 {
     volatile unsigned long a, d;
@@ -251,14 +245,12 @@ Cpa32U sampleCodeGetCpuFreq()
 void generateRandomData(Cpa8U *pWriteRandData, Cpa32U lengthOfRand)
 {
     Cpa32U i = 0;
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) ||                        \
-     (!GLIBC_VERSION_AT_LEAST(2, 25)))
+#if !defined(HAVE_GETRANDOM)
     srand(sampleCoderdtsc());
 #endif
     for (i = 0; i < lengthOfRand; i++)
     {
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)) &&                       \
-     (GLIBC_VERSION_AT_LEAST(2, 25)))
+#if defined(HAVE_SYS_RANDOM_H) && defined(HAVE_GETRANDOM)
         ssize_t status =
             getrandom(&pWriteRandData[i], sizeof(Cpa8U), GRND_NONBLOCK);
         if (status == -1)
