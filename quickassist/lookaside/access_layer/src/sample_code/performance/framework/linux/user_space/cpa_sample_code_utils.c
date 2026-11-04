@@ -17,6 +17,10 @@
 *
 *****************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "cpa_sample_code_utils.h"
 #include "cpa_sample_code_utils_common.h"
 #include "icp_sal_poll.h"
@@ -578,7 +582,7 @@ CpaStatus sampleCodeThreadTimedJoin(sample_code_thread_t *thread,
 {
     struct timespec ts = {0};
     Cpa32S status = 0;
-#if GLIBC_VERSION_AT_LEAST(2, 17)
+#ifdef HAVE_CLOCK_GETTIME
     status = clock_gettime(CLOCK_REALTIME, &ts);
     if (status != 0)
     {
@@ -598,7 +602,8 @@ CpaStatus sampleCodeThreadTimedJoin(sample_code_thread_t *thread,
         return CPA_STATUS_FAIL;
     }
     // converting results from msec to nanonseconds
-    TIMEVAL_TO_TIMESPEC(&tv, &ts);
+    ts.tv_sec = tv.tv_sec;
+    ts.tv_nsec = tv.tv_usec * 1000;
 #endif
 
     ts.tv_sec += *pTimeOutInMs / 1000;
