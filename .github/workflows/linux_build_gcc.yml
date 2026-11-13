@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev nasm libnuma-dev autoconf-archive
+    - run: sudo apt install -y automake libtool pkg-config libssl-dev libz-dev nasm libnuma-dev autoconf-archive systemd-dev
 
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: intel/qatlib
-        check-latest: true
 
     - name: autogen
       run: ACLOCAL_PATH=/usr/share/aclocal ./autogen.sh
