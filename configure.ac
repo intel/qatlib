@@ -61,7 +61,9 @@ AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_STRNLEN
-AC_CHECK_FUNCS([alarm clock_gettime getpagesize gettimeofday memmove memset munmap select socket strerror strstr strtoul strtoull])
+AC_CHECK_FUNCS([alarm clock_gettime getpagesize getrandom gettimeofday memmove memset munmap select socket strerror strstr strtoul strtoull])
+
+AC_CHECK_HEADERS([sys/random.h])
 
 # Check for openssl header
 AC_CHECK_HEADERS([openssl/md5.h],

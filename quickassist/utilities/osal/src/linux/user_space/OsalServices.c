@@ -12,6 +12,10 @@
  *   Intel-operated generative artificial intelligence solutions.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <stdarg.h>
 #include <stdio.h>
@@ -351,7 +355,7 @@ OSAL_PUBLIC UINT64 osalTimestampGet(void)
 OSAL_PUBLIC UINT64 osalTimestampGetNs(void)
 {
     OsalTimeval ptime;
-#if __GLIBC_PREREQ(2, 17)
+#ifdef HAVE_CLOCK_GETTIME
     struct timespec tspec;
 
     if (clock_gettime(CLOCK_REALTIME, &tspec) == 0)
